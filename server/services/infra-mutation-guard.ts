@@ -22,7 +22,14 @@ export class InfraMutationBlockedError extends Error {
   }
 }
 
-export type OwnershipProbe = (taskRef: string) => Promise<TaskOwnershipResult>;
+/**
+ * `actorId` is optional so existing probes (e.g. Cloudflare's) that only
+ * care about `taskRef` keep working unchanged. A probe that can bind
+ * evidence to a specific authenticated actor -- not just a bare task
+ * reference -- should use it; see createGitHubPublishOwnershipProbe in
+ * shared-spec-github-publish-guard.ts for why that binding matters.
+ */
+export type OwnershipProbe = (taskRef: string, actorId?: string) => Promise<TaskOwnershipResult>;
 
 const defaultProbe: OwnershipProbe = (taskRef) => new TaskOwnershipService().probe(taskRef);
 
@@ -45,8 +52,9 @@ export async function assertOwnershipForInfraMutation(
   taskRef: string,
   action: string,
   probe: OwnershipProbe = defaultProbe,
+  actorId?: string,
 ): Promise<TaskOwnershipResult> {
-  const result = await probe(taskRef);
+  const result = await probe(taskRef, actorId);
   if (result.state === 'unknown_stop') {
     throw new InfraMutationBlockedError(action, taskRef, result.state, result.explanation);
   }

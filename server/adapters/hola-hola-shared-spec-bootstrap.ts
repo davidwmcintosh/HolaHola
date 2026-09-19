@@ -11,6 +11,11 @@ import {
   GitHubSpecPublisher,
   type GitHubSpecPublisherConfig,
 } from "../services/github-spec-publisher";
+import {
+  createGitHubPublishOwnershipProbe,
+  createSharedSpecGitHubPublishGuard,
+} from "../services/shared-spec-github-publish-guard";
+import { hasActiveOwnershipReceipt } from "../services/founder-task-ownership-service";
 import type {
   SpecPublication,
   SpecPublicationProvider,
@@ -94,6 +99,9 @@ function publicationProvider(
     token,
     baseRef: environment.SHARED_SPEC_GITHUB_BASE_REF?.trim() || "main",
     destinationPrefix: "docs/superpowers/specs/",
+    authorizeMutation: createSharedSpecGitHubPublishGuard(
+      createGitHubPublishOwnershipProbe(hasActiveOwnershipReceipt),
+    ),
   };
   return new GitHubSpecPublisher(config);
 }

@@ -311,3 +311,26 @@ export async function verifyProof(nonceId: string, signature: string, actor: str
   if (!result.ok) error(result.errorCode);
   return result;
 }
+
+/**
+ * Read-only: does `actor` currently hold a founder-approved, unexpired
+ * task-ownership receipt for exactly this `taskRef`? Backs the GitHub
+ * publish guard's ownership probe (see
+ * server/services/shared-spec-github-publish-guard.ts) so a task can only
+ * pass that check by having completed the real challenge/proof protocol
+ * above -- not merely by naming an active-looking task reference.
+ *
+ * `taskOwnershipReceipts` enforces at most one `active` receipt per taskRef
+ * (see shared/schema.ts), and a receipt is scoped to the exact
+ * `intendedActor` it was issued to, so this cannot be satisfied by a
+ * different actor claiming someone else's task.
+ */
+export async function hasActiveOwnershipReceipt(taskRef: string, actor: string): Promise<boolean> {
+  const [receipt] = await db.select({ id: taskOwnershipReceipts.id }).from(taskOwnershipReceipts).where(and(
+    eq(taskOwnershipReceipts.taskRef, taskRef),
+    eq(taskOwnershipReceipts.intendedActor, actor),
+    eq(taskOwnershipReceipts.status, "active"),
+    gt(taskOwnershipReceipts.expiresAt, new Date()),
+  ));
+  return Boolean(receipt);
+}

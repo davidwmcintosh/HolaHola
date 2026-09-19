@@ -133,7 +133,7 @@
 - [Publication-marker status race](publication-marker-status-race.md) — scheduler sync may hide valid readiness after Publish; preserve the validated parent and exact marker evidence.
 - [Image intent and people policy](image-intent-people-policy.md) — settings default to empty environments; people require explicit evidence, and live tutor identity comes from the active session.
 - [Socket room supersession](socket-room-supersession.md) — Socket.IO membership belongs to socket+room, not join attempt; stale same-room completion must never leave the winning room.
-- [Task-ownership guard scope gap](task-ownership-guard-scope.md) — unknown_stop gates file edits only; a blocked task's direct external API calls (DNS, deploy) can still go live.
+- [Task-ownership guard scope gap](task-ownership-guard-scope.md) — unknown_stop gates file edits only by default; verify a guard's proof source truly exists and is fully checked in production, not just in dev/tests.
 - [Automatic task-update absence is not confirmation](automatic-update-notification-absence.md) — a missing blockedBy tag in an update line doesn't prove a blocker cleared; verify directly.
 - [Render redeploys on every push to main](render-autodeploy-moving-target.md) — even a memory-only edit reached production via auto-deploy within an hour; "verified release" is a moving target mid-development.
 - [.replit env vars are git-tracked](replit-env-var-tracked-file.md) — setEnvVars(shared) writes into the tracked .replit file; set/commit/push config before, never during, a tree-cleanliness-sensitive git workflow.

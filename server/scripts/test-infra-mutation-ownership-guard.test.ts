@@ -1,10 +1,18 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
+import { mkdir, mkdtemp, rm, writeFile } from 'node:fs/promises';
+import { tmpdir } from 'node:os';
+import { join } from 'node:path';
 import {
   assertOwnershipForInfraMutation,
   InfraMutationBlockedError,
 } from '../services/infra-mutation-guard';
 import { CloudflareDnsService } from '../services/cloudflare-dns-service';
+import {
+  createGitHubPublishOwnershipProbe,
+  createSharedSpecGitHubPublishGuard,
+} from '../services/shared-spec-github-publish-guard';
+import type { SpecPublicationProviderContext } from '../services/shared-spec-publication';
 import type { TaskOwnershipResult } from '../services/task-ownership-service';
 
 function ownershipResult(state: TaskOwnershipResult['state']): TaskOwnershipResult {
@@ -21,6 +29,21 @@ function ownershipResult(state: TaskOwnershipResult['state']): TaskOwnershipResu
     contradictions: [],
     explanation: `stub:${state}`,
   };
+}
+
+/**
+ * Mirrors test-task-ownership-service.ts's fixture(): TaskOwnershipService
+ * (which createGitHubPublishOwnershipProbe delegates to) reads real
+ * filesystem evidence -- the task artifact file and the checkout kind -- so
+ * a composition-level test needs a real temp directory, not a mock.
+ */
+async function taskOwnershipFixture(taskRef: string) {
+  const root = await mkdtemp(join(tmpdir(), 'github-publish-guard-'));
+  await mkdir(join(root, '.git'));
+  const taskDir = join(root, '.local', 'tasks');
+  await mkdir(taskDir, { recursive: true });
+  await writeFile(join(taskDir, `task-${taskRef}.md`), '# fixture task\n');
+  return { root, cleanup: () => rm(root, { recursive: true, force: true }) };
 }
 
 test('assertOwnershipForInfraMutation refuses on unknown_stop', async () => {
@@ -106,4 +129,97 @@ test('CloudflareDnsService.listDnsRecords is read-only and does not consult owne
   const records = await service.listDnsRecords('zone-1');
   assert.deepEqual(records, []);
   assert.equal(fetchCalls, 1);
+});
+
+test('createSharedSpecGitHubPublishGuard refuses when no taskRef is supplied', async () => {
+  const probe = async () => ownershipResult('main_session'); // proves the refusal is not from a failing probe
+  const guard = createSharedSpecGitHubPublishGuard(probe);
+  await assert.rejects(
+    () => guard({ actorId: 'luca-replit' }, 'github_spec_publish:hola/specs:docs/superpowers/specs/approved.md'),
+    (error: unknown) => error instanceof InfraMutationBlockedError && error.state === 'unknown_stop',
+  );
+});
+
+test('createSharedSpecGitHubPublishGuard refuses when no actorId is supplied', async () => {
+  const probe = async () => ownershipResult('main_session'); // proves the refusal is not from a failing probe
+  const guard = createSharedSpecGitHubPublishGuard(probe);
+  await assert.rejects(
+    () => guard({ taskRef: '1455' } as SpecPublicationProviderContext, 'github_spec_publish:hola/specs:docs/superpowers/specs/approved.md'),
+    (error: unknown) => error instanceof InfraMutationBlockedError
+      && error.state === 'unknown_stop'
+      && error.taskRef === '1455',
+  );
+});
+
+test('createSharedSpecGitHubPublishGuard refuses when the supplied taskRef resolves to unknown_stop', async () => {
+  const probe = async () => ownershipResult('unknown_stop');
+  const guard = createSharedSpecGitHubPublishGuard(probe);
+  await assert.rejects(
+    () => guard({ taskRef: '1455', actorId: 'luca-replit' }, 'github_spec_publish:hola/specs:docs/superpowers/specs/approved.md'),
+    (error: unknown) => error instanceof InfraMutationBlockedError
+      && error.state === 'unknown_stop'
+      && error.taskRef === '1455',
+  );
+});
+
+test('createSharedSpecGitHubPublishGuard proceeds for main_session and isolated_agent, threading actorId to the probe', async () => {
+  for (const state of ['main_session', 'isolated_agent'] as const) {
+    let probed: { taskRef?: string; actorId?: string } = {};
+    const probe = async (taskRef: string, actorId?: string) => { probed = { taskRef, actorId }; return ownershipResult(state); };
+    const guard = createSharedSpecGitHubPublishGuard(probe);
+    await guard({ taskRef: '1455', actorId: 'luca-replit' }, 'github_spec_publish:hola/specs:docs/superpowers/specs/approved.md');
+    assert.deepEqual(probed, { taskRef: '1455', actorId: 'luca-replit' });
+  }
+});
+
+test('createGitHubPublishOwnershipProbe: composition-level allow-path — a matching, unexpired receipt reaches isolated_agent through a real TaskOwnershipService', async () => {
+  const f = await taskOwnershipFixture('1455');
+  try {
+    const receiptChecks: Array<[string, string]> = [];
+    const hasActiveReceipt = async (taskRef: string, actorId: string) => {
+      receiptChecks.push([taskRef, actorId]);
+      return taskRef === '1455' && actorId === 'luca-replit';
+    };
+    const probe = createGitHubPublishOwnershipProbe(hasActiveReceipt, f.root);
+    const guard = createSharedSpecGitHubPublishGuard(probe);
+    await guard({ taskRef: '1455', actorId: 'luca-replit' }, 'github_spec_publish:hola/specs:docs/superpowers/specs/approved.md');
+    assert.deepEqual(receiptChecks, [['1455', 'luca-replit']]);
+  } finally { await f.cleanup(); }
+});
+
+test('createGitHubPublishOwnershipProbe refuses when a different actor claims an active taskRef\'s receipt', async () => {
+  const f = await taskOwnershipFixture('1455');
+  try {
+    const hasActiveReceipt = async (taskRef: string, actorId: string) => taskRef === '1455' && actorId === 'luca-replit';
+    const probe = createGitHubPublishOwnershipProbe(hasActiveReceipt, f.root);
+    const guard = createSharedSpecGitHubPublishGuard(probe);
+    await assert.rejects(
+      () => guard({ taskRef: '1455', actorId: 'luca-claude-code' }, 'github_spec_publish:hola/specs:docs/superpowers/specs/approved.md'),
+      (error: unknown) => error instanceof InfraMutationBlockedError && error.state === 'unknown_stop',
+    );
+  } finally { await f.cleanup(); }
+});
+
+test('createGitHubPublishOwnershipProbe refuses a taskRef with no active receipt, even for a real actor', async () => {
+  const f = await taskOwnershipFixture('9999');
+  try {
+    const probe = createGitHubPublishOwnershipProbe(async () => false, f.root);
+    const guard = createSharedSpecGitHubPublishGuard(probe);
+    await assert.rejects(
+      () => guard({ taskRef: '9999', actorId: 'luca-replit' }, 'github_spec_publish:hola/specs:docs/superpowers/specs/approved.md'),
+      (error: unknown) => error instanceof InfraMutationBlockedError && error.state === 'unknown_stop',
+    );
+  } finally { await f.cleanup(); }
+});
+
+test('createGitHubPublishOwnershipProbe refuses when the taskRef has no matching task artifact on disk, even with a valid receipt', async () => {
+  const f = await taskOwnershipFixture('1455'); // fixture only has an artifact for task 1455
+  try {
+    const probe = createGitHubPublishOwnershipProbe(async () => true, f.root);
+    const guard = createSharedSpecGitHubPublishGuard(probe);
+    await assert.rejects(
+      () => guard({ taskRef: '4242', actorId: 'luca-replit' }, 'github_spec_publish:hola/specs:docs/superpowers/specs/approved.md'),
+      (error: unknown) => error instanceof InfraMutationBlockedError && error.state === 'unknown_stop',
+    );
+  } finally { await f.cleanup(); }
 });

@@ -25,12 +25,53 @@ export interface SpecPublication {
   readonly lastError?: string;
 }
 
+/**
+ * Calling context for a mutating SpecPublicationProvider action. Deliberately
+ * generic and host-neutral -- not every host models "tasks" -- so `taskRef`
+ * is optional here. A provider that mutates credentialed external
+ * infrastructure (GitHub, or any future publication destination) and needs to
+ * verify who is calling before it acts should require its *own*, stricter
+ * capability check using whatever fields it needs from this context (or a
+ * config-injected authorization hook, as GitHubSpecPublisher does), and
+ * refuse rather than proceed when that check cannot be satisfied. This is the
+ * actor/capability pattern future SpecPublicationProvider implementations
+ * should follow -- see GitHubSpecPublisher and
+ * server/services/shared-spec-github-publish-guard.ts for the reference
+ * implementation, and .agents/memory/task-ownership-guard-scope.md for why it
+ * exists.
+ */
+export interface SpecPublicationActionContext {
+  readonly taskRef?: string;
+}
+
+/**
+ * The context a SpecPublicationProvider actually receives for a mutating
+ * `publish` call. Extends the caller-facing SpecPublicationActionContext
+ * with `actorId` -- always sourced from SharedSpecPublicationService's
+ * already-authenticated ActorContext, never from caller-supplied request
+ * data (see `publish()` below). This is what makes an actor/capability
+ * check in a provider's authorization hook trustworthy: a caller can name a
+ * taskRef, but cannot claim to *be* a different actor than the one its own
+ * credential authenticated as. See GitHubSpecPublisher and
+ * shared-spec-github-publish-guard.ts for the reference implementation, and
+ * .agents/memory/task-ownership-guard-scope.md for why this exists.
+ */
+export interface SpecPublicationProviderContext extends SpecPublicationActionContext {
+  readonly actorId: string;
+}
+
 export interface SpecPublicationProvider {
   prepare(input: {
     documentId: string; revisionId: string; reviewId: string; contentHash: string;
     repository: string; destinationPath: string;
   }): Promise<Pick<SpecPublication, "repository" | "baseRef" | "expectedBaseCommit" | "destinationPath" | "expectedDestinationBlobHash" | "expectedDestinationAbsent">>;
-  publish(input: Omit<SpecPublication, "state" | "branchName" | "pullRequestNumber" | "pullRequestUrl" | "lastError"> & { bytes: Uint8Array }): Promise<{
+  /**
+   * Performs the provider's real external mutation. `context` carries the
+   * caller's task-ownership scope, plus the authenticated actor id, so a
+   * capability-aware provider can verify both (and refuse) before making any
+   * network call -- see SpecPublicationProviderContext above.
+   */
+  publish(input: Omit<SpecPublication, "state" | "branchName" | "pullRequestNumber" | "pullRequestUrl" | "lastError"> & { bytes: Uint8Array }, context: SpecPublicationProviderContext): Promise<{
     branchName: string; pullRequestNumber: number; pullRequestUrl: string;
   }>;
   reconcile(publication: SpecPublication): Promise<Pick<SpecPublication, "state" | "pullRequestNumber" | "pullRequestUrl">>;
@@ -111,7 +152,7 @@ export class SharedSpecPublicationService {
     return publication;
   }
 
-  async publish(actor: ActorContext, publicationId: string): Promise<SpecPublication> {
+  async publish(actor: ActorContext, publicationId: string, context: SpecPublicationActionContext = {}): Promise<SpecPublication> {
     const publication = await this.mustPublication(publicationId);
     this.requirePublicationManager(actor, publication);
     if (publication.state === "merged" || publication.state === "open") return publication;
@@ -124,7 +165,11 @@ export class SharedSpecPublicationService {
     const creating = { ...publication, state: "creating" as const, lastError: undefined };
     await this.store.update(creating);
     try {
-      const result = await this.provider.publish({ ...creating, bytes: approved.bytes });
+      // actorId always comes from the authenticated `actor` this method was
+      // called with, never from `context` -- so a caller cannot spoof a
+      // different actor's identity by putting `actorId` in a header/body
+      // field alongside `taskRef`. Spread order matters: it must be last.
+      const result = await this.provider.publish({ ...creating, bytes: approved.bytes }, { ...context, actorId: actor.actorId });
       const open = { ...creating, state: "open" as const, ...result };
       await this.store.update(open);
       await this.store.appendAttempt({ publicationId, operation: "publish", outcome: "succeeded", responseMetadata: { pullRequestNumber: result.pullRequestNumber } });

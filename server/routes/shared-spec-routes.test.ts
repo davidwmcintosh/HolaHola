@@ -2,7 +2,7 @@ import assert from "node:assert/strict";
 import test from "node:test";
 import { HolaHolaCoordinationTokenAuthenticator } from "../adapters/hola-hola-shared-spec-auth";
 import { SharedSpecCore, InMemorySharedSpecRepository } from "../services/shared-spec-core";
-import { createSharedSpecRouter } from "./shared-spec-routes";
+import { createSharedSpecRouter, publicationActionContext } from "./shared-spec-routes";
 
 test("generic shared-spec router boots with injected core and authenticator, not REPLIT configuration", async () => {
   const original = process.env.REPLIT_DEPLOYMENT;
@@ -38,4 +38,13 @@ test("actor capabilities are supplied only by the injected authenticator, never 
   const actor = await authenticator.authenticate(maliciousRequest);
   assert.deepEqual(actor, { actorId: "ordinary-actor" });
   assert.equal(actor.capabilities, undefined);
+});
+
+test("publicationActionContext prefers the task-ref header, falls back to the body, and omits blank values", () => {
+  const fakeRequest = (header: string | undefined, body: unknown) =>
+    ({ header: (name: string) => (name === "x-shared-spec-task-ref" ? header : undefined), body }) as any;
+  assert.deepEqual(publicationActionContext(fakeRequest("1455", { taskRef: "9999" })), { taskRef: "1455" });
+  assert.deepEqual(publicationActionContext(fakeRequest(undefined, { taskRef: "1455" })), { taskRef: "1455" });
+  assert.deepEqual(publicationActionContext(fakeRequest(undefined, { taskRef: "  " })), { taskRef: undefined });
+  assert.deepEqual(publicationActionContext(fakeRequest(undefined, undefined)), { taskRef: undefined });
 });

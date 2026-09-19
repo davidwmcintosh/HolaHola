@@ -143,7 +143,18 @@ commands. When publication is configured, use the authenticated API:
 
 1. `POST /publications` with the exact `documentId`, `revisionId`, and
    `reviewId`, plus an `idempotency-key`.
-2. `POST /publications/<publication-id>/publish`.
+2. `POST /publications/<publication-id>/publish`. If you are a task agent,
+   send your task reference in the `x-shared-spec-task-ref` header (or a
+   `taskRef` body field). A capability-aware publication provider (GitHub
+   publication on this project) refuses the publish outright when no task
+   reference is supplied or when it resolves to a blocked task -- it does not
+   silently publish as an unscoped caller. Your authenticated actor id is
+   bound to the request automatically (never a client-supplied field); a
+   task reference alone is not sufficient -- the provider also requires your
+   actor to hold an active, founder-approved task-ownership receipt for that
+   exact task reference (see `task-ownership-cli.ts`'s `begin`/`prove`
+   commands). A task that never obtained one is refused the same as a
+   blocked task.
 3. Record the returned pull request URL. The provider creates a deterministic
    `shared-spec/...` branch and pull request; it never pushes to the base branch.
 

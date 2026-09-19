@@ -5,7 +5,7 @@ import {
   type SharedSpecDocumentKind,
 } from "../services/shared-spec-core";
 import type { SharedSpecActorAuthenticator } from "../services/shared-spec-auth";
-import type { SharedSpecPublicationService } from "../services/shared-spec-publication";
+import type { SharedSpecPublicationService, SpecPublicationActionContext } from "../services/shared-spec-publication";
 import { NoopSharedSpecNotificationSink, type SharedSpecNotification, type SharedSpecNotificationSink } from "../services/shared-spec-notifications";
 
 export interface SharedSpecRouterDependencies {
@@ -18,6 +18,16 @@ export interface SharedSpecRouterDependencies {
 const idempotencyKey = (request: Request): string | undefined => {
   const value = request.header("idempotency-key") ?? request.body?.idempotencyKey;
   return typeof value === "string" ? value : undefined;
+};
+/**
+ * Generic, host-neutral extraction of the caller's publication action
+ * context (see SpecPublicationActionContext). `taskRef` is optional here --
+ * a capability-aware provider (e.g. GitHubSpecPublisher's injected
+ * authorization hook) decides whether an absent value is acceptable.
+ */
+export const publicationActionContext = (request: Request): SpecPublicationActionContext => {
+  const value = request.header("x-shared-spec-task-ref") ?? request.body?.taskRef;
+  return { taskRef: typeof value === "string" && value.trim() ? value.trim() : undefined };
 };
 const actor = async (request: Request, response: Response, authenticator: SharedSpecActorAuthenticator) => {
   const value = await authenticator.authenticate(request);
@@ -167,21 +177,34 @@ export function createSharedSpecRouter({ core, authenticator, publications, noti
       }));
     } catch (error) { sendError(response, error); }
   });
-  for (const operation of ["publish", "reconcile"] as const) router.post(`/publications/:publicationId/${operation}`, async (request, response) => {
+  const notifyPublicationTransition = async (publication: Awaited<ReturnType<SharedSpecPublicationService["publish"]>>, current: { actorId: string }) => {
+    const kind = publication.state === "conflict" ? "publication_conflict"
+      : publication.state === "merged" ? "publication_merged" : undefined;
+    if (!kind) return;
+    await deliver({
+      idempotencyKey: `shared-spec:${kind}:v2:${publication.id}:${publication.state}:${current.actorId}`, kind,
+      initiatingActorId: current.actorId,
+      documentId: publication.documentId, revisionId: publication.revisionId, contentHash: publication.contentHash,
+      reviewId: publication.reviewId, publicationId: publication.id, pullRequestNumber: publication.pullRequestNumber,
+      recipientActorId: publication.requestedByActorId,
+      summary: `Shared spec publication ${publication.state}: ${publication.documentId}/${publication.revisionId}`,
+    });
+  };
+  router.post("/publications/:publicationId/publish", async (request, response) => {
     try {
       const current = await actor(request, response, authenticator); if (!current) return;
       if (!publications) throw new SharedSpecDomainError("NOT_FOUND", "Publication operations are not configured");
-      const publication = await publications[operation](current, request.params.publicationId);
-      const kind = publication.state === "conflict" ? "publication_conflict"
-        : publication.state === "merged" ? "publication_merged" : undefined;
-      if (kind) await deliver({
-        idempotencyKey: `shared-spec:${kind}:v2:${publication.id}:${publication.state}:${current.actorId}`, kind,
-        initiatingActorId: current.actorId,
-        documentId: publication.documentId, revisionId: publication.revisionId, contentHash: publication.contentHash,
-        reviewId: publication.reviewId, publicationId: publication.id, pullRequestNumber: publication.pullRequestNumber,
-        recipientActorId: publication.requestedByActorId,
-        summary: `Shared spec publication ${publication.state}: ${publication.documentId}/${publication.revisionId}`,
-      });
+      const publication = await publications.publish(current, request.params.publicationId, publicationActionContext(request));
+      await notifyPublicationTransition(publication, current);
+      response.json(publication);
+    } catch (error) { sendError(response, error); }
+  });
+  router.post("/publications/:publicationId/reconcile", async (request, response) => {
+    try {
+      const current = await actor(request, response, authenticator); if (!current) return;
+      if (!publications) throw new SharedSpecDomainError("NOT_FOUND", "Publication operations are not configured");
+      const publication = await publications.reconcile(current, request.params.publicationId);
+      await notifyPublicationTransition(publication, current);
       response.json(publication);
     } catch (error) { sendError(response, error); }
   });

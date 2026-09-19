@@ -1,5 +1,5 @@
 import { createHash } from "node:crypto";
-import type { SpecPublication, SpecPublicationProvider } from "./shared-spec-publication";
+import type { SpecPublication, SpecPublicationProvider, SpecPublicationProviderContext } from "./shared-spec-publication";
 
 export interface GitHubSpecPublisherConfig {
   readonly repository: string;
@@ -8,6 +8,23 @@ export interface GitHubSpecPublisherConfig {
   readonly apiUrl?: string;
   readonly token: string;
   readonly fetchImpl?: typeof fetch;
+  /**
+   * Invoked once, before any mutating GitHub call (branch create, content
+   * PUT, PR open), with the publish call's SpecPublicationProviderContext
+   * (taskRef plus the authenticated actorId) and a short action label. Must
+   * throw to refuse the publish before any network request is made.
+   *
+   * This class deliberately has no built-in notion of actor/task identity or
+   * authority -- it stays a narrow, portable REST client -- so a host that
+   * needs one (e.g. verifying the calling task is not blocked) must supply
+   * this hook explicitly; there is no safe default that could be assumed
+   * here. See server/services/shared-spec-github-publish-guard.ts for the
+   * task-ownership-backed implementation this project wires in, and
+   * .agents/memory/task-ownership-guard-scope.md for why this exists: a
+   * blocked task whose process still held a constructed GitHubSpecPublisher
+   * (or its token) could otherwise still push a branch and open a real PR.
+   */
+  readonly authorizeMutation: (context: SpecPublicationProviderContext, action: string) => Promise<void>;
 }
 
 export interface GitHubDestination {
@@ -35,6 +52,7 @@ export class GitHubSpecPublisher implements SpecPublicationProvider {
     if (!/^[^/\s]+\/[^/\s]+$/.test(config.repository)) throw new Error("GitHub repository must be configured as owner/name");
     if (!/^[A-Za-z0-9][A-Za-z0-9._/-]*$/.test(config.baseRef) || config.baseRef.includes("..")) throw new Error("Invalid configured GitHub base ref");
     if (!config.token.trim()) throw new Error("GitHub token is required");
+    if (typeof config.authorizeMutation !== "function") throw new Error("GitHub publisher requires an authorizeMutation hook");
     this.api = (config.apiUrl ?? "https://api.github.com").replace(/\/+$/, "");
     this.fetchImpl = config.fetchImpl ?? fetch;
   }
@@ -100,7 +118,8 @@ export class GitHubSpecPublisher implements SpecPublicationProvider {
     }
   }
 
-  async publish(request: GitHubPublicationRequest): Promise<GitHubPublicationResult> {
+  async publish(request: GitHubPublicationRequest, context: SpecPublicationProviderContext): Promise<GitHubPublicationResult> {
+    await this.config.authorizeMutation(context, `github_spec_publish:${this.config.repository}:${request.destinationPath}`);
     this.assertRequest(request);
     const branchName = this.deterministicBranch(request);
     const marker = this.marker(request);
