@@ -183,13 +183,21 @@ export function appendToEpisode(
   episode: { id: string; filename: string },
   eventId?: string,
 ): Promise<void> {
+  // Claude Code (speaker) is its own bare assistant identity, distinct from
+  // Luca authoring through the Claude Code interface (source) -- see
+  // formatChatCaptureSpeakerLabel in transcript-parser.ts for the full model.
+  // This drain path duplicates that formatter's decision (kept separate so a
+  // watchdog-only regression can never touch the primary autosave path), so
+  // any change here must be mirrored there and vice versa.
   const lines = turns
     .map(t => {
       const label = t.speaker === 'DAVID'
         ? '**David:**'
-        : t.speaker === 'CLAUDE_CODE' || t.source === 'claude-code'
-          ? '**LUCA [Claude Code]:**'
-          : '**LUCA [Replit]:**';
+        : t.speaker === 'CLAUDE_CODE'
+          ? '**Claude Code:**'
+          : t.source === 'claude-code'
+            ? '**LUCA [Claude Code]:**'
+            : '**LUCA [Replit]:**';
       return `${label} ${t.text}`;
     })
     .join('\n\n');
@@ -258,9 +266,11 @@ async function writeToDb(
     .map(t => {
       const speakerLabel = t.speaker === 'DAVID'
         ? 'David'
-        : t.speaker === 'CLAUDE_CODE' || t.source === 'claude-code'
-          ? 'LUCA [Claude Code]'
-          : 'LUCA [Replit]';
+        : t.speaker === 'CLAUDE_CODE'
+          ? 'Claude Code'
+          : t.source === 'claude-code'
+            ? 'LUCA [Claude Code]'
+            : 'LUCA [Replit]';
       return `**${speakerLabel}:** ${t.text}`;
     })
     .join('\n\n');

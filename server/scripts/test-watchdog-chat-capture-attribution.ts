@@ -134,8 +134,10 @@ async function withEpisodeLiveFlag<T>(fn: () => Promise<T>): Promise<T> {
 
       check('capture-id:backfill-attr-00 group exists with only its own two turns',
         (cidA?.content.match(/\*\*/g)?.length ?? 0) === 4 /* two "**Label:**" pairs */);
+      // speaker 'Claude Code' is the bare Claude Code identity (not "Luca via
+      // Claude Code") -- see formatChatCaptureSpeakerLabel's doc comment.
       check('Claude Code turn attributed correctly in its own row',
-        cidA?.content.includes('**LUCA [Claude Code]:** first exchange, Claude Code reply') ?? false, cidA?.content);
+        cidA?.content.includes('**Claude Code:** first exchange, Claude Code reply') ?? false, cidA?.content);
       check('capture-id:backfill-attr-01 group attributed correctly in its own row',
         cidB?.content.includes('**LUCA [Replit]:** second exchange, Replit reply') ?? false, cidB?.content);
       check('the two real capture-id groups were NOT merged into one row',
