@@ -53,6 +53,19 @@ test('this file hard-fails under the gate instead of silently skipping DB covera
   assert.ok(OWN_SOURCE.includes('RELEASE_CUTOVER_ATTESTATION_FORBIDDEN_SHARED_URL'));
   assert.ok(OWN_SOURCE.includes('context.skip('));
 });
+// The self-check above only proves this file's own guard is intact. It says
+// nothing about whether scripts/neon-branch.ts's `gate` subcommand still
+// actually sets the three env vars that guard depends on -- that wiring was
+// silently missing once already (the bug this file's persistence tests were
+// added to catch), and nothing stopped someone from deleting it again. Mirror
+// of the "Coordinator V2 disposable database tests cannot silently skip in
+// the gate" check in server/scripts/test-coordinator-v2-schema.test.ts.
+const NEON_BRANCH_GATE_SOURCE = readFileSync('scripts/neon-branch.ts', 'utf8');
+test('scripts/neon-branch.ts still wires the release-cutover-attestation gate env in cmdGate', () => {
+  assert.match(NEON_BRANCH_GATE_SOURCE, /RELEASE_CUTOVER_ATTESTATION_REQUIRE_DATABASE_TESTS: '1'/);
+  assert.match(NEON_BRANCH_GATE_SOURCE, /RELEASE_CUTOVER_ATTESTATION_TEST_DATABASE_URL: directUrl/);
+  assert.match(NEON_BRANCH_GATE_SOURCE, /RELEASE_CUTOVER_ATTESTATION_TEST_DATABASE_DISPOSABLE: '1'/);
+});
 const sha1 = (c: string) => c.repeat(40);
 const sha256 = (c: string) => c.repeat(64);
 const ALGO = 'sha256(path-nul-kind-nul-bytes-nul-v1)';
