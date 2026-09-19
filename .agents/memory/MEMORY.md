@@ -157,3 +157,5 @@
 - [process.exit() bypasses finally](process-exit-bypasses-finally.md) — a test's process.exit(1) inside try skips its own fixture cleanup, silently poisoning the next run's fixture state.
 - [Source-control dirty-tree block](source-control-dirty-tree-block.md) — sync never auto-commits; a dirty tracked tree blocks until an actor runs git commit, then wake-file nudge or next poll resolves it.
 - [Antigravity MCP integration surface](antigravity-mcp-integration.md) — bearer-token-only remote MCP (no OAuth); needs a real protocol adapter, not a raw REST pointer; verify antigravity/coordinator-v2 status via code not doc-count.
+- [Wiring new DB-backed tests into CI](ci-wiring-db-test-scripts.md) — use run-ci-test-steps.mjs's splice list, not test-all-consolidated-ci.sh; neon-branch.ts is a separate migration-gate allowlist.
+- [Local disposable Postgres in the Replit sandbox](local-disposable-postgres-sandbox.md) — pg_ctl start inside a foreground ShellExec dies when that call returns; use run_in_background instead.

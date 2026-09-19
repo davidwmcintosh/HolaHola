@@ -78,6 +78,7 @@ run_check "Coordinator V2 host credential reauthorization" npx tsx --test \
   server/services/coordination-v2-host-reauthorization-contract.test.ts \
   server/services/coordination-v2-host-reauthorization-validation.test.ts \
   server/scripts/test-coordination-v2-host-reauthorization-static.test.ts
+run_check "Release cutover attestation service" npx tsx --test server/services/release-cutover-attestation-service.test.ts
 
 # Checks intentionally kept outside consolidated-ci because they are
 # independent growth-cap or workflow-boundary checks.

@@ -1,0 +1,46 @@
+---
+name: Wiring new DB-backed tests into CI
+description: Where to register a new *.test.ts file so it actually runs with real database coverage, not just text-visible in a script.
+---
+
+There are at least three separate places a DB-backed test file can be referenced in
+this repo, and they serve different purposes -- adding a file to the wrong one gives
+false confidence (it "runs" but its persistence tests always self-skip):
+
+- `scripts/run-ci-test-steps.mjs` — splices extra commands into the parsed
+  `package.json` `scripts.test` chain. This is the one that actually gets exercised
+  by both `npm run test:ci` (used by `run-validation-suite.sh`'s "Application test
+  suite" check) and GitHub Actions' `test-unit`/`test-guards` jobs, both of which
+  provision a real local Postgres 16 service with `CI=true` +
+  `CI_DATABASE_URL`/`NEON_SHARED_DATABASE_URL` pointed at it. This is the right
+  place to add a new DB-backed test file so it gets real database coverage
+  automatically.
+- `server/scripts/run-validation-suite.sh` — also worth adding an explicit named
+  `run_check "..." npx tsx --test <file>` line here (in addition to the splice
+  above), matching the existing convention where a file like
+  `coordination-v2-runtime-bootstrap-service.test.ts` appears in both places. This
+  script has no Postgres service of its own in Replit's sandbox, so DB-backed tests
+  self-skip when run this way alone — the value here is per-check visibility in the
+  registered "Validation suite", not DB coverage.
+- `server/scripts/test-all-consolidated-ci.sh`'s `group_body_workflow_safety` — do
+  NOT add new DB-backed test files here by default. This group is specifically for
+  guards that used to consume individual Replit workflow slots before being
+  consolidated; it has no Postgres service backing it either (confirmed by grep for
+  `CI_DATABASE_URL`), so anything added here never gets real DB coverage.
+- `scripts/neon-branch.ts` — a separate "migration-branch gate" that provisions a
+  real ephemeral Neon branch and forces specific `<PREFIX>_REQUIRE_DATABASE_TESTS=1`
+  + `<PREFIX>_TEST_DATABASE_URL`/`_DISPOSABLE=1` env vars for an explicit allowlist
+  of test files (grep the file for `REQUIRE_DATABASE_TESTS` to see the current
+  list). A new DB-backed test file following the disposable-database pattern is NOT
+  automatically covered by this gate — it must be added to the allowlist separately
+  if migration-branch verification should exercise it too. This is a distinct
+  verification axis from the CI-aggregation wiring above.
+
+**Verifying a `run-ci-test-steps.mjs` splice edit without running anything:** the
+script computes and validates all `GROUPS` ranges (throwing "CI test groups must
+cover the canonical test command chain contiguously" on a mistake) *before*
+checking whether the requested `--group=` value is valid. So running
+`node scripts/run-ci-test-steps.mjs --group=<bogus-value>` exercises the full
+splice + group-boundary + contiguous-coverage validation and then cleanly throws
+"Unknown CI test group" without spawning a single test command — a safe,
+side-effect-free way to confirm a splice edit didn't break the grouping.
