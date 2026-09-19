@@ -89,10 +89,8 @@
 - [Disposable database test boundary](disposable-database-test-boundary.md) — DB-writing regression tests require a verified job-local database; cleanup is never sufficient protection for shared Neon.
 - [Source bridge workflow consolidation](source-bridge-workflow-limit.md) — keep four named workflows; group validation checks to preserve coverage within Replit’s workflow limit.
 - [Source bridge supervision](source-bridge-supervision.md) — supervisor heartbeat and durable alert distinguish a live retry from a dead bridge child.
-- [GitHub npm proxy lockfiles](github-npm-proxy-lockfiles.md) — normalize Replit proxy tarball URLs before GitHub npm ci; npm host replacement retains the proxy path.
+- [GitHub Actions/App auth pitfalls](github-actions-auth-pitfalls.md) — 9 sharp edges: 3-store credential migration, classic-vs-ruleset branch protection, App permission approval, Actions secrets API, CI aggregate check, workflow_dispatch source, npm proxy lockfiles, token field omission, checkout token shadowing.
 - [Owner-managed OpenAI credential](owner-managed-openai.md) — use USER_OPENAI_API_KEY directly; never add Replit proxy or legacy-key fallbacks.
-- [GitHub CI aggregate protection](github-ci-aggregate-protection.md) — require only GitHub Actions `test` (`CI / test`); internal parallel jobs feed that aggregate.
-- [GitHub workflow dispatch source](github-workflow-dispatch-source.md) — dispatch resolves workflow definitions from default `main`; a branch-only workflow repair cannot unblock its own dispatch.
 - [Deployment publish image size](deployment-size-context.md) — successful builds can still fail at packaging; use targeted `.dockerignore` exclusions before deleting required assets.
 - [Unmerged task-agent database drift](unmerged-task-agent-database-drift.md) — stalled merges may have already changed the shared DB; inspect live schema and migration ledger before reconstructing code.
 - [Blobless partial-clone commits](blobless-partial-clone-commits.md) — when promised parent blobs are unavailable, commit a verified staged tree locally without forcing a remote fetch.
@@ -139,16 +137,10 @@
 - [Automatic task-update absence is not confirmation](automatic-update-notification-absence.md) — a missing blockedBy tag in an update line doesn't prove a blocker cleared; verify directly.
 - [Render redeploys on every push to main](render-autodeploy-moving-target.md) — even a memory-only edit reached production via auto-deploy within an hour; "verified release" is a moving target mid-development.
 - [.replit env vars are git-tracked](replit-env-var-tracked-file.md) — setEnvVars(shared) writes into the tracked .replit file; set/commit/push config before, never during, a tree-cleanliness-sensitive git workflow.
-- [GitHub App auth migration](github-app-auth-migration.md) — git-push creds live in 3 separate stores (Replit, Render, GitHub Actions); migrate all three or a bypass path remains.
-- [GitHub branch protection layering](github-branch-protection-layering.md) — classic protection and rulesets both gate the same branch independently; a ruleset bypass_actor doesn't bypass classic protection at all.
-- [GitHub App permission approval](github-app-permission-approval.md) — editing an App's declared permissions needs a separate installation-level approval before a token actually carries it.
 - [Git LFS pre-push SSH hang](git-lfs-prepush-ssh-hang.md) — a repo's LFS pre-push hook can hang on an SSH host-key prompt even during an explicit HTTPS push; use --no-verify + non-interactive git env guards.
 - [shared-spec files resist plain edits](shared-spec-filesystem-immutability.md) — docs/superpowers/specs/*.md already published via shared-spec get silently reverted to the approved revision; use the CLI lifecycle instead.
-- [GitHub App token field omission](github-app-token-field-omission.md) — a GitHub App token can 200 yet omit fields (e.g. ruleset bypass_actors) a differently-scoped credential would see; verify field presence, not just status.
-- [GitHub Actions secrets require manual add](github-actions-secrets-manual-add.md) — no project credential (personal PAT or GitHub App token) can create/rotate an Actions secret via API; a fine-grained PAT's repo `permissions` field isn't proof of its real scope.
 - [Source-control promotion path](source-control-promotion-path.md) — direct git push is disabled; use the in-process scheduler's wake file; any unrelated dirty tracked file silently blocks promotion.
 - [Windows console child-process lifetime](windows-console-child-lifetime.md) — closing/reusing the launcher console sends CTRL_CLOSE_EVENT to inherited children; fix is CreateNoWindow=true, not output redirection.
-- [GitHub Actions checkout token shadowing](github-actions-checkout-token-shadowing.md) — checkout's persisted default-token extraheader silently wins over a later URL-embedded push token; unset it right before the push.
 - [SSH host-key hang and pre-trust](ssh-hostkey-pretrust.md) — an SSH-transport git fetch hangs forever on an untrusted github.com host key; GIT_TERMINAL_PROMPT=0 doesn't help; pre-trust via ssh-keyscan.
 - [Main divergence needs explicit reconciliation](main-divergence-explicit-reconciliation.md) — GitHub main can diverge from local outside the scheduler's own push path; trust source-bridge-status.json's state, not git's own remote-tracking ref.
 - [Reconciliation auth and landing procedure](reconciliation-git-auth-and-landing.md) — GitHub App token (not SSH) auths reconcile's git calls; named remote required; ff-merge candidate then normal `sync` to land on real main.
@@ -156,5 +148,5 @@
 - [Triaging markTaskComplete validation failures](validation-failure-triage.md) — check the live server/workflow first, and prove pre-existing-vs-caused-by-me with a git worktree at the parent commit before treating a failure as a regression.
 - [Coordination comment vs completion](coordination-comment-vs-completion.md) — a comment reply never flips thread state; only accept+complete with evidence closes the "confirmation of closure" gap.
 - [Coordinator V2 vs legacy Gate3 task-ownership](coordinator-v2-vs-gate3-ownership.md) — Command Center Ownership tab is a separate legacy system; V2 launch needs policy+grant, not task-ownership receipts.
-- [Coordinator V2 real-run readiness](coordinator-v2-real-run-readiness.md) — host enrollment done, source-promotion recording is a real manual API call, but windowsPublicMaterialDigest requires an impossible SHA-256 fixed point as coded.
+- [Coordinator V2 real-run readiness](coordinator-v2-real-run-readiness.md) — host enrollment + source-promotion done; windowsPublicMaterialDigest circular-hash bug fixed Sep 18 2026 (see digest-fix section); policy authoring is the remaining real step.
 - [Compacted-summary reverification](compacted-summary-reverification.md) — milestone labels/status claims carried in a post-compaction summary are unverified leads, not facts; re-check before repeating them.

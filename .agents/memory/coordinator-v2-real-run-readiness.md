@@ -1,15 +1,15 @@
 ---
-name: Coordinator V2 real-run readiness (windowsPublicMaterialDigest bug)
-description: current state of what a real Invoke-HolaCoordinator Windows run needs — what's already done, what's a normal remaining step, and one blocking self-referential-hash bug.
+name: Coordinator V2 real-run readiness
+description: current state of what a real Invoke-HolaCoordinator Windows run needs — what's already done, what's a normal remaining step, and the fixed digest-circularity bug that used to block it.
 ---
 
 Checked directly against the live database on Sep 18 2026 (not just code — code alone was
 misleading here):
 
 - Host enrollment: DONE. One active coordination_v2_host_enrollments row exists — a real
-  Windows machine enrolled ~Sep 15 2026 via Register-HolaCoordinatorHost + founder browser
-  approval. The enroll+prove flow works end-to-end. This is live state, not a code fact —
-  re-query the table rather than assuming it's still true.
+  Windows machine (LITTLENEMO) enrolled ~Sep 15 2026 via Register-HolaCoordinatorHost +
+  founder browser approval. The enroll+prove flow works end-to-end. This is live state, not
+  a code fact — re-query the table rather than assuming it's still true.
 
 - Source-promotion recording (the "production verification" gate) is a real, working,
   already-in-regular-use mechanism, not missing infrastructure. It is NOT automatic: a
@@ -27,27 +27,44 @@ misleading here):
   grant. This doesn't need to be built; it needs correct payloads called from an
   authenticated founder browser session (same pattern as host-enrollment approval).
 
-**Blocking bug found, never yet exercised (zero policy rows have ever existed in the DB):**
-hostConstraints.windowsPublicMaterialDigest, as required by the current preparation
-verification path, cannot be satisfied by ANY value. The value placed in a policy's
-hostConstraints gets embedded (via the generated coordinator-config.json) into the exact
-byte stream that publicMaterialDigest is computed over, and preparation then rejects
-unless the freshly-computed digest equals that same stored value. That demands a SHA-256
-fixed point (D = H(...D...)) — cryptographically infeasible by construction. No missing
-step or tool produces a working value; none can exist under the current code.
+**Digest-circularity bug: FIXED Sep 18 2026 (was blocking, zero policy rows had ever
+existed in the DB before the fix).** `hostConstraints.windowsPublicMaterialDigest` used to
+be embedded verbatim into the canonical policy, which was embedded verbatim into
+`coordinator-config.json`, which was then hashed together with the task artifact to
+produce the very `publicMaterialDigest` the field was supposed to equal — a SHA-256 fixed
+point (D = H(...D...)), cryptographically infeasible by construction. No value could ever
+satisfy it.
 
-**Why:** confirmed by direct trace of buildCoordinationV2PublicConfig +
-issueCoordinationV2PreparationEnvelope (coordination-v2-preparation-material-service.ts)
-and canonicalizePolicy's boundedMap handling of hostConstraints
-(coordination-policy-canonicalization.ts) — hostConstraints (including
-windowsPublicMaterialDigest) is embedded verbatim into the canonical policy, which is
-embedded verbatim into the config JSON, which is hashed together with the task artifact
-to produce the very digest that must match it.
+Fix (`server/services/coordination-v2-preparation-material-service.ts`,
+`withoutSelfReferentialDigest()`): the policy view that gets embedded/hashed into
+`coordinator-config.json` now has `hostConstraints.windowsPublicMaterialDigest` stripped
+out before canonicalization, so the config's own bytes no longer depend on that field's
+value at all. The field is still fully real and enforced — just as a separate pinned
+comparison at the reserve/prepare call sites, never as an input to the hash it's compared
+against. The outer `policyDigest`/`canonicalPolicy` returned by
+`buildCoordinationV2PublicConfig` (the authoring-vs-preparation consistency check
+`policyRow.policyDigest !== materialConfig.policyDigest`) is unaffected — it's still
+computed from the complete, real policy including the real digest value, matching what
+`coordination-policy-service.ts` stores at authoring time. Verified: no other code reads
+the config's embedded `policyDigest` field or `hostConstraints.windowsPublicMaterialDigest`
+back out of the delivered config JSON, so the redaction has no other consumers to update.
 
-**How to apply:** don't spend time hand-computing or guessing a windowsPublicMaterialDigest
-value — none can work. Fix the circularity in code first (most likely: exclude
-windowsPublicMaterialDigest specifically from what gets embedded into the hashed config,
-while still enforcing it as a separately pinned check elsewhere), with the same
-evidence/review rigor the rest of Coordinator V2 uses (negative test proving the old
-impossible requirement is gone, positive test proving a real value now verifies) before
-any real policy is authored.
+Proven by `server/scripts/test-coordination-v2-authority-seams.test.ts` ("windowsPublicMaterialDigest
+is excluded from the hashed config, breaking the fixed-point cycle"): two policies
+differing only in the pinned digest value produce byte-identical config (proves the cycle
+is broken), and a founder-computed real digest (via `computeCoordinationPublicMaterialDigest`
+from `coordination-windows-prepare.ts`, run against the actual delivered config) round-trips
+correctly (proves a working value now exists and is stable).
+
+**Remaining real gap (not a bug, a missing tool):** there is still no supported way for a
+founder to *discover* the correct windowsPublicMaterialDigest value before authoring a
+policy — `issueCoordinationV2PreparationEnvelope` throws a bare
+`V2_PREPARATION_PUBLIC_DIGEST_MISMATCH` without revealing the expected value. Tracked as
+task #1474 ("Let a founder compute the real windowsPublicMaterialDigest instead of
+guessing") rather than folded into the digest fix itself, since it's a separate, optional
+usability tool, not a correctness bug.
+
+**How to apply:** the digest field is safe to author into a real policy now — compute it
+with `buildCoordinationV2PublicConfig` + `computeCoordinationPublicMaterialDigest` (or wait
+for task #1474's CLI helper) rather than guessing or hand-waving a placeholder into
+production policy rows.
