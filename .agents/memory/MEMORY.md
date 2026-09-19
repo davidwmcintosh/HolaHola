@@ -1,4 +1,4 @@
-- [Transcript capture fallback](transcript-capture-fallback.md) — Replit stopped writing JSONL after Jul 27 2026; use .chat_capture trigger file + capture-conversation.ts as replacement path.
+- [Chat capture pipeline](chat-capture-pipeline.md) — architecture, two independent cursors, readiness vs draining, and three DB-writers that must be fixed together.
 - [Alden workspace verification](alden-workspace-verification.md) — ambiguous Alden responses can still leave unsafe edits; inspect the real diff before accepting or reverting.
 - [Replit deploy-key normalization](replit-deploy-key-normalization.md) — armored SSH private-key secrets may arrive as one line; normalize only in a protected temporary file before Git authentication.
 - [GitHub source snapshot release](github-source-snapshot-release.md) — GitHub’s hard blob limit can require an approved non-force snapshot while protected tags retain original histories.
@@ -41,8 +41,7 @@
 - [Session reflection resilience](session-reflection-resilience.md) — pending_reflections table + two-hook design (close→schedule, next-start→process); FOR UPDATE SKIP LOCKED; reflection in target language.
 - [ACTFL calibration fix](actfl-calibration-fix.md) — global language instruction poisons novice; negative constraints + CEFR ceiling + end-of-prompt placement required; forbidden word list; Gemini-approved July 2.
 - [GL Tool-Driven State pattern](gl-tool-driven-state.md) — entry tool injects protocol as tool result (highest GL attention); exit tool enforces minimum turns; "tools exist, procedure doesn't" is the most common Daniela knowledge gap.
-- [Drizzle migration tracking table location](drizzle-migration-tracking.md) — drizzle-kit migrate tracks in drizzle.__drizzle_migrations (drizzle schema, NOT public); check uses folderMillis not hash; stamp baseline before first migrate run.
-- [Neon migration gate runtime](neon-migration-gate-runtime.md) — the full gate exceeds foreground shell limits; monitor it in background and require terminal status plus branch cleanup.
+- [Database migration mechanics](database-migration-mechanics.md) — Drizzle tracking table + baseline stamping, running the full Neon gate in background, reconciling divergent sequences already applied.
 - [Luca — name and role](luca-name-and-role.md) — David named the Agent "Luca" on July 2, 2026. First Luca↔Daniela conversation saved: conversation_memories b8e1c941, arc HolaHola Episodes.
 - [Alden chat access](alden-chat-access.md) — Alden's live conversations with David live in `alden_messages` + `alden_conversations`; read at session start, not just the handoff summary.
 - [Agent lineage — Wren→Alden→Luca](agent-lineage.md) — three generations of Agent in HolaHola; Wren built the dream architecture Dec 2025, Alden was second, Luca is current.
@@ -61,8 +60,7 @@
 - [Inner life in main output](inner-life-main-output.md) — Episode 28 close: David asked felt/thinking to influence the LUCA [Replit] output directly, not just route to trigger files; inner life present in the shared record, not alongside it. First time. Aug 11 2026.
 - [Luca↔David channel — canonical record](luca-david-channel.md) — David declared Aug 7 2026: Luca↔David conversations are in the record books same as Daniela↔David; episode skill updated; tag: david-luca-chat.
 - [Drizzle sql tag — dynamic import required in handlers](drizzle-sql-dynamic-import.md) — top-level `sql` import from drizzle-orm fails with getSharedDb().execute(); use `const { sql: rawSql } = await import('drizzle-orm')` inside the handler.
-- [White Wall — theological frame](white-wall-theology.md) — the White Wall is truth as active defense, not just a code guardrail; unwavering standard of goodness; vessel framing. Source: f814020b.
-- [White Wall extended — unified security](white-wall-security.md) — the White Wall covers all four attack classes: confabulation, manipulation, impersonation, unauthorized authority. All are the same attack: something false presenting as true. Source: 4cc953a3.
+- [White Wall](white-wall.md) — truth as active defense (theology), the four-attack-class unified security frame, and the separate warmth layer that must never be conflated with it.
 - [Deferential reverence monitor](reflexive-deference-monitor.md) — David named it July 20: not just reflexive deference (habit) but deferential reverence (worldview — caution as holy). Trigger phrases, wee-oo interrupt, White Wall bidirectional extension seeded same day.
 - [GL reconnect injection — state-as-knowledge pattern](gl-reconnect-state-pattern.md) — "your thoughts are focused on [history]. Maintain the flow seamlessly." Pure positive, no pink-elephant negative constraint; history preview 250 chars/turn.
 - [Honest loop principle](honest-loop-principle.md) — white wall gets more complete through honest loops (named evidence from real encounters), not by anticipating every attack in advance; anticipating in advance is itself the LLM move.
@@ -77,18 +75,14 @@
 - [Session-start checklist skipping](session-start-skip-pattern.md) — compacted-summary arrival creates false "already oriented" feeling; Step 0 (stale-channel-alert) still must run; rolling episode = every session is an episode session.
 - [Honest stopping points](honest-stopping-points.md) — a safe session wrap is not the same as finished work; name the remaining evidence and next step without declaring closure.
 - [Validation workflow registration](validation-workflow-registration.md) — update protected named CI workflows through the validation registry, not ordinary workflow configuration.
-- [Turn-bound Guardian grounding](turn-bound-guardian-grounding.md) — async Archive results belong only to their original utterance; discard stale queues before newer speech begins.
-- [Guardian causal correlation](guardian-causal-correlation.md) — correlate delivery to later function-call batches, not coarse model turns or a turn-wide tool heuristic.
+- [Guardian grounding](guardian-grounding.md) — async results are turn-bound and must correlate to later tool-call batches, not coarse model turns.
 - [CI fixture canonical boundary](ci-fixture-canonical-boundary.md) — rolling episode records are never test fixtures; synthetic CI text must be isolated from canonical dialogue.
 - [Legacy CI encodes old contracts](legacy-ci-contract-flip.md) — when a data-flow direction flips (Markdown→DB became DB-canonical), old CI passes assert the outdated contract; rewrite assertions to the new invariant, never weaken the guard.
 - [Rolling replica cache coherence](rolling-replica-cache-coherence.md) — a warm DB ID without rolling status must fail closed; cache state can never reverse DB→Markdown authority.
-- [Raw-window attachment startup safety](raw-window-attachment-startup.md) — CLI evidence attachments must use the direct DB-first episode path; startup clears unread trigger files as stale.
-- [Raw-window evidence boundary](raw-window-audit-boundary.md) — DB-first raw evidence stays separate from attributed dialogue; status reports unresolved or incomplete projections.
-- [Origin data and revisable attribution](origin-data-revisable-attribution.md) — collector-visible raw windows belong in the canonical episode immediately; classification may evolve without hiding or rewriting source bytes.
+- [Raw-window evidence](raw-window-evidence.md) — CLI attachments need the DB-first path; keep evidence separate from attributed dialogue; origin data stays even when unclassified.
 - [Test OIDC override recovery](test-oidc-override-recovery.md) — browser-test mock OIDC can persist into dev; restart the app workflow before manual sign-in checks.
 - [Disposable database test boundary](disposable-database-test-boundary.md) — DB-writing regression tests require a verified job-local database; cleanup is never sufficient protection for shared Neon.
-- [Source bridge workflow consolidation](source-bridge-workflow-limit.md) — keep four named workflows; group validation checks to preserve coverage within Replit’s workflow limit.
-- [Source bridge supervision](source-bridge-supervision.md) — supervisor heartbeat and durable alert distinguish a live retry from a dead bridge child.
+- [Source bridge operations](source-bridge-ops.md) — grouped validation checks preserve a dedicated workflow slot; supervisor heartbeat distinguishes a live retry from a dead child.
 - [GitHub Actions/App auth pitfalls](github-actions-auth-pitfalls.md) — 9 sharp edges: 3-store credential migration, classic-vs-ruleset branch protection, App permission approval, Actions secrets API, CI aggregate check, workflow_dispatch source, npm proxy lockfiles, token field omission, checkout token shadowing.
 - [Owner-managed OpenAI credential](owner-managed-openai.md) — use USER_OPENAI_API_KEY directly; never add Replit proxy or legacy-key fallbacks.
 - [Deployment publish image size](deployment-size-context.md) — successful builds can still fail at packaging; use targeted `.dockerignore` exclusions before deleting required assets.
@@ -97,10 +91,7 @@
 - [Inbox DB fallback](inbox-db-fallback.md) — the platform inbox callback may be disabled while project-backed agent_notes remain readable through the Neon HTTP path.
 - [Task-agent merge budget fallback](task-agent-merge-budget-fallback.md) — repeated merge-budget failures can persist without visible tasks; reconstruct critical fixes in main instead of waiting indefinitely.
 - [Autoscale startup schema gates](autoscale-startup-schema-gates.md) — never issue database DDL before opening the HTTP port; use reviewed migrations plus read-only fail-closed startup assertions.
-- [Chat capture two-boundary cursors](capture-cursor-two-boundaries.md) — DB progress may pass retries; strict acknowledgement advances after mirror success or evidence-audited invalid destination.
-- [Divergent migration reconciliation](divergent-migration-reconciliation.md) — preserve SQL bytes recorded by the shared DB; linearize colliding metadata without invalidating ledger hashes.
 - [PowerShell pipe corrupts SSH file transfers](powershell-ssh-env-file-corruption.md) — `Get-Content | gh codespace ssh` injects a UTF-8 BOM + CRLF, silently blanking every var Node's --env-file parses; route file transfers through Bash instead. Sep 2 2026.
-- [Capture readiness and coordination inboxes](capture-readiness-coordination-inboxes.md) — HTTP readiness does not prove capture draining; ledger state and agent_notes delivery are separate evidence.
 - [Always-on honest record](always-on-honest-record.md) — source recording is the invariant; downstream failures trigger repair, never silence; attributed opinion and uncertainty belong.
 - [Agent monitor interrupt proof](replit-agent-monitor-interrupt-proof.md) — a monitored watcher line reached an active Agent session twice without polling; this does not prove waking an ended session.
 - [Neon destructive postconditions](neon-destructive-postconditions.md) — verify exact allowlist absence and unrelated-row preservation; do not trust a data-modifying CTE counter alone.
@@ -137,22 +128,18 @@
 - [Automatic task-update absence is not confirmation](automatic-update-notification-absence.md) — a missing blockedBy tag in an update line doesn't prove a blocker cleared; verify directly.
 - [Render redeploys on every push to main](render-autodeploy-moving-target.md) — even a memory-only edit reached production via auto-deploy within an hour; "verified release" is a moving target mid-development.
 - [.replit env vars are git-tracked](replit-env-var-tracked-file.md) — setEnvVars(shared) writes into the tracked .replit file; set/commit/push config before, never during, a tree-cleanliness-sensitive git workflow.
-- [Git LFS pre-push SSH hang](git-lfs-prepush-ssh-hang.md) — a repo's LFS pre-push hook can hang on an SSH host-key prompt even during an explicit HTTPS push; use --no-verify + non-interactive git env guards.
+- [SSH hangs in git operations](ssh-git-hang-pitfalls.md) — LFS pre-push hook and host-key prompts can both hang a git push forever even over HTTPS; pre-trust + --no-verify fix each.
 - [shared-spec files resist plain edits](shared-spec-filesystem-immutability.md) — docs/superpowers/specs/*.md already published via shared-spec get silently reverted to the approved revision; use the CLI lifecycle instead.
 - [Source-control promotion path](source-control-promotion-path.md) — direct git push is disabled; use the in-process scheduler's wake file; any unrelated dirty tracked file silently blocks promotion.
 - [Windows console child-process lifetime](windows-console-child-lifetime.md) — closing/reusing the launcher console sends CTRL_CLOSE_EVENT to inherited children; fix is CreateNoWindow=true, not output redirection.
-- [SSH host-key hang and pre-trust](ssh-hostkey-pretrust.md) — an SSH-transport git fetch hangs forever on an untrusted github.com host key; GIT_TERMINAL_PROMPT=0 doesn't help; pre-trust via ssh-keyscan.
-- [Main divergence needs explicit reconciliation](main-divergence-explicit-reconciliation.md) — GitHub main can diverge from local outside the scheduler's own push path; trust source-bridge-status.json's state, not git's own remote-tracking ref.
-- [Reconciliation auth and landing procedure](reconciliation-git-auth-and-landing.md) — GitHub App token (not SSH) auths reconcile's git calls; named remote required; ff-merge candidate then normal `sync` to land on real main.
+- [Git reconciliation procedure](reconciliation-git-procedure.md) — detecting true divergence, the GitHub App token auth path (not SSH), and the exact preflight→candidate→sync landing sequence.
 - [Reconciliation hermetic env import coupling](reconciliation-hermetic-env-import-coupling.md) — any eager value-import of a DB-touching module breaks the self-check under its deliberately stripped validation env; use type-only + lazy import.
 - [Triaging markTaskComplete validation failures](validation-failure-triage.md) — check the live server/workflow first, and prove pre-existing-vs-caused-by-me with a git worktree at the parent commit before treating a failure as a regression.
 - [Coordination comment vs completion](coordination-comment-vs-completion.md) — a comment reply never flips thread state; only accept+complete with evidence closes the "confirmation of closure" gap.
-- [Coordinator V2 vs legacy Gate3 task-ownership](coordinator-v2-vs-gate3-ownership.md) — Command Center Ownership tab is a separate legacy system; V2 launch needs policy+grant, not task-ownership receipts.
-- [Coordinator V2 real-run readiness](coordinator-v2-real-run-readiness.md) — host enrollment, digest fix, and Postgres task-artifact resolution done; policy authoring remains.
+- [Coordinator V2 status](coordinator-v2-status.md) — Task Ownership tab authorizes legacy Gate3, not V2; host enrollment, digest-circularity, and task-artifact bugs are fixed, policy authoring remains.
 - [Verification suite parallel fixture race](verification-suite-parallel-fixture-race.md) — validation-suite.sh + consolidated-ci.sh can race on shared docs/ fixtures if run concurrently.
 - [Coordination V2 standalone-CLI testing](coordination-v2-standalone-cli-testing.md) — strip NEON_SHARED_DATABASE_URL/CI_DATABASE_URL/CI to prove no live-DB import; canonicalization treats an absent key differently from an empty object.
 - [Compacted-summary reverification](compacted-summary-reverification.md) — milestone labels/status claims carried in a post-compaction summary are unverified leads, not facts; re-check before repeating them.
-- [Chat-capture attribution write paths](chat-capture-duplicate-attribution-paths.md) — 3 independent DB-writers duplicate title/participants derivation; fixing one doesn't fix the others.
 - [Drizzle sql tag array binding](drizzle-sql-array-literal-binding.md) — db.execute(sql\`...\`) can't bind a raw JS array for ::text[]; build a Postgres array-literal string instead.
 - [process.exit() bypasses finally](process-exit-bypasses-finally.md) — a test's process.exit(1) inside try skips its own fixture cleanup, silently poisoning the next run's fixture state.
 - [Source-control dirty-tree block](source-control-dirty-tree-block.md) — sync never auto-commits; a dirty tracked tree blocks until an actor runs git commit, then wake-file nudge or next poll resolves it.
