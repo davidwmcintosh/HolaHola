@@ -1,6 +1,7 @@
 import test from "node:test";
 import assert from "node:assert/strict";
 import { readFileSync } from "node:fs";
+import { fileURLToPath } from "node:url";
 import { Pool } from "pg";
 import { drizzle } from "drizzle-orm/node-postgres";
 import { sql } from "drizzle-orm";
@@ -24,7 +25,12 @@ const envelope: ExecutionEnvelope = {
 
 function disposableTarget(): string | undefined {
   const url = process.env.COORDINATION_RUNTIME_TEST_DATABASE_URL;
-  if (!url) return undefined;
+  if (!url) {
+    if (process.env.COORDINATION_RUNTIME_REQUIRE_DATABASE_TESTS === "1") {
+      throw new Error("COORDINATION_RUNTIME_TEST_DATABASE_URL is required by the migration gate");
+    }
+    return undefined;
+  }
   if (process.env.COORDINATION_RUNTIME_TEST_DATABASE_DISPOSABLE !== "1") {
     throw new Error("COORDINATION_RUNTIME_TEST_DATABASE_DISPOSABLE=1 is required");
   }
@@ -44,6 +50,19 @@ function errorChainIncludes(error: unknown, needle: string): boolean {
   }
   return false;
 }
+
+// disposableTarget() above must hard-fail -- not silently context.skip() --
+// when COORDINATION_RUNTIME_REQUIRE_DATABASE_TESTS='1' but its own
+// URL/DISPOSABLE vars are missing while still running inside the gate.
+// Mirror of the "this file hard-fails under the gate instead of silently
+// skipping DB coverage" check in
+// server/services/release-cutover-attestation-service.test.ts.
+const OWN_SOURCE = readFileSync(fileURLToPath(import.meta.url), "utf8");
+test("this file hard-fails under the gate instead of silently skipping DB coverage", () => {
+  assert.ok(OWN_SOURCE.includes('COORDINATION_RUNTIME_REQUIRE_DATABASE_TESTS === "1"'));
+  assert.ok(OWN_SOURCE.includes("COORDINATION_RUNTIME_FORBIDDEN_SHARED_URL"));
+  assert.ok(OWN_SOURCE.includes("context.skip("));
+});
 
 // Every test in this file gates on COORDINATION_RUNTIME_TEST_DATABASE_URL,
 // which only ever arrives from scripts/neon-branch.ts's cmdGate() branchEnv

@@ -2,20 +2,26 @@ import test from "node:test";
 import assert from "node:assert/strict";
 import crypto from "node:crypto";
 import { readFileSync } from "node:fs";
+import { fileURLToPath } from "node:url";
 import { sql } from "drizzle-orm";
 import { canonicalJson } from "../services/task-ownership-service";
 
 function disposableTarget(): string | undefined {
-  const url = process.env.NEON_SHARED_DATABASE_URL;
-  if (!url) return undefined;
-  if (process.env.FOUNDER_TASK_OWNERSHIP_TEST_DATABASE_DISPOSABLE !== "1") {
-    throw new Error("FOUNDER_TASK_OWNERSHIP_TEST_DATABASE_DISPOSABLE=1 is required");
+  const url = process.env.FOUNDER_TASK_OWNERSHIP_TEST_DATABASE_URL;
+  if (!url) {
+    if (process.env.FOUNDER_TASK_OWNERSHIP_REQUIRE_DATABASE_TESTS === "1") {
+      throw new Error("FOUNDER_TASK_OWNERSHIP_TEST_DATABASE_URL is required by the migration gate");
+    }
+    return undefined;
   }
-  if (url === process.env.NEON_SHARED_DATABASE_URL && process.env.FOUNDER_TASK_OWNERSHIP_TEST_DATABASE_URL !== url) {
-    throw new Error("founder ownership test requires the gate-provided disposable database URL");
-  }
-  if (url === process.env.FOUNDER_TASK_OWNERSHIP_FORBIDDEN_SHARED_URL) {
-    throw new Error("founder ownership test refuses the shared Neon database");
+  if (process.env.FOUNDER_TASK_OWNERSHIP_TEST_DATABASE_DISPOSABLE !== "1"
+    || process.env.FOUNDER_TASK_OWNERSHIP_FORBIDDEN_SHARED_URL === url
+    // ../db's shared `db` singleton (not this function's return value) is
+    // what every persistence assertion below actually queries, so the
+    // disposable proof is worthless unless that ambient connection is
+    // provably the same gate-provided branch.
+    || process.env.NEON_SHARED_DATABASE_URL !== url) {
+    throw new Error("founder ownership test refuses a shared/unverified database");
   }
   return url;
 }
@@ -36,6 +42,19 @@ async function sqlRejected(action: Promise<unknown>, text: string) {
   });
 }
 
+// disposableTarget() above must hard-fail -- not silently context.skip() --
+// when FOUNDER_TASK_OWNERSHIP_REQUIRE_DATABASE_TESTS='1' but its own
+// URL/DISPOSABLE vars are missing while still running inside the gate.
+// Mirror of the "this file hard-fails under the gate instead of silently
+// skipping DB coverage" check in
+// server/services/release-cutover-attestation-service.test.ts.
+const OWN_SOURCE = readFileSync(fileURLToPath(import.meta.url), "utf8");
+test("this file hard-fails under the gate instead of silently skipping DB coverage", () => {
+  assert.ok(OWN_SOURCE.includes('FOUNDER_TASK_OWNERSHIP_REQUIRE_DATABASE_TESTS === "1"'));
+  assert.ok(OWN_SOURCE.includes("FOUNDER_TASK_OWNERSHIP_FORBIDDEN_SHARED_URL"));
+  assert.ok(OWN_SOURCE.includes("context.skip("));
+});
+
 // The test below gates on NEON_SHARED_DATABASE_URL matching
 // FOUNDER_TASK_OWNERSHIP_TEST_DATABASE_URL, both of which only ever arrive
 // together from scripts/neon-branch.ts's cmdGate() branchEnv object --
@@ -55,7 +74,7 @@ test("scripts/neon-branch.ts still wires the founder-task-ownership gate env in 
 
 test("PostgreSQL founder-attested ownership protocol is durable and immutable", async (context) => {
   if (!disposableTarget()) {
-    context.skip("set NEON_SHARED_DATABASE_URL and FOUNDER_TASK_OWNERSHIP_TEST_DATABASE_DISPOSABLE=1");
+    context.skip("set FOUNDER_TASK_OWNERSHIP_TEST_DATABASE_URL and FOUNDER_TASK_OWNERSHIP_TEST_DATABASE_DISPOSABLE=1");
     return;
   }
   const { db } = await import("../db");
