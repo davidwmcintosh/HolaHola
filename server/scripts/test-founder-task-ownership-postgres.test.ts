@@ -1,6 +1,7 @@
 import test from "node:test";
 import assert from "node:assert/strict";
 import crypto from "node:crypto";
+import { readFileSync } from "node:fs";
 import { sql } from "drizzle-orm";
 import { canonicalJson } from "../services/task-ownership-service";
 
@@ -34,6 +35,23 @@ async function sqlRejected(action: Promise<unknown>, text: string) {
     return messages.some(message => message.includes(text));
   });
 }
+
+// The test below gates on NEON_SHARED_DATABASE_URL matching
+// FOUNDER_TASK_OWNERSHIP_TEST_DATABASE_URL, both of which only ever arrive
+// together from scripts/neon-branch.ts's cmdGate() branchEnv object --
+// nothing else sets them. If that wiring were ever deleted, the test above
+// would just skip again, silently, in the Neon migration gate, with nothing
+// automated to catch it. Mirror of the "scripts/neon-branch.ts still wires
+// the release-cutover-attestation gate env in cmdGate" check in
+// server/services/release-cutover-attestation-service.test.ts and the
+// "Coordinator V2 disposable database tests cannot silently skip in the
+// gate" check in server/scripts/test-coordinator-v2-schema.test.ts.
+const NEON_BRANCH_GATE_SOURCE = readFileSync("scripts/neon-branch.ts", "utf8");
+test("scripts/neon-branch.ts still wires the founder-task-ownership gate env in cmdGate", () => {
+  assert.match(NEON_BRANCH_GATE_SOURCE, /FOUNDER_TASK_OWNERSHIP_REQUIRE_DATABASE_TESTS: '1'/);
+  assert.match(NEON_BRANCH_GATE_SOURCE, /FOUNDER_TASK_OWNERSHIP_TEST_DATABASE_URL: directUrl/);
+  assert.match(NEON_BRANCH_GATE_SOURCE, /FOUNDER_TASK_OWNERSHIP_TEST_DATABASE_DISPOSABLE: '1'/);
+});
 
 test("PostgreSQL founder-attested ownership protocol is durable and immutable", async (context) => {
   if (!disposableTarget()) {

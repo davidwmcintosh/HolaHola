@@ -1,5 +1,6 @@
 import test from "node:test";
 import assert from "node:assert/strict";
+import { readFileSync } from "node:fs";
 import { Pool } from "pg";
 import { drizzle } from "drizzle-orm/node-postgres";
 import { sql } from "drizzle-orm";
@@ -43,6 +44,22 @@ function errorChainIncludes(error: unknown, needle: string): boolean {
   }
   return false;
 }
+
+// Every test in this file gates on COORDINATION_RUNTIME_TEST_DATABASE_URL,
+// which only ever arrives from scripts/neon-branch.ts's cmdGate() branchEnv
+// object -- nothing else sets it. If that wiring were ever deleted, every
+// test above would just skip again, silently, in the Neon migration gate,
+// with nothing automated to catch it. Mirror of the "scripts/neon-branch.ts
+// still wires the release-cutover-attestation gate env in cmdGate" check in
+// server/services/release-cutover-attestation-service.test.ts and the
+// "Coordinator V2 disposable database tests cannot silently skip in the
+// gate" check in server/scripts/test-coordinator-v2-schema.test.ts.
+const NEON_BRANCH_GATE_SOURCE = readFileSync("scripts/neon-branch.ts", "utf8");
+test("scripts/neon-branch.ts still wires the coordination-runtime gate env in cmdGate", () => {
+  assert.match(NEON_BRANCH_GATE_SOURCE, /COORDINATION_RUNTIME_REQUIRE_DATABASE_TESTS: '1'/);
+  assert.match(NEON_BRANCH_GATE_SOURCE, /COORDINATION_RUNTIME_TEST_DATABASE_URL: directUrl/);
+  assert.match(NEON_BRANCH_GATE_SOURCE, /COORDINATION_RUNTIME_TEST_DATABASE_DISPOSABLE: '1'/);
+});
 
 test("PostgreSQL parity: complete persisted lifecycle and replay", async (context) => {
   const url = disposableTarget();
