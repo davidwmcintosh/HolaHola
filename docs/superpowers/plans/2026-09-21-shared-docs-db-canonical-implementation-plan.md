@@ -370,6 +370,18 @@ Close the missing-AGENTS.md gap and make Claude Code's inclusion of
   a real Claude Code session on its next run; note this limit rather than
   claiming a verification this plan can't perform.
 
+### Status: complete
+
+Implemented exactly as designed, no deviations. `CLAUDE.md`'s body is now
+only `@AGENTS.md` under its existing heading; `AGENTS.md` holds the two
+pointers as inline `@docs/shared-agent-instructions.md` /  `@replit.md`
+imports. `replit.md` was left untouched, per this phase's explicit scope
+boundary. No code changed; `npm run typecheck` clean. Import resolution
+itself still needs a real Claude Code session to confirm, as noted above —
+not something this plan can verify from here.
+
+Landed in commit `6dcbab9`.
+
 ## Phase 8 — Testing, CI wiring, final verification
 
 ### Files
