@@ -18,6 +18,9 @@
  */
 import { spawn } from 'node:child_process';
 import { existsSync, readFileSync } from 'node:fs';
+import { mkdtemp } from 'node:fs/promises';
+import { tmpdir } from 'node:os';
+import { join } from 'node:path';
 
 // Replit/Codespace inject secrets directly into the process environment, no
 // .env file involved. A local checkout (this repo's own convention, see
@@ -346,6 +349,14 @@ async function cmdGate(flags: Record<string, string | boolean>) {
     RELEASE_CUTOVER_ATTESTATION_TEST_DATABASE_DISPOSABLE: '1',
     RELEASE_CUTOVER_ATTESTATION_FORBIDDEN_SHARED_URL: process.env.NEON_SHARED_DATABASE_URL,
     RELEASE_CUTOVER_ATTESTATION_REQUIRE_DATABASE_TESTS: '1',
+    AGENT_MEMORY_TEST_DATABASE_URL: directUrl,
+    AGENT_MEMORY_TEST_DATABASE_DISPOSABLE: '1',
+    AGENT_MEMORY_FORBIDDEN_SHARED_URL: process.env.NEON_SHARED_DATABASE_URL,
+    AGENT_MEMORY_REQUIRE_DATABASE_TESTS: '1',
+    SHARED_SPEC_TEST_DATABASE_URL: directUrl,
+    SHARED_SPEC_TEST_DATABASE_DISPOSABLE: '1',
+    SHARED_SPEC_FORBIDDEN_SHARED_URL: process.env.NEON_SHARED_DATABASE_URL,
+    SHARED_SPEC_REQUIRE_DATABASE_TESTS: '1',
   };
   // Never inherit CI=true here — run-ci-test-steps.mjs requires
   // CI_DATABASE_URL to be a localhost Postgres service when CI is true, and
@@ -574,6 +585,28 @@ async function cmdGate(flags: Record<string, string | boolean>) {
         failureReason = `npm run ${group} exited ${result.code}`;
         break;
       }
+    }
+  }
+
+  if (!failureReason) {
+    console.log('[gate] Running agent-memory concurrent-write, stale-version, and round-trip PostgreSQL tests against the branch...');
+    const agentMemoryPostgresTests = await runCommand(
+      'npx tsx --test server/scripts/test-agent-memory-concurrent-write-postgres.test.ts server/scripts/test-agent-memory-stale-version-postgres.test.ts server/scripts/test-agent-memory-round-trip-postgres.test.ts',
+      { ...branchEnv, AGENT_MEMORY_TEST_FILES_DIR: await mkdtemp(join(tmpdir(), 'agent-memory-gate-')) },
+    );
+    if (agentMemoryPostgresTests.code !== 0) {
+      failureReason = `agent-memory PostgreSQL tests exited ${agentMemoryPostgresTests.code}`;
+    }
+  }
+
+  if (!failureReason) {
+    console.log('[gate] Running shared-spec live-instruction-document PostgreSQL integration tests against the branch...');
+    const sharedSpecLiveInstructionDocumentTests = await runCommand(
+      'npx tsx --test server/scripts/test-shared-spec-live-instruction-document-postgres.test.ts',
+      branchEnv,
+    );
+    if (sharedSpecLiveInstructionDocumentTests.code !== 0) {
+      failureReason = `shared-spec live-instruction-document PostgreSQL tests exited ${sharedSpecLiveInstructionDocumentTests.code}`;
     }
   }
 

@@ -344,8 +344,12 @@ export interface AddBlockInput {
   afterBlockId?: string;
 }
 
+// db/tx param is typed loosely (not ReturnType<typeof getSharedDb>) because
+// callers pass either the pool-level db or a transaction handle from
+// db.transaction(), and Drizzle gives those two call sites structurally
+// incompatible types for the same query-builder surface this function uses.
 async function computeOrderKey(
-  db: ReturnType<typeof getSharedDb>,
+  db: { select: ReturnType<typeof getSharedDb>["select"] },
   topicSlug: string,
   afterBlockId: string | undefined,
 ): Promise<string> {
@@ -379,24 +383,50 @@ async function computeOrderKey(
 export async function addBlock(input: AddBlockInput): Promise<{ block: AgentMemoryTopicBlock; evidence: RecentActivityEvidence }> {
   const db = getSharedDb();
 
-  // First-block-creates-topic: an unknown topic_slug is created implicitly.
-  // ON CONFLICT DO NOTHING makes two concurrent first-block writers race
-  // safely — whichever loses the topic-row race just proceeds to insert its
-  // own block against the now-existing slug.
-  await db.insert(agentMemoryTopics).values({ slug: input.topicSlug }).onConflictDoNothing({ target: agentMemoryTopics.slug });
+  // The whole append decision -- "what does 'currently last/neighboring
+  // block' mean right now" plus the insert that acts on that answer -- must
+  // be one atomic unit, or two true concurrent appends to the same brand-new
+  // topic both read "no rows yet", both compute keyBetween(undefined,
+  // undefined) (a pure function -- same inputs, same output), and the second
+  // insert dies on uq_agent_memory_topic_blocks_order instead of landing
+  // after the first the way invariant 2 (no hat ever loses a concurrent
+  // contribution) requires. A transaction alone doesn't fix this under
+  // READ COMMITTED (each statement sees a fresh snapshot, not the
+  // transaction-start snapshot) -- the FOR UPDATE lock on the topic's own
+  // row is what actually serializes concurrent appends to the same topic,
+  // while appends to different topics still proceed fully in parallel.
+  // Covered by test-agent-memory-concurrent-write-postgres.test.ts.
+  const block = await db.transaction(async (tx) => {
+    // First-block-creates-topic: an unknown topic_slug is created
+    // implicitly. ON CONFLICT DO NOTHING makes two concurrent first-block
+    // writers race safely at the DB level -- whichever loses this insert
+    // race blocks here until the winner commits or rolls back, matching the
+    // FOR UPDATE lock immediately below.
+    await tx.insert(agentMemoryTopics).values({ slug: input.topicSlug }).onConflictDoNothing({ target: agentMemoryTopics.slug });
 
-  const orderKey = await computeOrderKey(db, input.topicSlug, input.afterBlockId);
+    const [topic] = await tx.select({ slug: agentMemoryTopics.slug }).from(agentMemoryTopics)
+      .where(eq(agentMemoryTopics.slug, input.topicSlug)).for("update");
+    if (!topic) {
+      // Unreachable in practice (the upsert above guarantees the row), but
+      // narrows the type and fails loudly instead of computing an order key
+      // against a topic that turned out not to exist.
+      throw new AgentMemoryError("NOT_FOUND", `Topic "${input.topicSlug}" does not exist`, { topicSlug: input.topicSlug });
+    }
 
-  const [block] = await db
-    .insert(agentMemoryTopicBlocks)
-    .values({
-      topicSlug: input.topicSlug,
-      orderKey,
-      heading: input.heading,
-      bodyMarkdown: input.bodyMarkdown,
-      authorActor: input.actor,
-    })
-    .returning();
+    const orderKey = await computeOrderKey(tx, input.topicSlug, input.afterBlockId);
+
+    const [inserted] = await tx
+      .insert(agentMemoryTopicBlocks)
+      .values({
+        topicSlug: input.topicSlug,
+        orderKey,
+        heading: input.heading,
+        bodyMarkdown: input.bodyMarkdown,
+        authorActor: input.actor,
+      })
+      .returning();
+    return inserted;
+  });
 
   await writeTopicFile(input.topicSlug);
   const evidence = await recentActivity(input.topicSlug, input.actor);
