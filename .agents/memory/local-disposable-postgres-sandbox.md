@@ -28,3 +28,8 @@ accept connections") to `createdb`, run `drizzle-kit migrate` (point
 `NEON_SHARED_DATABASE_URL` exactly equal to `CI_DATABASE_URL`). Tear down with
 `ShellKill` on the background task (or a clean `pg_ctl ... stop` first) and remove
 the scratch data directory.
+
+## Omitting CI=true fails silently, not loudly
+
+**Silent-fallback pitfall:** setting `CI_DATABASE_URL` and `NEON_SHARED_DATABASE_URL` to a local disposable instance without also setting `CI=true` does not fail loudly. `server/db.ts`'s `getDb()` only routes through the plain `pg` driver when `server/ci-database.ts`'s `getVerifiedCiDatabaseUrl()` returns a value, which requires `CI==='true'` **and** `NEON_SHARED_DATABASE_URL===CI_DATABASE_URL` together — both conditions, not just a matching URL. Omit `CI=true` and it silently falls through to the `@neondatabase/serverless` driver, which speaks a different wire protocol than plain Postgres and produces an unrelated-looking, mismatched error shape (e.g. a driver-specific error a caller's FK-violation-detection code doesn't recognize) instead of a clean connection failure — looking exactly like a cascade of application-level test failures. Always set all three (`CI=true`, `CI_DATABASE_URL`, matching `NEON_SHARED_DATABASE_URL`) together when manually reproducing CI's local-Postgres path; a failure that looks like a real regression is worth re-checking against this gate before trusting it.
+
