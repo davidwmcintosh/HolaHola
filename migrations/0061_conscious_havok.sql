@@ -1,0 +1,1 @@
+ALTER TABLE "shared_spec_documents" ADD COLUMN "live_instruction_document" boolean DEFAULT false NOT NULL;

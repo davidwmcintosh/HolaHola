@@ -22,6 +22,7 @@ import type {
 } from "../services/shared-spec-publication";
 import { createCoordinationThread } from "../services/coordination-ledger-service";
 import { HolaHolaSharedSpecNotificationSink } from "../services/shared-spec-notifications";
+import { GitWorkingTreeLiveSyncProvider } from "../services/shared-spec-live-sync";
 
 type HostEnvironment = Record<string, string | undefined>;
 
@@ -136,5 +137,12 @@ export function registerHolaHolaSharedSpecApi(
     authenticator: new HolaHolaSharedSpecAuthenticator(environment),
     publicationProvider: publicationProvider(environment),
     notifications: notificationSink(),
+    // Local working-tree commit, not a GitHub API call -- available even when
+    // SHARED_SPEC_GITHUB_TOKEN is unset. SHARED_SPEC_GITHUB_REPOSITORY is
+    // reused only as an optional defence-in-depth cross-check (see
+    // GitWorkingTreeLiveSyncOptions.expectedRepository), not as a gate.
+    liveSync: new GitWorkingTreeLiveSyncProvider({
+      expectedRepository: environment.SHARED_SPEC_GITHUB_REPOSITORY?.trim() || undefined,
+    }),
   });
 }

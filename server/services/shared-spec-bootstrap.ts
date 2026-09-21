@@ -6,6 +6,7 @@ import { PostgresSharedSpecRepository } from "./shared-spec-postgres-repository"
 import { PostgresSharedSpecPublicationStore } from "./shared-spec-postgres-publication-store";
 import { SharedSpecPublicationService, type SpecPublicationProvider } from "./shared-spec-publication";
 import { NoopSharedSpecNotificationSink, type SharedSpecNotificationSink } from "./shared-spec-notifications";
+import type { LiveInstructionDocumentSyncProvider } from "./shared-spec-live-sync";
 
 /** Host-neutral composition root; callers own database, identity, and Git provider wiring. */
 export function registerPostgresSharedSpecApi(input: {
@@ -15,6 +16,7 @@ export function registerPostgresSharedSpecApi(input: {
   publicationProvider: SpecPublicationProvider;
   prefix?: string;
   notifications?: SharedSpecNotificationSink;
+  liveSync?: LiveInstructionDocumentSyncProvider;
 }): { core: SharedSpecCore; publications: SharedSpecPublicationService } {
   const core = new SharedSpecCore(new PostgresSharedSpecRepository(input.db));
   const publications = new SharedSpecPublicationService(
@@ -22,6 +24,6 @@ export function registerPostgresSharedSpecApi(input: {
     new PostgresSharedSpecPublicationStore(input.db),
     input.publicationProvider,
   );
-  registerSharedSpecRoutes(input.app, { core, authenticator: input.authenticator, publications, notifications: input.notifications ?? new NoopSharedSpecNotificationSink() }, input.prefix);
+  registerSharedSpecRoutes(input.app, { core, authenticator: input.authenticator, publications, notifications: input.notifications ?? new NoopSharedSpecNotificationSink(), liveSync: input.liveSync }, input.prefix);
   return { core, publications };
 }

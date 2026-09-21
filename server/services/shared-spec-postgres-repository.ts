@@ -27,6 +27,7 @@ type DrizzleDatabase = { transaction<T>(work: (tx: DrizzleTransaction) => Promis
 const documentFromRow = (row: any): SharedSpecDocument => ({
   id: row.id, title: row.title, summary: row.summary ?? undefined, kind: row.kind,
   repository: row.canonicalRepository, gitPath: row.canonicalPath,
+  liveInstructionDocument: row.liveInstructionDocument ?? false,
   currentRevisionId: row.currentRevisionId!, state: row.state,
   creatorActorId: row.creatorActor, createdAt: row.createdAt, updatedAt: row.updatedAt,
 });
@@ -84,6 +85,7 @@ export class PostgresSharedSpecRepository implements SharedSpecRepository {
         await db.insert(sharedSpecDocuments).values({
           id: document.id, title: document.title, summary: document.summary, kind: document.kind,
           canonicalRepository: document.repository, canonicalPath: document.gitPath,
+          liveInstructionDocument: document.liveInstructionDocument,
           currentRevisionId: document.currentRevisionId, state: document.state,
           creatorActor: document.creatorActorId, createdAt: document.createdAt, updatedAt: document.updatedAt,
         });

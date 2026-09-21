@@ -75,7 +75,29 @@ test("mutations preserve auth and idempotency headers", async () => {
     repository: "owner/repo",
     gitPath: "docs/superpowers/specs/portable.md",
     markdown: "# Portable",
+    liveInstructionDocument: false,
   });
+});
+
+test("create sets liveInstructionDocument when --live-instruction-document is passed", async () => {
+  let request: { url: string; init?: RequestInit } | undefined;
+  await runSharedSpecCli(
+    [
+      "create", "--url", "https://example.test/api/shared-spec", "--token", "actor-token",
+      "--idempotency-key", "create-2", "--title", "Live Doc", "--kind", "architecture",
+      "--repository", "owner/repo", "--path", "docs/superpowers/specs/live.md",
+      "--markdown", "# Live", "--live-instruction-document",
+    ],
+    {
+      fetchImpl: async (input, init) => {
+        request = { url: String(input), init };
+        return Response.json({ id: "doc-1" }, { status: 201 });
+      },
+      writeOutput: () => {},
+    },
+  );
+
+  assert.equal((JSON.parse(String(request?.init?.body)) as { liveInstructionDocument?: boolean }).liveInstructionDocument, true);
 });
 
 test("share defaults the repository and normalizes the note path", async () => {

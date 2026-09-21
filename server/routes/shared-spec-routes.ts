@@ -7,12 +7,15 @@ import {
 import type { SharedSpecActorAuthenticator } from "../services/shared-spec-auth";
 import type { SharedSpecPublicationService, SpecPublicationActionContext } from "../services/shared-spec-publication";
 import { NoopSharedSpecNotificationSink, type SharedSpecNotification, type SharedSpecNotificationSink } from "../services/shared-spec-notifications";
+import type { LiveInstructionDocumentSyncProvider } from "../services/shared-spec-live-sync";
 
 export interface SharedSpecRouterDependencies {
   readonly core: SharedSpecCore;
   readonly authenticator: SharedSpecActorAuthenticator;
   readonly publications?: SharedSpecPublicationService;
   readonly notifications?: SharedSpecNotificationSink;
+  /** Only consulted for documents created with liveInstructionDocument: true; see shared-spec-live-sync.ts. */
+  readonly liveSync?: LiveInstructionDocumentSyncProvider;
 }
 
 const idempotencyKey = (request: Request): string | undefined => {
@@ -45,11 +48,34 @@ const sendError = (response: Response, error: unknown) => {
 };
 
 /** Creates, but does not mount, the generic shared-spec HTTP API. */
-export function createSharedSpecRouter({ core, authenticator, publications, notifications = new NoopSharedSpecNotificationSink() }: SharedSpecRouterDependencies): Router {
+export function createSharedSpecRouter({ core, authenticator, publications, notifications = new NoopSharedSpecNotificationSink(), liveSync }: SharedSpecRouterDependencies): Router {
   const router = Router();
   const deliver = async (event: SharedSpecNotification) => {
     const delivery = await notifications.deliver(event);
     if (delivery.state === "failed") throw new Error(`Shared-spec transition was stored but notification delivery failed: ${delivery.error}`);
+  };
+  /**
+   * Approving a revision on a liveInstructionDocument writes and commits it
+   * directly (see shared-spec-live-sync.ts) instead of going through
+   * SpecPublicationProvider. The shared-spec approval itself has already
+   * succeeded by the time this runs and is never rolled back by a sync
+   * failure -- this only reports whether the working tree actually caught up.
+   */
+  const syncLiveInstructionDocument = async (documentId: string, revision: { id: string; markdown: string; contentHash: string }) => {
+    const { document } = await core.showDocument(documentId);
+    if (!document.liveInstructionDocument) return undefined;
+    if (!liveSync) {
+      console.error(`shared-spec live-sync: no provider configured for flagged document ${document.id} (${document.gitPath})`);
+      return { state: "stale" as const, reason: "Live-instruction-document sync is not configured on this host" };
+    }
+    const revisions = await core.listRevisions(document.id);
+    const revisionOrdinal = revisions.findIndex(item => item.id === revision.id) + 1 || revisions.length;
+    const result = await liveSync.sync({
+      documentId: document.id, title: document.title, repository: document.repository, gitPath: document.gitPath,
+      markdown: revision.markdown, contentHash: revision.contentHash, revisionOrdinal,
+    });
+    if (result.state === "stale") console.error(`shared-spec live-sync: ${document.gitPath} is stale -- ${result.reason}`);
+    return result;
   };
   router.get("/documents", async (request, response) => {
     try { if (!await actor(request, response, authenticator)) return; response.json(await core.listDocuments()); } catch (error) { sendError(response, error); }
@@ -60,6 +86,7 @@ export function createSharedSpecRouter({ core, authenticator, publications, noti
       const created = await core.createDocument(current, {
         title: request.body?.title, summary: request.body?.summary, kind: request.body?.kind as SharedSpecDocumentKind,
         repository: request.body?.repository, gitPath: request.body?.gitPath, markdown: request.body?.markdown,
+        liveInstructionDocument: request.body?.liveInstructionDocument === true,
         idempotencyKey: idempotencyKey(request) ?? "",
       });
       response.status(201).json(created);
@@ -166,7 +193,28 @@ export function createSharedSpecRouter({ core, authenticator, publications, noti
         reviewId: review.id, recipientActorId: review.requestedByActorId,
         summary: `Shared spec review ${review.state}: ${review.documentId}/${review.revisionId}`,
       });
-      response.json(review);
+      const liveSyncResult = decision === "approve" ? await syncLiveInstructionDocument(review.documentId, revision) : undefined;
+      response.json(liveSyncResult ? { ...review, liveSync: liveSyncResult } : review);
+    } catch (error) { sendError(response, error); }
+  });
+  // Re-applies the current approved revision of a liveInstructionDocument to
+  // this checkout. Idempotent -- safe to run whether or not a previous
+  // approve or resync attempt already reached "synced".
+  router.post("/documents/:documentId/resync", async (request, response) => {
+    try {
+      const current = await actor(request, response, authenticator); if (!current) return;
+      const { document } = await core.showDocument(request.params.documentId);
+      if (!document.liveInstructionDocument) throw new SharedSpecDomainError("VALIDATION", "Document is not a live-instruction document");
+      if (!liveSync) throw new SharedSpecDomainError("NOT_FOUND", "Live-instruction-document sync is not configured");
+      const approved = await core.exportApprovedBytes(document.id);
+      const revisions = await core.listRevisions(document.id);
+      const revisionOrdinal = revisions.findIndex(item => item.id === approved.revision.id) + 1 || revisions.length;
+      const result = await liveSync.sync({
+        documentId: document.id, title: document.title, repository: document.repository, gitPath: document.gitPath,
+        markdown: approved.bytes.toString("utf8"), contentHash: approved.revision.contentHash, revisionOrdinal,
+      });
+      if (result.state === "stale") console.error(`shared-spec live-sync resync: ${document.gitPath} is stale -- ${result.reason}`);
+      response.json({ document, revision: approved.revision, liveSync: result });
     } catch (error) { sendError(response, error); }
   });
   router.get("/documents/:documentId/export", async (request, response) => {

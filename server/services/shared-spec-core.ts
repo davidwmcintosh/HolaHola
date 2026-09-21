@@ -28,6 +28,14 @@ export interface SharedSpecDocument {
   readonly kind: SharedSpecDocumentKind;
   readonly repository: string;
   readonly gitPath: string;
+  /**
+   * Set only at creation (see CreateDocumentInput). When true, approving a
+   * revision writes canonicalPath directly and commits it in this checkout
+   * instead of opening a GitHub PR -- see shared-spec-live-sync.ts and its
+   * orchestration in shared-spec-routes.ts. There is no path to flip this on
+   * an existing document.
+   */
+  readonly liveInstructionDocument: boolean;
   readonly currentRevisionId: string;
   readonly state: SharedSpecDocumentState;
   readonly creatorActorId: string;
@@ -213,6 +221,8 @@ export interface CreateDocumentInput {
   repository: string;
   gitPath: string;
   markdown: string;
+  /** See SharedSpecDocument.liveInstructionDocument. Defaults to false; immutable after creation. */
+  liveInstructionDocument?: boolean;
   idempotencyKey: string;
 }
 
@@ -288,7 +298,8 @@ export class SharedSpecCore {
         contentHash: hashSharedSpecMarkdown(input.markdown), authorActorId: actor.actorId,
         idempotencyKey: input.idempotencyKey, requestDigest, createdAt: at };
       const document: SharedSpecDocument = { id: documentId, title: input.title, summary: input.summary,
-        kind: input.kind, repository: input.repository, gitPath: input.gitPath, currentRevisionId: revisionId,
+        kind: input.kind, repository: input.repository, gitPath: input.gitPath,
+        liveInstructionDocument: input.liveInstructionDocument ?? false, currentRevisionId: revisionId,
         state: "draft", creatorActorId: actor.actorId, createdAt: at, updatedAt: at };
       await tx.insertDocument(document); await tx.insertRevision(revision);
       await tx.insertIdempotency({ scope: "create-document", actorId: actor.actorId, key: input.idempotencyKey,
@@ -341,6 +352,9 @@ export class SharedSpecCore {
             idempotencyKey: input.idempotencyKey, requestDigest, createdAt: at };
           const document: SharedSpecDocument = { id: documentId, title: input.title?.trim() || deriveNoteTitle(input.gitPath),
             summary: input.summary, kind: "note", repository: input.repository, gitPath: input.gitPath,
+            // Fast-share notes never go through review/approval, so they can
+            // never be the target of an approve-time live-instruction sync.
+            liveInstructionDocument: false,
             currentRevisionId: revisionId, state: "draft", creatorActorId: actor.actorId, createdAt: at, updatedAt: at };
           await tx.insertDocument(document); await tx.insertRevision(revision);
           await tx.insertIdempotency({ scope: "share-document", actorId: actor.actorId, key: input.idempotencyKey,

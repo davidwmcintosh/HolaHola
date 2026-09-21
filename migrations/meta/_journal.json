@@ -421,6 +421,13 @@
       "when": 1790010259133,
       "tag": "0060_widen_agent_memory_hook",
       "breakpoints": true
+    },
+    {
+      "idx": 61,
+      "version": "7",
+      "when": 1790021256636,
+      "tag": "0061_conscious_havok",
+      "breakpoints": true
     }
   ]
 }

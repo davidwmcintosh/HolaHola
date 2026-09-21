@@ -61,6 +61,11 @@ export const sharedSpecDocuments = pgTable("shared_spec_documents", {
   title: varchar("title", { length: 300 }).notNull(),
   summary: text("summary"),
   kind: sharedSpecDocumentKindEnum("kind").notNull(),
+  // Set only at document creation (see CreateDocumentInput in
+  // shared-spec-core.ts). When true, approving a revision writes the
+  // markdown directly to canonicalPath and commits it instead of opening a
+  // GitHub PR. There is no path to flip this on an existing document.
+  liveInstructionDocument: boolean("live_instruction_document").notNull().default(false),
   canonicalRepository: varchar("canonical_repository", { length: 255 }).notNull(),
   canonicalPath: varchar("canonical_path", { length: 1024 }).notNull(),
   // The pointer is populated in the same transaction as the initial revision.
