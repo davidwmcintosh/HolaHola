@@ -36,6 +36,18 @@ false confidence (it "runs" but its persistence tests always self-skip):
   if migration-branch verification should exercise it too. This is a distinct
   verification axis from the CI-aggregation wiring above.
 
+**Neither shell script is reachable from GitHub Actions at all:** grepping
+`.github/workflows/*.yml` for `run-validation-suite` or
+`test-all-consolidated-ci` returns nothing — `ci.yml` only calls `npm run
+test:ci:unit` / `test:ci:guards` / `test:ci:episodes`, which are thin
+wrappers around `scripts/run-ci-test-steps.mjs --group=...`. So
+`run-validation-suite.sh` and `test-all-consolidated-ci.sh` are both
+Replit-only, on-demand workflows (manually triggered, or run as part of this
+project's own task-completion validation) — a test file registered only in
+one or both of them is *not* covered by GitHub's automatic push/PR CI.
+Confirming true "runs on every push with no manual trigger" coverage
+requires adding the file to `scripts/run-ci-test-steps.mjs` specifically.
+
 **Verifying a `run-ci-test-steps.mjs` splice edit without running anything:** the
 script computes and validates all `GROUPS` ranges (throwing "CI test groups must
 cover the canonical test command chain contiguously" on a mistake) *before*
