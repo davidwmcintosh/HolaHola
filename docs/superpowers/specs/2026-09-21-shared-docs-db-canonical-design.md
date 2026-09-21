@@ -54,7 +54,8 @@ In scope:
    "live instruction document" direct-sync behavior on approval.
 3. `CLAUDE.md` — shrinks to a single-line `@AGENTS.md` import.
 4. `AGENTS.md` (new file) — holds the pointer content `CLAUDE.md` holds
-   today (read `shared-agent-instructions.md` first, then `replit.md`).
+   today (read `shared-agent-instructions.md` first, then `replit.md`),
+   written as inline `@path` imports rather than plain markdown links.
 
 Out of scope (unchanged):
 
@@ -93,7 +94,16 @@ Out of scope (unchanged):
    the top of the regenerated `MEMORY.md`.
 7. `CLAUDE.md` contains only a single-line `@AGENTS.md` import — never a
    second copy of the pointer content that could drift from `AGENTS.md`.
-8. A "live instruction document" approval commits the working-tree file
+8. `AGENTS.md` references `shared-agent-instructions.md` and `replit.md` as
+   inline `@path` imports (Claude Code's nested-import support, confirmed up
+   to four hops), not plain markdown links, so
+   `CLAUDE.md → @AGENTS.md → @replit.md` / `@shared-agent-instructions.md`
+   guarantees automatic inclusion for Claude Code — closing a gap that
+   exists in the current CLAUDE.md, which links to `replit.md` rather than
+   importing it. Other AGENTS.md-reading tools read the same line as a
+   plain file reference and act on it the way any agentic coding tool
+   already reads a referenced file.
+9. A "live instruction document" approval commits the working-tree file
    directly, skipping the PR-publication step ordinary shared-spec documents
    use. It still relies on this project's existing commit/promotion pipeline
    to actually land the commit — it is not a new push mechanism.
@@ -213,6 +223,17 @@ Two things, not one:
 
 ### File inventory after this change
 
+`AGENTS.md`'s body states its two pointers as inline `@path` imports —
+`@docs/shared-agent-instructions.md` and `@replit.md` — following Anthropic's
+own documented inline-import style (e.g. "See `@README` for project
+overview"). Claude Code resolves both transitively through its existing
+`CLAUDE.md → @AGENTS.md` import (2 hops total, inside the documented 4-hop
+limit), so its inclusion of `shared-agent-instructions.md` and `replit.md`
+becomes automatic rather than dependent on the model choosing to follow a
+link. Every other AGENTS.md-reading tool reads the identical line as a plain
+file reference and acts on it as an ordinary next read, the same way it
+already would for any other referenced file.
+
 | File | Mechanism | Notes |
 |---|---|---|
 | `.agents/memory/MEMORY.md` | Generated from `agent_memory_entries` | Never hand-edited |
@@ -239,9 +260,12 @@ Two things, not one:
    marked `liveInstructionDocument: true`. Revision 1 is auto-approved as a
    status-quo capture (no behavior change), so the review ceremony first
    applies starting with the next real edit.
-5. Create `AGENTS.md` with the pointer content. Replace `CLAUDE.md`'s body
-   with the single line `@AGENTS.md` (kept under a short human-readable
-   heading, matching Anthropic's own documented example format).
+5. Create `AGENTS.md` with the pointer content, writing the
+   `shared-agent-instructions.md` and `replit.md` references as inline
+   `@path` imports rather than plain markdown links. Replace `CLAUDE.md`'s
+   body with the single line `@AGENTS.md` (kept under a short
+   human-readable heading, matching Anthropic's own documented example
+   format).
 
 ## Error handling
 
