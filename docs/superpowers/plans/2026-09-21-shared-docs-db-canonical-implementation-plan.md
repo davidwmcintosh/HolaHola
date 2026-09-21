@@ -497,9 +497,32 @@ invocation pitfall worth recording separately:
 
 Landed in commit `ae226b9`.
 
+### Follow-up: the one flagged gap is now closed
+
+The "known pre-existing gap" noted above — `shared-spec-live-sync.test.ts`
+not wired into `test:shared-spec:unit` — was a plain Phase 5 oversight (the
+file was added in commit `6510fa6` but never appended to the script's file
+list), not an intentional exclusion. Closed under the same close-out pass,
+per explicit user approval to fix loose wires found along the way:
+
+- Added `shared-spec-live-sync.test.ts` to the `test:shared-spec:unit`
+  script in `package.json`. That script already chains into real GitHub
+  Actions CI via `test:ci:unit` (`.github/workflows/ci.yml`), so no changes
+  to `run-ci-test-steps.mjs`, `run-validation-suite.sh`, or
+  `neon-branch.ts` were needed — this test is non-DB, unlike the Phase 8
+  Postgres tests above.
+- Verified standalone in a temp git repo (7/7 assertions) and as part of
+  the full `test:shared-spec:unit` run (54/54, up from 47/47).
+- Landed in commit `8f9e111`.
+- Final gate: the full `run-validation-suite.sh` (typecheck, the complete
+  CI test-step splice list, and the additional named checks covering
+  source-bridge, reconciliation, coordinator V2, GL, memory-decay startup,
+  application-startup recovery, and infra-mutation ownership) was run
+  end-to-end with zero failures.
+
 ## Migration complete
 
 All 8 phases are implemented, tested, and reviewed. `.agents/memory/` is
 DB-generated and CLI-managed; `shared-agent-instructions.md` and
 `coordination-clients.md` are live-synced shared-spec documents;
-`AGENTS.md` exists and `CLAUDE.md` points to it.
+`AGENTS.md` exists and `CLAUDE.md` points to it. No known gaps remain.
