@@ -279,6 +279,93 @@ export type SharedSpecPublication = typeof sharedSpecPublications.$inferSelect;
 export type SharedSpecPublicationAttempt = typeof sharedSpecPublicationAttempts.$inferSelect;
 export type SharedSpecIdempotencyRecord = typeof sharedSpecIdempotencyRecords.$inferSelect;
 
+// ===== Agent Memory (DB-canonical shared docs) =================================
+// .agents/memory/MEMORY.md and every .agents/memory/<slug>.md file are generated
+// projections of these three tables. No hat hand-edits those files directly --
+// server/scripts/agent-memory-cli.ts is the only sanctioned writer. See
+// docs/superpowers/specs/2026-09-21-shared-docs-db-canonical-design.md.
+
+export const agentMemoryTopics = pgTable("agent_memory_topics", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  // Matches the filename .agents/memory/<slug>.md. A real (not just indexed)
+  // unique constraint, not a standalone unique index -- agent_memory_entries
+  // and agent_memory_topic_blocks reference it by foreign key.
+  slug: varchar("slug", { length: 120 }).notNull(),
+  createdAt: timestamp("created_at").notNull().defaultNow(),
+}, (table) => [
+  unique("uq_agent_memory_topics_slug").on(table.slug),
+  check("agent_memory_topics_slug_nonempty", sql`length(trim(${table.slug})) > 0`),
+]);
+
+export const agentMemoryEntries = pgTable("agent_memory_entries", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  topicSlug: varchar("topic_slug", { length: 120 }).notNull()
+    .references(() => agentMemoryTopics.slug),
+  title: varchar("title", { length: 200 }).notNull(),
+  // 300, not the ~200-character index-line guideline plus a little slack:
+  // the real pre-migration MEMORY.md corpus already has hooks up to 243
+  // characters (agents didn't always follow the soft guideline), and this
+  // column must fit that history losslessly, not just new writes.
+  hook: varchar("hook", { length: 300 }).notNull(),
+  createdByActor: varchar("created_by_actor", { length: 80 }).notNull(),
+  createdAt: timestamp("created_at").notNull().defaultNow(),
+  // Optimistic-concurrency token for editEntry, same shape as shared-spec's
+  // compare-and-swap: caller supplies the version it read; zero rows updated
+  // means a stale write, never a silent overwrite.
+  version: integer("version").notNull().default(1),
+  deletedAt: timestamp("deleted_at"),
+  deletedByActor: varchar("deleted_by_actor", { length: 80 }),
+}, (table) => [
+  index("idx_agent_memory_entries_topic").on(table.topicSlug),
+  index("idx_agent_memory_entries_rendering").on(table.deletedAt, table.createdAt),
+  check("agent_memory_entries_title_nonempty", sql`length(trim(${table.title})) > 0`),
+  check("agent_memory_entries_hook_nonempty", sql`length(trim(${table.hook})) > 0`),
+  check("agent_memory_entries_version_positive", sql`${table.version} > 0`),
+  check("agent_memory_entries_delete_pairing", sql`(${table.deletedAt} IS NULL AND ${table.deletedByActor} IS NULL) OR (${table.deletedAt} IS NOT NULL AND ${table.deletedByActor} IS NOT NULL)`),
+]);
+
+export const agentMemoryTopicBlocks = pgTable("agent_memory_topic_blocks", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  topicSlug: varchar("topic_slug", { length: 120 }).notNull()
+    .references(() => agentMemoryTopics.slug),
+  // Sortable text key. A fresh append gets a key after the current max; an
+  // insert-between computes a lexicographic midpoint between two neighbors.
+  // No existing row's key is ever rewritten by another insert.
+  orderKey: varchar("order_key", { length: 200 }).notNull(),
+  heading: varchar("heading", { length: 200 }),
+  bodyMarkdown: text("body_markdown").notNull(),
+  authorActor: varchar("author_actor", { length: 80 }).notNull(),
+  version: integer("version").notNull().default(1),
+  createdAt: timestamp("created_at").notNull().defaultNow(),
+  updatedAt: timestamp("updated_at").notNull().defaultNow(),
+  deletedAt: timestamp("deleted_at"),
+  deletedByActor: varchar("deleted_by_actor", { length: 80 }),
+}, (table) => [
+  unique("uq_agent_memory_topic_blocks_order").on(table.topicSlug, table.orderKey),
+  index("idx_agent_memory_topic_blocks_rendering")
+    .on(table.topicSlug, table.deletedAt, table.orderKey),
+  check("agent_memory_topic_blocks_order_key_nonempty", sql`length(trim(${table.orderKey})) > 0`),
+  check("agent_memory_topic_blocks_body_nonempty", sql`length(${table.bodyMarkdown}) > 0`),
+  check("agent_memory_topic_blocks_version_positive", sql`${table.version} > 0`),
+  check("agent_memory_topic_blocks_delete_pairing", sql`(${table.deletedAt} IS NULL AND ${table.deletedByActor} IS NULL) OR (${table.deletedAt} IS NOT NULL AND ${table.deletedByActor} IS NOT NULL)`),
+]);
+
+export const insertAgentMemoryTopicSchema = createInsertSchema(agentMemoryTopics).omit({
+  id: true, createdAt: true,
+});
+export const insertAgentMemoryEntrySchema = createInsertSchema(agentMemoryEntries).omit({
+  id: true, createdAt: true, version: true, deletedAt: true, deletedByActor: true,
+});
+export const insertAgentMemoryTopicBlockSchema = createInsertSchema(agentMemoryTopicBlocks).omit({
+  id: true, createdAt: true, updatedAt: true, version: true, deletedAt: true, deletedByActor: true,
+});
+export type InsertAgentMemoryTopic = z.infer<typeof insertAgentMemoryTopicSchema>;
+export type InsertAgentMemoryEntry = z.infer<typeof insertAgentMemoryEntrySchema>;
+export type InsertAgentMemoryTopicBlock = z.infer<typeof insertAgentMemoryTopicBlockSchema>;
+export type AgentMemoryTopic = typeof agentMemoryTopics.$inferSelect;
+export type AgentMemoryEntry = typeof agentMemoryEntries.$inferSelect;
+export type AgentMemoryTopicBlock = typeof agentMemoryTopicBlocks.$inferSelect;
+
 // ===== Enums =====
 
 // Auth provider enum - distinguishes how user authenticates

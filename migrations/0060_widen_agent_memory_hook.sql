@@ -1,0 +1,1 @@
+ALTER TABLE "agent_memory_entries" ALTER COLUMN "hook" SET DATA TYPE varchar(300);

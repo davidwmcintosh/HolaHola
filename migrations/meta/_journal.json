@@ -407,6 +407,20 @@
       "when": 1789966012300,
       "tag": "0058_fearless_meteorite",
       "breakpoints": true
+    },
+    {
+      "idx": 59,
+      "version": "7",
+      "when": 1790007275693,
+      "tag": "0059_high_smiling_tiger",
+      "breakpoints": true
+    },
+    {
+      "idx": 60,
+      "version": "7",
+      "when": 1790010259133,
+      "tag": "0060_widen_agent_memory_hook",
+      "breakpoints": true
     }
   ]
 }
