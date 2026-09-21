@@ -34,7 +34,30 @@ false confidence (it "runs" but its persistence tests always self-skip):
   list). A new DB-backed test file following the disposable-database pattern is NOT
   automatically covered by this gate — it must be added to the allowlist separately
   if migration-branch verification should exercise it too. This is a distinct
-  verification axis from the CI-aggregation wiring above.
+  verification axis from the CI-aggregation wiring above. Concretely: the
+  "allowlist" is not a data list to append to, it's a hardcoded env-var block
+  inside `cmdGate()`'s body (`branchEnv.<PREFIX>_TEST_DATABASE_URL = directUrl`,
+  etc.) plus a hardcoded `runCommand('npx tsx --test <file>', branchEnv)` call
+  with its own failure check — adding coverage means editing that function.
+
+**The two DB-test patterns are mutually exclusive coverage axes, not layers:**
+`cmdGate()` does `delete branchEnv.CI` before running anything (including its own
+trailing `npm run test:ci:unit/guards/episodes` calls), specifically so
+`run-ci-test-steps.mjs`'s `assertSafeCiDatabaseConfiguration()` doesn't reject a
+real Neon URL for not being a localhost `CI_DATABASE_URL`. The practical effect:
+a test gated on `getVerifiedCiDatabaseUrl()` (checks `CI==='true'`) always
+self-skips inside `db:branch -- gate`, even if it's spliced into
+`run-ci-test-steps.mjs` and even though `gate` does call `npm run test:ci:unit`.
+Conversely, `.github/workflows/ci.yml` only ever sets `CI_DATABASE_URL` — never
+any `<PREFIX>_TEST_DATABASE_URL` — so a dedicated-env-var-pattern test merely
+spliced into `run-ci-test-steps.mjs` (without also being hardcoded into
+`cmdGate()`) silently skips under GitHub Actions too, since only `gate` ever sets
+`<PREFIX>_REQUIRE_DATABASE_TESTS=1`. A test file needs the dedicated-var check
+(hard-fail when its own `_REQUIRE_DATABASE_TESTS=1`, else return undefined) to
+get real Neon-branch-gate coverage, and separately needs to be reachable via
+`getVerifiedCiDatabaseUrl()` to get real GitHub-Actions coverage — one pattern
+alone gives you exactly one of the two, never both, and "it's in the splice list"
+is not evidence it runs for real under the gate.
 
 **Neither shell script is reachable from GitHub Actions at all:** grepping
 `.github/workflows/*.yml` for `run-validation-suite` or
