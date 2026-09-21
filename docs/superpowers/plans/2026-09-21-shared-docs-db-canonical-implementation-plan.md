@@ -282,6 +282,64 @@ shared-spec documents without a behavior change on day one.
 - Attempting a second revision without a distinct reviewer still fails,
   proving the ceremony wasn't accidentally weakened.
 
+### Status: complete
+
+Implemented as designed, with two real deviations from the plan's stated
+assumptions and one bug caught before it reached the shared database:
+
+- Deviation: the plan assumed "no new source beyond Phase 5's
+  `--live-instruction-document` flag," but `canonicalSpecPathPattern`
+  rejected both `docs/shared-agent-instructions.md` and
+  `docs/coordination-clients.md` outright — only
+  `docs/superpowers/specs/*.md` was ever a valid `createDocument` path for a
+  non-note document. Fixed with an exact-path allowlist
+  (`liveInstructionDocumentPaths` in `shared-spec-core.ts`), gated on
+  `liveInstructionDocument: true`, not a `docs/**` wildcard — an ordinary
+  architecture document still needs the specs/ namespace. Covered by three
+  new tests in `shared-spec-core.test.ts`.
+- Deviation: a live-instruction document's stored `repository` must match
+  `SHARED_SPEC_GITHUB_REPOSITORY` exactly, or `GitWorkingTreeLiveSyncProvider`
+  refuses to ever sync it (its `expectedRepository` cross-check, added in
+  Phase 5). Both documents were created with `davidwmcintosh/HolaHola` for
+  this reason, not the `HolaHola-Development/HolaHola` value used by two
+  newer non-live-instruction documents already in shared-spec.
+- Bug found and fixed before landing: the one-off seeding script's first run
+  reused one literal idempotency key across both documents'
+  `createDocument()` calls. Idempotency scope is `(operation, actorId, key)`
+  only — it does not include a request digest until *after* a collision is
+  detected — so the second, differently-shaped request on the same key
+  surfaced as "Idempotency key was reused with a different request" instead
+  of creating a second document. Fixed by deriving the key from `gitPath`.
+  The first document had already committed successfully by that point; the
+  script's own SKIP-if-`findByDestination`-finds-one guard made the second
+  run pick up cleanly instead of double-creating it. See
+  `.agents/memory/idempotency-key-scope-granularity.md`.
+- Revision 1's approval was written directly via a one-off script
+  (`server/scripts/seed-live-instruction-documents.ts`, kept permanently as
+  a historical record, safe to re-run) that calls the real
+  `SharedSpecCore.createDocument()` for document + revision 1, then opens
+  its own repository transaction to insert one `shared_spec_reviews` row
+  (`state: 'approved'`, all `decisionPolicy*` snapshot fields left `NULL` —
+  the valid branch of that table's check constraint — since no real
+  reviewer-policy evaluation occurred) and flip the document to `approved`.
+  `markRevisionReady`/`claimReview`/`decideReview` and the CLI were not
+  touched.
+- Verified: a script run against the live shared database confirmed both
+  documents' current revision is `approved`, has a matching approved review,
+  and `exportApprovedBytes()` returns bytes byte-for-byte identical to the
+  git-tracked file (preamble included for `shared-agent-instructions.md`).
+  The "second revision without a distinct reviewer still fails" property was
+  *not* re-tested live against these two freshly-seeded documents — doing so
+  would have left a permanent extra draft revision and an orphaned pending
+  review on production rows to prove something that is entirely
+  repository-agnostic business logic inside `SharedSpecCore` (identical
+  whether backed by Postgres or the in-memory test double). It is proven
+  instead by the untouched `markRevisionReady`/`claimReview`/`decideReview`
+  code plus the pre-existing passing test "authors cannot claim or approve
+  their own revision."
+
+Landed in commit `2c6e125`.
+
 ## Phase 7 — `AGENTS.md` and `CLAUDE.md`
 
 ### Goal
