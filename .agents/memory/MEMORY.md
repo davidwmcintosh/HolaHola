@@ -138,3 +138,4 @@
 - [Gate 3 coding runtime — proven live](gate3-coding-runtime-proof.md) — full luca-gemini→luca-claude-code evidence chain executed for real 2026-09-20; plus 3 script-writing gotchas (Gemini thinking config, node:test stdout, DB-pool hang).
 - [Isolation-scope diff baseline](isolation-scope-diff-baseline.md) — repo has legitimate background-worker doc churn; scope checks need a start-of-run baseline diff, not a clean-tree assumption.
 - [Disposable-gate own-var-first](disposable-gate-own-var-first.md) — a disposableTarget() gate must read its own dedicated *_TEST_DATABASE_URL before the ambient NEON_SHARED_DATABASE_URL, or direct runs throw instead of skipping.
+- [Coordination-runtime claim() guard redundancy](coordination-runtime-claim-guard-redundancy.md) — claim()'s two fresh_consumption_required checks overlap for same-packet reuse; only removing both together fails the regression test.
