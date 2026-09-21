@@ -282,3 +282,38 @@ test("createDocument itself validates the gitPath pattern against the document's
     (error: SharedSpecDomainError) => error.code === "VALIDATION",
   );
 });
+
+test("liveInstructionDocument may use its fixed path outside the specs/ namespace", async () => {
+  const core = new SharedSpecCore(new InMemorySharedSpecRepository());
+  const created = await core.createDocument(author, {
+    title: "Shared Agent Instructions", kind: "architecture", repository: "hola/hola",
+    gitPath: "docs/shared-agent-instructions.md", markdown: "# Shared Agent Instructions\n",
+    liveInstructionDocument: true, idempotencyKey: "live-instructions",
+  });
+  assert.equal(created.document.gitPath, "docs/shared-agent-instructions.md");
+  assert.equal(created.document.liveInstructionDocument, true);
+});
+
+test("the live-instruction-document path exemption is exact, not a docs/** wildcard", async () => {
+  const core = new SharedSpecCore(new InMemorySharedSpecRepository());
+  await assert.rejects(
+    () => core.createDocument(author, {
+      title: "x", kind: "architecture", repository: "hola/hola",
+      gitPath: "docs/some-other-file.md", markdown: "# x\n",
+      liveInstructionDocument: true, idempotencyKey: "wrong-path",
+    }),
+    (error: SharedSpecDomainError) => error.code === "VALIDATION",
+  );
+});
+
+test("the live-instruction-document path exemption requires the flag itself, not just the path", async () => {
+  const core = new SharedSpecCore(new InMemorySharedSpecRepository());
+  await assert.rejects(
+    () => core.createDocument(author, {
+      title: "x", kind: "architecture", repository: "hola/hola",
+      gitPath: "docs/coordination-clients.md", markdown: "# x\n",
+      idempotencyKey: "unflagged",
+    }),
+    (error: SharedSpecDomainError) => error.code === "VALIDATION",
+  );
+});

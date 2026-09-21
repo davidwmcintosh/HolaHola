@@ -145,3 +145,5 @@
 - [Transcript capture fallback](transcript-capture-fallback.md) — Replit stopped writing JSONL after Jul 27 2026; use .chat_capture trigger file + capture-conversation.ts as replacement path.
 - [Node test runner nested-subtest reentrancy](node-test-runner-nested-context-reentrancy.md) — calling the outer context.test() from inside one of its own pending subtests looks like a DB hang but isn't; use that callback's own context param.
 - [Git pathspec-scoped commit needs add first](git-pathspec-commit-needs-add.md) — git commit -- <path> fails on a never-tracked new path; git add -- <path> must run first even for a single-path scoped commit.
+- [ss command unavailable in sandbox](ss-command-unavailable-sandbox.md) — ss is command-not-found here; a suppressed-stderr port check can look like a crashed server. Use lsof -i :PORT instead.
+- [Idempotency key scope granularity](idempotency-key-scope-granularity.md) — dedupe scope is (operation, actor, key) only; a loop reusing one literal key across distinct requests collides on the second call

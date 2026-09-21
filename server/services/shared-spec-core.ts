@@ -184,7 +184,24 @@ const canonicalSpecPathPattern = /^docs\/superpowers\/specs\/[A-Za-z0-9][A-Za-z0
 // destination. Same single-segment shape as canonicalSpecPathPattern: no `/`
 // in the character class, so `notes/../x.md` cannot match.
 const canonicalNotePathPattern = /^notes\/[A-Za-z0-9][A-Za-z0-9._-]*\.md$/;
-const pathPatternForKind = (kind: SharedSpecDocumentKind) => kind === "note" ? canonicalNotePathPattern : canonicalSpecPathPattern;
+/**
+ * Exact-path exemption, not a docs/** wildcard: these two files must keep
+ * living at their existing repo paths so every hat's normal read
+ * (docs/shared-agent-instructions.md, docs/coordination-clients.md) is the
+ * live-synced file itself -- see
+ * docs/superpowers/specs/2026-09-21-shared-docs-db-canonical-design.md. Only
+ * usable by a document actually flagged liveInstructionDocument; an ordinary
+ * architecture document still needs the specs/ namespace.
+ */
+const liveInstructionDocumentPaths = new Set<string>([
+  "docs/shared-agent-instructions.md",
+  "docs/coordination-clients.md",
+]);
+const isValidGitPath = (kind: SharedSpecDocumentKind, gitPath: string, liveInstructionDocument: boolean): boolean => {
+  if (kind === "note") return canonicalNotePathPattern.test(gitPath);
+  if (liveInstructionDocument && liveInstructionDocumentPaths.has(gitPath)) return true;
+  return canonicalSpecPathPattern.test(gitPath);
+};
 const deriveNoteTitle = (gitPath: string) => gitPath.replace(/^notes\//, "").replace(/\.md$/, "");
 
 /**
@@ -279,10 +296,10 @@ export class SharedSpecCore {
     if (!canonicalRepositoryPattern.test(input.repository)) {
       throw new SharedSpecDomainError("VALIDATION", "repository must be a canonical owner/name value");
     }
-    if (!pathPatternForKind(input.kind).test(input.gitPath)) {
+    if (!isValidGitPath(input.kind, input.gitPath, input.liveInstructionDocument ?? false)) {
       throw new SharedSpecDomainError("VALIDATION", input.kind === "note"
         ? "gitPath must be notes/<safe>.md"
-        : "gitPath must be docs/superpowers/specs/<safe>.md");
+        : "gitPath must be docs/superpowers/specs/<safe>.md, or one of the fixed live-instruction-document paths when liveInstructionDocument is set");
     }
     const requestDigest = digestRequest(input);
     return this.repository.transaction(async tx => {

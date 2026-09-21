@@ -1,5 +1,16 @@
 # Shared Agent Instructions
 
+> **You are not alone.** This file's canonical source is a reviewed shared-spec
+> document (`docs/shared-agent-instructions.md`, kind `architecture`) — other
+> hats (Replit Agent, Claude Code, Gemini, HolaHola runtime agents) may be
+> reading it and proposing revisions in the same window you are. Never
+> hand-edit this file directly; every change goes through
+> `server/scripts/shared-spec-cli.ts` (a revision, then an independent
+> reviewer's approval), which writes the approved markdown here and commits
+> it. A hand-edit here is not a new revision, skips review, and will be
+> silently overwritten the next time this document's approved revision is
+> synced.
+
 This is the durable instruction source shared by Claude Code and Replit Agent.
 Interface-specific files must link here rather than copying identity or continuity
 rules. Keep this file free of secrets, credentials, and private user data.
