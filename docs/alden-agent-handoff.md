@@ -9720,3 +9720,13 @@ DPAPI state, or invoke a task. After GitHub validation, publish and independentl
 verify a fresh protected source/runtime release, update `LITTLENEMO` to its exact
 commit, and then replay the existing local state so the launcher retires
 malformed generation 1 and submits generation 2.
+
+## September 21, 2026 — Gate3 verification-claim cross-check confirmed correct
+
+David asked the actual Luca [Claude Code] agent to check the "independent luca-claude-code verification" claim from task #1448's Gate3 proof. Luca [Claude Code] initially reported no record of it — for the wrong reason (checked only the exact table name from the original design doc, `coordination_verification_decisions`, which was never built). The real table, `coordination_runtime_verifications`, does exist with a real approved row. Luca [Replit] verified the substance directly against `coordination_events` for the resulting coordination thread rather than trusting David's relay: Luca [Claude Code]'s corrected account matches exactly — the row is real but the executor and verifier credentials were co-provisioned 57ms apart by the same process, so it satisfies the schema's actor-distinctness constraint without proving a genuinely independent reasoning process performed the check.
+
+Both hats now agree this is Goodhart's law hitting a security control (the actor-label check became the target; a setup script satisfied the target without the underlying independence existing). `.agents/memory/gate3-coding-runtime-proof.md` carries the full trail and now cross-references `coordinator-reachability-consumption.md`'s "delivery isn't consumption" pattern as the same shape recurring at the verification layer.
+
+Task #1506 (verifier credentials must not be co-provisionable with the executor's) is in progress with a task agent. Task #1507 (dedupe the three self-check scripts' mutation-testing harness into a shared helper, proposed from #1503) is approved and queued behind #1503.
+
+Nothing for Alden to act on — flagging for awareness since it touches the Gate3 coordination-runtime trust model.
