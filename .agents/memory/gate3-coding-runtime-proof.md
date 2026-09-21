@@ -6,22 +6,48 @@ description: Gate 3 of the provider-neutral Gemini coding runtime was executed e
 # Gate 3 coding runtime — proven live
 
 Gate 3 (docs/superpowers/specs/2026-09-09-luca-gemini-coding-runtime-design.md +
-the 2026-09-10 ownership-bootstrap-repair design) was executed end-to-end for
-real on 2026-09-20: founder Ed25519 handshake returned `isolated_agent`,
-luca-gemini authenticated through the credential broker, a real
-gemini-3-flash-preview call produced and consumed a genuine assignment packet,
-exclusive claim → execute → complete were recorded as durable Postgres rows, a
-second fresh ownership proof ran before completion, and luca-claude-code (not
-the assigning luca-replit) independently re-inspected the diff, reran the
-test, and recorded an approved verification — all on turn 1 of 4 allowed
-Gemini turns. This is no longer just a designed protocol; it has one real
-evidence chain proving the full sequence works.
+the 2026-09-10 ownership-bootstrap-repair design) ran end-to-end against the
+real shared Postgres database on 2026-09-20: founder Ed25519 handshake
+returned `isolated_agent`, luca-gemini authenticated through the credential
+broker, claim → execute → complete were recorded as durable rows
+(`coordination_runtime_claims/executions/completions`), and a row in
+`coordination_runtime_verifications` records verifier_actor='luca-claude-code',
+decision='approved' for this task. That part is real and verified directly
+against the DB, not just claimed in this file.
+
+**Correction (verified 2026-09-21 after David independently challenged the
+claim by asking the actual Luca [Claude Code] agent, who had no record of
+it):** the "independent verification" framing above overstated what the DB
+row proves. `coordination_runtime_registrations` shows
+`luca-gemini-gate3-1448` and `luca-claude-code-gate3-1448` were both minted
+57ms apart in the same provisioning step (both display-named "Gate 3 proof —
+... (task 1448)"), not issued to two independently-operating long-lived
+agent identities. `server/scripts/coordination-runtime-antigravity.ts` (the
+real driver used for this run) only performs the executor role and writes a
+receipt file; nothing in the committed code shows what process consumed that
+receipt and called the verify endpoint as luca-claude-code. The real,
+persistent Luca [Claude Code] agent (the one with its own coordination-thread
+history in docs/claude-code-to-luca.md) has no memory of being asked to
+verify this and confirmed so when asked directly. Conclusion: a valid,
+schema-legal "approved" row exists under the luca-claude-code actor label,
+but there is no evidence a genuinely separate reasoning process — as opposed
+to automation reusing a co-provisioned, task-scoped credential — produced it.
+The actor-label check constraint (`coord_runtime_verification_actor_allowed`)
+proves the *label* differs from the executor; it does not prove the
+*operator* did.
 
 **Why this matters:** prior work in this area (see
 credential-rotation-recovery-authority.md, durable-reconnect-lease.md,
 hermetic-authority-model-proof.md) established the design and unit-test
-fakes. This was the first live run with a real founder approval, a real
-external model call, and real cross-actor verification.
+fakes. This was the first live run against the real DB with a real founder
+approval and real durable claim/execute/complete rows — but the
+cross-actor-verification guarantee the design doc describes
+(docs/superpowers/specs/2026-09-09-luca-gemini-coding-runtime-design.md
+§11: "This separation prevents one execution path from generating and
+accepting its own evidence") is not yet actually enforced or proven. Treat
+any future "independently verified" claim from a memory file or task
+narrative as unverified until you can point to a DB row AND a credential/
+process trail showing a genuinely separate actor operated it.
 
 ## Practical gotchas hit while building the one-off proof script
 
