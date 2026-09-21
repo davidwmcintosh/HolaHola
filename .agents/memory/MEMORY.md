@@ -116,7 +116,7 @@
 - [shared-spec files resist plain edits](shared-spec-filesystem-immutability.md) — docs/superpowers/specs/*.md already published via shared-spec get silently reverted to the approved revision; use the CLI lifecycle instead.
 - [Source-control promotion path](source-control-promotion-path.md) — direct git push is disabled; use the in-process scheduler's wake file; any unrelated dirty tracked file silently blocks promotion.
 - [Windows console child-process lifetime](windows-console-child-lifetime.md) — closing/reusing the launcher console sends CTRL_CLOSE_EVENT to inherited children; fix is CreateNoWindow=true, not output redirection.
-- [Git reconciliation procedure](reconciliation-git-procedure.md) — detecting true divergence, the GitHub App token auth path (not SSH), and the exact preflight→candidate→sync landing sequence.
+- [Git reconciliation procedure](reconciliation-git-procedure.md) — divergence detection, GitHub App auth, preflight→candidate→sync, plus manual hand-merge steps for ordinary/unclassified conflicts candidate() refuses.
 - [Reconciliation hermetic env import coupling](reconciliation-hermetic-env-import-coupling.md) — any eager value-import of a DB-touching module breaks the self-check under its deliberately stripped validation env; use type-only + lazy import.
 - [Triaging markTaskComplete validation failures](validation-failure-triage.md) — check the live server/workflow first, and prove pre-existing-vs-caused-by-me with a git worktree at the parent commit before treating a failure as a regression.
 - [Coordination comment vs completion](coordination-comment-vs-completion.md) — a comment reply never flips thread state; only accept+complete with evidence closes the "confirmation of closure" gap.
