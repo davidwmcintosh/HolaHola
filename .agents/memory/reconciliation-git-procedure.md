@@ -46,3 +46,44 @@ Once `candidate` reaches `state: candidate_ready` (branch `refs/heads/reconcile/
 5. Fast-forward the primary `main` onto the new commit (`git merge --ff-only <newSha>`), then run the normal `sync` CLI action and confirm with `git ls-remote` — same landing procedure as §3, since a hand-built 2-parent merge is indistinguishable from `candidate()`'s own output to `sync`'s ancestor check.
 
 **Before resolving an append-only/index-style file (e.g. `.agents/memory/MEMORY.md`) by just picking one side, prove the other side's unique lines aren't unique data.** A later, more-consolidated version isn't automatically a superset — check every "other side only" entry: (a) does its target file still exist locally at all (if not, was it *deleted* by a local commit, or never present)? (b) `git show <mergeBase>:<path>` — if the file already existed unchanged at the merge-base and is now absent locally, a local commit intentionally deleted it (safe to treat as superseded, e.g. folded into a consolidated entry) rather than lost. Map every "missing" reference to its replacement entry by content, not just by vibes, before dropping it. For plain scripts/docs where one side only adds lines, `diff` showing purely one-directional `<`/`>` hunks (not interleaved changes) is a fast, sufficient proof that one side is a strict superset.
+
+## Same feature landed via two commit paths looks like real divergence
+
+A task-agent's platform merge and a direct in-session commit can both deliver
+the *same* feature independently — one hat implements it, commits directly,
+and the scheduler pushes it to GitHub; separately, a task agent (forked from
+an older base that never saw that push) implements the same work and its
+platform merge lands a new commit on local `main`. The result is genuine
+two-sided history divergence (`state: "diverged"`, neither side an ancestor
+of the other) even though the actual code is byte-identical on both sides.
+`reconcile preflight` distinguishes this cleanly: intersecting paths report
+matching `local.sha`/`remote.sha` for every file where both sides really did
+converge on identical content — only files with a real difference (or an
+explicit protected-path policy) block `candidate()`.
+
+**A stale, expired `candidateSha` sitting in `.local/source-bridge-status.json`
+for days with a climbing `consecutiveFailures` counter is a sign no one has
+run the reconciliation CLI, not evidence the divergence is unresolvable** —
+`preflight`/`candidate` work fine against a divergence that's been sitting
+for days; there's no time-based decay of the underlying git objects.
+
+## Drizzle `migrations/meta/_journal.json` conflicts from parallel migration numbers
+
+When both sides of a divergence add new Drizzle migrations, `_journal.json`
+conflicts even if the migrations themselves don't overlap, because both
+sides appended array entries after the same shared tail. `candidate()`
+refuses this file unconditionally regardless of mergeability ("No
+protected-path policy permits resolution of migrations/meta/_journal.json")
+— it's on an explicit no-auto-resolve list, not evaluated for textual
+conflict first.
+
+Resolution is mechanical once you check the actual entries: confirm the
+lowest-idx entry both sides added is byte-identical (same `tag`, same
+`when` timestamp) by diffing each side's full file — if so, one side (the
+one with more trailing entries) is a strict superset and you keep it as-is
+(`git checkout --ours` or `--theirs` depending on which side has more
+entries) rather than hand-splicing the JSON. Verify the corresponding
+`migrations/<idx>_<tag>.sql` file is also byte-identical between sides
+before trusting the journal-level identity — the journal entry alone
+doesn't prove the migration body matches.
+
