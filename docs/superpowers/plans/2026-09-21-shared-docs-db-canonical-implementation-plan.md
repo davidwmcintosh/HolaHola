@@ -229,6 +229,26 @@ adding a second push mechanism or risking a repo-wide dirty-tree block.
 - `resync` recovers a deliberately-desynced working-tree file to match the
   current approved revision.
 
+### Status: complete
+
+Implemented as designed, with one file-placement deviation and two bugs
+caught by the phase's own tests before landing:
+
+- Deviation: the sync call in step 2 is made from `shared-spec-routes.ts`
+  (the `approve` route handler, plus the new `resync` route), not from
+  `shared-spec-core.ts`. Core stays free of any Git/filesystem adapter,
+  matching how `SpecPublicationProvider` is already kept out of core.
+- Bug found and fixed: `git commit -m ... -- <path>` alone fails with
+  "pathspec did not match any file(s) known to git" the first time a given
+  path is ever synced. Step 2's `git add <path>` is required, not optional —
+  see `.agents/memory/git-pathspec-commit-needs-add.md`.
+- Bug found and fixed: `SharedSpecCore.shareDocument()`'s document literal
+  didn't set `liveInstructionDocument`, caught by `npm run typecheck` once
+  the field became required. Fast-share notes are hardcoded to
+  `liveInstructionDocument: false` — they never go through review/approval.
+
+Landed in commit `6510fa6`.
+
 ## Phase 6 — Onboard the two instruction documents
 
 ### Goal
