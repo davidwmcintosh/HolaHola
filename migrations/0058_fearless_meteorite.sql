@@ -1,0 +1,1 @@
+ALTER TYPE "public"."shared_spec_document_kind" ADD VALUE 'note';

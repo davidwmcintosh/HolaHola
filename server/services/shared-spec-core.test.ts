@@ -5,6 +5,9 @@ import {
   SharedSpecCore,
   SharedSpecDomainError,
   hashSharedSpecMarkdown,
+  type SharedSpecDocument,
+  type SharedSpecRepository,
+  type SharedSpecRevision,
 } from "./shared-spec-core";
 
 const author = { actorId: "author" };
@@ -150,4 +153,132 @@ test("historical approval and exact approved byte export survive later edits and
   const exported = await core.exportApprovedBytes(created.document.id, created.revision.id);
   assert.deepEqual(exported.bytes, Buffer.from("# One\n", "utf8"));
   assert.equal(exported.revision.contentHash, hashSharedSpecMarkdown(exported.bytes.toString("utf8")));
+});
+
+test("share creates a note on first call, revises it on a matching base, and rejects a stale or missing base", async () => {
+  const core = new SharedSpecCore(new InMemorySharedSpecRepository());
+  const created = await core.shareDocument(author, {
+    repository: "hola/hola", gitPath: "notes/finding.md", markdown: "# First\n", idempotencyKey: "share-1",
+  });
+  assert.equal(created.created, true);
+  assert.equal(created.document.kind, "note");
+  assert.equal(created.document.state, "draft");
+  assert.equal(created.revision.parentRevisionId, undefined);
+
+  const revised = await core.shareDocument({ actorId: "other-hat" }, {
+    repository: "hola/hola", gitPath: "notes/finding.md", markdown: "# Second\n",
+    baseRevisionId: created.revision.id, idempotencyKey: "share-2",
+  });
+  assert.equal(revised.created, false);
+  assert.equal(revised.revision.parentRevisionId, created.revision.id);
+  assert.equal((await core.findByDestination("hola/hola", "notes/finding.md"))?.currentRevision.id, revised.revision.id);
+
+  await assert.rejects(
+    () => core.shareDocument(author, { repository: "hola/hola", gitPath: "notes/finding.md", markdown: "# Stale\n", baseRevisionId: created.revision.id, idempotencyKey: "share-3" }),
+    (error: SharedSpecDomainError) => error.code === "CONFLICT",
+  );
+  await assert.rejects(
+    () => core.shareDocument(author, { repository: "hola/hola", gitPath: "notes/finding.md", markdown: "# Missing base\n", idempotencyKey: "share-4" }),
+    (error: SharedSpecDomainError) => error.code === "CONFLICT",
+  );
+});
+
+test("sharing without a title derives one from the path, and idempotent replay returns the exact same revision", async () => {
+  const core = new SharedSpecCore(new InMemorySharedSpecRepository());
+  const input = { repository: "hola/hola", gitPath: "notes/gate3-verifier-coprovisioning-gap.md", markdown: "# Finding\n", idempotencyKey: "share-once" };
+  const first = await core.shareDocument(author, input);
+  assert.equal(first.document.title, "gate3-verifier-coprovisioning-gap");
+  const replay = await core.shareDocument(author, input);
+  assert.equal(replay.revision.id, first.revision.id);
+  assert.equal(replay.created, true);
+  await assert.rejects(
+    () => core.shareDocument(author, { ...input, markdown: "# Different\n" }),
+    (error: SharedSpecDomainError) => error.code === "IDEMPOTENCY_MISMATCH",
+  );
+});
+
+test("share only accepts the notes/ namespace, never the reviewed specs namespace", async () => {
+  const core = new SharedSpecCore(new InMemorySharedSpecRepository());
+  await assert.rejects(
+    () => core.shareDocument(author, { repository: "hola/hola", gitPath: "docs/superpowers/specs/not-a-note.md", markdown: "# x\n", idempotencyKey: "bad-path" }),
+    (error: SharedSpecDomainError) => error.code === "VALIDATION",
+  );
+});
+
+test("a lost create race against a brand-new note path surfaces the same clean conflict as a lost revise race, never a raw database error", async () => {
+  // The in-memory repository serializes transactions one at a time, so two
+  // genuinely concurrent shareDocument calls can never both observe "nothing
+  // here yet" the way two real database transactions can under read-committed
+  // isolation. This repository shim forces that exact interleaving
+  // deterministically: the first destination lookup inside shareDocument's
+  // own transaction reports "not found" (as a real racing reader would), but
+  // insertDocument then fails with the same low-level shape a real unique-
+  // index violation carries, because a "winner" row already committed to the
+  // underlying store first.
+  const winner: SharedSpecDocument = {
+    id: "winner-doc", title: "race", kind: "note", repository: "hola/hola", gitPath: "notes/race.md",
+    currentRevisionId: "winner-rev", state: "draft", creatorActorId: "other-hat",
+    createdAt: new Date("2026-09-06T00:00:00.000Z"), updatedAt: new Date("2026-09-06T00:00:00.000Z"),
+  };
+  const winnerRevision: SharedSpecRevision = {
+    id: "winner-rev", documentId: "winner-doc", markdown: "# Winner\n", contentHash: hashSharedSpecMarkdown("# Winner\n"),
+    authorActorId: "other-hat", idempotencyKey: "winner-key", requestDigest: "winner-digest",
+    createdAt: new Date("2026-09-06T00:00:00.000Z"),
+  };
+  const inner = new InMemorySharedSpecRepository();
+  await inner.transaction(async tx => { await tx.insertDocument(winner); await tx.insertRevision(winnerRevision); });
+  let destinationLookups = 0;
+  const racing: SharedSpecRepository = {
+    transaction: work => inner.transaction(tx => work({
+      ...tx,
+      getDocumentByDestination: async (repository, gitPath) => {
+        destinationLookups += 1;
+        // Only the call made from inside shareDocument's own transaction (the
+        // very first lookup) simulates the lost race; findByDestination's
+        // later, separate re-read must see the real, already-committed row.
+        return destinationLookups === 1 ? undefined : tx.getDocumentByDestination(repository, gitPath);
+      },
+      insertDocument: async () => {
+        throw Object.assign(
+          new Error('duplicate key value violates unique constraint "uq_shared_spec_documents_active_destination"'),
+          { code: "23505", constraint: "uq_shared_spec_documents_active_destination" },
+        );
+      },
+    })),
+  };
+  const core = new SharedSpecCore(racing);
+  await assert.rejects(
+    () => core.shareDocument(author, { repository: "hola/hola", gitPath: "notes/race.md", markdown: "# Loser\n", idempotencyKey: "loser-key" }),
+    (error: SharedSpecDomainError) => error.code === "CONFLICT"
+      && error.details.documentId === "winner-doc" && error.details.currentRevisionId === "winner-rev",
+  );
+  assert.equal((await core.findByDestination("hola/hola", "notes/race.md"))?.document.id, "winner-doc");
+});
+
+test("an unrelated database failure during share is never mistaken for a destination race", async () => {
+  const racing: SharedSpecRepository = {
+    transaction: work => new InMemorySharedSpecRepository().transaction(tx => work({
+      ...tx,
+      insertDocument: async () => { throw Object.assign(new Error("connection terminated unexpectedly"), { code: "57P01" }); },
+    })),
+  };
+  const core = new SharedSpecCore(racing);
+  await assert.rejects(
+    () => core.shareDocument(author, { repository: "hola/hola", gitPath: "notes/unrelated-failure.md", markdown: "# x\n", idempotencyKey: "unrelated-1" }),
+    (error: unknown) => !(error instanceof SharedSpecDomainError) && (error as { code?: string }).code === "57P01",
+  );
+});
+
+test("findByDestination returns undefined for an unknown destination", async () => {
+  const core = new SharedSpecCore(new InMemorySharedSpecRepository());
+  assert.equal(await core.findByDestination("hola/hola", "notes/unknown.md"), undefined);
+});
+
+test("createDocument itself validates the gitPath pattern against the document's own kind", async () => {
+  const core = new SharedSpecCore(new InMemorySharedSpecRepository());
+  await core.createDocument(author, { title: "A note via createDocument", kind: "note", repository: "hola/hola", gitPath: "notes/direct-create.md", markdown: "# x\n", idempotencyKey: "direct-create" });
+  await assert.rejects(
+    () => core.createDocument(author, { title: "x", kind: "note", repository: "hola/hola", gitPath: "docs/superpowers/specs/wrong-namespace.md", markdown: "# x\n", idempotencyKey: "direct-create-bad" }),
+    (error: SharedSpecDomainError) => error.code === "VALIDATION",
+  );
 });

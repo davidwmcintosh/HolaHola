@@ -7,7 +7,8 @@ export type SharedSpecNotificationKind =
   | "review_requested"
   | "review_decided"
   | "publication_conflict"
-  | "publication_merged";
+  | "publication_merged"
+  | "note_shared";
 
 export interface SharedSpecNotification {
   readonly idempotencyKey: string;

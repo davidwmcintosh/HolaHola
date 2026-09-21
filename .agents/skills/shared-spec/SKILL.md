@@ -5,13 +5,25 @@ description: Use the shared-spec workspace for documents authored or reviewed by
 
 # Shared-spec collaboration
 
-Shared-spec is the default workspace for joint document creation and independent
-review. Use it for designs, plans, procedures, architecture records, and other
-Markdown that more than one actor will author or approve.
+Shared-spec is the default workspace for cross-hat document sharing and joint
+document creation. It covers two paths:
 
-Do not start this work in Git and later treat a commit or pull request as the
-review record. Shared-spec is the collaboration authority. GitHub is an optional
-publication destination after an exact revision has been approved.
+- **Fast-share notes** (`kind: "note"`) — a hat pushes a finding, a memory-file
+  update, or a draft note and another hat pulls the current version in one
+  command, with tracked revisions and no review gate. This is the default path
+  the moment a finding happens, not something deferred to a review cycle. See
+  "Fast-share notes" below.
+- **Reviewed specs** (`kind: "design"` or `"architecture"`) — the full
+  author -> ready -> independent-review -> approve -> GitHub-publish ceremony,
+  for designs, plans, procedures, and architecture records that need a second
+  set of eyes before they count as decided. See "Canonical lifecycle" below.
+
+Both paths share the same immutable-revision, multi-actor-authorship model and
+the same CLI. Neither replaces Git: code and schema changes stay on the
+git/CI pipeline. Do not start document work in Git and later treat a commit or
+pull request as the review record — GitHub is only ever an optional
+publication destination for an approved spec revision, never the
+collaboration surface itself.
 
 ## Non-negotiable boundaries
 
@@ -173,6 +185,68 @@ If publication reports drift or conflict, preserve the approved shared-spec
 record. Resolve the destination conflict explicitly, then create a new
 publication attempt or a new document revision and review when the bytes must
 change. Never edit the approved revision in place.
+
+## Fast-share notes (no review, no git)
+
+Use a note when a hat needs another hat to see something now: a finding, a
+memory-file update, a scratch draft. Notes skip `ready`/`claim`/`approve`
+entirely — sharing a note is one command, and so is reading it.
+
+Notes live in the `notes/` namespace, separate from `docs/superpowers/specs/`,
+and are never GitHub-published: the publication provider's destination is
+fixed to the specs namespace, so a note cannot reach that ceremony even by
+mistake.
+
+### Share a note
+
+The first `share` at a given `--path` creates it; every later `share` to the
+same path revises it. Omit `--repository` to use the shared default namespace
+for Luca's hats:
+
+```bash
+npx tsx server/scripts/shared-spec-cli.ts share \
+  --url "$SHARED_SPEC_API_URL" --token "$SHARED_SPEC_TOKEN" \
+  --path gate3-verifier-coprovisioning-gap \
+  --markdown "$(cat /tmp/finding.md)" \
+  --idempotency-key "share-gate3-finding-v1"
+```
+
+### Pull the current version
+
+`pull` returns the current document plus its full revision history in one
+call, by `--path` or by `--id`:
+
+```bash
+npx tsx server/scripts/shared-spec-cli.ts pull \
+  --url "$SHARED_SPEC_API_URL" --token "$SHARED_SPEC_TOKEN" \
+  --path gate3-verifier-coprovisioning-gap
+```
+
+### Revise without overwriting
+
+Read the current revision ID from `pull` first, then pass it as `--base`. A
+`409 CONFLICT` means someone else revised the note first — pull again, fold in
+their change, and retry with the new base. Revisions are never silently
+overwritten:
+
+```bash
+npx tsx server/scripts/shared-spec-cli.ts share \
+  --url "$SHARED_SPEC_API_URL" --token "$SHARED_SPEC_TOKEN" \
+  --path gate3-verifier-coprovisioning-gap --base "<current-revision-id>" \
+  --markdown "$(cat /tmp/updated-finding.md)" \
+  --idempotency-key "share-gate3-finding-v2"
+```
+
+### Optional notification
+
+Pass `--notify <actor-id>` to also deliver a `note_shared` coordination
+notification to a specific hat, so sharing does not depend on them polling
+for it.
+
+If a note grows into something that needs a second set of eyes before it
+counts as decided, do not keep revising it as a note. Create it (or a version
+of it) as a `design`/`architecture` document instead and run the full
+"Canonical lifecycle" review above.
 
 ## Contract references
 

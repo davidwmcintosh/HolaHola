@@ -65,6 +65,38 @@ export function createSharedSpecRouter({ core, authenticator, publications, noti
       response.status(201).json(created);
     } catch (error) { sendError(response, error); }
   });
+  // Fast, unreviewed cross-actor sharing (the "note" document kind). Registered
+  // ahead of "/documents/:documentId" because it is a literal path segment.
+  router.get("/documents/by-destination", async (request, response) => {
+    try {
+      if (!await actor(request, response, authenticator)) return;
+      if (typeof request.query.repository !== "string" || typeof request.query.gitPath !== "string") {
+        throw new SharedSpecDomainError("VALIDATION", "repository and gitPath query parameters are required");
+      }
+      const found = await core.findByDestination(request.query.repository, request.query.gitPath);
+      if (!found) { response.status(404).json({ error: "Document not found", code: "NOT_FOUND" }); return; }
+      response.json(found);
+    } catch (error) { sendError(response, error); }
+  });
+  router.post("/documents/share", async (request, response) => {
+    try {
+      const current = await actor(request, response, authenticator); if (!current) return;
+      const shared = await core.shareDocument(current, {
+        repository: request.body?.repository, gitPath: request.body?.gitPath, markdown: request.body?.markdown,
+        title: request.body?.title, summary: request.body?.summary, baseRevisionId: request.body?.baseRevisionId,
+        idempotencyKey: idempotencyKey(request) ?? "",
+      });
+      const recipient = request.body?.notifyActorId;
+      if (typeof recipient === "string" && recipient.trim()) await deliver({
+        idempotencyKey: `shared-spec:note_shared:v1:${shared.revision.id}:${current.actorId}`, kind: "note_shared",
+        initiatingActorId: current.actorId,
+        documentId: shared.document.id, revisionId: shared.revision.id, contentHash: shared.revision.contentHash,
+        recipientActorId: recipient.trim(),
+        summary: `Shared note ${shared.created ? "created" : "updated"}: ${shared.document.gitPath}`,
+      });
+      response.status(shared.created ? 201 : 200).json(shared);
+    } catch (error) { sendError(response, error); }
+  });
   router.get("/documents/:documentId", async (request, response) => {
     try { if (!await actor(request, response, authenticator)) return; response.json(await core.showDocument(request.params.documentId)); } catch (error) { sendError(response, error); }
   });

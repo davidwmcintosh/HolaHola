@@ -46,7 +46,7 @@ async function main() {
     /CREATE TYPE "public"\."shared_spec_reviewer_capability" AS ENUM\('reviewer', 'policy_admin'\)/,
     "policy administration capability must be policy_admin everywhere",
   );
-  assert.match(core, /SharedSpecDocumentKind = "design" \| "architecture"/, "core must use design/architecture kinds");
+  assert.match(core, /SharedSpecDocumentKind = "design" \| "architecture" \| "note"/, "core must use design/architecture/note kinds");
   assert.match(core, /ReviewerCapability = "reviewer" \| "policy_admin"/, "core must use policy_admin capability");
   assert.doesNotMatch(core, /policy-admin/, "core must not retain a second policy-admin capability spelling");
 

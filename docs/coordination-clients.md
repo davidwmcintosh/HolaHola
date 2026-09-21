@@ -493,6 +493,13 @@ publication, and reconciliation procedure, read
 joint document work. Never impersonate a requested reviewer: the named actor
 must claim and decide the exact revision under that actor's own credential.
 
+For fast, unreviewed cross-hat sharing (a note, a memory-file update, a
+finding) instead of a full reviewed spec, use the CLI's `share` and `pull`
+commands against the separate `notes/` namespace — see "Fast-share notes" in
+the same skill file. This is the default path for a hat to share or co-edit a
+document with another hat without a git merge; it never goes through review
+or GitHub publication.
+
 GitHub publication occurs only after approval and is optional host
 configuration, not a core dependency or an alternative review authority.
 Configure `SHARED_SPEC_GITHUB_REPOSITORY` (`owner/repository`),
@@ -503,5 +510,7 @@ pushes directly to the base branch.
 
 Current limitations: the bundled CLI covers drafting, review, approval, and
 export but not publication operations; the HolaHola adapter has a fixed
-`docs/superpowers/specs/` destination namespace; and publication remains
-unavailable until the two required GitHub settings are present.
+`docs/superpowers/specs/` destination namespace for reviewed `design`/
+`architecture` documents (fast-share notes use the separate `notes/`
+namespace instead, see above); and publication remains unavailable until the
+two required GitHub settings are present.

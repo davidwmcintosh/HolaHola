@@ -139,4 +139,5 @@
 - [Isolation-scope diff baseline](isolation-scope-diff-baseline.md) — repo has legitimate background-worker doc churn; scope checks need a start-of-run baseline diff, not a clean-tree assumption.
 - [Disposable-gate own-var-first](disposable-gate-own-var-first.md) — a disposableTarget() gate must read its own dedicated *_TEST_DATABASE_URL before the ambient NEON_SHARED_DATABASE_URL, or direct runs throw instead of skipping.
 - [Coordination-runtime claim() guard redundancy](coordination-runtime-claim-guard-redundancy.md) — claim()'s two fresh_consumption_required checks overlap for same-packet reuse; only removing both together fails the regression test.
+- [Create-race parity with revise-race](create-vs-revise-race-parity.md) — a "create if not exists" branch needs the same CAS/race protection as its sibling revise branch; how to test the recovery path without real concurrency.
 - [Transcript capture fallback](transcript-capture-fallback.md) — Replit stopped writing JSONL after Jul 27 2026; use .chat_capture trigger file + capture-conversation.ts as replacement path.

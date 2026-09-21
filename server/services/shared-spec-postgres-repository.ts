@@ -1,4 +1,4 @@
-import { and, desc, eq, isNull, or, sql } from "drizzle-orm";
+import { and, desc, eq, isNull, ne, or, sql } from "drizzle-orm";
 import {
   sharedSpecDocuments,
   sharedSpecReviewerPolicies,
@@ -69,6 +69,14 @@ export class PostgresSharedSpecRepository implements SharedSpecRepository {
     return {
       getDocument: async id => {
         const [row] = await db.select().from(sharedSpecDocuments).where(eq(sharedSpecDocuments.id, id));
+        return row ? documentFromRow(row) : undefined;
+      },
+      getDocumentByDestination: async (repository, gitPath) => {
+        const [row] = await db.select().from(sharedSpecDocuments).where(and(
+          eq(sharedSpecDocuments.canonicalRepository, repository),
+          eq(sharedSpecDocuments.canonicalPath, gitPath),
+          ne(sharedSpecDocuments.state, "archived"),
+        ));
         return row ? documentFromRow(row) : undefined;
       },
       listDocuments: async () => (await db.select().from(sharedSpecDocuments).orderBy(desc(sharedSpecDocuments.updatedAt))).map(documentFromRow),
