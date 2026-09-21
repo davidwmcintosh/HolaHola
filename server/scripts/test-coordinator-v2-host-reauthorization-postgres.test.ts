@@ -1,6 +1,8 @@
 import assert from "node:assert/strict";
 import { createHash, generateKeyPairSync, randomUUID, sign } from "node:crypto";
+import { readFileSync } from "node:fs";
 import test from "node:test";
+import { fileURLToPath } from "node:url";
 import pg from "pg";
 import {
   CoordinationV2HostAuthError,
@@ -9,9 +11,13 @@ import {
 import { canonicalJson } from "../services/coordination-policy-canonicalization";
 import { closeDbConnections } from "../db";
 
+// COORDINATOR_V2_TEST_DATABASE_URL (not the ambient NEON_SHARED_DATABASE_URL,
+// which is already set in a normal dev shell as the app's own database) is
+// checked first, so running this file directly outside the Neon migration
+// gate skips cleanly instead of throwing.
 function disposableTarget(): string | undefined {
-  const shared = process.env.NEON_SHARED_DATABASE_URL;
-  if (!shared) {
+  const url = process.env.COORDINATOR_V2_TEST_DATABASE_URL;
+  if (!url) {
     if (process.env.COORDINATOR_V2_REQUIRE_DATABASE_TESTS === "1") {
       throw new Error("COORDINATOR_V2_TEST_DATABASE_URL is required by the migration gate");
     }
@@ -20,14 +26,27 @@ function disposableTarget(): string | undefined {
   if (process.env.COORDINATOR_V2_TEST_DATABASE_DISPOSABLE !== "1") {
     throw new Error("COORDINATOR_V2_TEST_DATABASE_DISPOSABLE=1 is required");
   }
-  if (!process.env.COORDINATOR_V2_TEST_DATABASE_URL || process.env.COORDINATOR_V2_TEST_DATABASE_URL !== shared) {
+  if (!process.env.NEON_SHARED_DATABASE_URL || process.env.NEON_SHARED_DATABASE_URL !== url) {
     throw new Error("Coordinator V2 reauthorization test requires the gate-provided disposable database URL");
   }
-  if (!process.env.COORDINATOR_V2_FORBIDDEN_SHARED_URL || shared === process.env.COORDINATOR_V2_FORBIDDEN_SHARED_URL) {
+  if (!process.env.COORDINATOR_V2_FORBIDDEN_SHARED_URL || url === process.env.COORDINATOR_V2_FORBIDDEN_SHARED_URL) {
     throw new Error("Coordinator V2 reauthorization test refuses the shared Neon database");
   }
-  return shared;
+  return url;
 }
+
+// disposableTarget() above must hard-fail -- not silently context.skip() --
+// when COORDINATOR_V2_REQUIRE_DATABASE_TESTS='1' but its own URL/DISPOSABLE
+// vars are missing while still running inside the gate. Mirror of the "this
+// file hard-fails under the gate instead of silently skipping DB coverage"
+// check in server/scripts/test-coordination-runtime-postgres-repository.test.ts
+// and server/scripts/test-founder-task-ownership-postgres.test.ts.
+const OWN_SOURCE = readFileSync(fileURLToPath(import.meta.url), "utf8");
+test("this file hard-fails under the gate instead of silently skipping DB coverage", () => {
+  assert.ok(OWN_SOURCE.includes('COORDINATOR_V2_REQUIRE_DATABASE_TESTS === "1"'));
+  assert.ok(OWN_SOURCE.includes("COORDINATOR_V2_FORBIDDEN_SHARED_URL"));
+  assert.ok(OWN_SOURCE.includes("context.skip("));
+});
 
 const digest = (seed: string) => {
   assert.match(seed, /^[0-9a-f]$/);
