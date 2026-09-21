@@ -8,8 +8,10 @@ import type { ResolutionType } from "./absence-types";
 // ===== Shared Spec Workspace ==================================================
 // This is intentionally a portable PostgreSQL-only collaboration core. Actor
 // IDs are application-owned strings; no hosting, runtime, or identity-provider
-// identifiers are persisted here.
-export const SHARED_SPEC_DOCUMENT_KINDS = ['design', 'architecture'] as const;
+// identifiers are persisted here. "note" is a lightweight kind for fast,
+// unreviewed cross-actor sharing (see shareDocument in shared-spec-core.ts);
+// "design"/"architecture" documents use the full review/publish lifecycle.
+export const SHARED_SPEC_DOCUMENT_KINDS = ['design', 'architecture', 'note'] as const;
 export type SharedSpecDocumentKind = typeof SHARED_SPEC_DOCUMENT_KINDS[number];
 
 export const SHARED_SPEC_DOCUMENT_STATES = [

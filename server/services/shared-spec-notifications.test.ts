@@ -27,3 +27,19 @@ test("failed delivery remains explicit so an idempotent lifecycle retry can enqu
   const result = await sink.deliver(event);
   assert.deepEqual(result, { state: "failed", retryable: true, error: "Coordination inbox delivery failed" });
 });
+
+test("note_shared notifications use normal priority and the same identity-only contract", async () => {
+  const sent: any[] = [];
+  const sink = new HolaHolaSharedSpecNotificationSink({ create: async input => { sent.push(input); return { deliveryState: "queued" }; } });
+  const noteEvent = {
+    idempotencyKey: "shared-spec:note_shared:v1:revision-2:luca-replit",
+    kind: "note_shared" as const,
+    initiatingActorId: "luca-replit",
+    documentId: "document-2", revisionId: "revision-2", contentHash: "b".repeat(64),
+    recipientActorId: "luca-claude-code",
+    summary: "Shared note created: notes/finding.md",
+  };
+  assert.equal((await sink.deliver(noteEvent)).state, "delivered");
+  assert.equal(sent[0].priority, "normal");
+  assert.deepEqual(sent[0].sourceReference, { type: "design_spec", provider: "shared-spec", identifier: "document-2/revision-2", digest: "b".repeat(64) });
+});

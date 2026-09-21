@@ -1,7 +1,11 @@
 type Options = Record<string, string | boolean>;
 
-const commands = new Set(["list", "show", "create", "revision", "ready", "claim", "approve", "reject", "export"]);
-const mutationCommands = new Set(["create", "revision", "ready", "claim", "approve", "reject"]);
+const commands = new Set(["list", "show", "create", "revision", "ready", "claim", "approve", "reject", "export", "share", "pull"]);
+const mutationCommands = new Set(["create", "revision", "ready", "claim", "approve", "reject", "share"]);
+// Fast-share notes live in a fixed flat namespace (see canonicalNotePathPattern
+// in shared-spec-core.ts). This default lets `share`/`pull` omit --repository
+// for the common case of one shared space across all of Luca's hats.
+const DEFAULT_NOTE_REPOSITORY = "luca-hats/notes";
 
 export interface SharedSpecCliDependencies {
   readonly fetchImpl?: typeof fetch;
@@ -14,7 +18,7 @@ function fail(message: string): never {
 }
 function parse(argv: string[]): { command: string; options: Options } {
   const command = argv.shift();
-  if (!command || !commands.has(command)) fail("Usage: shared-spec-cli <list|show|create|revision|ready|claim|approve|reject|export> --url URL --token TOKEN");
+  if (!command || !commands.has(command)) fail("Usage: shared-spec-cli <list|show|create|revision|ready|claim|approve|reject|export|share|pull> --url URL --token TOKEN");
   const options: Options = {};
   while (argv.length) {
     const part = argv.shift()!;
@@ -35,6 +39,30 @@ function json(value: string | boolean | undefined, name: string): unknown {
   if (typeof value !== "string") return undefined;
   try { return JSON.parse(value); } catch { fail(`--${name} must be JSON`); }
 }
+function notePath(options: Options): string {
+  const value = required(options, "path").trim();
+  const withPrefix = value.startsWith("notes/") ? value : `notes/${value}`;
+  return withPrefix.endsWith(".md") ? withPrefix : `${withPrefix}.md`;
+}
+function noteRepository(options: Options): string {
+  return typeof options.repository === "string" && options.repository ? options.repository : DEFAULT_NOTE_REPOSITORY;
+}
+
+/** `pull` needs the document plus its revision history, so it makes two requests instead of the generic single-request dispatch below. */
+async function runPull(baseUrl: string, token: string, options: Options, dependencies: SharedSpecCliDependencies): Promise<void> {
+  const headers: Record<string, string> = { "x-shared-spec-token": token };
+  const get = async (path: string): Promise<any> => {
+    const response = await (dependencies.fetchImpl ?? fetch)(`${baseUrl}${path}`, { method: "GET", headers });
+    const payload = await response.json();
+    if (!response.ok) throw new Error(`HTTP ${response.status}: ${JSON.stringify(payload)}`);
+    return payload;
+  };
+  const found = typeof options.id === "string"
+    ? await get(`/documents/${options.id}`)
+    : await get(`/documents/by-destination?${new URLSearchParams({ repository: noteRepository(options), gitPath: notePath(options) })}`);
+  const revisions = await get(`/documents/${found.document.id}/revisions`);
+  (dependencies.writeOutput ?? ((value) => process.stdout.write(value)))(`${JSON.stringify({ ...found, revisions }, null, 2)}\n`);
+}
 
 export async function runSharedSpecCli(
   argv = process.argv.slice(2),
@@ -43,6 +71,7 @@ export async function runSharedSpecCli(
   const { command, options } = parse(argv);
   const baseUrl = required(options, "url").replace(/\/$/, "");
   const token = required(options, "token");
+  if (command === "pull") { await runPull(baseUrl, token, options, dependencies); return; }
   let path = "/documents";
   let method = "GET";
   let body: Record<string, unknown> | undefined;
@@ -53,6 +82,7 @@ export async function runSharedSpecCli(
   if (command === "ready") { method = "POST"; path = `/documents/${required(options, "id")}/ready`; body = { revisionId: required(options, "revision"), requestedReviewerActorId: options.reviewer }; }
   if (command === "claim") { method = "POST"; path = `/reviews/${required(options, "id")}/claim`; body = {}; }
   if (command === "approve" || command === "reject") { method = "POST"; path = `/reviews/${required(options, "id")}/${command}`; body = { rationale: options.rationale, evidenceReferences: json(options.evidence, "evidence") }; }
+  if (command === "share") { method = "POST"; path = "/documents/share"; body = { repository: noteRepository(options), gitPath: notePath(options), markdown: required(options, "markdown"), title: options.title, summary: options.summary, baseRevisionId: options.base, notifyActorId: options.notify }; }
   const headers: Record<string, string> = { "x-shared-spec-token": token };
   if (mutationCommands.has(command)) {
     headers["idempotency-key"] = required(options, "idempotency-key");

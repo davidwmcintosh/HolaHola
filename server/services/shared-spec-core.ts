@@ -7,7 +7,7 @@ import { createHash, randomUUID } from "node:crypto";
  * domain tests and local embedding.
  */
 
-export type SharedSpecDocumentKind = "design" | "architecture";
+export type SharedSpecDocumentKind = "design" | "architecture" | "note";
 export type SharedSpecDocumentState = "draft" | "ready_for_review" | "approved" | "published" | "merged" | "archived";
 export type SharedSpecReviewState = "pending" | "approved" | "rejected" | "cancelled";
 export type ReviewerCapability = "reviewer" | "policy_admin";
@@ -99,7 +99,9 @@ export interface IdempotencyRecord {
 
 export interface SharedSpecTransaction {
   getDocument(id: string): Promise<SharedSpecDocument | undefined>;
-  listDocuments(): Promise<readonly SharedSpecDocument[]>;
+  /** Only considers non-archived documents, so an archived note frees its destination for reuse. */
+  getDocumentByDestination(repository: string, gitPath: string): Promise<SharedSpecDocument | undefined>;
+  listDocuments(): Promise<readonly SharedSpecDocument[]>
   insertDocument(document: SharedSpecDocument): Promise<void>;
   updateDocument(document: SharedSpecDocument): Promise<void>;
   getRevision(id: string): Promise<SharedSpecRevision | undefined>;
@@ -169,6 +171,35 @@ const clone = <T>(value: T): T => structuredClone(value);
 const nowDefault = (): Date => new Date();
 const canonicalRepositoryPattern = /^[A-Za-z0-9][A-Za-z0-9._-]*\/[A-Za-z0-9][A-Za-z0-9._-]*$/;
 const canonicalSpecPathPattern = /^docs\/superpowers\/specs\/[A-Za-z0-9][A-Za-z0-9._-]*\.md$/;
+// "note" documents live in their own flat namespace so a fast-shared note can
+// never collide with (or be mistaken for) a reviewed docs/superpowers/specs
+// destination. Same single-segment shape as canonicalSpecPathPattern: no `/`
+// in the character class, so `notes/../x.md` cannot match.
+const canonicalNotePathPattern = /^notes\/[A-Za-z0-9][A-Za-z0-9._-]*\.md$/;
+const pathPatternForKind = (kind: SharedSpecDocumentKind) => kind === "note" ? canonicalNotePathPattern : canonicalSpecPathPattern;
+const deriveNoteTitle = (gitPath: string) => gitPath.replace(/^notes\//, "").replace(/\.md$/, "");
+
+/**
+ * Detects a lost race against `uq_shared_spec_documents_active_destination`
+ * (see shared/schema.ts): two hats can both read "no document here yet" for
+ * a brand-new note path before either commits, since the create branch below
+ * has no in-transaction CAS the way the revise branch does. The database's
+ * own unique index is what actually stops the second insert; this only
+ * recognizes that specific failure (walking a possible `.cause` chain, since
+ * some drivers wrap the underlying driver error) so it can be reported as
+ * the same clean CONFLICT the revise branch gives, never a raw DB error.
+ * InMemorySharedSpecRepository throws the same shape so both backends are
+ * exercised by the same recovery path in tests.
+ */
+const isActiveDestinationRace = (error: unknown): boolean => {
+  let current: unknown = error;
+  for (let depth = 0; depth < 4 && current && typeof current === "object"; depth += 1) {
+    const value = current as { code?: unknown; constraint?: unknown; cause?: unknown };
+    if (value.code === "23505" && value.constraint === "uq_shared_spec_documents_active_destination") return true;
+    current = value.cause;
+  }
+  return false;
+};
 
 export interface SharedSpecCoreOptions {
   readonly now?: () => Date;
@@ -189,6 +220,18 @@ export interface AppendRevisionInput {
   documentId: string;
   baseRevisionId: string;
   markdown: string;
+  idempotencyKey: string;
+}
+
+export interface ShareDocumentInput {
+  repository: string;
+  gitPath: string;
+  markdown: string;
+  /** Only used when creating a new note; an existing note's metadata is immutable, matching design/architecture documents. */
+  title?: string;
+  summary?: string;
+  /** Required to revise an existing note; omission on an existing note is a CONFLICT, never a silent overwrite. */
+  baseRevisionId?: string;
   idempotencyKey: string;
 }
 
@@ -226,8 +269,10 @@ export class SharedSpecCore {
     if (!canonicalRepositoryPattern.test(input.repository)) {
       throw new SharedSpecDomainError("VALIDATION", "repository must be a canonical owner/name value");
     }
-    if (!canonicalSpecPathPattern.test(input.gitPath)) {
-      throw new SharedSpecDomainError("VALIDATION", "gitPath must be docs/superpowers/specs/<safe>.md");
+    if (!pathPatternForKind(input.kind).test(input.gitPath)) {
+      throw new SharedSpecDomainError("VALIDATION", input.kind === "note"
+        ? "gitPath must be notes/<safe>.md"
+        : "gitPath must be docs/superpowers/specs/<safe>.md");
     }
     const requestDigest = digestRequest(input);
     return this.repository.transaction(async tx => {
@@ -249,6 +294,104 @@ export class SharedSpecCore {
       await tx.insertIdempotency({ scope: "create-document", actorId: actor.actorId, key: input.idempotencyKey,
         requestDigest, resultType: "document", resultId: documentId });
       return { document, revision };
+    });
+  }
+
+  /**
+   * Fast, unreviewed cross-actor sharing: creates a "note" document at the
+   * given destination if none exists yet, or appends a revision when
+   * `baseRevisionId` matches its current revision. A missing or stale base on
+   * an existing note is a CONFLICT, never a silent overwrite.
+   *
+   * This intentionally duplicates the small CAS-append shape of
+   * appendRevision rather than calling it: both repository implementations
+   * open a new top-level transaction per call, so nesting one inside this
+   * method's own transaction would deadlock the in-memory mutex and risk pool
+   * exhaustion against PostgreSQL.
+   */
+  async shareDocument(actor: ActorContext, input: ShareDocumentInput): Promise<{
+    document: SharedSpecDocument; revision: SharedSpecRevision; created: boolean;
+  }> {
+    this.required(actor.actorId, "actorId"); this.required(input.repository, "repository");
+    this.required(input.gitPath, "gitPath"); this.required(input.markdown, "markdown");
+    this.required(input.idempotencyKey, "idempotencyKey");
+    if (!canonicalRepositoryPattern.test(input.repository)) {
+      throw new SharedSpecDomainError("VALIDATION", "repository must be a canonical owner/name value");
+    }
+    if (!canonicalNotePathPattern.test(input.gitPath)) {
+      throw new SharedSpecDomainError("VALIDATION", "gitPath must be notes/<safe>.md");
+    }
+    const requestDigest = digestRequest(input);
+    try {
+      return await this.repository.transaction(async tx => {
+        const duplicate = await this.idempotent(tx, "share-document", actor.actorId, input.idempotencyKey, requestDigest);
+        if (duplicate) {
+          // resultId always names the exact revision this call produced (never a
+          // documentId), so a replay is immune to a concurrent edit moving the
+          // document's currentRevisionId on to someone else's later revision.
+          const revision = await this.mustRevision(tx, duplicate.resultId);
+          return { document: await this.mustDocument(tx, revision.documentId), revision, created: !revision.parentRevisionId };
+        }
+        const existing = await tx.getDocumentByDestination(input.repository, input.gitPath);
+        const at = this.now();
+        if (!existing) {
+          const documentId = this.newId(); const revisionId = this.newId();
+          const revision: SharedSpecRevision = { id: revisionId, documentId, markdown: input.markdown,
+            contentHash: hashSharedSpecMarkdown(input.markdown), authorActorId: actor.actorId,
+            idempotencyKey: input.idempotencyKey, requestDigest, createdAt: at };
+          const document: SharedSpecDocument = { id: documentId, title: input.title?.trim() || deriveNoteTitle(input.gitPath),
+            summary: input.summary, kind: "note", repository: input.repository, gitPath: input.gitPath,
+            currentRevisionId: revisionId, state: "draft", creatorActorId: actor.actorId, createdAt: at, updatedAt: at };
+          await tx.insertDocument(document); await tx.insertRevision(revision);
+          await tx.insertIdempotency({ scope: "share-document", actorId: actor.actorId, key: input.idempotencyKey,
+            requestDigest, resultType: "revision", resultId: revisionId });
+          return { document, revision, created: true };
+        }
+        if (existing.kind !== "note") {
+          // Unreachable while note/spec destinations use disjoint path prefixes;
+          // kept as a defensive guard against a future shared-namespace change.
+          throw new SharedSpecDomainError("FORBIDDEN", "This destination is not a fast-share note");
+        }
+        if (!input.baseRevisionId || input.baseRevisionId !== existing.currentRevisionId) {
+          throw new SharedSpecDomainError("CONFLICT", "A note already exists at this destination; pull it and retry with its current revision", {
+            documentId: existing.id, currentRevisionId: existing.currentRevisionId,
+          });
+        }
+        const revision: SharedSpecRevision = { id: this.newId(), documentId: existing.id,
+          parentRevisionId: input.baseRevisionId, markdown: input.markdown, contentHash: hashSharedSpecMarkdown(input.markdown),
+          authorActorId: actor.actorId, idempotencyKey: input.idempotencyKey, requestDigest, createdAt: at };
+        await tx.insertRevision(revision);
+        if (!await tx.compareAndSetCurrentRevision(existing.id, input.baseRevisionId, revision.id, "draft", at)) {
+          const current = await this.mustDocument(tx, existing.id);
+          throw new SharedSpecDomainError("CONFLICT", "A note already exists at this destination; pull it and retry with its current revision", {
+            documentId: current.id, currentRevisionId: current.currentRevisionId,
+          });
+        }
+        await tx.insertIdempotency({ scope: "share-document", actorId: actor.actorId, key: input.idempotencyKey,
+          requestDigest, resultType: "revision", resultId: revision.id });
+        return { document: { ...existing, currentRevisionId: revision.id, state: "draft", updatedAt: at }, revision, created: false };
+      });
+    } catch (error) {
+      if (error instanceof SharedSpecDomainError || !isActiveDestinationRace(error)) throw error;
+      // The transaction above already rolled back, so it cannot be reused to
+      // re-read; a fresh call is required, and by the time a unique-violation
+      // is visible here the winning transaction is guaranteed committed.
+      const raced = await this.findByDestination(input.repository, input.gitPath);
+      if (!raced) throw error;
+      throw new SharedSpecDomainError("CONFLICT", "A note already exists at this destination; pull it and retry with its current revision", {
+        documentId: raced.document.id, currentRevisionId: raced.document.currentRevisionId,
+      });
+    }
+  }
+
+  /** Looks up a document by its canonical destination, e.g. to pull the current revision of a shared note. */
+  async findByDestination(repository: string, gitPath: string): Promise<{
+    document: SharedSpecDocument; currentRevision: SharedSpecRevision;
+  } | undefined> {
+    return this.repository.transaction(async tx => {
+      const document = await tx.getDocumentByDestination(repository, gitPath);
+      if (!document) return undefined;
+      return { document, currentRevision: await this.mustRevision(tx, document.currentRevisionId) };
     });
   }
 
@@ -528,10 +671,24 @@ export class InMemorySharedSpecRepository implements SharedSpecRepository {
     const idemKey = (scope: string, actor: string, key: string) => `${scope}\u0000${actor}\u0000${key}`;
     return {
       getDocument: async id => clone(this.documents.get(id)),
+      getDocumentByDestination: async (repository, gitPath) => {
+        const match = [...this.documents.values()].find(x => x.repository === repository && x.gitPath === gitPath && x.state !== "archived");
+        return clone(match);
+      },
       listDocuments: async () => [...this.documents.values()].map(clone),
       insertDocument: async value => {
-        if (this.documents.has(value.id) || [...this.documents.values()].some(x => x.repository === value.repository && x.gitPath === value.gitPath)) {
-          throw new SharedSpecDomainError("CONFLICT", "Document destination already exists");
+        // Mirrors uq_shared_spec_documents_active_destination: a partial unique
+        // index that ignores archived documents, so an archived note frees its
+        // path for reuse. Throws the same low-level shape a real unique
+        // violation carries (code + constraint) rather than a domain error, so
+        // shareDocument's race-recovery path is exercised identically against
+        // both backends -- see isActiveDestinationRace above.
+        if (this.documents.has(value.id) || [...this.documents.values()].some(x =>
+          x.repository === value.repository && x.gitPath === value.gitPath && x.state !== "archived")) {
+          throw Object.assign(
+            new Error('duplicate key value violates unique constraint "uq_shared_spec_documents_active_destination"'),
+            { code: "23505", constraint: "uq_shared_spec_documents_active_destination" },
+          );
         }
         this.documents.set(value.id, clone(value));
       },
