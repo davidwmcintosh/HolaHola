@@ -1182,3 +1182,99 @@ test('invalid provider intent leaves durable rejection evidence and violates the
   assert.equal(rejected?.normalizedEvidence?.intents.length, 0);
   assert.equal((rejected?.normalizedEvidence as any)?.rejectedIntents?.[0]?.callId, 'bad-call');
 });
+
+test('execution envelope violation is recoverable only through a fresh superseding packet', async () => {
+  const fixture = await harness();
+  const claim = await fixture.service.claim(
+    gemini,
+    fixture.packet.id,
+    fixture.packet.digest,
+    fixture.receipt.id,
+    100,
+    'violation-claim',
+  );
+  await expectCode(
+    async () => await fixture.service.execute(
+      gemini,
+      claim.id,
+      { ...envelope, argv: ['rm', '-rf', '/'] },
+      'violation-execute',
+    ),
+    'execution_envelope_mismatch',
+  );
+  assert.equal((await fixture.repository.getClaim(claim.id))?.status, 'violated');
+  await expectCode(
+    async () => await fixture.service.claim(
+      gemini,
+      fixture.packet.id,
+      fixture.packet.digest,
+      fixture.receipt.id,
+      100,
+      'violation-reclaim',
+    ),
+    'fresh_consumption_required',
+  );
+  const recoveryPacket = await fixture.service.createPacket(
+    gemini,
+    fixture.window.id,
+    fixture.assignment,
+    'violation-recovery-packet',
+    2,
+    claim.id,
+  );
+  const recoveryInteraction = await fixture.service.recordInteraction(gemini, {
+    packetId: recoveryPacket.id,
+    turn: 2,
+    attempt: 1,
+    requestDigest: 'recovery-request',
+    responseDigest: 'recovery-response',
+    outcome: 'consumed',
+    normalizedEvidence: {
+      textParts: [],
+      intents: [],
+      validatedIntents: [],
+      additionalCandidateHashes: [],
+      providerDetails: {},
+      normalizedResponseDigest: 'recovery-response',
+    },
+    idempotencyKey: 'recovery-interaction',
+  });
+  const recoveryReceipt = await fixture.service.recordOutcomeReceipt(
+    gemini,
+    recoveryPacket.id,
+    recoveryPacket.digest,
+    recoveryInteraction.id,
+    'recovery-receipt',
+  );
+  const recoveryClaim = await fixture.service.claim(
+    gemini,
+    recoveryPacket.id,
+    recoveryPacket.digest,
+    recoveryReceipt.id,
+    100,
+    'recovery-claim',
+  );
+  assert.equal(recoveryClaim.epoch, claim.epoch + 1);
+  assert.equal(recoveryClaim.priorClaimId, claim.id);
+  const recoveryExecution = await fixture.service.execute(
+    gemini,
+    recoveryClaim.id,
+    envelope,
+    'recovery-execute',
+  );
+  const recoveryCompletion = await fixture.service.complete(
+    gemini,
+    recoveryExecution.id,
+    digestCanonical(recoveryExecution),
+    'recovery-completion',
+  );
+  assert.equal((await fixture.repository.getClaim(recoveryClaim.id))?.status, 'completed');
+  const verification = await fixture.service.verify(
+    replitVerifier,
+    recoveryCompletion.id,
+    recoveryCompletion.evidenceDigest,
+    null,
+    'recovery-verification',
+  );
+  assert.equal(verification.decision, 'approved');
+});

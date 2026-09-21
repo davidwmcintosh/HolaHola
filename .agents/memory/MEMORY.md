@@ -135,3 +135,5 @@
 - [pg-pool idle timeout silently inflates CI wall time](pg-pool-idle-timeout-ci-hang.md) — missing closeDbConnections() leaves an unref'd-only-if-allowExitOnIdle timer+socket open; compare per-test duration_ms sum vs total to detect it.
 - [Pre-existing consolidated-CI failures](consolidated-ci-preexisting-failures.md) — test-rolling-sync-guard.ts Pass 2/3 fail deterministically pre-existing; north-star group has a separate transient DB flake; neither is your regression by default.
 - [tsx path alias resolution depends on spawn cwd](tsx-path-alias-resolution-cwd.md) — a spawned `npx tsx` driver with cwd outside the checkout fails to resolve `@shared/*`; keep cwd at repo root, pass overrides via env instead.
+- [Gate 3 coding runtime — proven live](gate3-coding-runtime-proof.md) — full luca-gemini→luca-claude-code evidence chain executed for real 2026-09-20; plus 3 script-writing gotchas (Gemini thinking config, node:test stdout, DB-pool hang).
+- [Isolation-scope diff baseline](isolation-scope-diff-baseline.md) — repo has legitimate background-worker doc churn; scope checks need a start-of-run baseline diff, not a clean-tree assumption.
