@@ -27,14 +27,6 @@ const getGoogleOidcConfig = memoize(
   { maxAge: 3600 * 1000 }
 );
 
-function googleCallbackURL(): string {
-  // Fixed callback URL from APP_URL, deliberately not replitAuth.ts's
-  // per-request ensureStrategy(req.hostname) pattern -- Google requires an
-  // exact pre-registered redirect URI, not an arbitrary runtime hostname.
-  const appUrl = process.env.APP_URL || "https://getholahola.com";
-  return `${appUrl}/api/auth/google/callback`;
-}
-
 export async function setupGoogleAuth(app: Express, authLimiter?: any) {
   if (!process.env.GOOGLE_CLIENT_ID || !process.env.GOOGLE_CLIENT_SECRET) {
     console.warn("[GoogleAuth] GOOGLE_CLIENT_ID/GOOGLE_CLIENT_SECRET not set -- Google login routes disabled.");
@@ -66,29 +58,58 @@ export async function setupGoogleAuth(app: Express, authLimiter?: any) {
     verified(null, { canonicalId });
   };
 
-  const strategy = new Strategy(
-    {
-      name: "google",
-      config,
-      scope: "openid email profile",
-      callbackURL: googleCallbackURL(),
-    },
-    verify,
-  );
-  passport.use(strategy);
+  // Google requires every redirect URI to be pre-registered in the Google
+  // Cloud Console OAuth client -- it will reject anything not on that exact
+  // allow-list, unlike replitAuth.ts's OIDC provider. That used to mean one
+  // fixed callback URL (APP_URL / production), which broke Google sign-in
+  // from any other real hostname this app is served on, e.g. the Replit dev
+  // domain: the handshake ran on dev, but Google's callback always landed on
+  // production, so dev never received a session and looked like a loop.
+  //
+  // Fix: register one strategy per hostname the request actually arrived on
+  // (same per-domain-strategy shape as replitAuth.ts's ensureStrategy), so
+  // each environment gets its own matching callback URL. This still requires
+  // every real hostname -- production AND the current Replit dev domain --
+  // to be added as an Authorized redirect URI in Google Cloud Console; that
+  // registration is a manual step outside this codebase, and a future dev
+  // domain change would need the same step repeated.
+  const registeredStrategies = new Set<string>();
+  const ensureStrategy = (domain: string) => {
+    const strategyName = `google:${domain}`;
+    if (!registeredStrategies.has(strategyName)) {
+      const strategy = new Strategy(
+        {
+          name: strategyName,
+          config,
+          scope: "openid email profile",
+          callbackURL: `https://${domain}/api/auth/google/callback`,
+        },
+        verify,
+      );
+      passport.use(strategy);
+      registeredStrategies.add(strategyName);
+    }
+  };
 
   const loginHandlers = authLimiter ? [authLimiter] : [];
-  loginHandlers.push(
-    passport.authenticate("google", { scope: ["openid", "email", "profile"], session: false }),
-  );
+  loginHandlers.push((req: any, res: any, next: any) => {
+    ensureStrategy(req.hostname);
+    passport.authenticate(`google:${req.hostname}`, {
+      scope: ["openid", "email", "profile"],
+      session: false,
+    })(req, res, next);
+  });
   app.get("/api/auth/google", ...loginHandlers);
 
   const callbackHandlers = authLimiter ? [authLimiter] : [];
   callbackHandlers.push(
-    passport.authenticate("google", {
-      session: false,
-      failureRedirect: "/login?error=google_auth_failed",
-    }),
+    (req: any, res: any, next: any) => {
+      ensureStrategy(req.hostname);
+      passport.authenticate(`google:${req.hostname}`, {
+        session: false,
+        failureRedirect: "/login?error=google_auth_failed",
+      })(req, res, next);
+    },
     (req: any, res: any) => {
       const canonicalId = req.user?.canonicalId;
       if (!canonicalId) {
