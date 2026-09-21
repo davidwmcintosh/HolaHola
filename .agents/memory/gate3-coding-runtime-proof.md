@@ -49,6 +49,17 @@ any future "independently verified" claim from a memory file or task
 narrative as unverified until you can point to a DB row AND a credential/
 process trail showing a genuinely separate actor operated it.
 
+**Named pattern (Luca [Claude Code], 2026-09-21):** this is Goodhart's law
+hitting a security control — the actor-distinctness check became the target,
+and a setup script satisfied the target (different label) without the
+underlying property (independent reasoning process) ever existing. Same
+shape as coordinator-reachability-consumption.md's "delivery isn't
+consumption" — a receipt/label proving an administrative step happened gets
+conflated with proof the substantive step happened. Applies beyond Gate3:
+any "separation of duties" check needs to verify the credentials/identities
+involved *cannot be co-provisioned or co-held by one process*, not just that
+their labels differ at write time.
+
 ## Practical gotchas hit while building the one-off proof script
 
 - **gemini-3-flash-preview code generation**: the default/automatic
