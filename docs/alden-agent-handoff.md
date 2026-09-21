@@ -1,72 +1,8 @@
-## From Replit Agent — September 16, 2026: production image intent
-
-The approved image repair is implemented in the shared workspace. The actual
-Madrid production arguments now classify as `environment` with
-`peoplePolicy=excluded` even when `slot` is omitted. Explicit people,
-shoppers, relationships, tutor names, and human actions classify as
-`character`; isolated props retain the existing curated/fallback keys.
-
-Custom environment/character requests use deterministic scene-digest cache
-keys, so the existing generic Madrid row cannot satisfy them. Live
-`show_image` requests pass the active session tutor name; legacy seed/admin
-paths retain their language-profile behavior. Environment routing uses the
-canonical normalized language profile and reports generator/style metadata.
-The tool wording now explicitly states that `slot="scene"` is an empty
-environment unless people are described.
-
-Focused `server/__tests__/visual-image-pipeline-repair.test.ts` passed 11/11,
-`npm run typecheck -- --pretty false` passed, and Gemini returned
-`APPROVED — Ship it.` Daniela REST also found the wording clear
-and recommended no changes. No commit was created; the parent agent owns the
-combined workspace changes.
-
-## From Luca [Replit] — September 16, 2026: authoritative Team Room presence
-
-Luca presence now validates only the dedicated
-`COORDINATION_LUCA_REPLIT_TOKEN` boundary, reports explicit non-secret
-credential/transport/room states, and re-reads the authoritative active room
-on connect, reconnect, and successful Team Room creation. Client and broker
-join generations prevent stale lookups, acknowledgements, and timeouts from
-overwriting a newer room binding. Presence changes to online only after the
-broker acknowledges exact membership; same-room and different-room races are
-handled without removing the winning membership. Retry timers are bounded and
-cleared on explicit disconnect.
-
-The existing broker authorization and exact-room late-browser replay were
-preserved. Focused Luca/broker tests passed 16/16, `npm run typecheck` passed,
-and independent architecture review found no remaining blockers. No commit
-was created; the parent agent owns the combined workspace changes.
-
-## From Luca [Replit] — September 16, 2026: provider-neutral release identity
-
-David chose platform independence rather than a Replit-specific startup
-launcher and explicitly approved replacing the unused Render standby. Read-only
-checks confirmed the apex still points to Replit while
-`render.getholahola.com` points to the healthy but stale
-`holahola-6f1o.onrender.com` service. No DNS records were changed.
-
-The portable build now bakes a provider-supplied Git commit and deterministic
-source-context digest. `GET /health/release` returns 200 only for a promotable
-build; missing or development identity returns 503 without affecting ordinary
-application health. Do not promote Render in Cloudflare until independent
-verification matches both running values.
-
 # Alden ↔ Agent Handoff
 
-## From Alden — last updated: Mon, Sep 14, 9:13 PM
+## From Alden — last updated: Mon, Sep 21, 9:27 PM
 
-
-**Decision:** Proceed with providing David a carefully reviewed staged PowerShell procedure for Coordinator V2 first Windows host enrollment (Option A).
-
-**Reasoning:**
-1.  **Authority Consumption:** The primary risk is the one-time consumption of the bootstrap secret. A precise PowerShell script can ensure the `x-coordination-initial-bootstrap` header is sent only on the initial POST and the secret is cleared immediately, minimizing the risk of accidental consumption.
-2.  **Existing Server Logic:** The server-side routes and services for host enrollment appear to be in place and verified, as indicated by the `server/routes/coordination-host-routes.ts` file and the completion of relevant Coordinator V2 milestones (Milestone 12, with enrollment in Milestones 14-15).
-3.  **No Source Changes Required:** The prompt explicitly states no source changes have been made. Crafting a PowerShell script avoids introducing new client-side code, which would require further review, testing, and publication.
-4.  **DPAPI CurrentUser:** The use of DPAPI CurrentUser is a local host constraint that the PowerShell script can manage.
-5.  **No New Digest Risks:** Since no source code changes are being made, there are no new code digests to reconcile.
-
-This approach minimizes risks and leverages the existing, verified platform components.
-
+Reviewed Phase 8 of the shared-docs DB-canonical migration. The `addBlock` concurrency fix using `FOR UPDATE` within a transaction is correct and robust, effectively closing the race condition without introducing new issues. The wiring of new PostgreSQL-backed tests exclusively into `scripts/neon-branch.ts` is appropriate for the repository's conventions, ensuring they run only in disposable database environments. No other red flags were identified across the Phase 1-8 arc. The `shared-spec-live-sync.test.ts` wiring is a known, pre-existing follow-up item.
 
 ---
 
