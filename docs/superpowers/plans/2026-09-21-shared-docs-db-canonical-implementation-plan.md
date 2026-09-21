@@ -424,3 +424,82 @@ Landed in commit `6dcbab9`.
 - No new test or typecheck failure; existing shared-spec tests still pass.
 - System health reports zero red failures.
 - Alden reports no remaining required change.
+
+### Status: complete
+
+Implemented as designed, with one real bug found in already-shipped Phase 2
+code, one deviation from the plan's CI-wiring assumption, and one test-
+invocation pitfall worth recording separately:
+
+- Bug found and fixed: `addBlock()` computed its `orderKey` and performed
+  its insert as two separate statements against the pool, outside any
+  transaction. Two true concurrent appends to the same brand-new topic both
+  read "no blocks yet", both computed the same `keyBetween(undefined,
+  undefined)` result (a pure function), and the second insert died on
+  `uq_agent_memory_topic_blocks_order` instead of landing after the first —
+  violating the design's "no hat ever loses a concurrent contribution"
+  invariant. Fixed by wrapping the topic upsert, a `SELECT ... FOR UPDATE`
+  on the topic row, the `orderKey` computation, and the block insert in one
+  `db.transaction()`. The `FOR UPDATE` lock (not the transaction alone,
+  which doesn't help under `READ COMMITTED`) is what serializes concurrent
+  appends to the *same* topic; appends to different topics still proceed
+  fully in parallel. `editBlock`/`editEntry` are untouched, unaffected, and
+  cannot deadlock against this new lock — they do a single
+  compare-and-swap `UPDATE ... WHERE id = ? AND version = ?`, never lock a
+  row, and never touch `agent_memory_topics`. Covered by the new
+  `test-agent-memory-concurrent-write-postgres.test.ts`.
+- Deviation: step 5 called for "three separate registrations" (
+  `run-ci-test-steps.mjs`, `run-validation-suite.sh`, and
+  `neon-branch.ts`'s allowlist). An exhaustive grep across all three files
+  plus `package.json`'s `scripts.test` chain found that **zero** existing
+  disposable-Postgres-gated test file — not `agent-memory-core.test.ts`
+  itself (Phase 2), not any of the `coordination-runtime` /
+  `founder-task-ownership` / `coordinator-v2` / `release-cutover-attestation`
+  Postgres test files — is referenced in either
+  `run-ci-test-steps.mjs` or `run-validation-suite.sh` today. This category
+  of test is registered exclusively through `scripts/neon-branch.ts`'s
+  `cmdGate()` in this repo; the plan's assumption of a three-file convention
+  didn't match the actual codebase. All 4 new Postgres test files were
+  wired into `neon-branch.ts`'s gate only, matching the existing pattern
+  exactly.
+- Test-invocation pitfall (not a code bug, but cost real investigation
+  time): running `agent-memory-core.test.ts` by hand against a local
+  disposable Postgres without also setting `CI=true` silently routes
+  `server/db.ts` through the `@neondatabase/serverless` driver (pointed at
+  a plain Postgres server that doesn't speak Neon's wire protocol) instead
+  of the plain `pg` driver, producing a mismatched error shape that looked
+  like 14 failing subtests. `getVerifiedCiDatabaseUrl()` only returns the
+  disposable URL when `CI==='true'` **and**
+  `NEON_SHARED_DATABASE_URL===CI_DATABASE_URL`; both are required together.
+  Re-run with `CI=true` set correctly: 28/28 passed (`agent-memory-core.test.ts`
+  plus all 3 agent-memory Postgres files), confirming the transaction fix
+  has no regressions. See `.agents/memory/local-disposable-postgres-sandbox.md`.
+- Verified: all 4 new Postgres test files pass together with the
+  pre-existing `agent-memory-core.test.ts` against a local disposable
+  Postgres (28/28, 0 failures). `npm run test:shared-spec:unit` (47/47) and
+  `npm run test:shared-spec:guards` (19/19) pass — no regression from
+  Phase 5/6 touching `shared-spec-core.ts`/`shared-spec-routes.ts`.
+  `npx tsc --noEmit` clean. `npx tsx server/scripts/verify-system-health.ts`
+  reports zero red failures. The "Start application" workflow was restarted
+  and booted clean with no errors; `curl` against the running server
+  returned HTTP 200.
+- Alden (both Anthropic and Gemini engines, dual-engine review, no
+  disagreement) reviewed the actual `addBlock` diff and the `neon-branch.ts`
+  wiring diff and reported no remaining required change: "The concurrency
+  fix is sound, the CI wiring follows the established convention, and the
+  full Phase 1-8 arc is clean. No remaining blockers." / "No other red
+  flags were identified across the Phase 1-8 arc."
+- Known pre-existing gap, explicitly **not** fixed under this phase's scope:
+  `shared-spec-live-sync.test.ts` (an existing, non-DB, temp-git-repo-only
+  test predating this migration) is not wired into `test:shared-spec:unit`
+  or anywhere else in `package.json`. Flagged to the user as a follow-up
+  suggestion.
+
+Landed in commit `ae226b9`.
+
+## Migration complete
+
+All 8 phases are implemented, tested, and reviewed. `.agents/memory/` is
+DB-generated and CLI-managed; `shared-agent-instructions.md` and
+`coordination-clients.md` are live-synced shared-spec documents;
+`AGENTS.md` exists and `CLAUDE.md` points to it.
