@@ -102,6 +102,20 @@ jobs:
       - name: Install dependencies
         run: npm ci --include=dev
 
+      - name: Check episode files for silent content loss
+        run: |
+          # This job pushes straight to main from outside Replit (see the
+          # "Fast-forward main and push" step below), bypassing
+          # server/services/source-control-service.ts's syncLocked() guard
+          # entirely — so it needs its own copy of the same check rather
+          # than relying on that chokepoint. A fresh fetch here (not the
+          # MAIN_SHA computed in "Refuse if main is not an ancestor" above,
+          # which is a step-local shell variable and isn't visible here)
+          # keeps this close to the actual comparison being made.
+          git fetch origin main --no-tags
+          MAIN_SHA="$(git rev-parse --verify FETCH_HEAD^{commit})"
+          npx tsx server/scripts/check-episode-content-loss.ts --old-ref "$MAIN_SHA" --new-ref HEAD
+
       - name: Typecheck
         run: npm run check
 

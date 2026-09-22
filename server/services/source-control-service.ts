@@ -23,6 +23,7 @@ import { parseReleaseIdentity } from './release-identity';
 import { encodeGithubAppGitCredential, fetchGithubInstallationToken } from './github-app-auth';
 import { coordinationV2SourcePromotions } from '@shared/schema';
 import { hashGitCommitSourceContext } from '../../scripts/source-context-digest.mjs';
+import { checkEpisodeContentLoss } from './episode-content-loss-guard';
 
 const execFile = promisify(nodeExecFile);
 
@@ -739,6 +740,32 @@ export class SourceControlService {
     }
 
     if (await this.isAncestor(heads.github, heads.local)) {
+      let contentLoss: Awaited<ReturnType<typeof checkEpisodeContentLoss>>;
+      try {
+        contentLoss = await checkEpisodeContentLoss(
+          (args) => this.runGit(args),
+          heads.github,
+          heads.local,
+        );
+      } catch (contentLossError: unknown) {
+        const message = contentLossError instanceof Error
+          ? contentLossError.message
+          : 'Episode content-loss verification could not run.';
+        const error = bounded(`EPISODE_CONTENT_LOSS_BLOCKED: guard failed to run — refusing to push. ${message}`);
+        await this.writeStatus('failed', error, actor, heads.local, heads.github);
+        return { ok: false, state: 'failed', ...heads, error };
+      }
+      if (contentLoss.blocked) {
+        const summary = Object.entries(contentLoss.violations)
+          .map(([file, lines]) => `${file} (${lines.length} line${lines.length === 1 ? '' : 's'} removed)`)
+          .join('; ');
+        const error = bounded(
+          `EPISODE_CONTENT_LOSS_BLOCKED: this push would remove real episode content with no ` +
+          `docs/episode-content-loss-override-*.md present — ${summary}.`,
+        );
+        await this.writeStatus('failed', error, actor, heads.local, heads.github);
+        return { ok: false, state: 'failed', ...heads, error };
+      }
       const pushed = await this.runGit(['push', this.repoUrl, `${heads.local}:refs/heads/${this.branch}`]);
       if (pushed.exitCode !== 0) {
         const error = bounded(pushed.stderr || 'Fast-forward push failed.');

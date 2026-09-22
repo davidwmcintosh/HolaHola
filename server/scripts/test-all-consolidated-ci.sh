@@ -215,6 +215,10 @@ group_body_episode_28() {
   echo ""
   echo "  --- test-merge-ours-guard.ts (proves merge=ours blocks task-agent stale overwrites) ---"
   npx tsx server/scripts/test-merge-ours-guard.ts
+
+  echo ""
+  echo "  --- check-episode-content-loss.ts --self-check (blocks silent content loss across all docs/episode-*.md, direct commit or merge, not just episode-27) ---"
+  npx tsx server/scripts/check-episode-content-loss.ts --self-check
 }
 
 group_body_luca_inner_life() {

@@ -32,6 +32,29 @@ git config merge.ours.driver true
 
 # ── Setup steps (run only after gate passes) ──────────────────────────────────
 npm install --legacy-peer-deps
+
+# ── Episode content-loss guard ────────────────────────────────────────────────
+# Blocks this merge outright if any docs/episode-<N>.md file would lose real,
+# non-duplicate conversation history relative to the pre-merge state — not
+# just a shrinking file (see the two rolling-episode guards below), but any
+# removal that isn't a byte-verified duplicate of content still present
+# elsewhere in the file. Content-based, not size-based: a version whose total
+# size grows while still discarding a real exchange is caught the same way a
+# full truncation is.
+#
+# Unlike the shrinkage guards below, this failure is NOT swallowed — a
+# detected loss halts this script here (set -e, top of file) rather than
+# landing silently. To authorize an intentional removal, include a
+# docs/episode-content-loss-override-<reason>.md file in the same change and
+# retry.
+#
+# See server/services/episode-content-loss-guard.ts for the detection logic
+# shared with server/services/source-control-service.ts (the authoritative
+# chokepoint for this workspace's own outgoing sync) and
+# .github/workflows/cross-tool-promote.yml (the external promotion path).
+# ─────────────────────────────────────────────────────────────────────────────
+npx tsx server/scripts/check-episode-content-loss.ts
+
 # Apply only reviewed, committed migration artifacts. `drizzle-kit migrate` is
 # idempotent; it does nothing when the merge contains no new migration files.
 # Never use db:push here: it derives DDL from the live schema without a reviewed

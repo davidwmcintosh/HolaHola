@@ -85,9 +85,25 @@ function manifest(sha: string): Record<string, unknown> {
 
 type Scenario = 'equal' | 'local-ahead' | 'github-ahead' | 'diverged';
 
+/** Injects a specific docs/episode-*.md diff into the 'local-ahead' fixture
+ *  so a test can prove syncLocked() actually reacts to what
+ *  episode-content-loss-guard.ts reports, rather than merely exercising the
+ *  fixture's default (and otherwise-untested) always-empty diff stub. */
+interface EpisodeDiffFixture {
+  changedPath: string;
+  oldContent: string;
+  newContent: string;
+}
+
 async function withFixture(
   scenario: Scenario,
-  options: { dirty?: boolean; untracked?: boolean; missingKey?: boolean; holdLock?: boolean } = {},
+  options: {
+    dirty?: boolean;
+    untracked?: boolean;
+    missingKey?: boolean;
+    holdLock?: boolean;
+    episodeDiff?: EpisodeDiffFixture;
+  } = {},
 ): Promise<{ result: Awaited<ReturnType<SourceControlService['sync']>>; calls: string[]; status: any }> {
   const rootDir = mkdtempSync(join(tmpdir(), 'source-control-service-test-'));
   const calls: string[] = [];
@@ -136,7 +152,17 @@ async function withFixture(
           return { exitCode: 0, stdout: 'false\n', stderr: '' };
         }
         if (operation === 'rev-parse') {
-          return { exitCode: 0, stdout: `${args.some((arg) => arg.includes('FETCH_HEAD')) ? state.remote : state.local}\n`, stderr: '' };
+          // episode-content-loss-guard.ts's resolveCommit() calls
+          // `rev-parse --verify <sha>^{commit}` with the two already-
+          // resolved head shas (not the symbolic HEAD/FETCH_HEAD refs
+          // SourceControlService's own head-resolution uses) — it must
+          // echo back that exact sha, not collapse both to whichever of
+          // state.local/state.remote happens to be current, or a
+          // violating-diff fixture would compare a version against itself.
+          const target = args[args.length - 1] ?? '';
+          const embeddedSha = target.match(/^([0-9a-f]{40})\^\{commit\}$/)?.[1];
+          const resolved = embeddedSha ?? (target.includes('FETCH_HEAD') ? state.remote : state.local);
+          return { exitCode: 0, stdout: `${resolved}\n`, stderr: '' };
         }
         if (operation === 'merge-base' && args[1] !== '--is-ancestor') {
           return { exitCode: scenario === 'diverged' ? 1 : 0, stdout: '', stderr: '' };
@@ -155,6 +181,37 @@ async function withFixture(
         if (operation === 'merge' && args[1] === '--ff-only') {
           state.local = state.remote;
           return { exitCode: 0, stdout: '', stderr: '' };
+        }
+        // episode-content-loss-guard.ts (checked inline by syncLocked() before
+        // its fast-forward push — see server/services/episode-content-loss-
+        // guard.ts) issues a read-only diff to find changed docs/episode-*.md
+        // files. Only a fixture that opts in via `options.episodeDiff` ever
+        // touches such a file; every other fixture's synthetic history
+        // truthfully reports an empty changed-file list.
+        if (operation === 'diff') {
+          const changed = options.episodeDiff ? `${options.episodeDiff.changedPath}\n` : '';
+          return { exitCode: 0, stdout: changed, stderr: '' };
+        }
+        if (
+          operation === 'ls-tree'
+          && options.episodeDiff
+          && args[2] === '--'
+          && args[3] === options.episodeDiff.changedPath
+        ) {
+          // Both the old and new sha carry this path as a normal file in
+          // every scenario this fixture drives — it only exercises content
+          // mutation, never an add or a delete.
+          return { exitCode: 0, stdout: `100644 blob ${'a'.repeat(40)}\t${options.episodeDiff.changedPath}\n`, stderr: '' };
+        }
+        if (operation === 'show' && options.episodeDiff) {
+          const spec = args[1] ?? '';
+          const separator = spec.indexOf(':');
+          const sha = separator === -1 ? '' : spec.slice(0, separator);
+          const path = separator === -1 ? '' : spec.slice(separator + 1);
+          if (path === options.episodeDiff.changedPath) {
+            if (sha === state.remote) return { exitCode: 0, stdout: options.episodeDiff.oldContent, stderr: '' };
+            if (sha === state.local) return { exitCode: 0, stdout: options.episodeDiff.newContent, stderr: '' };
+          }
         }
         return { exitCode: 98, stdout: '', stderr: `unexpected command: ${args.join(' ')}` };
       },
@@ -348,6 +405,12 @@ async function recordPublicationMarkerFixture(overrides: {
             stderr: '',
           };
         }
+        // episode-content-loss-guard.ts (checked inline by syncLocked() before
+        // its fast-forward push — see server/services/episode-content-loss-
+        // guard.ts) issues a read-only diff to find changed docs/episode-*.md
+        // files. None of this fixture's synthetic history ever touches such a
+        // file, so an empty changed-file list is the truthful response.
+        if (operation === 'diff') return { exitCode: 0, stdout: '', stderr: '' };
         return { exitCode: 98, stdout: '', stderr: `unexpected command: ${args.join(' ')}` };
       },
     });
@@ -484,6 +547,12 @@ async function syncPublicationMarkerFixture(overrides: {
             stderr: '',
           };
         }
+        // episode-content-loss-guard.ts (checked inline by syncLocked() before
+        // its fast-forward push — see server/services/episode-content-loss-
+        // guard.ts) issues a read-only diff to find changed docs/episode-*.md
+        // files. None of this fixture's synthetic history ever touches such a
+        // file, so an empty changed-file list is the truthful response.
+        if (operation === 'diff') return { exitCode: 0, stdout: '', stderr: '' };
         return { exitCode: 98, stdout: '', stderr: `unexpected command: ${args.join(' ')}` };
       },
     });
@@ -602,6 +671,12 @@ async function syncPublicationMarkerFailClosedFixture(overrides: SyncMarkerFixtu
             stderr: '',
           };
         }
+        // episode-content-loss-guard.ts (checked inline by syncLocked() before
+        // its fast-forward push — see server/services/episode-content-loss-
+        // guard.ts) issues a read-only diff to find changed docs/episode-*.md
+        // files. None of this fixture's synthetic history ever touches such a
+        // file, so an empty changed-file list is the truthful response.
+        if (operation === 'diff') return { exitCode: 0, stdout: '', stderr: '' };
         return { exitCode: 98, stdout: '', stderr: `unexpected command: ${args.join(' ')}` };
       },
     });
@@ -703,6 +778,12 @@ async function syncThenRecordPublicationMarkerFixture(): Promise<{
             stderr: '',
           };
         }
+        // episode-content-loss-guard.ts (checked inline by syncLocked() before
+        // its fast-forward push — see server/services/episode-content-loss-
+        // guard.ts) issues a read-only diff to find changed docs/episode-*.md
+        // files. None of this fixture's synthetic history ever touches such a
+        // file, so an empty changed-file list is the truthful response.
+        if (operation === 'diff') return { exitCode: 0, stdout: '', stderr: '' };
         return { exitCode: 98, stdout: '', stderr: `unexpected command: ${args.join(' ')}` };
       },
     });
@@ -778,6 +859,53 @@ async function main(): Promise<void> {
   const localAhead = await withFixture('local-ahead');
   assert.equal(localAhead.result.state, 'synced');
   assert.ok(localAhead.calls.some((call) => call.startsWith('git push ')));
+
+  // A push that would silently remove real, non-duplicate episode content
+  // must be blocked before it reaches `git push` — proving syncLocked()
+  // actually reacts to a real violation from episode-content-loss-guard.ts,
+  // not merely that unrelated fixtures still pass against an always-empty
+  // diff stub (see the 2026-08-31/2026-09-21 incidents in task #1529).
+  const episodeContentLossOld = [
+    '# Episode 99',
+    '',
+    "**DAVID:** approved, I'm off for the day",
+    '**LUCA [Replit]:** Good session, enjoy the rest of your day',
+  ].join('\n');
+  const episodeContentLossNew = [
+    '# Episode 99',
+    '',
+    "**DAVID:** approved, I'm off for the day",
+    '**LUCA [Replit]:** a different, later exchange entirely',
+  ].join('\n');
+  const episodeLossBlocked = await withFixture('local-ahead', {
+    episodeDiff: {
+      changedPath: 'docs/episode-99.md',
+      oldContent: episodeContentLossOld,
+      newContent: episodeContentLossNew,
+    },
+  });
+  assert.equal(episodeLossBlocked.result.state, 'failed');
+  assert.match(episodeLossBlocked.result.error || '', /EPISODE_CONTENT_LOSS_BLOCKED/);
+  assert.match(episodeLossBlocked.result.error || '', /docs\/episode-99\.md/);
+  assert.ok(
+    !episodeLossBlocked.calls.some((call) => call.startsWith('git push ')),
+    'a blocked episode content-loss violation must never reach git push',
+  );
+  assert.equal(episodeLossBlocked.status.state, 'failed');
+  assert.match(episodeLossBlocked.status.error || '', /EPISODE_CONTENT_LOSS_BLOCKED/);
+
+  // The same guard must not block a legitimate append — proving the
+  // fixture (and the guard) actually discriminates on content loss rather
+  // than blocking on the mere presence of an episode-file diff.
+  const episodeAppendSafe = await withFixture('local-ahead', {
+    episodeDiff: {
+      changedPath: 'docs/episode-99.md',
+      oldContent: episodeContentLossOld,
+      newContent: `${episodeContentLossOld}\n**DAVID:** one more thing\n**LUCA [Replit]:** sure, go ahead`,
+    },
+  });
+  assert.equal(episodeAppendSafe.result.state, 'synced');
+  assert.ok(episodeAppendSafe.calls.some((call) => call.startsWith('git push ')));
 
   const githubAhead = await withFixture('github-ahead');
   assert.equal(githubAhead.result.state, 'ready_to_promote');
