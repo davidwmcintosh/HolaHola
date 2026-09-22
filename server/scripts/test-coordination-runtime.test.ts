@@ -1278,3 +1278,80 @@ test('execution envelope violation is recoverable only through a fresh supersedi
   );
   assert.equal(verification.decision, 'approved');
 });
+
+test('same-packet reclaim guard rejects even when supersession evidence is otherwise valid', async () => {
+  const fixture = await harness();
+  const claim = await fixture.service.claim(
+    gemini, fixture.packet.id, fixture.packet.digest, fixture.receipt.id, 100, 'same-packet-guard-claim',
+  );
+  await expectCode(
+    async () => await fixture.service.execute(
+      gemini, claim.id, { ...envelope, argv: ['rm', '-rf', '/'] }, 'same-packet-guard-violation',
+    ),
+    'execution_envelope_mismatch',
+  );
+
+  // Make the evidence fields satisfy the replacement guard while retaining
+  // the original packet id and its already-consumed receipt.
+  fixture.setNow(200);
+  await fixture.repository.savePacket({
+    ...fixture.packet,
+    createdAt: 201,
+    supersedesClaimId: claim.id,
+  });
+  await fixture.repository.saveReceipt({
+    ...fixture.receipt,
+    createdAt: 202,
+  });
+  await expectCode(
+    async () => await fixture.service.claim(
+      gemini, fixture.packet.id, fixture.packet.digest, fixture.receipt.id, 100, 'same-packet-guard-reclaim',
+    ),
+    'fresh_consumption_required',
+  );
+});
+
+test('replacement guard rejects an unclaimed packet with invalid terminal evidence', async () => {
+  const fixture = await harness();
+  const priorClaim = await fixture.service.claim(
+    gemini, fixture.packet.id, fixture.packet.digest, fixture.receipt.id, 100, 'replacement-guard-prior',
+  );
+  await expectCode(
+    async () => await fixture.service.execute(
+      gemini, priorClaim.id, { ...envelope, argv: ['rm', '-rf', '/'] }, 'replacement-guard-violation',
+    ),
+    'execution_envelope_mismatch',
+  );
+  fixture.setNow(200);
+  const replacement = await fixture.service.createPacket(
+    gemini,
+    fixture.window.id,
+    fixture.assignment,
+    'replacement-guard-packet',
+    2,
+    priorClaim.id,
+  );
+  await fixture.repository.savePacket({
+    ...replacement,
+    supersedesClaimId: 'wrong-terminal-claim',
+  });
+  const interaction = await fixture.service.recordInteraction(gemini, {
+    packetId: replacement.id,
+    turn: 2,
+    attempt: 1,
+    requestDigest: 'replacement-guard-request',
+    responseDigest: 'replacement-guard-response',
+    outcome: 'consumed',
+    idempotencyKey: 'replacement-guard-interaction',
+  });
+  const receipt = await fixture.service.recordOutcomeReceipt(
+    gemini, replacement.id, replacement.digest, interaction.id, 'replacement-guard-receipt',
+  );
+  assert.deepEqual(await fixture.repository.claimsForPacket(replacement.id), []);
+  await expectCode(
+    async () => await fixture.service.claim(
+      gemini, replacement.id, replacement.digest, receipt.id, 100, 'replacement-guard-claim',
+    ),
+    'fresh_consumption_required',
+  );
+});

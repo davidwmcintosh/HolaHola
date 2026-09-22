@@ -16,6 +16,10 @@ const runtimePath = resolve(root, 'server/services/coordination-runtime.ts');
 const runtimeTestPath = 'server/scripts/test-coordination-runtime.test.ts';
 const TARGET_TEST_NAME =
   'execution envelope violation is recoverable only through a fresh superseding packet';
+const SAME_PACKET_TEST_NAME =
+  'same-packet reclaim guard rejects even when supersession evidence is otherwise valid';
+const REPLACEMENT_TEST_NAME =
+  'replacement guard rejects an unclaimed packet with invalid terminal evidence';
 
 function inheritedTsxLoader(): string {
   const importFlagIndex = process.execArgv.findIndex(
@@ -58,10 +62,10 @@ function runTsxChild(args: string[]): Promise<{ code: number | null; output: str
   });
 }
 
-function runEnvelopeViolationTest(): Promise<{ code: number | null; output: string }> {
+function runNamedTest(name: string): Promise<{ code: number | null; output: string }> {
   return runTsxChild([
     '--test',
-    `--test-name-pattern=${TARGET_TEST_NAME}`,
+    `--test-name-pattern=${name}`,
     runtimeTestPath,
   ]);
 }
@@ -69,12 +73,9 @@ function runEnvelopeViolationTest(): Promise<{ code: number | null; output: stri
 // claim() enforces "fresh_consumption_required" through two independent
 // checks: (1) a packet/receipt that already has any prior claim can never be
 // reclaimed, and (2) a replacement packet must properly supersede the prior
-// terminal claim with evidence created after it went terminal. For the exact
-// reclaim-the-same-violated-packet scenario this test exercises, each check
-// alone fully covers the other's removal (both raise the same
-// "fresh_consumption_required" code), so only removing both at once turns
-// off the protection this test is meant to catch. Both must be mutated
-// together for the self-check to prove something real.
+// terminal claim with evidence created after it went terminal. The dedicated
+// tests below isolate each check; the original reclaim test is also retained
+// as an overlap check because both guards cover that exact same-packet case.
 const reclaimGuard = `      if (priorPacketClaims.length > 0) {
         fail('fresh_consumption_required', 'A terminal or expired claim requires a fresh packet');
       }
@@ -94,6 +95,7 @@ const supersessionGuard = `      if (
 
 async function proveMutationFails(input: {
   label: string;
+  testName: string;
   expectedFailure: RegExp;
   mutate: (source: string) => string;
 }): Promise<void> {
@@ -108,7 +110,7 @@ async function proveMutationFails(input: {
 
   try {
     writeFileSync(runtimePath, mutantSource);
-    const result = await runEnvelopeViolationTest();
+    const result = await runNamedTest(input.testName);
     assert.notEqual(
       result.code,
       0,
@@ -116,7 +118,7 @@ async function proveMutationFails(input: {
     );
     assert.match(
       result.output,
-      new RegExp(TARGET_TEST_NAME.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')),
+      new RegExp(input.testName.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')),
       `${input.label} mutation did not fail the expected test:\n${result.output}`,
     );
     assert.match(
@@ -135,7 +137,28 @@ async function proveMutationFails(input: {
 }
 
 await proveMutationFails({
+  label: 'same-packet fresh_consumption_required removal from claim()',
+  testName: SAME_PACKET_TEST_NAME,
+  expectedFailure: /Missing expected rejection/,
+  mutate(source) {
+    assert.equal(source.split(reclaimGuard).length - 1, 1);
+    return source.replace(reclaimGuard, '');
+  },
+});
+
+await proveMutationFails({
+  label: 'replacement-evidence fresh_consumption_required removal from claim()',
+  testName: REPLACEMENT_TEST_NAME,
+  expectedFailure: /Missing expected rejection/,
+  mutate(source) {
+    assert.equal(source.split(supersessionGuard).length - 1, 1);
+    return source.replace(supersessionGuard, '');
+  },
+});
+
+await proveMutationFails({
   label: 'fresh_consumption_required removal from claim()',
+  testName: TARGET_TEST_NAME,
   expectedFailure: /Missing expected rejection/,
   mutate(source) {
     assert.equal(
@@ -156,7 +179,7 @@ await proveMutationFails({
 // "restores the original guard afterward and confirms the test passes again"
 // requires actually re-running the test against the restored source, not
 // just trusting that the bytes match.
-const restoredRun = await runEnvelopeViolationTest();
+const restoredRun = await runNamedTest(TARGET_TEST_NAME);
 assert.equal(
   restoredRun.code,
   0,
