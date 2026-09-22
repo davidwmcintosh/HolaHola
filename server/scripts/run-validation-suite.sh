@@ -48,6 +48,7 @@ run_check "GitHub release safety" npm run test:github-release-safety
 run_check "GitHub sync shell guards" bash scripts/test-github-sync-guards.sh
 run_check "GitHub main-branch bypass surface guard" bash -c 'npx tsx server/scripts/test-github-branch-bypass-guard.ts && npx tsx server/scripts/test-github-branch-bypass-guard.ts --self-check'
 run_check "Cross-tool-promote push-auth guard" bash -c 'npx tsx server/scripts/test-cross-tool-promote-push-auth-guard.ts && npx tsx server/scripts/test-cross-tool-promote-push-auth-guard.ts --self-check'
+run_check "Agent skills cross-hat symlink guard" bash -c 'npx tsx server/scripts/test-agent-skills-symlink.ts && npx tsx server/scripts/test-agent-skills-symlink.ts --self-check'
 run_check "Antigravity Windows DPAPI source boundary" npx tsx --test server/scripts/test-antigravity-windows-dpapi.test.ts
 run_check "Coordinator V2 first-host bootstrap boundary" npx tsx --test server/scripts/test-coordination-v2-first-host-bootstrap.test.ts
 run_check "Coordinator V2 lifecycle diagnostics cleanup fault fallback and evidence suites" npx tsx --test \
