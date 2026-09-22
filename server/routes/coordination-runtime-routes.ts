@@ -144,7 +144,7 @@ function statusFor(code: string): number {
   if (['authentication_required', 'credential_expired', 'runtime_revoked'].includes(code)) return 401;
   if (['invalid_request', 'malformed_function_call', 'unsupported_provider_outcome'].includes(code)) return 400;
   if (['claim_active_conflict', 'claim_epoch_stale', 'claim_expired', 'claim_not_active', 'claim_not_owned', 'consumption_conflict', 'fresh_consumption_required', 'thread_sequence_stale', 'stale_epoch', 'idempotency_payload_mismatch', 'execution_already_recorded', 'execution_violated'].includes(code)) return 409;
-  if (['capability_required', 'actor_mismatch', 'profile_not_found', 'profile_not_active', 'verifier_not_allowed', 'self_verification_denied', 'assigner_verification_denied', 'gate3_proof_grant_invalid'].includes(code)) return 403;
+  if (['capability_required', 'actor_mismatch', 'profile_not_found', 'profile_not_active', 'verifier_not_allowed', 'verifier_registration_not_standing', 'self_verification_denied', 'assigner_verification_denied', 'gate3_proof_grant_invalid'].includes(code)) return 403;
   if (['packet_not_found', 'claim_not_found', 'completion_mismatch'].includes(code)) return 404;
   return 500;
 }
@@ -193,6 +193,7 @@ async function authenticated(
     credentialExpiresAt: credential.expiresAt.getTime(),
     runtimeEnabled: true,
     revoked: false,
+    standingVerifier: credential.standingVerifier,
   };
   (req as Request & { coordinationCredential?: BrokerCredential; gate3GrantValidator?: typeof validateGate3ProofGrant }).coordinationCredential = credential;
   return { principal, profile, credential };

@@ -54,6 +54,7 @@ export type BrokerCredential = {
   credentialId: string;
   capabilities: CoordinationCredentialCapability[];
   expiresAt: Date;
+  standingVerifier: boolean;
 };
 
 type ExchangeBootstrapCredentialTestHooks = {
@@ -739,6 +740,7 @@ async function issueForRegistration(
       credentialId: row.id,
       capabilities: registration.capabilities as CoordinationCredentialCapability[],
       expiresAt,
+      standingVerifier: registration.standingVerifier,
     },
   };
 }
@@ -861,6 +863,7 @@ export async function resolveBrokerCredential(
     credential: coordinationRuntimeCredentials,
     runtimeEnabled: coordinationRuntimeRegistrations.enabled,
     runtimeRevokedAt: coordinationRuntimeRegistrations.revokedAt,
+    standingVerifier: coordinationRuntimeRegistrations.standingVerifier,
   }).from(coordinationRuntimeCredentials)
     .innerJoin(
       coordinationRuntimeRegistrations,
@@ -893,6 +896,7 @@ export async function resolveBrokerCredential(
     credentialId: stored.id,
     capabilities: stored.capabilities,
     expiresAt: stored.expiresAt,
+    standingVerifier: row.standingVerifier,
   };
 }
 
@@ -1021,6 +1025,76 @@ export async function revokeRuntimeCredentials(runtimeId: string, actor: Coordin
       ));
     await audit(
       { eventType: 'runtime_revoked', success: true, runtimeId, actor, sourceIp },
+      tx as unknown as ReturnType<typeof getSharedDb>,
+    );
+    return true;
+  });
+}
+
+const STANDING_VERIFIER_ACTORS = new Set<CoordinationActorId>(['luca-replit', 'luca-claude-code']);
+
+/**
+ * The only supported way to mark a registration eligible to verify other
+ * runtimes' completed work (coordination-runtime.ts's verify() rejects any
+ * verifier lacking this flag with `verifier_registration_not_standing`).
+ *
+ * This is deliberately an operator action, not something any provisioning
+ * flow calls for itself: prepare-antigravity-provisioning.ts and
+ * antigravity-provisioning-bundle.ts mint per-task executor credentials and
+ * must never reach this function. Restricting `actor` to the two approved
+ * verifier identities keeps a `luca-gemini` (or any other) registration from
+ * ever being designated, even by operator error.
+ */
+export async function designateStandingCoordinationVerifier(
+  runtimeId: string,
+  actor: CoordinationActorId,
+  sourceIp?: string,
+): Promise<boolean> {
+  if (!STANDING_VERIFIER_ACTORS.has(actor)) {
+    await audit({
+      eventType: 'standing_verifier_designation_failed',
+      success: false,
+      runtimeId,
+      actor,
+      reason: 'actor_not_eligible_for_verification',
+      sourceIp,
+    });
+    return false;
+  }
+  return getSharedDb().transaction(async (tx) => {
+    await tx.execute(sql`
+      SELECT id FROM coordination_runtime_registrations
+      WHERE id = ${runtimeId}
+      FOR UPDATE
+    `);
+    const [registration] = await tx.select().from(coordinationRuntimeRegistrations)
+      .where(and(
+        eq(coordinationRuntimeRegistrations.id, runtimeId),
+        eq(coordinationRuntimeRegistrations.actor, actor),
+        eq(coordinationRuntimeRegistrations.enabled, true),
+        isNull(coordinationRuntimeRegistrations.revokedAt),
+      ));
+    if (!registration) {
+      await audit({
+        eventType: 'standing_verifier_designation_failed',
+        success: false,
+        runtimeId,
+        actor,
+        reason: 'actor_mismatch_unknown_or_disabled',
+        sourceIp,
+      }, tx as unknown as ReturnType<typeof getSharedDb>);
+      return false;
+    }
+    await tx.update(coordinationRuntimeRegistrations)
+      .set({
+        standingVerifier: true,
+        standingVerifierDesignatedAt: new Date(),
+        standingVerifierDesignatedBy: actor,
+        updatedAt: new Date(),
+      })
+      .where(eq(coordinationRuntimeRegistrations.id, runtimeId));
+    await audit(
+      { eventType: 'standing_verifier_designated', success: true, runtimeId, actor, sourceIp },
       tx as unknown as ReturnType<typeof getSharedDb>,
     );
     return true;

@@ -1,0 +1,5 @@
+ALTER TABLE "coordination_runtime_registrations" ADD COLUMN "standing_verifier" boolean DEFAULT false NOT NULL;--> statement-breakpoint
+ALTER TABLE "coordination_runtime_registrations" ADD COLUMN "standing_verifier_designated_at" timestamp;--> statement-breakpoint
+ALTER TABLE "coordination_runtime_registrations" ADD COLUMN "standing_verifier_designated_by" varchar(120);--> statement-breakpoint
+ALTER TABLE "coordination_runtime_registrations" ADD CONSTRAINT "coord_runtime_standing_verifier_designation_consistency" CHECK (("coordination_runtime_registrations"."standing_verifier" = false AND "coordination_runtime_registrations"."standing_verifier_designated_at" IS NULL AND "coordination_runtime_registrations"."standing_verifier_designated_by" IS NULL)
+      OR ("coordination_runtime_registrations"."standing_verifier" = true AND "coordination_runtime_registrations"."standing_verifier_designated_at" IS NOT NULL AND "coordination_runtime_registrations"."standing_verifier_designated_by" IS NOT NULL));

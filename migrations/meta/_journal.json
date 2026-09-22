@@ -428,6 +428,13 @@
       "when": 1790021256636,
       "tag": "0061_conscious_havok",
       "breakpoints": true
+    },
+    {
+      "idx": 62,
+      "version": "7",
+      "when": 1790043314083,
+      "tag": "0062_hard_quasar",
+      "breakpoints": true
     }
   ]
 }

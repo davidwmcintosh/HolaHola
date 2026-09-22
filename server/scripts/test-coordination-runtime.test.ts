@@ -30,6 +30,7 @@ const gemini: RuntimePrincipal = {
   credentialExpiresAt: 10_000,
   runtimeEnabled: true,
   revoked: false,
+  standingVerifier: false,
 };
 
 const replitVerifier: RuntimePrincipal = {
@@ -41,6 +42,7 @@ const replitVerifier: RuntimePrincipal = {
   credentialExpiresAt: 10_000,
   runtimeEnabled: true,
   revoked: false,
+  standingVerifier: true,
 };
 
 const claudeVerifier: RuntimePrincipal = {
@@ -1010,6 +1012,49 @@ test('verification rejects unsupported, executor, assignment author, and bad evi
       completion.evidenceDigest,
       null,
       'valid-verifier',
+    )).decision,
+    'approved',
+  );
+});
+
+test('verification rejects a verifier registration that is not designated as a standing verifier', async () => {
+  const fixture = await harness('luca-replit');
+  const claim = await fixture.service.claim(
+    gemini,
+    fixture.packet.id,
+    fixture.packet.digest,
+    fixture.receipt.id,
+    100,
+    'claim-non-standing',
+  );
+  const execution = await fixture.service.execute(gemini, claim.id, envelope, 'execute-non-standing');
+  const completion = await fixture.service.complete(
+    gemini,
+    execution.id,
+    digestCanonical(execution),
+    'complete-non-standing',
+  );
+  // Otherwise-valid: approved verifier actor, distinct runtime, correct
+  // evidence. Only the missing standingVerifier designation should block it.
+  await expectCode(
+    async () => await fixture.service.verify(
+      { ...claudeVerifier, standingVerifier: false },
+      completion.id,
+      completion.evidenceDigest,
+      null,
+      'non-standing-verifier',
+    ),
+    'verifier_registration_not_standing',
+  );
+  // The identical principal, differing only in the flag, succeeds -- proves
+  // the rejection above is caused by the flag and nothing else.
+  assert.equal(
+    (await fixture.service.verify(
+      claudeVerifier,
+      completion.id,
+      completion.evidenceDigest,
+      null,
+      'standing-verifier',
     )).decision,
     'approved',
   );

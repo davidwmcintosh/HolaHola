@@ -29,6 +29,10 @@ export type RuntimePrincipal = {
   credentialExpiresAt: number;
   runtimeEnabled: boolean;
   revoked: boolean;
+  // True only for a registration explicitly designated via
+  // designateStandingCoordinationVerifier (operator action, never per-task
+  // provisioning). verify() below rejects any verifier lacking this flag.
+  standingVerifier: boolean;
 };
 export type CodingRuntimeProfile = {
   id: string;
@@ -1825,6 +1829,9 @@ export class CoordinationRuntimeService {
       fail('verifier_not_allowed', 'Verifier actor is not approved');
     }
     this.authorize(principal, principal.actor, 'verify');
+    if (!principal.standingVerifier) {
+      fail('verifier_registration_not_standing', 'Verifier registration is not designated as a standing verifier');
+    }
     const verifierActor = principal.actor;
     return this.mutate('verification', idempotencyKey, {
       completionId,

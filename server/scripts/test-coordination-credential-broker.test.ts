@@ -18,6 +18,7 @@ import {
 import { closeDbConnections, getSharedDb } from '../db';
 import { getVerifiedCiDatabaseUrl } from '../ci-database';
 import {
+  designateStandingCoordinationVerifier,
   exchangeBootstrapCredential,
   registerCoordinationRuntime,
   registerCoordinationRuntimeWithBootstrapSha256,
@@ -54,6 +55,8 @@ const databaseTest = hasDisposableDatabase ? test : test.skip;
 const runtimeId = `credential-broker-${Date.now()}`;
 const revocationRaceRuntimeId = `${runtimeId}-revocation-race`;
 const prehashedRuntimeId = `${runtimeId}-prehashed`;
+const standingVerifierRuntimeId = `${runtimeId}-standing-verifier`;
+const standingVerifierWrongActorRuntimeId = `${runtimeId}-standing-verifier-wrong-actor`;
 let operatorRuntimeId = '';
 const operatorTaskRef = `operator-${Date.now()}`;
 
@@ -789,6 +792,74 @@ databaseTest('broker issues, rotates, expires from use, revokes, and audits with
   assert.equal(auditEvents.some((event) => event.eventType === 'revoked' && event.success), true);
   assert.equal(auditEvents.some((event) => event.eventType === 'exchange_failed' && !event.success), true);
 });
+
+databaseTest(
+  'designateStandingCoordinationVerifier is restricted to approved verifier actors and the matching registration',
+  async () => {
+    const { bootstrapToken } = await registerCoordinationRuntime({
+      runtimeId: standingVerifierRuntimeId,
+      actor: 'luca-replit',
+      displayName: 'Standing verifier designation CI runtime',
+      capabilities: ['coordination:read'],
+      tokenTtlSeconds: 60,
+    });
+    const issued = await exchangeBootstrapCredential(standingVerifierRuntimeId, bootstrapToken);
+    assert.ok(issued);
+    assert.equal(issued.credential.standingVerifier, false);
+    assert.equal((await resolveBrokerCredential(issued.accessToken))?.standingVerifier, false);
+
+    // luca-gemini is never an approved verifier actor, regardless of which
+    // registration it names -- rejected before any registration lookup.
+    assert.equal(
+      await designateStandingCoordinationVerifier(standingVerifierRuntimeId, 'luca-gemini'),
+      false,
+    );
+    assert.equal((await resolveBrokerCredential(issued.accessToken))?.standingVerifier, false);
+
+    // A real registration exists for a different actor than the one making
+    // this call -- must not designate someone else's registration.
+    await registerCoordinationRuntime({
+      runtimeId: standingVerifierWrongActorRuntimeId,
+      actor: 'luca-claude-code',
+      displayName: 'Standing verifier wrong-actor CI runtime',
+      capabilities: ['coordination:read'],
+      tokenTtlSeconds: 60,
+    });
+    assert.equal(
+      await designateStandingCoordinationVerifier(standingVerifierWrongActorRuntimeId, 'luca-replit'),
+      false,
+    );
+
+    // Unknown runtimeId with an otherwise-approved verifier actor.
+    assert.equal(
+      await designateStandingCoordinationVerifier(`${standingVerifierRuntimeId}-unknown`, 'luca-replit'),
+      false,
+    );
+
+    // The approved verifier actor designating its own registration succeeds,
+    // and the change is visible through both the repository row and the
+    // broker credential resolution path used by the runtime route layer.
+    assert.equal(
+      await designateStandingCoordinationVerifier(standingVerifierRuntimeId, 'luca-replit'),
+      true,
+    );
+    const [registration] = await getSharedDb().select().from(coordinationRuntimeRegistrations)
+      .where(eq(coordinationRuntimeRegistrations.id, standingVerifierRuntimeId));
+    assert.equal(registration.standingVerifier, true);
+    assert.equal((await resolveBrokerCredential(issued.accessToken))?.standingVerifier, true);
+
+    const auditEvents = await getSharedDb().select().from(coordinationCredentialAuditEvents)
+      .where(eq(coordinationCredentialAuditEvents.runtimeId, standingVerifierRuntimeId));
+    assert.equal(
+      auditEvents.some((event) => event.eventType === 'standing_verifier_designated' && event.success),
+      true,
+    );
+    assert.equal(
+      auditEvents.some((event) => event.eventType === 'standing_verifier_designation_failed' && !event.success),
+      true,
+    );
+  },
+);
 
 const verifiedDisposableDatabaseTest = getVerifiedCiDatabaseUrl() ? test : test.skip;
 

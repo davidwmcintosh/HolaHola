@@ -8564,12 +8564,29 @@ export const coordinationRuntimeRegistrations = pgTable("coordination_runtime_re
   capabilities: text("capabilities").array().notNull(),
   tokenTtlSeconds: integer("token_ttl_seconds").notNull().default(900),
   enabled: boolean("enabled").notNull().default(true),
+  // Operator-only designation (see designateStandingCoordinationVerifier in
+  // coordination-credential-broker.ts). Never set true by per-task
+  // provisioning flows (e.g. prepare-antigravity-provisioning.ts) — it marks
+  // a long-lived identity as eligible to verify OTHER runtimes' completed
+  // work, independent of any single task's credential minting.
+  standingVerifier: boolean("standing_verifier").notNull().default(false),
+  // Row-level provenance for the designation above, enforced symmetric with
+  // standingVerifier by the check constraint below: both null while false,
+  // both set the moment an operator flips it true. Kept on the row itself so
+  // "who/when" survives independent of the append-only audit-event log.
+  standingVerifierDesignatedAt: timestamp("standing_verifier_designated_at"),
+  standingVerifierDesignatedBy: varchar("standing_verifier_designated_by", { length: 120 }),
   createdAt: timestamp("created_at").notNull().defaultNow(),
   updatedAt: timestamp("updated_at").notNull().defaultNow(),
   revokedAt: timestamp("revoked_at"),
 }, (table) => [
   uniqueIndex("uq_coordination_runtime_bootstrap_hash").on(table.bootstrapHash),
   index("idx_coordination_runtime_actor").on(table.actor, table.enabled),
+  check(
+    "coord_runtime_standing_verifier_designation_consistency",
+    sql`(${table.standingVerifier} = false AND ${table.standingVerifierDesignatedAt} IS NULL AND ${table.standingVerifierDesignatedBy} IS NULL)
+      OR (${table.standingVerifier} = true AND ${table.standingVerifierDesignatedAt} IS NOT NULL AND ${table.standingVerifierDesignatedBy} IS NOT NULL)`,
+  ),
 ]);
 
 export const coordinationRuntimeCredentials = pgTable("coordination_runtime_credentials", {

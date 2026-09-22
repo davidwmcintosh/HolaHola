@@ -100,6 +100,7 @@ test("PostgreSQL parity: complete persisted lifecycle and replay", async (contex
     credentialExpiresAt: 10_000,
     runtimeEnabled: true,
     revoked: false,
+    standingVerifier: false,
   };
   const verifier: RuntimePrincipal = {
     actor: "luca-replit",
@@ -110,6 +111,7 @@ test("PostgreSQL parity: complete persisted lifecycle and replay", async (contex
     credentialExpiresAt: 10_000,
     runtimeEnabled: true,
     revoked: false,
+    standingVerifier: true,
   };
   const ids = {
     thread: `${suffix}-thread`,
@@ -241,6 +243,7 @@ test("PostgreSQL authority transaction commits expected rejection and rolls back
     credentialExpiresAt: 10_000,
     runtimeEnabled: true,
     revoked: false,
+    standingVerifier: false,
   };
   let generated = 0;
   const service = new CoordinationRuntimeService(

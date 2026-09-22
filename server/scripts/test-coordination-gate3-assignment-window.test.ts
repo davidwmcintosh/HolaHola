@@ -632,6 +632,7 @@ databaseTest('packet history blocks new authority but not exact completed replay
     credentialExpiresAt: Date.now() + 60_000,
     runtimeEnabled: true,
     revoked: false,
+    standingVerifier: false,
   };
   const service = new CoordinationRuntimeService(new PostgresCoordinationRuntimeRepository(db));
   await service.createPacket(principal, result.windowId, {
