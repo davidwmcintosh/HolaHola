@@ -16,6 +16,18 @@
  *     restore-episode-27-from-db.ts / restore-episode-28-from-db.ts) would
  *     not have caught it.
  *
+ * Known false-positive class (fixed 2026-09-22, this guard's first day in
+ * production): docs/episode-<N>.md paths are also used as throwaway CI test
+ * fixtures by scripts written before this guard existed (e.g.
+ * server/scripts/test-chat-episode-hook-e2e.ts writes docs/episode-9993.md
+ * as setup and unlinks it as teardown). Each task agent runs in its own
+ * isolated environment, so nothing forces a commit to wait for another
+ * repl's background test to finish cleaning up — a fixture file can be
+ * mid-lifecycle (present on disk) at the exact moment an unrelated commit's
+ * `git add -A` sweeps it in. A later, unrelated commit made without that
+ * stray file then looks, to a path-and-content-only check, exactly like
+ * real content loss. See RESERVED_FIXTURE_EPISODE_MIN below for the fix.
+ *
  * Detection is content-based, not size-based: every non-trivial line present
  * in the "old" version of a protected episode file must still be present
  * somewhere in the "new" version, unless an explicit override doc is present
@@ -33,8 +45,27 @@
  */
 
 /** Matches exactly `docs/episode-<digits>.md` — not gap-analysis docs, not
- *  prequel episodes, not the attribution taxonomy, not `docs/episodes/*`. */
-export const EPISODE_FILE_PATTERN = /^docs\/episode-\d+\.md$/;
+ *  prequel episodes, not the attribution taxonomy, not `docs/episodes/*`.
+ *  Captures the digits so isProtectedEpisodeFile can apply the fixture-range
+ *  exclusion below. */
+export const EPISODE_FILE_PATTERN = /^docs\/episode-(\d+)\.md$/;
+
+/**
+ * Episode numbers at or above this threshold are reserved for CI/test
+ * fixtures, never real conversation content — a pre-existing convention
+ * independently used by many test scripts written before this guard
+ * existed: docs/episode-9993.md (chat-episode-hook e2e), -9994.md (CI
+ * sentinel guard, team-room e2e), -9995.md (append trigger), -9997.md /
+ * -9998.md (concurrent-write), -9999.md (watcher-fires, several inner-life
+ * fixtures), plus a 5-digit random 90000-99999 range in
+ * test-inner-life-db-first.ts. Real episodes are sequential from low
+ * numbers (27, 28, 34, ...) and will not approach this range.
+ *
+ * See the module docstring's "Known false-positive class" note for why
+ * fixture files need this exclusion even though their own tests correctly
+ * clean them up in the normal case.
+ */
+export const RESERVED_FIXTURE_EPISODE_MIN = 9900;
 
 /** Presence (not content) of a matching file in the same change authorizes
  *  removal of real content — mirrors the exact convention already
@@ -94,7 +125,9 @@ export function findContentLossViolations(oldContent: string, newContent: string
 }
 
 export function isProtectedEpisodeFile(path: string): boolean {
-  return EPISODE_FILE_PATTERN.test(path);
+  const match = EPISODE_FILE_PATTERN.exec(path);
+  if (!match) return false;
+  return Number(match[1]) < RESERVED_FIXTURE_EPISODE_MIN;
 }
 
 export function isOverrideDoc(path: string): boolean {

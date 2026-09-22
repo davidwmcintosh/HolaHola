@@ -50,7 +50,9 @@ import { tmpdir } from 'os';
 import {
   checkEpisodeContentLoss,
   findContentLossViolations,
+  isProtectedEpisodeFile,
   isRegularFileEntry,
+  RESERVED_FIXTURE_EPISODE_MIN,
   type GitRunner,
   type TreeEntry,
 } from '../services/episode-content-loss-guard';
@@ -308,6 +310,31 @@ async function runSelfCheck(): Promise<void> {
   assert('isRegularFileEntry rejects a directory even if the name pattern matches', !isRegularFileEntry(dirEntry));
   assert('isRegularFileEntry rejects a symlink even if the name pattern matches', !isRegularFileEntry(symlinkEntry));
   assert('isRegularFileEntry rejects null (path absent from the tree)', !isRegularFileEntry(null));
+
+  // Reserved CI-fixture episode-number range (2026-09-22 fix): a real
+  // fixture path (docs/episode-9993.md, used by test-chat-episode-hook-e2e.ts)
+  // blocked post-merge setup twice on its own file's normal create/delete
+  // lifecycle before this exclusion existed.
+  assert(
+    `isProtectedEpisodeFile protects the number just below the fixture threshold (${RESERVED_FIXTURE_EPISODE_MIN - 1})`,
+    isProtectedEpisodeFile(`docs/episode-${RESERVED_FIXTURE_EPISODE_MIN - 1}.md`),
+  );
+  assert(
+    `isProtectedEpisodeFile excludes the fixture threshold itself (${RESERVED_FIXTURE_EPISODE_MIN})`,
+    !isProtectedEpisodeFile(`docs/episode-${RESERVED_FIXTURE_EPISODE_MIN}.md`),
+  );
+  assert(
+    'isProtectedEpisodeFile excludes the real docs/episode-9993.md fixture path',
+    !isProtectedEpisodeFile('docs/episode-9993.md'),
+  );
+  assert(
+    'isProtectedEpisodeFile excludes the 5-digit random fixture range (e.g. episode-93412.md)',
+    !isProtectedEpisodeFile('docs/episode-93412.md'),
+  );
+  assert(
+    'isProtectedEpisodeFile still protects real low-numbered episodes (27, 28, 34)',
+    isProtectedEpisodeFile('docs/episode-27.md') && isProtectedEpisodeFile('docs/episode-34.md'),
+  );
 
   // ── Hermetic git-backed end-to-end assertions ─────────────────────────────
   console.log('');

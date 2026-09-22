@@ -35,3 +35,11 @@ docs/alden-to-agent.md
 docs/founder-to-agent.md
 docs/shared-lobe-snapshot.md
 nohup.out
+
+# CI/test episode fixtures — written to disk by test setup, unlinked by test
+# teardown (e.g. test-chat-episode-hook-e2e.ts's docs/episode-9993.md). Never
+# meant to be tracked; ignoring them stops a mid-test-run commit from sweeping
+# one in. Reserved range matches RESERVED_FIXTURE_EPISODE_MIN in
+# server/services/episode-content-loss-guard.ts — keep both in sync.
+docs/episode-99[0-9][0-9].md
+docs/episode-9[0-9][0-9][0-9][0-9].md
