@@ -21,6 +21,11 @@ const credential = {
 const verifierCredential = {
   actor: 'luca-replit' as const, runtimeId: 'e2e-verifier-runtime', credentialId: 'e2e-verifier-credential',
   capabilities: ['coordination:read', 'coordination:write'], expiresAt: new Date(Date.now() + 3600000),
+  // Standing verifiers (task 1508) authenticate against this flag alone --
+  // task 1527 removed the requirement for a fabricated Gemini
+  // coordination_runtime_profiles row (see the deleted verifierProfile
+  // below); /verify must succeed from the broker credential by itself.
+  standingVerifier: true,
 };
 const legacyCredential = {
   actor: 'luca-gemini' as const, runtimeId: 'luca-gemini-antigravity-primary', credentialId: 'e2e-legacy-credential',
@@ -41,11 +46,6 @@ const profile = {
   adapterVersion: 'coordination-gemini-v1', status: 'active' as const,
   worktreeLabel: 'HolaHola-antigravity', worktreeRealpathDigest: rootDigest,
   branch: 'luca/gemini-experiment', startingCommit: 'head',
-};
-const verifierProfile = {
-  id: 'e2e-verifier-profile', runtimeRegistrationId: verifierCredential.runtimeId, actor: verifierCredential.actor,
-  capabilities: ['verify'], provider: 'gemini', model: 'gemini-3-flash-preview',
-  adapterVersion: 'coordination-gemini-v1', status: 'active' as const,
 };
 const legacyProfile = {
   ...profile,
@@ -76,7 +76,6 @@ async function request(server: http.Server, path: string, init: { method?: strin
 test('real Express Gate3 lifecycle accepts measured, renewed, retry-backed evidence', async () => {
   const repository = new InMemoryCoordinationRepository();
   await repository.saveProfile(profile);
-  await repository.saveProfile(verifierProfile);
   await repository.saveProfile(legacyProfile);
   await repository.saveProfile(malformedProfile);
   await repository.addInboxItem({ id: 'e2e-item', eventId: 'e2e-event', threadId: 'e2e-thread', taskId: '1448', sequence: 1,

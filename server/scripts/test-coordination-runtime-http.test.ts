@@ -7,6 +7,10 @@ import {
   InMemoryCoordinationRepository,
   CoordinationRuntimeService,
   type CodingRuntimeProfile,
+  type InheritancePacket,
+  type ExecutionClaim,
+  type ExecutionRecord,
+  type CompletionRecord,
 } from '../services/coordination-runtime';
 import {
   CoordinationGeminiAdapter,
@@ -510,5 +514,108 @@ test('HTTP continuation accepts bounded EOL metadata and preserves raw replaceme
     assert.deepEqual(storedResults[0]?.canonicalPayload.eol, payload.eol);
   } finally {
     await new Promise<void>((resolve) => f.server.close(() => resolve()));
+  }
+});
+
+test('a standing verifier calls the live HTTP /verify route with no CodingRuntimeProfile at all', async () => {
+  const repository = new InMemoryCoordinationRepository();
+  const executorRuntimeId = 'verify-http-executor';
+  const verifierRuntimeId = 'verify-http-claude-verifier';
+  const packet: InheritancePacket = {
+    id: 'verify-http-packet', version: 1, actor: 'luca-gemini',
+    runtimeRegistrationId: executorRuntimeId, profileId: 'verify-http-executor-profile',
+    createdAt: Date.now(), supersedesClaimId: null,
+    windowId: 'verify-http-window', windowDigest: 'c'.repeat(64),
+    orderedInboxItemIds: [], orderedEventIds: [], orderedThreadIds: ['verify-http-thread'],
+    assignment: {
+      assignmentEventId: 'verify-http-event', assignmentAuthor: 'daniela',
+      taskId: 'verify-http-task', threadId: 'verify-http-thread', expectedSequence: 1,
+    },
+    inherited: [],
+    envelope: { worktreeLabel: 'gate-1', worktreePath: '/work', argv: ['true'], patchDigest: null },
+    digest: 'd'.repeat(64),
+  };
+  await repository.savePacket(packet);
+  const claim: ExecutionClaim = {
+    id: 'verify-http-claim', threadId: 'verify-http-thread', packetId: packet.id,
+    runtimeRegistrationId: executorRuntimeId, profileId: packet.profileId, credentialId: 'verify-http-executor-credential',
+    priorClaimId: null, epoch: 1, expiresAt: Date.now() + 60_000, status: 'completed', terminalAt: Date.now(),
+  };
+  await repository.saveClaim(claim);
+  const patchDigest = 'e'.repeat(64);
+  const execution: ExecutionRecord = {
+    id: 'verify-http-execution', claimId: claim.id, claimEpoch: claim.epoch,
+    runtimeRegistrationId: executorRuntimeId, profileId: packet.profileId, credentialId: claim.credentialId,
+    envelope: packet.envelope, derivedToolEvidence: [],
+    attestedLocalState: {
+      startingCommit: 'f'.repeat(40), resultingHead: 'f'.repeat(40), changedPaths: [], patchDigest,
+      commandResults: [], elapsedMs: 1, modelTurns: 1, apiAttempts: 1,
+    },
+    executionDigest: 'a1'.repeat(32),
+  };
+  await repository.saveExecution(execution);
+  const completion: CompletionRecord = {
+    id: 'verify-http-completion', executionId: execution.id, claimId: claim.id, claimEpoch: claim.epoch,
+    evidenceDigest: 'b2'.repeat(32),
+  };
+  await repository.saveCompletion(completion);
+
+  const verifierCredential = {
+    actor: 'luca-claude-code' as const, runtimeId: verifierRuntimeId, credentialId: 'verify-http-verifier-credential',
+    capabilities: ['coordination:read', 'coordination:write'], expiresAt: new Date(Date.now() + 60_000),
+    standingVerifier: true,
+  };
+  const nonStandingCredential = {
+    ...verifierCredential, runtimeId: 'verify-http-non-standing', credentialId: 'verify-http-non-standing-credential',
+    standingVerifier: false,
+  };
+  const wrongActorCredential = {
+    actor: 'luca-gemini' as const, runtimeId: 'verify-http-wrong-actor', credentialId: 'verify-http-wrong-actor-credential',
+    capabilities: ['coordination:read', 'coordination:write'], expiresAt: new Date(Date.now() + 60_000),
+    standingVerifier: true,
+  };
+  const app = express();
+  app.use(express.json());
+  registerCoordinationRuntimeRoutes(app, {
+    repository,
+    resolveCredential: async (value) => value === 'standing-verifier-token' ? verifierCredential
+      : value === 'non-standing-token' ? nonStandingCredential
+        : value === 'wrong-actor-token' ? wrongActorCredential
+          : null,
+  });
+  const server = await new Promise<http.Server>((resolve) => {
+    const instance = app.listen(0, () => resolve(instance));
+  });
+  try {
+    // No CodingRuntimeProfile has been saved anywhere in this repository --
+    // proves the verifier path never depends on getActiveProfile().
+    assert.equal(await repository.getActiveProfile(executorRuntimeId), undefined);
+    assert.equal(await repository.getActiveProfile(verifierRuntimeId), undefined);
+
+    const wrongActor = await httpRequest(server, `/api/coordination/runtime/completions/${completion.id}/verify`, {
+      method: 'POST', token: 'wrong-actor-token', key: 'verify-http-wrong-actor',
+      body: { decision: 'approved', patchDigest },
+    });
+    assert.equal(wrongActor.status, 403);
+    assert.equal(wrongActor.body.error, 'verifier_not_allowed');
+
+    const nonStanding = await httpRequest(server, `/api/coordination/runtime/completions/${completion.id}/verify`, {
+      method: 'POST', token: 'non-standing-token', key: 'verify-http-non-standing',
+      body: { decision: 'approved', patchDigest },
+    });
+    assert.equal(nonStanding.status, 403);
+    assert.equal(nonStanding.body.error, 'verifier_registration_not_standing');
+
+    const approved = await httpRequest(server, `/api/coordination/runtime/completions/${completion.id}/verify`, {
+      method: 'POST', token: 'standing-verifier-token', key: 'verify-http-approved',
+      body: { decision: 'approved', patchDigest },
+    });
+    assert.equal(approved.status, 200);
+    assert.equal(approved.body.decision, 'approved');
+    assert.equal(approved.body.verifierActor, 'luca-claude-code');
+    const stored = await repository.getVerification(approved.body.id);
+    assert.equal(stored?.completionId, completion.id);
+  } finally {
+    await new Promise<void>((resolve) => server.close(() => resolve()));
   }
 });

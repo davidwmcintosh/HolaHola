@@ -199,6 +199,45 @@ async function authenticated(
   return { principal, profile, credential };
 }
 
+/**
+ * Authenticates a standing verifier (luca-replit, luca-claude-code) for the
+ * /verify route only. Verifiers are never issued a CodingRuntimeProfile --
+ * that concept belongs to coding executors like luca-gemini -- so this path
+ * deliberately skips getActiveProfile() and the provider/model/adapterVersion
+ * checks in authenticated() above. It authenticates the broker credential
+ * exactly like authenticated() does (same token resolution, same broker
+ * capability check) and nothing more: actor eligibility and standing-verifier
+ * designation remain solely enforced by CoordinationRuntimeService.verify()
+ * (verifier_not_allowed / verifier_registration_not_standing), so this
+ * function does not duplicate or weaken those checks.
+ */
+async function authenticatedVerifier(
+  req: Request,
+  deps: Required<Pick<CoordinationRuntimeRouteDeps, 'resolveCredential'>>,
+  brokerCapability: string,
+): Promise<{ principal: RuntimePrincipal; credential: BrokerCredential }> {
+  const supplied = token(req);
+  if (!supplied) throw new RuntimeProtocolError('authentication_required', 'Broker credential required');
+  const credential = await deps.resolveCredential(supplied, req.ip || req.socket.remoteAddress);
+  if (!credential) throw new RuntimeProtocolError('authentication_required', 'Broker credential required');
+  if (!credential.capabilities.includes(brokerCapability as never)) {
+    throw new RuntimeProtocolError('capability_required', 'Credential lacks required capability');
+  }
+  const principal: RuntimePrincipal = {
+    actor: credential.actor as RuntimePrincipal['actor'],
+    runtimeRegistrationId: credential.runtimeId,
+    credentialId: credential.credentialId,
+    profileId: `verifier:${credential.runtimeId}`,
+    capabilities: ['verify'],
+    credentialExpiresAt: credential.expiresAt.getTime(),
+    runtimeEnabled: true,
+    revoked: false,
+    standingVerifier: credential.standingVerifier,
+  };
+  (req as Request & { coordinationCredential?: BrokerCredential }).coordinationCredential = credential;
+  return { principal, credential };
+}
+
 type Gate3Grant = Awaited<ReturnType<typeof validateGate3ProofGrant>>;
 
 function assertGate3PacketBinding(
@@ -503,7 +542,7 @@ export function registerCoordinationRuntimeRoutes(
   }));
 
   app.post('/api/coordination/runtime/completions/:completionId/verify', route(async (req) => {
-    const { principal, profile } = await authenticated(req, deps, 'coordination:write', 'verify');
+    const { principal } = await authenticatedVerifier(req, deps, 'coordination:write');
     const body = bodyObject(req);
     const completion = await repository.getCompletion(req.params.completionId);
     if (!completion) throw new RuntimeProtocolError('completion_mismatch', 'Completion not found');
