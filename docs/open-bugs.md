@@ -7,6 +7,20 @@ Format: `[date found] — location — description — severity`
 
 ## Active
 
+**2026-09-22 — `syncEpisodeFile()` restores `.md` from DB instead of pushing a longer local `.md` into a shorter DB row — OPEN**
+
+`server/scripts/test-chat-episode-hook-e2e.ts` fails deterministically at STEP 5 ("Verify DB row contains sentinel text"): STEP 3 appends a sentinel to the isolated `episode-9993.md` fixture (116 → 214 bytes) while the DB baseline is force-set to the original 116 bytes, then STEP 4 calls `syncEpisodeFile()` expecting it to push the fixture's now-longer `.md` content into the DB — a legitimate growth, not a shrink. Instead the log shows `[AgentAutosave] Rolling episode Markdown replica restored from canonical DB: Episode 9993`: the sync ran DB→`.md` instead of `.md`→DB, so the DB row stays at 116 bytes and the sentinel never lands (2 of 12 assertions fail).
+
+Confirmed pre-existing and unrelated to task #1520 (agent-memory round-trip gate isolation, which touches none of these files): reproduces with byte-identical shape (same 116-byte DB length, same two failed assertions) both inside `bash server/scripts/test-all-consolidated-ci.sh`'s `episode-sync` group and standalone (`npx tsx server/scripts/test-chat-episode-hook-e2e.ts`), with the live `Start application` workflow running either way — a `git diff --stat` of task #1520's commits confirms zero overlap with `agent-session-autosave.ts`, `chat-episode-hook.ts`, or any embedding/backfill file. This makes the `episode-sync` CI group fail on essentially every run right now, in the same general rolling-episode sync subsystem as (but a distinct code path from) the `restore-rolling-episodes-from-db.ts` entry below.
+
+Separately, the same `test-all-consolidated-ci.sh` run's `backfill-integrity` group failed on `test-straggler-check-ci.ts` ("count did not rise after INSERT: before=6, after=5") — but a standalone re-run immediately afterward passed cleanly (3 → 4 as expected), so this one looks like a transient race against the live server's own background writers touching `conversation_memories` row counts during the test's window, not a deterministic bug. Flagging here rather than opening a second entry since it wasn't reproducible on demand.
+
+**Not fixed here** — needs someone to trace why `syncEpisodeFile()` treats the DB as canonical and restores `.md` from it even when the incoming local `.md` is longer (an append) rather than shorter.
+
+Location: `server/services/agent-session-autosave.ts:2975` (`syncEpisodeFile()`), tested by `server/scripts/test-chat-episode-hook-e2e.ts` (STEP 4/5) — Severity: MEDIUM (undermines the `episode-sync` CI group's signal; does not corrupt data since the DB itself is untouched either way, only the sync direction is backwards).
+
+---
+
 **2026-09-19 — `restore-rolling-episodes-from-db.ts` doesn't restore `.md` after DB-canonical / no-promotion paths — OPEN**
 
 `server/scripts/test-rolling-sync-guard.ts` Pass 2 ("warm ID, cold rolling cache") and Pass 3 ("no Markdown promotion") both fail deterministically: when the DB holds the longer canonical content and the on-disk `.md` is shorter, the restore script correctly refuses to let the short `.md` overwrite the DB (this part works), but it also fails to write the DB's canonical content back out to `.md` — the file is left at its pre-test length instead of being restored to match the DB.
