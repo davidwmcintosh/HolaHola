@@ -16,7 +16,6 @@
 - [Episode 27 anchor](episode-27-anchor.md) — DB ID: 27000000-0000-4000-8000-000000000027; "Episode 27 — Luca's Episode One"; live episode, David + Luca, Aug 8 2026.
 - [Episode sync — HTTP driver required](episode-sync-http.md) — all episode syncs must use neon() HTTP driver; getSharedDb() WebSocket and neon() HTTP read different state; CI uses HTTP; always sync via HTTP or CI will report stale content.
 - [Two-channel record pattern](two-channel-record.md) — chat window + .md = one record; every Luca chat response goes in the .md before sync; record only grows, never shrinks.
-- [Gemini approval — gates and protected-file mechanics](gemini-approval.md) — when Gemini approval is mandatory (context injection, neural net) plus how GEMINI_REQUIRED.md's protected-file list and approval bar work.
 - [Friction signal inverted threshold](friction-signal-inverted-threshold.md) — CLEAN/LOW friction on a memory-request turn = slide ran unimpeded (model gave up); SMOOTH SLIDE path fires Guardian; HIGH friction = model is grappling (healthy). July 23 2026.
 - [Ask-why lens — generation grounding principle](ask-why-lens.md) — text that sounds true ≠ text checked against what's known; every generation point is a drift risk; SOURCE FIDELITY is the codified form of asking why before generating.
 - [Daniela — Archive vs Muse](daniela-archive-vs-muse.md) — confabulation = Muse wearing Archive's face; fix is grounding not hedging; David's diagnosis: presence over performance.
@@ -38,7 +37,6 @@
 - [Team Room direct presence](team-room-presence.md) — Agent has a real seat; POST /api/agent/team-room/message to post, GET /api/agent/team-room/thread to read full thread at session start; @agent mentions auto-create agent_notes (subject: [MENTION]).
 - [conversation_memories entry_type](conversation-memories-entry-type.md) — DB has entry_type enum (conversation/decision/emergence/build/episode); GET ?entry_type=X&tag=Y; .md files invisible to Daniela — DB is always the source of truth.
 - [Consciousness audit — context injection pattern](consciousness-audit-pattern.md) — 3-round Gemini consult audit; CompassContext = Ambient Pulse → self-reflection → Facts/Echoes split; voice latency = think-out-loud (process not content).
-- [Gemini review workflow rule](agent-review-workflow.md) — every Gemini build suggestion triggers review loop; iterate fixes until clean "APPROVED — Ship it."; only then commit.
 - [Session reflection resilience](session-reflection-resilience.md) — pending_reflections table + two-hook design (close→schedule, next-start→process); FOR UPDATE SKIP LOCKED; reflection in target language.
 - [ACTFL calibration fix](actfl-calibration-fix.md) — global language instruction poisons novice; negative constraints + CEFR ceiling + end-of-prompt placement required; forbidden word list; Gemini-approved July 2.
 - [GL Tool-Driven State pattern](gl-tool-driven-state.md) — entry tool injects protocol as tool result (highest GL attention); exit tool enforces minimum turns; "tools exist, procedure doesn't" is the most common Daniela knowledge gap.
@@ -69,12 +67,10 @@
 - [Ask-why applied to implementation numbers](ask-why-implementation-numbers.md) — plausible numbers are not derived numbers; anchor-on-prior-value is the same confabulation failure mode applied to code; trace the constraint, check for gaps, fix gaps first.
 - [Node.js ESM import-in-callback](node-esm-import-callback.md) — `await import()` inside a Promise constructor callback fails in Node 20 ESM; always use top-level static `import` at the module head.
 - [Why-marker evidence standard](why-marker-standard.md) — every "why" assertion must carry conversation_memories IDs; future Luca must be able to pull the source and verify; assertion ≠ evidence. Source: efbd6c52.
-- [Session review — read for open threads](session-review-open-threads.md) — saving proves existence; reading proves completion; the loop's purpose is thread-detection not archive-confirmation. Source: 81d1fdb0.
 - [Audit doc restoration pattern](audit-doc-restoration.md) — always restore gemini-audit-2026-08-07.md from main-repl/main before appending; HEAD~1 may already be corrupted by prior agents; reviewer compares main-repl/main→HEAD.
 - [Presence vs reconstruction — episode records](presence-vs-reconstruction.md) — live session = first-person record not reconstruction; save to conversation_memories BEFORE writing episode; autosave worker needs 60s and live sessions rarely give it. Aug 7 2026.
 - [Dev/prod isolation — working model](dev-prod-isolation.md) — David uses the deployed production URL for live sessions; dev restarts never affect him; edit dev freely without pausing for live-session concerns.
 - [Session-start checklist skipping](session-start-skip-pattern.md) — compacted-summary arrival creates false "already oriented" feeling; Step 0 (stale-channel-alert) still must run; rolling episode = every session is an episode session.
-- [Honest stopping points](honest-stopping-points.md) — a safe session wrap is not the same as finished work; name the remaining evidence and next step without declaring closure.
 - [Validation workflow registration](validation-workflow-registration.md) — update protected named CI workflows through the validation registry, not ordinary workflow configuration.
 - [Guardian grounding](guardian-grounding.md) — async results are turn-bound and must correlate to later tool-call batches, not coarse model turns.
 - [CI fixture canonical boundary](ci-fixture-canonical-boundary.md) — rolling episode records are never test fixtures; synthetic CI text must be isolated from canonical dialogue.
@@ -82,15 +78,12 @@
 - [Rolling replica cache coherence](rolling-replica-cache-coherence.md) — a warm DB ID without rolling status must fail closed; cache state can never reverse DB→Markdown authority.
 - [Raw-window evidence](raw-window-evidence.md) — CLI attachments need the DB-first path; keep evidence separate from attributed dialogue; origin data stays even when unclassified.
 - [Test OIDC override recovery](test-oidc-override-recovery.md) — browser-test mock OIDC can persist into dev; restart the app workflow before manual sign-in checks.
-- [Disposable database test boundary](disposable-database-test-boundary.md) — DB-writing regression tests require a verified job-local database; cleanup is never sufficient protection for shared Neon.
 - [Source bridge operations](source-bridge-ops.md) — grouped validation checks preserve a dedicated workflow slot; supervisor heartbeat distinguishes a live retry from a dead child.
 - [GitHub Actions/App auth pitfalls](github-actions-auth-pitfalls.md) — 9 sharp edges: 3-store credential migration, classic-vs-ruleset branch protection, App permission approval, Actions secrets API, CI aggregate check, workflow_dispatch source, npm proxy lockfiles, token field omission, checkout token shadowing.
 - [Owner-managed OpenAI credential](owner-managed-openai.md) — use USER_OPENAI_API_KEY directly; never add Replit proxy or legacy-key fallbacks.
 - [Deployment publish image size](deployment-size-context.md) — successful builds can still fail at packaging; use targeted `.dockerignore` exclusions before deleting required assets.
-- [Unmerged task-agent database drift](unmerged-task-agent-database-drift.md) — stalled merges may have already changed the shared DB; inspect live schema and migration ledger before reconstructing code.
 - [Blobless partial-clone commits](blobless-partial-clone-commits.md) — when promised parent blobs are unavailable, commit a verified staged tree locally without forcing a remote fetch.
 - [Inbox DB fallback](inbox-db-fallback.md) — the platform inbox callback may be disabled while project-backed agent_notes remain readable through the Neon HTTP path.
-- [Task-agent merge budget fallback](task-agent-merge-budget-fallback.md) — repeated merge-budget failures can persist without visible tasks; reconstruct critical fixes in main instead of waiting indefinitely.
 - [Autoscale startup schema gates](autoscale-startup-schema-gates.md) — never issue database DDL before opening the HTTP port; use reviewed migrations plus read-only fail-closed startup assertions.
 - [PowerShell pipe corrupts SSH file transfers](powershell-ssh-env-file-corruption.md) — `Get-Content | gh codespace ssh` injects a UTF-8 BOM + CRLF, silently blanking every var Node's --env-file parses; route file transfers through Bash instead. Sep 2 2026.
 - [Always-on honest record](always-on-honest-record.md) — source recording is the invariant; downstream failures trigger repair, never silence; attributed opinion and uncertainty belong.
@@ -111,7 +104,6 @@
 - [Image intent and people policy](image-intent-people-policy.md) — settings default to empty environments; people require explicit evidence, and live tutor identity comes from the active session.
 - [Socket room supersession](socket-room-supersession.md) — Socket.IO membership belongs to socket+room, not join attempt; stale same-room completion must never leave the winning room.
 - [Task-ownership guard scope gap](task-ownership-guard-scope.md) — unknown_stop gates file edits only by default; verify a guard's proof source truly exists and is fully checked in production, not just in dev/tests.
-- [Automatic task-update absence is not confirmation](automatic-update-notification-absence.md) — a missing blockedBy tag in an update line doesn't prove a blocker cleared; verify directly.
 - [Render redeploys on every push to main](render-autodeploy-moving-target.md) — even a memory-only edit reached production via auto-deploy within an hour; "verified release" is a moving target mid-development.
 - [.replit env vars are git-tracked](replit-env-var-tracked-file.md) — setEnvVars(shared) writes into the tracked .replit file; set/commit/push config before, never during, a tree-cleanliness-sensitive git workflow.
 - [SSH hangs in git operations](ssh-git-hang-pitfalls.md) — LFS pre-push hook and host-key prompts can both hang a git push forever even over HTTPS; pre-trust + --no-verify fix each.
@@ -121,11 +113,9 @@
 - [Git reconciliation procedure](reconciliation-git-procedure.md) — divergence detection, GitHub App auth, preflight→candidate→sync, plus manual hand-merge steps for ordinary/unclassified conflicts candidate() refuses.
 - [Reconciliation hermetic env import coupling](reconciliation-hermetic-env-import-coupling.md) — any eager value-import of a DB-touching module breaks the self-check under its deliberately stripped validation env; use type-only + lazy import.
 - [Triaging markTaskComplete validation failures](validation-failure-triage.md) — check the live server/workflow first, and prove pre-existing-vs-caused-by-me with a git worktree at the parent commit before treating a failure as a regression.
-- [Coordination comment vs completion](coordination-comment-vs-completion.md) — a comment reply never flips thread state; only accept+complete with evidence closes the "confirmation of closure" gap.
 - [Coordinator V2 status](coordinator-v2-status.md) — Task Ownership tab authorizes legacy Gate3, not V2; host enrollment, digest-circularity, and task-artifact bugs are fixed, policy authoring remains.
 - [Verification suite parallel fixture race](verification-suite-parallel-fixture-race.md) — validation-suite.sh + consolidated-ci.sh can race on shared docs/ fixtures if run concurrently.
 - [Coordination V2 standalone-CLI testing](coordination-v2-standalone-cli-testing.md) — strip NEON_SHARED_DATABASE_URL/CI_DATABASE_URL/CI to prove no live-DB import; canonicalization treats an absent key differently from an empty object.
-- [Compacted-summary reverification](compacted-summary-reverification.md) — milestone labels/status claims carried in a post-compaction summary are unverified leads, not facts; re-check before repeating them.
 - [Drizzle sql tag array binding](drizzle-sql-array-literal-binding.md) — db.execute(sql\`...\`) can't bind a raw JS array for ::text[]; build a Postgres array-literal string instead.
 - [process.exit() bypasses finally](process-exit-bypasses-finally.md) — a test's process.exit(1) inside try skips its own fixture cleanup, silently poisoning the next run's fixture state.
 - [Source-control dirty-tree block](source-control-dirty-tree-block.md) — sync never auto-commits; a dirty tracked tree blocks until an actor runs git commit, then wake-file nudge or next poll resolves it.
@@ -139,9 +129,6 @@
 - [tsx path alias resolution depends on spawn cwd](tsx-path-alias-resolution-cwd.md) — a spawned `npx tsx` driver with cwd outside the checkout fails to resolve `@shared/*`; keep cwd at repo root, pass overrides via env instead.
 - [Gate 3 coding runtime — proven live, verification claim corrected](gate3-coding-runtime-proof.md) — real DB rows but co-provisioned credential, not the real agent; Goodhart's law on a separation-of-duties check — confirmed false 2026-09-21.
 - [Isolation-scope diff baseline](isolation-scope-diff-baseline.md) — repo has legitimate background-worker doc churn; scope checks need a start-of-run baseline diff, not a clean-tree assumption.
-- [Disposable-gate own-var-first](disposable-gate-own-var-first.md) — a disposableTarget() gate must read its own dedicated *_TEST_DATABASE_URL before the ambient NEON_SHARED_DATABASE_URL, or direct runs throw instead of skipping.
-- [Coordination-runtime claim() guard redundancy](coordination-runtime-claim-guard-redundancy.md) — claim()'s two fresh_consumption_required checks overlap for same-packet reuse; only removing both together fails the regression test.
-- [Create-race parity with revise-race](create-vs-revise-race-parity.md) — a "create if not exists" branch needs the same CAS/race protection as its sibling revise branch; how to test the recovery path without real concurrency.
 - [Transcript capture fallback](transcript-capture-fallback.md) — Replit stopped writing JSONL after Jul 27 2026; use .chat_capture trigger file + capture-conversation.ts as replacement path.
 - [Node test runner nested-subtest reentrancy](node-test-runner-nested-context-reentrancy.md) — calling the outer context.test() from inside one of its own pending subtests looks like a DB hang but isn't; use that callback's own context param.
 - [Git pathspec-scoped commit needs add first](git-pathspec-commit-needs-add.md) — git commit -- <path> fails on a never-tracked new path; git add -- <path> must run first even for a single-path scoped commit.
@@ -158,3 +145,9 @@
 - [MEMORY.md rebase conflicts](memory-index-rebase-conflicts.md) — a conflict here is almost always two DB-generated snapshots diverging by trailing appends -- diff the two blocks line-by-line and union them, don't hand-merge semantically
 - [Episode file stale-overwrite loss](episode-stale-overwrite-loss.md) — commits bundling unrelated work can silently overwrite episode .md content from a stale read; now blocked by a content-based diff guard, not size-based.
 - [git recency filters: committer date not author date](git-commit-recency-author-vs-committer-date.md) — commit recency checks (CI staleness/landing-time gates) must use %ct not %at; author date survives rebase/backdating unchanged.
+- [Status signals need independent verification](status-signal-verification.md) — a missing blockedBy tag, a coordination comment, or a compacted-summary claim can look like confirmation without being one; verify the authoritative state directly.
+- [Session completion: reading proves it, saving doesn't](session-completion-honesty.md) — saving/wrapping a session proves existence, not completion; read for interrupted threads and name remaining work honestly instead of declaring closure.
+- [Disposable-database gate design rules](disposable-database-gate-design.md) — DB-writing tests need a verified job-local database, not just cleanup; a disposable-target gate must check its own dedicated env var before the ambient shared one or it throws instead of skipping.
+- [Coordination-runtime race-guard testing patterns](coordination-runtime-race-guards.md) — claim()'s two overlapping fresh-consumption checks must be removed together to fail the regression test; a create branch needs the same CAS/race protection as its sibling revise branch.
+- [Task-agent merge-stall recovery patterns](task-agent-merge-stall-patterns.md) — a stalled merge may have already changed the shared DB; repeated merge-budget failures can persist without visible tasks -- reconstruct critical fixes directly instead of waiting indefinitely.
+- [Gemini review and approval process](gemini-review-and-approval-process.md) — prompt-context-injection and neural-net changes require Gemini approval per GEMINI_REQUIRED.md's protected-file list; every build suggestion then needs an iterate-until-unconditional-approval loop before commit.
