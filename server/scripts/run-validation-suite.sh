@@ -83,6 +83,8 @@ run_check "Release cutover attestation service" npx tsx --test server/services/r
 run_check "Coordination runtime Gate3 claim/execute/complete/verify lifecycle" npx tsx --test server/scripts/test-coordination-runtime.test.ts
 run_check "Coordination runtime envelope-violation-recovery self-check" npx tsx server/scripts/test-coordination-runtime-envelope-violation-selfcheck.ts
 run_check "Coordination runtime standing-verifier self-check" npx tsx server/scripts/test-coordination-runtime-verifier-standing-selfcheck.ts
+run_check "Coordination runtime live HTTP /verify route (standing verifier, no fabricated profile)" npx tsx --test server/scripts/test-coordination-runtime-http.test.ts
+run_check "Coordination runtime Antigravity e2e (real Express Gate3 lifecycle)" npx tsx --test server/scripts/coordination-runtime-antigravity-e2e.test.ts
 
 # Checks intentionally kept outside consolidated-ci because they are
 # independent growth-cap or workflow-boundary checks.
