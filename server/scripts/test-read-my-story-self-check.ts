@@ -12,43 +12,54 @@
  *  3. `next_offset` field always present in the paginated response.
  *
  * Each mutation is:
- *   a) Applied to native-fc-handlers.ts
- *   b) The CI run is expected to EXIT NON-ZERO (failure detected)
- *   c) The file is restored unconditionally (even on unexpected pass)
+ *   a) Applied to a private sandbox copy of native-fc-handlers.ts
+ *   b) The CI run (against the sandbox copy) is expected to EXIT NON-ZERO
+ *      (failure detected)
+ *   c) The sandbox copy is restored unconditionally (even on unexpected pass)
  *   d) A final clean run confirms restoration was complete
+ *
+ * The real, shared server/services/native-fc-handlers.ts is never written to.
+ * native-fc-handlers.ts has a deep, wide dependency graph (many relative
+ * imports plus `@shared/*` alias imports), so this uses the "shadow tree"
+ * sandbox from source-mutation-sandbox.ts: a temp directory shaped like the
+ * repo root where every sibling file/directory is a symlink back to the real
+ * repo (transparently resolving the rest of the dependency graph) and only
+ * native-fc-handlers.ts + test-read-my-story.ts are real, independent
+ * copies. The CI script is spawned with its default cwd (the real repo
+ * root) so `@shared/*` alias resolution keeps finding the real
+ * tsconfig.json and the real (unmutated) shared/ directory — only the
+ * handler's own relative-import resolution needs to land inside the
+ * sandbox, and that is unaffected by cwd.
  *
  * Exit 1 on any self-check failure.
  */
 
 import { execSync } from 'child_process';
 import * as fs from 'fs';
-import * as path from 'path';
-import { fileURLToPath } from 'url';
+import { createShadowTreeSandbox } from './source-mutation-sandbox';
 
-const __filename = fileURLToPath(import.meta.url);
-const __dirname = path.dirname(__filename);
-
-const HANDLER_PATH = path.resolve(__dirname, '../services/native-fc-handlers.ts');
-const CI_SCRIPT = 'server/scripts/test-read-my-story.ts';
+const CANONICAL_HANDLER_PATH = 'server/services/native-fc-handlers.ts';
+const CI_SCRIPT_RELATIVE = 'server/scripts/test-read-my-story.ts';
 
 // ── Helpers ─────────────────────────────────────────────────────────────────
 
-function readHandler(): string {
-  return fs.readFileSync(HANDLER_PATH, 'utf8');
+function readHandler(handlerPath: string): string {
+  return fs.readFileSync(handlerPath, 'utf8');
 }
 
-function writeHandler(content: string): void {
-  fs.writeFileSync(HANDLER_PATH, content, 'utf8');
+function writeHandler(handlerPath: string, content: string): void {
+  fs.writeFileSync(handlerPath, content, 'utf8');
 }
 
 /**
- * Run the CI script and return true if it exited with a non-zero code (failure).
- * Returns false if it passed (exit 0), which is the wrong outcome for a mutation test.
+ * Run the sandboxed CI script and return true if it exited with a non-zero
+ * code (failure). Returns false if it passed (exit 0), which is the wrong
+ * outcome for a mutation test.
  */
-function runCiExpectFailure(label: string): boolean {
+function runCiExpectFailure(ciScriptPath: string, label: string): boolean {
   console.log(`  Running CI under mutation: "${label}" …`);
   try {
-    execSync(`npx tsx ${CI_SCRIPT}`, {
+    execSync(`npx tsx ${ciScriptPath}`, {
       stdio: 'pipe',
       timeout: 120_000,
     });
@@ -63,12 +74,12 @@ function runCiExpectFailure(label: string): boolean {
 }
 
 /**
- * Run the CI script and return true if it exited 0 (success).
+ * Run the sandboxed CI script and return true if it exited 0 (success).
  */
-function runCiExpectPass(label: string): boolean {
+function runCiExpectPass(ciScriptPath: string, label: string): boolean {
   console.log(`  Running CI after restore: "${label}" …`);
   try {
-    execSync(`npx tsx ${CI_SCRIPT}`, {
+    execSync(`npx tsx ${ciScriptPath}`, {
       stdio: 'pipe',
       timeout: 120_000,
     });
@@ -135,119 +146,127 @@ function mutateNextOffset(original: string): string {
 async function main() {
   console.log('\n=== read_my_story SELF-CHECK (mutation tests) ===\n');
 
-  const selfCheckFailures: string[] = [];
-  const original = readHandler();
+  const sandbox = createShadowTreeSandbox([CANONICAL_HANDLER_PATH, CI_SCRIPT_RELATIVE]);
+  try {
+    const handlerPath = sandbox.files[CANONICAL_HANDLER_PATH];
+    const ciScriptPath = sandbox.files[CI_SCRIPT_RELATIVE];
 
-  // ── 1. ORDER BY mutation ──────────────────────────────────────────────────
-  console.log('--- Mutation 1: ORDER BY recorded_at DESC (should break canonical row selection) ---');
-  {
-    let mutated: string;
-    try {
-      mutated = mutateOrderBy(original);
-    } catch (e: any) {
-      selfCheckFailures.push(`Mutation 1 setup: ${e.message}`);
-      mutated = original; // no-op, but still run restore below
+    const selfCheckFailures: string[] = [];
+    const original = readHandler(handlerPath);
+
+    // ── 1. ORDER BY mutation ──────────────────────────────────────────────────
+    console.log('--- Mutation 1: ORDER BY recorded_at DESC (should break canonical row selection) ---');
+    {
+      let mutated: string;
+      try {
+        mutated = mutateOrderBy(original);
+      } catch (e: any) {
+        selfCheckFailures.push(`Mutation 1 setup: ${e.message}`);
+        mutated = original; // no-op, but still run restore below
+      }
+
+      writeHandler(handlerPath, mutated);
+      let failedAsExpected = false;
+      try {
+        failedAsExpected = runCiExpectFailure(ciScriptPath, 'ORDER BY recorded_at DESC');
+      } finally {
+        // Always restore — even if CI unexpectedly passes
+        writeHandler(handlerPath, original);
+      }
+
+      if (!failedAsExpected) {
+        selfCheckFailures.push('Mutation 1: CI did not fail when ORDER BY was changed to recorded_at DESC');
+      }
+
+      // Confirm restore
+      const passedAfterRestore = runCiExpectPass(ciScriptPath, 'ORDER BY restored');
+      if (!passedAfterRestore) {
+        selfCheckFailures.push('Mutation 1: CI failed after restoring ORDER BY — handler file may be corrupted');
+      }
     }
 
-    writeHandler(mutated);
-    let failedAsExpected = false;
-    try {
-      failedAsExpected = runCiExpectFailure('ORDER BY recorded_at DESC');
-    } finally {
-      // Always restore — even if CI unexpectedly passes
-      writeHandler(original);
+    console.log('');
+
+    // ── 2. Regex mutation ─────────────────────────────────────────────────────
+    console.log('--- Mutation 2: regex ([^0-9]|$) → ([0-9]|$) (should break canonical row selection) ---');
+    {
+      let mutated: string;
+      try {
+        mutated = mutateRegex(original);
+      } catch (e: any) {
+        selfCheckFailures.push(`Mutation 2 setup: ${e.message}`);
+        mutated = original;
+      }
+
+      writeHandler(handlerPath, mutated);
+      let failedAsExpected = false;
+      try {
+        failedAsExpected = runCiExpectFailure(ciScriptPath, 'regex (\\s|$)');
+      } finally {
+        writeHandler(handlerPath, original);
+      }
+
+      if (!failedAsExpected) {
+        selfCheckFailures.push('Mutation 2: CI did not fail when regex was changed to ([0-9]|$)');
+      }
+
+      const passedAfterRestore = runCiExpectPass(ciScriptPath, 'regex restored');
+      if (!passedAfterRestore) {
+        selfCheckFailures.push('Mutation 2: CI failed after restoring regex — handler file may be corrupted');
+      }
     }
 
-    if (!failedAsExpected) {
-      selfCheckFailures.push('Mutation 1: CI did not fail when ORDER BY was changed to recorded_at DESC');
+    console.log('');
+
+    // ── 3. next_offset mutation ───────────────────────────────────────────────
+    console.log('--- Mutation 3: next_offset removed (should break pagination contract check) ---');
+    {
+      let mutated: string;
+      try {
+        mutated = mutateNextOffset(original);
+      } catch (e: any) {
+        selfCheckFailures.push(`Mutation 3 setup: ${e.message}`);
+        mutated = original;
+      }
+
+      writeHandler(handlerPath, mutated);
+      let failedAsExpected = false;
+      try {
+        failedAsExpected = runCiExpectFailure(ciScriptPath, 'next_offset removed');
+      } finally {
+        writeHandler(handlerPath, original);
+      }
+
+      if (!failedAsExpected) {
+        selfCheckFailures.push('Mutation 3: CI did not fail when next_offset was removed from the response');
+      }
+
+      const passedAfterRestore = runCiExpectPass(ciScriptPath, 'next_offset restored');
+      if (!passedAfterRestore) {
+        selfCheckFailures.push('Mutation 3: CI failed after restoring next_offset — handler file may be corrupted');
+      }
     }
 
-    // Confirm restore
-    const passedAfterRestore = runCiExpectPass('ORDER BY restored');
-    if (!passedAfterRestore) {
-      selfCheckFailures.push('Mutation 1: CI failed after restoring ORDER BY — handler file may be corrupted');
+    // ── Summary ───────────────────────────────────────────────────────────────
+    console.log('\n=== Self-check Summary ===\n');
+    if (selfCheckFailures.length === 0) {
+      console.log('ALL 3 MUTATION CHECKS PASSED:');
+      console.log('  ✓ ORDER BY recorded_at DESC breaks CI (ordering invariant is guarded)');
+      console.log('  ✓ Regex (\\s|$) breaks CI (digit-boundary invariant is guarded)');
+      console.log('  ✓ Removing next_offset breaks CI (pagination contract is guarded)');
+      console.log('\nThe read_my_story CI correctly catches all three regressions.');
+      process.exitCode = 0;
+    } else {
+      console.error('SELF-CHECK FAILURES:');
+      for (const f of selfCheckFailures) console.error('  ✗', f);
+      process.exitCode = 1;
     }
-  }
-
-  console.log('');
-
-  // ── 2. Regex mutation ─────────────────────────────────────────────────────
-  console.log('--- Mutation 2: regex ([^0-9]|$) → ([0-9]|$) (should break canonical row selection) ---');
-  {
-    let mutated: string;
-    try {
-      mutated = mutateRegex(original);
-    } catch (e: any) {
-      selfCheckFailures.push(`Mutation 2 setup: ${e.message}`);
-      mutated = original;
-    }
-
-    writeHandler(mutated);
-    let failedAsExpected = false;
-    try {
-      failedAsExpected = runCiExpectFailure('regex (\\s|$)');
-    } finally {
-      writeHandler(original);
-    }
-
-    if (!failedAsExpected) {
-      selfCheckFailures.push('Mutation 2: CI did not fail when regex was changed to ([0-9]|$)');
-    }
-
-    const passedAfterRestore = runCiExpectPass('regex restored');
-    if (!passedAfterRestore) {
-      selfCheckFailures.push('Mutation 2: CI failed after restoring regex — handler file may be corrupted');
-    }
-  }
-
-  console.log('');
-
-  // ── 3. next_offset mutation ───────────────────────────────────────────────
-  console.log('--- Mutation 3: next_offset removed (should break pagination contract check) ---');
-  {
-    let mutated: string;
-    try {
-      mutated = mutateNextOffset(original);
-    } catch (e: any) {
-      selfCheckFailures.push(`Mutation 3 setup: ${e.message}`);
-      mutated = original;
-    }
-
-    writeHandler(mutated);
-    let failedAsExpected = false;
-    try {
-      failedAsExpected = runCiExpectFailure('next_offset removed');
-    } finally {
-      writeHandler(original);
-    }
-
-    if (!failedAsExpected) {
-      selfCheckFailures.push('Mutation 3: CI did not fail when next_offset was removed from the response');
-    }
-
-    const passedAfterRestore = runCiExpectPass('next_offset restored');
-    if (!passedAfterRestore) {
-      selfCheckFailures.push('Mutation 3: CI failed after restoring next_offset — handler file may be corrupted');
-    }
-  }
-
-  // ── Summary ───────────────────────────────────────────────────────────────
-  console.log('\n=== Self-check Summary ===\n');
-  if (selfCheckFailures.length === 0) {
-    console.log('ALL 3 MUTATION CHECKS PASSED:');
-    console.log('  ✓ ORDER BY recorded_at DESC breaks CI (ordering invariant is guarded)');
-    console.log('  ✓ Regex (\\s|$) breaks CI (digit-boundary invariant is guarded)');
-    console.log('  ✓ Removing next_offset breaks CI (pagination contract is guarded)');
-    console.log('\nThe read_my_story CI correctly catches all three regressions.');
-    process.exit(0);
-  } else {
-    console.error('SELF-CHECK FAILURES:');
-    for (const f of selfCheckFailures) console.error('  ✗', f);
-    process.exit(1);
+  } finally {
+    sandbox.cleanup();
   }
 }
 
 main().catch((err) => {
   console.error('[test-read-my-story-self-check] Fatal error:', err);
-  process.exit(1);
+  process.exitCode = 1;
 });

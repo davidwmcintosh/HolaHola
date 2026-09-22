@@ -45,6 +45,7 @@ import { northStarPrinciples, conversationMemories } from '../../shared/schema';
 import { eq, and, isNotNull, or, ilike } from 'drizzle-orm';
 import { NativeFunctionCallHandler } from '../services/native-fc-handlers';
 import type { StreamingSession } from '../services/streaming-session-types';
+import { createShadowTreeSandbox } from './source-mutation-sandbox';
 
 // ── Path helpers ──────────────────────────────────────────────────────────────
 const __filename = fileURLToPath(import.meta.url);
@@ -80,14 +81,20 @@ function fail(label: string, reason: string) {
 // Part A — Static source guard
 // ═══════════════════════════════════════════════════════════════════════════════
 
-function runPartA(): void {
+function runPartA(routesPathOverride?: string): void {
   console.log('\n── Part A: static source guard (routes.ts contains principles field) ──\n');
+
+  // The self-check (below) passes a sandboxed, mutated copy here so it can
+  // prove Part A catches the regression without ever writing to the real,
+  // shared server/routes.ts -- see createShadowTreeSandbox in
+  // source-mutation-sandbox.ts for why that matters.
+  const routesPath = routesPathOverride ?? ROUTES_TS;
 
   let src: string;
   try {
-    src = fs.readFileSync(ROUTES_TS, 'utf8');
+    src = fs.readFileSync(routesPath, 'utf8');
   } catch (err: any) {
-    fail('routes.ts readable', `Cannot read ${ROUTES_TS}: ${err.message}`);
+    fail('routes.ts readable', `Cannot read ${routesPath}: ${err.message}`);
     return;
   }
 
@@ -490,8 +497,10 @@ const SPREAD_NEEDLE = ', ...(reachNorthStarResult !== undefined ? { reachNorthSt
 
 async function runSelfCheck(): Promise<void> {
   console.log('\n=== reach_north_star self-check ===');
-  console.log('Temporarily removes the reachNorthStarResult spread from routes.ts');
-  console.log('and asserts that Part A detects the regression.\n');
+  console.log('Temporarily removes the reachNorthStarResult spread from a sandboxed');
+  console.log('copy of routes.ts and asserts that Part A detects the regression.\n');
+  console.log('The real, shared server/routes.ts is never written to -- see');
+  console.log('source-mutation-sandbox.ts for why in-place mutation of that file is unsafe.\n');
 
   // ── 1. Read original source ──────────────────────────────────────────────
   let original: string;
@@ -499,7 +508,8 @@ async function runSelfCheck(): Promise<void> {
     original = fs.readFileSync(ROUTES_TS, 'utf8');
   } catch (err: any) {
     console.error(`Self-check FAIL: cannot read ${ROUTES_TS}: ${err.message}`);
-    process.exit(1);
+    process.exitCode = 1;
+    return;
   }
 
   if (!original.includes(SPREAD_NEEDLE)) {
@@ -508,21 +518,27 @@ async function runSelfCheck(): Promise<void> {
       `  Needle: ${SPREAD_NEEDLE}\n` +
       '  The spread may have been reworded — update SPREAD_NEEDLE to match.',
     );
-    process.exit(1);
+    process.exitCode = 1;
+    return;
   }
 
   const mutated = original.replace(SPREAD_NEEDLE, '');
 
-  // ── 2. Write mutated file, run Part A, restore in finally ────────────────
+  // ── 2. Write the mutation to a private sandbox copy, run Part A against
+  //       that copy, then discard the sandbox. The real file is never
+  //       written to at any point, so no concurrently-running process can
+  //       ever observe it mutated. ──────────────────────────────────────────
+  const sandbox = createShadowTreeSandbox(['server/routes.ts']);
   let selfCheckPassed = false;
   try {
-    fs.writeFileSync(ROUTES_TS, mutated, 'utf8');
-    console.log('  → routes.ts mutated (spread removed)\n');
+    const sandboxRoutesPath = sandbox.files['server/routes.ts'];
+    fs.writeFileSync(sandboxRoutesPath, mutated, 'utf8');
+    console.log('  → sandbox copy of routes.ts mutated (spread removed)\n');
 
-    // Run Part A against the mutated file.  FAIL_REASONS is module-level;
-    // clear it first so previous test-run state doesn't bleed in.
+    // Run Part A against the mutated sandbox copy. FAIL_REASONS is
+    // module-level; clear it first so previous test-run state doesn't bleed in.
     FAIL_REASONS.length = 0;
-    runPartA();
+    runPartA(sandboxRoutesPath);
 
     const spreadFailure = FAIL_REASONS.find(r =>
       r.includes('res.json()') && r.includes('reachNorthStarResult'),
@@ -537,12 +553,10 @@ async function runSelfCheck(): Promise<void> {
       console.error('    FAIL_REASONS after Part A:', FAIL_REASONS);
     }
   } finally {
-    // ── 3. Always restore the original ──────────────────────────────────────
-    fs.writeFileSync(ROUTES_TS, original, 'utf8');
-    console.log('\n  → routes.ts restored to original.\n');
+    sandbox.cleanup();
   }
 
-  process.exit(selfCheckPassed ? 0 : 1);
+  process.exitCode = selfCheckPassed ? 0 : 1;
 }
 
 // ── Main ──────────────────────────────────────────────────────────────────────
@@ -551,7 +565,7 @@ async function main(): Promise<void> {
   // Self-check mode — runs before normal test logic
   if (process.argv.includes('--self-check')) {
     await runSelfCheck();
-    return; // runSelfCheck always calls process.exit
+    return; // runSelfCheck sets process.exitCode itself (never process.exit, so its sandbox cleanup always runs)
   }
 
   console.log('\n=== reach_north_star end-to-end verification ===\n');
