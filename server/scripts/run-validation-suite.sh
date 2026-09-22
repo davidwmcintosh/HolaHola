@@ -93,6 +93,8 @@ run_check "Replit attribution discipline" npx tsx server/scripts/test-replit-att
 run_check "Episode 28 gap audit self-check" npx tsx server/scripts/audit-episode-28-gaps.ts --self-check
 run_check "Episode 28 startup shrinkage self-check" npx tsx server/scripts/restore-episode-28-from-db.ts --self-check
 run_check "Episode content-loss guard self-check (all docs/episode-*.md, direct commit or merge)" npx tsx server/scripts/check-episode-content-loss.ts --self-check
+run_check "Episode dialogue-loss detector self-check" npx tsx server/scripts/detect-episode-dialogue-loss.ts --self-check
+run_check "Episode dialogue-loss detector (live, recency-gated scan)" npx tsx server/scripts/detect-episode-dialogue-loss.ts
 run_check "Capture status ordering" npx tsx server/scripts/test-capture-status-ordering.ts
 run_check "Truth-pipeline unified recall diagnosis" npx tsx server/scripts/test-truth-pipeline-unified-recall-diagnosis.ts
 run_check "Capture status stale escalation" npx tsx server/scripts/test-capture-status-stale-escalation.ts
