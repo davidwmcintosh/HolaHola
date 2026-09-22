@@ -148,3 +148,4 @@
 - [ss command unavailable in sandbox](ss-command-unavailable-sandbox.md) — ss is command-not-found here; a suppressed-stderr port check can look like a crashed server. Use lsof -i :PORT instead.
 - [Idempotency key scope granularity](idempotency-key-scope-granularity.md) — dedupe scope is (operation, actor, key) only; a loop reusing one literal key across distinct requests collides on the second call
 - [Script-workflow log truncation at exit](workflow-log-capture-truncation.md) — finished status can arrive with the log tail stuck mid-check; confirm via ps aux, not assumption.
+- [Agent-memory round-trip isolation](agent-memory-round-trip-isolation.md) — a global snapshot-diff test must run alone; per-file scratch dirs don't stop a shared-DB race.

@@ -1,3 +1,28 @@
+## 2026-09-22 — Agent-memory gate test isolation fix
+
+- `npm run db:branch -- gate` (required before any schema migration) could
+  intermittently false-fail its "agent-memory PostgreSQL tests" step even
+  when a schema migration was completely safe. Root cause: three test files
+  ran together in one `npx tsx --test` invocation sharing one scratch
+  directory; Node's test runner executes multiple files concurrently by
+  default, so the round-trip file's "snapshot MEMORY.md, call
+  `regenerateAll()`, diff byte-for-byte" assertion (a *global* DB projection,
+  not scoped to that file's own rows) could false-fail whenever a sibling
+  file's concurrent CLI writes landed in the shared database between the
+  snapshot and the regenerate call.
+- Fix: `test-agent-memory-round-trip-postgres.test.ts` now runs completely
+  alone, as its own sequential gate step with its own fresh scratch
+  directory. The concurrent-write and stale-version files remain bundled
+  together (safe — neither does a global snapshot-diff). Per-file scratch
+  directories alone would not have fixed this: the shared resource is the
+  database, not the file directory.
+- Verified against a local disposable PostgreSQL 16 instance: the new
+  two-step split passed 5/5 consecutive runs. TypeScript typecheck and
+  `verify-system-health.ts` both passed clean.
+- See `.agents/memory/agent-memory-round-trip-isolation.md` for the general
+  lesson (applies to any future global-snapshot-diff test, not just this
+  one).
+
 ## 2026-09-16 — Production image intent routing
 
 - Added deterministic environment/character/prop intent classification separate

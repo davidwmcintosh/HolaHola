@@ -589,13 +589,34 @@ async function cmdGate(flags: Record<string, string | boolean>) {
   }
 
   if (!failureReason) {
-    console.log('[gate] Running agent-memory concurrent-write, stale-version, and round-trip PostgreSQL tests against the branch...');
+    console.log('[gate] Running agent-memory concurrent-write and stale-version PostgreSQL tests against the branch...');
     const agentMemoryPostgresTests = await runCommand(
-      'npx tsx --test server/scripts/test-agent-memory-concurrent-write-postgres.test.ts server/scripts/test-agent-memory-stale-version-postgres.test.ts server/scripts/test-agent-memory-round-trip-postgres.test.ts',
+      'npx tsx --test server/scripts/test-agent-memory-concurrent-write-postgres.test.ts server/scripts/test-agent-memory-stale-version-postgres.test.ts',
       { ...branchEnv, AGENT_MEMORY_TEST_FILES_DIR: await mkdtemp(join(tmpdir(), 'agent-memory-gate-')) },
     );
     if (agentMemoryPostgresTests.code !== 0) {
       failureReason = `agent-memory PostgreSQL tests exited ${agentMemoryPostgresTests.code}`;
+    }
+  }
+
+  if (!failureReason) {
+    // Deliberately its own sequential step, never bundled with sibling
+    // agent-memory test files. This file's "snapshot MEMORY.md, call
+    // regenerateAll(), diff byte-for-byte" assertion checks a *global*
+    // projection: regenerateAll() re-renders MEMORY.md from every topic's
+    // entries in the DB, not just this file's own. If any other writer
+    // (even a sibling test file racing in the same `npx tsx --test`
+    // invocation under Node's default multi-file concurrency) inserts a row
+    // between the snapshot and the regenerate, regenerateAll() includes it
+    // and the diff false-fails -- confirmed directly against this gate. See
+    // .agents/memory/agent-memory-round-trip-isolation.md.
+    console.log('[gate] Running agent-memory round-trip PostgreSQL test against the branch...');
+    const agentMemoryRoundTripTest = await runCommand(
+      'npx tsx --test server/scripts/test-agent-memory-round-trip-postgres.test.ts',
+      { ...branchEnv, AGENT_MEMORY_TEST_FILES_DIR: await mkdtemp(join(tmpdir(), 'agent-memory-gate-')) },
+    );
+    if (agentMemoryRoundTripTest.code !== 0) {
+      failureReason = `agent-memory round-trip PostgreSQL test exited ${agentMemoryRoundTripTest.code}`;
     }
   }
 

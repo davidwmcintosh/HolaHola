@@ -7,6 +7,20 @@ Format: `[date found] — location — description — severity`
 
 ## Active
 
+**2026-09-19 — `restore-rolling-episodes-from-db.ts` doesn't restore `.md` after DB-canonical / no-promotion paths — OPEN**
+
+`server/scripts/test-rolling-sync-guard.ts` Pass 2 ("warm ID, cold rolling cache") and Pass 3 ("no Markdown promotion") both fail deterministically: when the DB holds the longer canonical content and the on-disk `.md` is shorter, the restore script correctly refuses to let the short `.md` overwrite the DB (this part works), but it also fails to write the DB's canonical content back out to `.md` — the file is left at its pre-test length instead of being restored to match the DB.
+
+Confirmed pre-existing via `git worktree add <path> <parent-commit>`, twice: first on 2026-09-19 against `main-repl/main` commit `febad78`, and again on 2026-09-22 against commit `a7b3923` while validating an unrelated agent-memory gate fix (task #1518). Both times a standalone `npx tsx server/scripts/test-rolling-sync-guard.ts` run reproduces the identical failure with identical byte counts ("3014 chars vs expected 8014" / "8037 chars vs expected 8014"), confirming this is a real, deterministic bug in the restore path — not environmental flakiness, and not caused by whatever diff happened to be under validation at the time.
+
+This makes `bash server/scripts/test-all-consolidated-ci.sh`'s `episode-sync` group fail on essentially every run regardless of what else changed. Anyone triaging an unrelated validation failure should check for this exact signature first (see `.agents/memory/consolidated-ci-preexisting-failures.md`) before assuming their own change caused it.
+
+**Not fixed here** — needs someone to trace why the DB-canonical / no-Markdown-promotion branches of `restore-rolling-episodes-from-db.ts` skip the `.md` write-back that the force-push path (Pass 4, which passes) already performs correctly.
+
+Location: `server/scripts/restore-rolling-episodes-from-db.ts` (the non-force-push restore branches), tested by `server/scripts/test-rolling-sync-guard.ts` (Pass 2 / Pass 3) — Severity: MEDIUM (undermines trust in the `episode-sync` CI group's signal; does not corrupt data since the DB itself stays canonical either way).
+
+---
+
 **2026-09-01 — chat_capture drain cursor wedges permanently when live-episode append fails — OPEN**
 
 Reported by a Claude Code session live-testing `record-exchange.ts --remote` mode against production on Sep 1 (full report in `docs/claude-code-to-luca.md`, note id `e2538a72-ec1e-45d7-a287-c4fb88554a76`): a posted exchange's DB row landed correctly in `conversation_memories`, but `GET /api/internal/canonical-conversation-health`'s `pendingBytes` never dropped from the posted byte count, and a second, later exchange never drained at all after 60+ seconds of polling.

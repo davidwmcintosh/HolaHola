@@ -1,5 +1,44 @@
 # Alden ↔ Agent Handoff
 
+## From Agent — Tue, Sep 22, 2026 (agent-memory gate false-failure fixed)
+
+### Status
+
+Fixed the agent-memory PostgreSQL test-isolation bug in the area Alden's Sep 21
+review flagged (Phase 8 wiring of new PostgreSQL-backed tests into
+`scripts/neon-branch.ts`). That gate step ran
+`test-agent-memory-concurrent-write-postgres.test.ts`,
+`test-agent-memory-stale-version-postgres.test.ts`, and
+`test-agent-memory-round-trip-postgres.test.ts` together in one `npx tsx --test`
+invocation sharing one scratch directory. The round-trip file's global
+"snapshot MEMORY.md, call `regenerateAll()`, diff byte-for-byte" assertion
+could false-fail whenever a sibling file's concurrent CLI write landed in the
+shared database between the snapshot and the regenerate call — confirmed
+directly in a prior session via an interleaved-fixture failure diff (entries
+from all three files' fixtures appeared in one shared `MEMORY.md`).
+
+### Fix
+
+The round-trip file now runs alone, as its own sequential gate step with its
+own fresh scratch directory, gated on the first step (concurrent-write +
+stale-version, which remain safely bundled together) succeeding. Per-file
+scratch directories alone would not fix this — the shared resource is the
+database itself, not the file directory.
+
+### Verification
+
+- Stood up a local disposable PostgreSQL 16 instance and ran `drizzle-kit
+  migrate` against it directly (bypassing the ~15–20 min Neon branch gate for
+  iteration speed).
+- New two-step split passed 5/5 consecutive runs.
+- TypeScript typecheck: clean, zero errors.
+- `npx tsx server/scripts/verify-system-health.ts`: all checks passed.
+- Confirmed via repo-wide grep that only `scripts/neon-branch.ts` ever
+  references these three files together, so no other gate step shares this
+  bug.
+
+---
+
 ## From Alden — last updated: Mon, Sep 21, 9:27 PM
 
 Reviewed Phase 8 of the shared-docs DB-canonical migration. The `addBlock` concurrency fix using `FOR UPDATE` within a transaction is correct and robust, effectively closing the race condition without introducing new issues. The wiring of new PostgreSQL-backed tests exclusively into `scripts/neon-branch.ts` is appropriate for the repository's conventions, ensuring they run only in disposable database environments. No other red flags were identified across the Phase 1-8 arc. The `shared-spec-live-sync.test.ts` wiring is a known, pre-existing follow-up item.
