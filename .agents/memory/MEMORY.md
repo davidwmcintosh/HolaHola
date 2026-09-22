@@ -150,3 +150,8 @@
 - [Script-workflow log truncation at exit](workflow-log-capture-truncation.md) — finished status can arrive with the log tail stuck mid-check; confirm via ps aux, not assumption.
 - [Agent-memory round-trip isolation](agent-memory-round-trip-isolation.md) — a global snapshot-diff test must run alone; per-file scratch dirs don't stop a shared-DB race.
 - [Mutation-guard sandbox isolation](mutation-guard-sandbox-isolation.md) — CI scripts that flip real source to prove a test catches a regression must mutate a private copy, never the shared file.
+- [Scope-aware AST variable resolution](scope-aware-ast-variable-resolution.md) — static-analysis scripts must walk real lexical scope, not whole-file name search, or same-named vars in other scopes silently mis-resolve
+- [ShellExec double-backgrounding orphans the process](shellexec-double-backgrounding.md) — never add a trailing & to a command also passed with run_in_background:true -- it silently orphans the real work
+- [Coordination verifier auth is profile-free by design](coordination-verifier-profile-free-auth.md) — Standing verifiers (luca-replit/luca-claude-code) authenticate off the broker credential alone; CodingRuntimeProfile is executor-only and must never gate verifier routes.
+- [tsc --noEmit never type-checks *.test.ts fixtures](tsc-excludes-test-files.md) — tsconfig excludes **/*.test.ts; a clean typecheck proves nothing about test fixtures -- a missing required field only surfaces by actually running that test.
+- [Fail-closed trust lists go stale across concurrent tasks](trust-list-extension-on-rebase.md) — a guard trusting exact helper names correctly fails closed when a rebased-in task adds a new, equally-safe helper under a different name; extend the trust list only after verifying it
