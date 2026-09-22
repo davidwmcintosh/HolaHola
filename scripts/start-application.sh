@@ -61,6 +61,34 @@ if port_is_listening; then
   exit 0
 fi
 
+# GitHub's SSH host key is not pre-trusted in a fresh container, so the first
+# SSH-transport git operation against github.com — ours or a background one
+# (Replit's own git integration, `git maintenance`, etc.) — hangs forever on
+# an interactive "authenticity of host ... can't be established" prompt
+# instead of failing fast. That has repeatedly wedged this repo's
+# .git/index.lock for 20-100+ minutes, starving out any other git operation
+# against this repo, including platform task-agent merges. See
+# .agents/memory/ssh-git-hang-pitfalls.md. Pre-trusting the key here — pinned
+# and verified, not blindly accepted — closes that hang at its source on
+# every startup. Keep the pinned key in sync with scripts/github-release-ssh.sh.
+trust_github_ssh_host_key() {
+  local pinned="github.com ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIOMqqnkVzrm0SdG6UOoqKLsabgH5C9okWi0dh2l9GKJl"
+  local known_hosts="${HOME:-/root}/.ssh/known_hosts"
+  if [[ -f "$known_hosts" ]] && grep -qF "$pinned" "$known_hosts" 2>/dev/null; then
+    return 0
+  fi
+  mkdir -p -- "$(dirname -- "$known_hosts")"
+  local scanned
+  scanned="$(timeout 5 ssh-keyscan -t ed25519 github.com 2>/dev/null | grep -v '^#')" || true
+  if [[ "$scanned" == "$pinned" ]]; then
+    printf '%s\n' "$scanned" >>"$known_hosts"
+    echo '[start-application] pre-trusted github.com SSH host key (prevents SSH hang on background git fetches)'
+  else
+    echo '[start-application] WARNING: could not verify github.com SSH host key (network unavailable or key mismatch) — continuing without pre-trust, a background SSH git fetch may hang' >&2
+  fi
+}
+trust_github_ssh_host_key
+
 git config merge.ours.driver true ||
   echo '[merge.ours] WARNING: git config failed — merge=ours will not protect rolling episodes' >&2
 
