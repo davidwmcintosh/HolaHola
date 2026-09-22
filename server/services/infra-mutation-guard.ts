@@ -1,6 +1,13 @@
 import { TaskOwnershipService, type TaskOwnershipResult } from './task-ownership-service';
 
 /**
+ * Scope note: `scripts/cross-tool-promote.ts` and `scripts/neon-branch.ts`
+ * were evaluated and intentionally remain ungated. They are documented
+ * caller-agnostic, stateless tools whose safety boundary is GitHub branch
+ * protection / the Neon workflow rather than ownership of this checkout.
+ */
+
+/**
  * Thrown when an infra-mutating call is refused because task ownership
  * cannot be proven (`unknown_stop`). Callers should treat this the same way
  * the task-ownership CLI's exit code 75 is treated for file edits: stop,

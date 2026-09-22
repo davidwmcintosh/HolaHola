@@ -9,6 +9,8 @@
  */
 
 import { MFA_IPA_PRONUNCIATIONS } from '../services/tts-service';
+import { assertOwnershipForInfraMutation, type OwnershipProbe } from '../services/infra-mutation-guard';
+import { fileURLToPath } from 'node:url';
 
 const CARTESIA_API_KEY = process.env.CARTESIA_API_KEY;
 const CARTESIA_API_URL = 'https://api.cartesia.ai';
@@ -31,6 +33,14 @@ interface DictResponse {
   pinned: boolean;
   items: PronunciationDictItem[];
   created_at: string;
+}
+
+/** Gate the first Cartesia mutation (delete/create), before any write request. */
+export async function authorizeCartesiaDictionaryMutation(
+  taskRef: string,
+  probe?: OwnershipProbe,
+): Promise<void> {
+  await assertOwnershipForInfraMutation(taskRef, 'cartesia:replace_pronunciation_dictionaries', probe);
 }
 
 /**
@@ -117,6 +127,16 @@ async function main() {
     console.error('Error: CARTESIA_API_KEY environment variable is not set');
     process.exit(1);
   }
+  const args = process.argv.slice(2);
+  const taskRefFlag = args.find((arg) => arg.startsWith('--task-ref='));
+  const taskRef = taskRefFlag?.slice('--task-ref='.length)
+    || (args.includes('--task-ref') ? args[args.indexOf('--task-ref') + 1] : undefined);
+  if (!taskRef) {
+    throw new Error('Usage: setup-cartesia-dictionaries.ts --task-ref <task-ref>');
+  }
+  // Listing is read-only, but deletion/creation below changes the remote
+  // Cartesia account. Prove ownership before the first possible mutation.
+  await authorizeCartesiaDictionaryMutation(taskRef);
 
   console.log('╔════════════════════════════════════════════════════════════╗');
   console.log('║  Cartesia Pronunciation Dictionary Setup                    ║');
@@ -188,8 +208,11 @@ async function main() {
   return results;
 }
 
-// Run the script
-main().catch(error => {
-  console.error('Fatal error:', error);
-  process.exit(1);
-});
+// Keep the authorization helper importable by regression tests without
+// executing the credentialed setup as a side effect.
+if (process.argv[1] && fileURLToPath(import.meta.url) === process.argv[1]) {
+  main().catch(error => {
+    console.error('Fatal error:', error);
+    process.exit(1);
+  });
+}

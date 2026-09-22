@@ -8,6 +8,7 @@ import {
   InfraMutationBlockedError,
 } from '../services/infra-mutation-guard';
 import { CloudflareDnsService } from '../services/cloudflare-dns-service';
+import { authorizeCartesiaDictionaryMutation } from './setup-cartesia-dictionaries';
 import {
   createGitHubPublishOwnershipProbe,
   createSharedSpecGitHubPublishGuard,
@@ -129,6 +130,18 @@ test('CloudflareDnsService.listDnsRecords is read-only and does not consult owne
   const records = await service.listDnsRecords('zone-1');
   assert.deepEqual(records, []);
   assert.equal(fetchCalls, 1);
+});
+
+test('Cartesia dictionary mutation refuses before any provider write on unknown_stop', async () => {
+  let probeCalls = 0;
+  await assert.rejects(
+    () => authorizeCartesiaDictionaryMutation('1455', async () => {
+      probeCalls += 1;
+      return ownershipResult('unknown_stop');
+    }),
+    (error: unknown) => error instanceof InfraMutationBlockedError && error.state === 'unknown_stop',
+  );
+  assert.equal(probeCalls, 1, 'ownership is checked before Cartesia delete/create requests');
 });
 
 test('createSharedSpecGitHubPublishGuard refuses when no taskRef is supplied', async () => {
