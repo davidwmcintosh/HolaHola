@@ -67,6 +67,13 @@ const safetyInsertion = commands.findIndex((command) =>
   command.startsWith('npx tsx server/scripts/test-openai-pronunciation-error-notice.ts'));
 if (safetyInsertion < 0) throw new Error('Could not register projection/source safety checks before the guards group');
 commands.splice(safetyInsertion, 0,
+  // TypeScript typecheck: registered as a run_check in run-validation-suite.sh
+  // but, unlike every other entry there, it never bottoms out in a file path
+  // (npm run typecheck -> tsc --noEmit) -- so test-validation-suite-ci-parity.ts
+  // models it as a pathless "cmd:" key instead of a file-path key. Kept here,
+  // not left to the parity guard's Replit-only allowlist, because typecheck has
+  // no live-DB or live-server dependency and can run in any CI environment.
+  'npm run typecheck',
   'npx tsx server/scripts/test-context-lineage-migration-guard-selfcheck.ts',
   'npx tsx server/scripts/test-projection-receipts.ts',
   'npx tsx server/scripts/test-projection-writer-coverage.ts',

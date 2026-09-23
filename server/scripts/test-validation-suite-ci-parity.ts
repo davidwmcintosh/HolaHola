@@ -26,12 +26,23 @@
  *   3. Extract every `<path>.{ts,tsx,mjs,js,sh}` token plus any `--flag`
  *      arguments immediately trailing it -- this is the "required" set,
  *      each entry tagged with the run_check label it came from.
- *   4. Build the "reachable" set the same way, from the union of
+ *   4. A run_check line whose (expanded) command contains no file-path
+ *      token anywhere -- e.g. `npm run typecheck` resolving to the pathless
+ *      `tsc --noEmit` -- is never silently dropped. Its "&&"-split atomic
+ *      command becomes its own `cmd:`-prefixed required key instead, so a
+ *      check that never bottoms out in a file path still has to prove it is
+ *      reachable, rather than contributing nothing and reading as "fully
+ *      covered" purely because it produced zero file-path tokens. A line
+ *      whose only path token is the harness self-reference (see the
+ *      HARNESS_PATH carve-out below) is exempt from this fallback -- it is
+ *      already vacuously satisfied, not pathless.
+ *   5. Build the "reachable" set the same way, from the union of
  *      package.json's scripts.test chain, the literal string array passed
  *      to `commands.splice(...)` inside run-ci-test-steps.mjs, and
  *      package.json's test:ci:unit / test:ci:guards / test:ci:episodes
- *      chains (each expanded the same way).
- *   5. Anything in the required set that is missing from the reachable set
+ *      chains (each expanded the same way, including the same `cmd:`
+ *      pathless-command fallback).
+ *   6. Anything in the required set that is missing from the reachable set
  *      -- and not in the REPLIT_ONLY_ALLOWLIST below -- fails the check.
  *
  * The allowlist is a plain module-level const, not read from any external
@@ -60,10 +71,13 @@
  * plain invocation is present); multi-line continuation blocks are expanded
  * per-file; `npm run <name>` references are actually resolved rather than
  * skipped; the run-ci-test-steps.mjs self-reference carve-out does not mask
- * a real gap; and -- against the REAL repo files -- removing either
- * documented allowlist entry makes this guard newly flag exactly that entry,
- * proving the allowlist is load-bearing rather than redundant with existing
- * coverage.
+ * a real gap; a pathless command with no file-path token at all (e.g.
+ * `tsc --noEmit`) is modeled and caught when it is missing from CI, not
+ * silently treated as fully covered; and -- against the REAL repo files --
+ * removing either documented allowlist entry, or the CI wiring for the
+ * pathless `TypeScript typecheck` run_check line, makes this guard newly
+ * flag exactly that entry, proving both are load-bearing rather than
+ * redundant with existing coverage.
  */
 
 import fs from 'node:fs';
@@ -190,21 +204,84 @@ export function stripJsComments(text: string): string {
   return text.replace(STRING_OR_COMMENT_RE, (match) => (match.startsWith('//') || match.startsWith('/*') ? '' : match));
 }
 
-/** Extracts the set of "path" or "path --flag" keys referenced anywhere in text. */
-export function extractFileInvocationKeys(text: string): Set<string> {
+export interface FileInvocationDetails {
+  /** "path" or "path --flag" keys found in text, minus the harness self-reference. */
+  keys: Set<string>;
+  /**
+   * True the moment ANY file-path-shaped token was found, even if every one
+   * of them was the harness self-reference and therefore excluded from
+   * `keys`. Lets a caller tell "this text never mentions a file path at all"
+   * (truly pathless -- needs the computePathlessCommandKeys fallback below)
+   * apart from "the only path token was the harness, correctly excluded"
+   * (vacuously satisfied by the harness carve-out, not pathless).
+   */
+  sawAnyPathToken: boolean;
+}
+
+/** Extracts the set of "path" or "path --flag" keys referenced anywhere in text, plus whether any path token was seen at all. */
+export function extractFileInvocationDetails(text: string): FileInvocationDetails {
   const keys = new Set<string>();
+  let sawAnyPathToken = false;
   FILE_PATH_WITH_FLAGS_RE.lastIndex = 0;
   let match: RegExpExecArray | null;
   while ((match = FILE_PATH_WITH_FLAGS_RE.exec(text)) !== null) {
     const filePath = match[1];
+    sawAnyPathToken = true;
     if (filePath === HARNESS_PATH) continue;
     const flags = match[2].trim();
     keys.add(flags ? `${filePath} ${flags}` : filePath);
   }
+  return { keys, sawAnyPathToken };
+}
+
+/** Convenience wrapper over extractFileInvocationDetails for callers that only need the key set. */
+export function extractFileInvocationKeys(text: string): Set<string> {
+  return extractFileInvocationDetails(text).keys;
+}
+
+function normalizeCommandText(text: string): string {
+  return text.replace(/\s+/g, ' ').trim();
+}
+
+/**
+ * Splits an already npm-run-expanded command blob into top-level atomic
+ * commands on "&&" -- the same boundary run-ci-test-steps.mjs itself uses to
+ * split package.json's scripts.test chain into individually-run steps (see
+ * `testChain.split(/\s+&&\s+/)` there). Not a full shell parser -- a "&&"
+ * embedded inside a quoted `bash -c '...'` substring still splits here -- but
+ * every existing multi-command run_check line in this repo wraps two-or-more
+ * *file*-based invocations, so a naive split fragment from one of those still
+ * carries its own file-path token and is classified correctly regardless of
+ * the stray quote/prefix noise left on it by the split.
+ */
+export function splitAtomicCommands(text: string): string[] {
+  return text.split(/\s+&&\s+/).map((part) => part.trim()).filter(Boolean);
+}
+
+/** Prefix on every pathless-command key, so it can never collide with a real "path" or "path --flag" key (which always contains a "/" and a known extension). */
+export const PATHLESS_KEY_PREFIX = 'cmd:';
+
+/**
+ * The pathless companion to extractFileInvocationKeys: every top-level atomic
+ * command in `text` that contains NO file-path-shaped token at all (e.g.
+ * `tsc --noEmit`, the fully-expanded form of `npm run typecheck`) becomes its
+ * own comparable, `cmd:`-prefixed key. An atomic command whose only path
+ * token is the harness self-reference (sawAnyPathToken true, keys empty) is
+ * intentionally excluded here too -- it is vacuously satisfied by the harness
+ * carve-out already, not a pathless command that separately needs its own
+ * coverage.
+ */
+export function extractPathlessCommandKeys(text: string): Set<string> {
+  const keys = new Set<string>();
+  for (const atomicCommand of splitAtomicCommands(text)) {
+    const { keys: pathKeys, sawAnyPathToken } = extractFileInvocationDetails(atomicCommand);
+    if (pathKeys.size > 0 || sawAnyPathToken) continue;
+    keys.add(`${PATHLESS_KEY_PREFIX}${normalizeCommandText(atomicCommand)}`);
+  }
   return keys;
 }
 
-/** The "required" set: every file+flag invocation referenced by a run_check line, tagged with its label. */
+/** The "required" set: every file+flag invocation (or, failing that, pathless command) referenced by a run_check line, tagged with its label. */
 export function computeRequiredEntries(
   validationSuiteText: string,
   pkgScripts: Record<string, string>,
@@ -213,6 +290,9 @@ export function computeRequiredEntries(
   for (const { label, commandText } of extractRunCheckLines(validationSuiteText)) {
     const expanded = expandNpmRunReferences(commandText, pkgScripts);
     for (const key of extractFileInvocationKeys(expanded)) {
+      entries.push({ key, label });
+    }
+    for (const key of extractPathlessCommandKeys(expanded)) {
       entries.push({ key, label });
     }
   }
@@ -279,7 +359,11 @@ export function computeReachableKeys(
   ].join(' && ');
 
   const expanded = expandNpmRunReferences(blob, pkgScripts);
-  return extractFileInvocationKeys(expanded);
+  const keys = extractFileInvocationKeys(expanded);
+  for (const key of extractPathlessCommandKeys(expanded)) {
+    keys.add(key);
+  }
+  return keys;
 }
 
 /**
@@ -574,6 +658,64 @@ commands.splice(0, 0,
     );
   }
 
+  // (i) Pathless-command modeling: a run_check line whose (expanded) command
+  // never bottoms out in a file path at all -- e.g. `npm run typecheck`
+  // resolving to the pathless `tsc --noEmit` -- must still produce a
+  // required key and actually be checked for CI reachability, not silently
+  // contribute zero requirements and read as "fully covered" by default
+  // purely because it has no file path to extract.
+  {
+    const suitePathless = 'run_check "Pathless fixture" npm run fixture:pathless\n';
+    const fakePkgScriptsPathless: Record<string, string> = {
+      ...fakePkgScripts,
+      'fixture:pathless': 'some-cli --check',
+    };
+
+    // (i1) Absent from CI entirely: must be flagged missing under a `cmd:`-
+    // prefixed key, not silently treated as satisfied because it produced no
+    // file-path token.
+    const resultPathlessMissing = computeParity(suitePathless, fakeCiStepsText, fakePkgScriptsPathless);
+    assertSelf(
+      resultPathlessMissing.missing.length === 1 && resultPathlessMissing.missing[0].key === 'cmd:some-cli --check',
+      'a pathless command (no file-path token anywhere) absent from CI is reported missing under a cmd: key, not silently treated as covered',
+      JSON.stringify(resultPathlessMissing.missing),
+    );
+
+    // (i2) The identical pathless command IS present in the CI command set:
+    // must read as reachable, proving (i1) exercises real absent-vs-present
+    // detection rather than an extractor that always reports "missing".
+    const ciWithPathlessEntry = `
+const commands = testChain.split(/\\s+&&\\s+/);
+commands.splice(0, 0,
+  'npx tsx server/scripts/test-fixture-spliced.ts',
+  'some-cli --check',
+);
+`;
+    const resultPathlessPresent = computeParity(suitePathless, ciWithPathlessEntry, fakePkgScriptsPathless);
+    assertSelf(
+      resultPathlessPresent.missing.length === 0,
+      'the same pathless command, when actually present in the CI command set, is correctly reachable',
+      JSON.stringify(resultPathlessPresent.missing),
+    );
+
+    // (i3) Regression guard on the harness carve-out: a run_check line that
+    // resolves to ONLY the harness self-reference (e.g. `npm run test:ci` ->
+    // `node scripts/run-ci-test-steps.mjs`) must stay vacuously satisfied,
+    // not get newly misclassified as an uncovered pathless command now that
+    // the pathless fallback exists.
+    const suiteHarnessOnly = 'run_check "Harness-only fixture" npm run fixture:harness-only\n';
+    const fakePkgScriptsHarnessOnly: Record<string, string> = {
+      ...fakePkgScripts,
+      'fixture:harness-only': 'node scripts/run-ci-test-steps.mjs',
+    };
+    const resultHarnessOnly = computeParity(suiteHarnessOnly, fakeCiStepsText, fakePkgScriptsHarnessOnly);
+    assertSelf(
+      resultHarnessOnly.missing.length === 0,
+      'a run_check line resolving only to the harness self-reference stays vacuously satisfied, not newly flagged as an uncovered pathless command',
+      JSON.stringify(resultHarnessOnly.missing),
+    );
+  }
+
   // ── Load-bearing proof against the REAL files: shrinking the allowlist ──
   // by one documented entry must make THIS guard newly flag exactly that
   // entry when run against the real, unmodified run-validation-suite.sh /
@@ -591,6 +733,28 @@ commands.splice(0, 0,
       JSON.stringify(result.missing),
     );
   }
+
+  // ── Load-bearing proof against the REAL files: the pathless "TypeScript
+  // typecheck" run_check line's CI reachability depends on the actual
+  // `'npm run typecheck',` entry spliced into run-ci-test-steps.mjs, not on
+  // some other coincidental match. Removing exactly that literal array entry
+  // from a copy of the real file's text must make the real check newly (and
+  // only) flag the real "TypeScript typecheck" run_check line as missing.
+  console.log('\n[4] Against the real files, the pathless TypeScript typecheck entry is load-bearing:');
+  const TYPECHECK_SPLICE_ENTRY = "  'npm run typecheck',\n";
+  const ciStepsTextWithoutTypecheck = real.ciStepsText.replace(TYPECHECK_SPLICE_ENTRY, '');
+  assertSelf(
+    ciStepsTextWithoutTypecheck !== real.ciStepsText,
+    'the literal \'npm run typecheck\', splice entry is actually present in the real run-ci-test-steps.mjs to remove (fixture is exercising something real)',
+  );
+  const resultWithoutTypecheck = computeParity(real.validationSuiteText, ciStepsTextWithoutTypecheck, real.pkgScripts);
+  assertSelf(
+    resultWithoutTypecheck.missing.length === 1 &&
+      resultWithoutTypecheck.missing[0].key === 'cmd:tsc --noEmit' &&
+      resultWithoutTypecheck.missing[0].label === 'TypeScript typecheck',
+    'removing the real npm run typecheck CI entry makes the real check newly flag exactly the pathless TypeScript typecheck run_check line',
+    JSON.stringify(resultWithoutTypecheck.missing),
+  );
 
   sep();
   console.log(`\n=== Self-check results: ${passed} passed, ${failed} failed ===\n`);
