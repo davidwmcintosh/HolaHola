@@ -168,6 +168,28 @@ export function expandNpmRunReferences(text: string, pkgScripts: Record<string, 
   return current;
 }
 
+/**
+ * Blanks out `//line` and `/* block *\/` comments in JS/TS source text while
+ * leaving every string literal untouched, using a single (string | comment)
+ * alternation so the regex never has to guess where a comment "ends" inside
+ * a string that happens to contain `//` or `/*` -- whichever alternative
+ * matches first at a given position wins, and a comment can only start
+ * matching at a position where no string-opening quote is present.
+ *
+ * Without this, a plain string-literal scan over raw source text cannot
+ * distinguish a live `commands.splice(...)` array entry from the exact same
+ * text sitting inside a commented-out line -- `// 'npx tsx foo.ts',` reads
+ * identically to `'npx tsx foo.ts',` to a regex that only looks for quotes.
+ * That would let a required check keep reporting as "reachable" from CI
+ * indefinitely after its CI entry was disabled by commenting it out instead
+ * of deleting it -- defeating this guard's entire purpose for exactly the
+ * kind of change it exists to catch.
+ */
+export function stripJsComments(text: string): string {
+  const STRING_OR_COMMENT_RE = /'(?:\\.|[^'\\])*'|"(?:\\.|[^"\\])*"|`(?:\\.|[^`\\])*`|\/\/[^\n]*|\/\*[\s\S]*?\*\//g;
+  return text.replace(STRING_OR_COMMENT_RE, (match) => (match.startsWith('//') || match.startsWith('/*') ? '' : match));
+}
+
 /** Extracts the set of "path" or "path --flag" keys referenced anywhere in text. */
 export function extractFileInvocationKeys(text: string): Set<string> {
   const keys = new Set<string>();
@@ -211,7 +233,17 @@ export function computeReachableKeys(
   ciStepsText: string,
   pkgScripts: Record<string, string>,
 ): Set<string> {
-  const spliceMatch = /commands\.splice\(([\s\S]*?)\);/.exec(ciStepsText);
+  // Comments are stripped from the WHOLE file text before the splice call is
+  // even located -- not just from the text captured inside it. Two distinct
+  // failure modes share this one fix: (1) a commented-out array entry like
+  // `// 'npx tsx foo.ts',` would otherwise still match the string-literal
+  // regex below and be counted as reachable even though it no longer runs;
+  // (2) a comment containing a literal `);` before the real end of the call
+  // (e.g. `// see also someOtherCall();`) would otherwise truncate the
+  // non-greedy splice-boundary match early and silently drop every entry
+  // after it. Stripping comments first closes both at once.
+  const commentFreeCiStepsText = stripJsComments(ciStepsText);
+  const spliceMatch = /commands\.splice\(([\s\S]*?)\);/.exec(commentFreeCiStepsText);
   if (!spliceMatch) {
     throw new Error(
       'Could not locate a commands.splice(...) call in scripts/run-ci-test-steps.mjs -- ' +
@@ -457,6 +489,88 @@ commands.splice(0, 0,
       resultNoAllowlist.missing.length === 2,
       'with an empty allowlist override, the normally-suppressed entry is flagged too -- proving suppression is the allowlist, not a coincidence',
       JSON.stringify(resultNoAllowlist.missing),
+    );
+  }
+
+  // (h) Comment-blindness: a CI entry that was disabled by commenting it out
+  // (rather than deleting it) must still read as MISSING, not reachable. A
+  // naive string-literal scan over raw source text cannot tell a live
+  // `commands.splice(...)` array entry apart from the identical text sitting
+  // inside a `//` or `/* */` comment -- this is exactly the realistic
+  // "temporarily disable a CI step" edit this guard exists to catch.
+  {
+    const suiteCommented = 'run_check "Disabled-in-CI fixture" npx tsx server/scripts/test-fixture-commented-out.ts\n';
+
+    // (h1) Present only as a `//`-commented-out element of the SAME
+    // commands.splice(...) array the live entries sit in -- the reviewer's
+    // exact scenario: `// 'npx tsx server/scripts/example.ts',`. The target
+    // text must sit *inside* the one commands.splice(...) call (there is
+    // only ever one in the real file, and the extractor only locates the
+    // first), not merely somewhere else in the file, or this test would
+    // pass even without the fix.
+    const ciWithLineCommentedEntry = `
+const commands = testChain.split(/\\s+&&\\s+/);
+commands.splice(0, 0,
+  'npx tsx server/scripts/test-fixture-spliced.ts',
+  // 'npx tsx server/scripts/test-fixture-commented-out.ts',
+);
+`;
+    const resultLineComment = computeParity(suiteCommented, ciWithLineCommentedEntry, fakePkgScripts);
+    assertSelf(
+      resultLineComment.missing.length === 1 && resultLineComment.missing[0].key === 'server/scripts/test-fixture-commented-out.ts',
+      'a CI entry disabled via a // line comment inside the splice array is still reported missing, not falsely reachable',
+      JSON.stringify(resultLineComment.missing),
+    );
+
+    // (h2) Same, via a `/* */` block comment wrapping the array element.
+    const ciWithBlockCommentedEntry = `
+const commands = testChain.split(/\\s+&&\\s+/);
+commands.splice(0, 0,
+  'npx tsx server/scripts/test-fixture-spliced.ts',
+  /* 'npx tsx server/scripts/test-fixture-commented-out.ts', */
+);
+`;
+    const resultBlockComment = computeParity(suiteCommented, ciWithBlockCommentedEntry, fakePkgScripts);
+    assertSelf(
+      resultBlockComment.missing.length === 1 && resultBlockComment.missing[0].key === 'server/scripts/test-fixture-commented-out.ts',
+      'a CI entry disabled via a /* */ block comment inside the splice array is still reported missing, not falsely reachable',
+      JSON.stringify(resultBlockComment.missing),
+    );
+
+    // (h3) A comment containing a literal `);` before the real splice call's
+    // end must not truncate extraction early and silently drop later entries.
+    const ciWithEarlyParenComment = `
+// see also someHelper(); for details
+const commands = testChain.split(/\\s+&&\\s+/);
+commands.splice(0, 0,
+  'npx tsx server/scripts/test-fixture-spliced.ts',
+  'npx tsx server/scripts/test-fixture-after-early-paren-comment.ts',
+);
+`;
+    const suiteAfterEarlyParen = 'run_check "After early-paren-comment fixture" npx tsx server/scripts/test-fixture-after-early-paren-comment.ts\n';
+    const resultEarlyParen = computeParity(suiteAfterEarlyParen, ciWithEarlyParenComment, fakePkgScripts);
+    assertSelf(
+      resultEarlyParen.missing.length === 0,
+      'a literal ");" inside a comment before the real commands.splice(...) call does not truncate extraction and drop later entries',
+      JSON.stringify(resultEarlyParen.missing),
+    );
+
+    // (h4) Sanity check: the SAME entry, when actually live (uncommented) as
+    // an element of the same splice array, is correctly reachable -- proving
+    // (h1)/(h2) test real comment-blindness and not just a broken
+    // "always missing" extractor.
+    const ciWithLiveEntry = `
+const commands = testChain.split(/\\s+&&\\s+/);
+commands.splice(0, 0,
+  'npx tsx server/scripts/test-fixture-spliced.ts',
+  'npx tsx server/scripts/test-fixture-commented-out.ts',
+);
+`;
+    const resultLive = computeParity(suiteCommented, ciWithLiveEntry, fakePkgScripts);
+    assertSelf(
+      resultLive.missing.length === 0,
+      'the same fixture, when actually live (uncommented) in the splice list, is correctly reachable',
+      JSON.stringify(resultLive.missing),
     );
   }
 
