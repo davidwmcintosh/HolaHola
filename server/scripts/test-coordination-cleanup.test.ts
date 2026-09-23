@@ -202,9 +202,21 @@ test('terminal cleanup revokes live authority without changing result or evidenc
 
     // Simulate a later mutable-authority change. Historical reads and cleanup
     // repair remain bound to the immutable session actor and lease lineage.
+    //
+    // Anchor the forced expiry on this row's own issued_at rather than
+    // `now() - interval '1 second'`. The latter assumes at least a second of
+    // wall-clock time separates the INSERT above from this UPDATE, which
+    // holds on a networked Neon connection but not against a fast local
+    // loopback Postgres (e.g. GitHub Actions' job-local service): there the
+    // whole sequence can complete in well under a second, making
+    // `now() - 1s` land at or before `issued_at` and violate the
+    // `coordination_v2_operator_grant_lifecycle` check constraint
+    // (`expires_at > issued_at`). `issued_at + 1ms` always satisfies that
+    // constraint and is already in the past by the time anything reads it,
+    // since real time has elapsed over the several awaited queries above.
     await client.query(
       `UPDATE coordination_v2_operator_grants
-          SET revoked_at=now(), expires_at=now()-interval '1 second'
+          SET revoked_at=now(), expires_at=issued_at+interval '1 millisecond'
         WHERE id=$1`,
       [grantId],
     );

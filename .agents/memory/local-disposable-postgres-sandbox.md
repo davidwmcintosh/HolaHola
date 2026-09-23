@@ -37,3 +37,19 @@ the scratch data directory.
 
 **Silent-fallback pitfall:** setting `CI_DATABASE_URL` and `NEON_SHARED_DATABASE_URL` to a local disposable instance without also setting `CI=true` does not fail loudly. `server/db.ts`'s `getDb()` only routes through the plain `pg` driver when `server/ci-database.ts`'s `getVerifiedCiDatabaseUrl()` returns a value, which requires `CI==='true'` **and** `NEON_SHARED_DATABASE_URL===CI_DATABASE_URL` together — both conditions, not just a matching URL. Omit `CI=true` and it silently falls through to the `@neondatabase/serverless` driver, which speaks a different wire protocol than plain Postgres and produces an unrelated-looking, mismatched error shape (e.g. a driver-specific error a caller's FK-violation-detection code doesn't recognize) instead of a clean connection failure — looking exactly like a cascade of application-level test failures. Always set all three (`CI=true`, `CI_DATABASE_URL`, matching `NEON_SHARED_DATABASE_URL`) together when manually reproducing CI's local-Postgres path; a failure that looks like a real regression is worth re-checking against this gate before trusting it.
 
+
+## Check for an existing local-DB test harness before hand-rolling one
+
+Before manually following the initdb/postgres/createdb/migrate recipe above,
+check `package.json` for a `test:*-local`-style script (e.g.
+`test:coordination-ledger`, backed by `scripts/run-coordination-ledger-local.mjs`)
+-- several test families already have a one-shot script that stands up a
+disposable local Postgres, applies migrations, seeds fixtures, runs the full
+relevant test suite (including any CI self-checks), and tears everything down
+automatically. It uses ShellExec's own `run_in_background` correctly
+internally (spawns Postgres directly, not via `pg_ctl`/`nohup`), so it doesn't
+hit the teardown quirk above. Confirmed for the coordination-credential-broker
+family Sep 23 2026. Prefer it over the manual recipe whenever a matching
+script exists; fall back to the manual recipe only for files/areas with no
+such harness.
+

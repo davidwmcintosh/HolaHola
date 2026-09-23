@@ -156,26 +156,39 @@ async function runSelfCheck() {
   console.log(Y(`  ℹ  Read docs/episode-28.md — ${mdRaw.length} bytes`));
 
   // 2. Query DB ─────────────────────────────────────────────────────────────
-  const sql = neon(process.env.NEON_SHARED_DATABASE_URL!);
-  const START = '2026-08-09T22:00:00Z';
-  const END   = '2026-08-12T06:00:00Z';
+  // neon() speaks Neon's HTTPS proxy protocol, not raw Postgres wire
+  // protocol -- it cannot reach a job-local CI Postgres service (GitHub
+  // Actions' service container, or a disposable local replica) and fails
+  // with an unrelated-looking "Failed to parse URL" error instead of a
+  // clean connection refusal. This self-check is documented as "in-memory
+  // only" and already falls back to a synthetic fixture when the DB has no
+  // usable rows (see below) -- treat a DB that cannot be reached at all the
+  // same way, rather than letting the whole self-check crash in CI.
+  let realRows: any[] = [];
+  try {
+    const sql = neon(process.env.NEON_SHARED_DATABASE_URL!);
+    const START = '2026-08-09T22:00:00Z';
+    const END   = '2026-08-12T06:00:00Z';
 
-  console.log(Y('  ℹ  Querying DB for per-turn chat-capture rows…'));
-  const rows = await sql`
-    SELECT id, title, content, created_at, tags
-    FROM conversation_memories
-    WHERE arc_name = 'david-luca-chat'
-      AND 'per-turn' = ANY(tags)
-      AND created_at >= ${START}::timestamptz
-      AND created_at <= ${END}::timestamptz
-    ORDER BY created_at ASC
-  `;
+    console.log(Y('  ℹ  Querying DB for per-turn chat-capture rows…'));
+    const rows = await sql`
+      SELECT id, title, content, created_at, tags
+      FROM conversation_memories
+      WHERE arc_name = 'david-luca-chat'
+        AND 'per-turn' = ANY(tags)
+        AND created_at >= ${START}::timestamptz
+        AND created_at <= ${END}::timestamptz
+      ORDER BY created_at ASC
+    `;
 
-  const isCiRow = (content: string) =>
-    content.includes('[CI-AUTO-CAPTURE-') ||
-    content.includes('[CI-SELF-CHECK-AUTO-CAPTURE-');
-  const realRows = (rows as any[]).filter(r => !isCiRow(r.content as string));
-  console.log(Y(`  ℹ  Found ${realRows.length} real per-turn rows in window`));
+    const isCiRow = (content: string) =>
+      content.includes('[CI-AUTO-CAPTURE-') ||
+      content.includes('[CI-SELF-CHECK-AUTO-CAPTURE-');
+    realRows = (rows as any[]).filter(r => !isCiRow(r.content as string));
+    console.log(Y(`  ℹ  Found ${realRows.length} real per-turn rows in window`));
+  } catch (err: any) {
+    console.log(Y(`  ℹ  DB unavailable (${err?.message ?? err}) — using synthetic in-memory fixture only`));
+  }
 
   // 3. Find a row that IS present in the .md ────────────────────────────────
   let targetTurns: Turn[] | null = null;

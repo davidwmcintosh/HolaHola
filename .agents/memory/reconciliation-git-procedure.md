@@ -108,31 +108,39 @@ ShellExec/shell timeout firing while `candidate` is still running) terminates
 the Node process before that `finally` block runs, leaving three separate
 kinds of debris:
 
-1. A stale `.local/reconcile-worktree-<fingerprint>` directory and its
-   `reconcile/candidate-<fingerprint>` branch ref, still pointing at whatever
-   partial state existed when it was killed.
+1. A stale `.local/reconcile-worktree-<fingerprint>` directory (and its git
+   worktree registration) and a `reconcile/candidate-<fingerprint>` branch
+   ref, still pointing at whatever partial state existed when it was killed.
 2. A stale `.local/source-control.lock` (token/pid/expiresAt) whose owning
    pid is already dead — `ps -o pid,etimes,cmd -p <pid>` returning nothing
-   confirms this. It carries a hard TTL (10 minutes observed); either wait it
-   out or confirm the pid is truly dead before treating it as free.
-3. On retry, `candidate()` sees the existing branch ref, looks for a matching
-   `candidate-outcome.json` audit record, finds none (the kill happened
-   before that write), and correctly refuses with
-   `protected_path_proof_failed` / "Existing candidate branch does not match
-   its immutable packet and outcome" rather than trusting the unverified
-   branch.
+   confirms this. It carries a hard TTL (10 minutes observed).
+3. On retry (as of Sep 23 2026), `candidate()` sees the existing branch ref,
+   looks for a matching `candidate-outcome.json` audit record, finds none
+   (the kill happened before that write), and now discards that branch and
+   rebuilds fresh instead of failing closed forever — holding the mutation
+   lease during this check proves no live process can still own the debris,
+   since every graceful return path deletes its own branch before a caller
+   could ever observe one with no outcome. It also defensively reclaims a
+   worktree directory/registration left dirty or missing by the kill (via
+   `git worktree remove`, falling back to `rm -rf` + `git worktree prune`)
+   before creating a fresh one, so a kill at *any* point — before or after
+   the branch existed — self-heals on the next call. See the two fixture
+   tests in `server/scripts/test-source-reconciliation-service.ts` (orphaned
+   branch+worktree, and worktree-only debris) that pin this.
 
 **Why:** hit this live Sep 23 2026 — ran `candidate` in the foreground with a
 180s ShellExec timeout; `validateCandidate` (typecheck + the reconciliation
 self-check, not the full prepare manifest, but still ~2-3 minutes) hadn't
-finished, the shell killed it, and the retry failed exactly as above.
+finished, the shell killed it, and the retry failed with
+`protected_path_proof_failed` requiring hand-run `git worktree remove` /
+`git update-ref -d` to recover, before the self-heal above existed.
 
-**How to apply:** always background `candidate`, the same as `prepare`/
-`record` — a few minutes is normal, not a hang. If a prior attempt was
-killed, clean up before retrying: `git worktree remove --force
-.local/reconcile-worktree-<fingerprint>` (fall back to `rm -rf` +
-`git worktree prune` if that errors), then
-`git update-ref -d refs/heads/reconcile/candidate-<fingerprint>`. Wait out the
-lease TTL (confirming the holder pid is dead first) rather than deleting the
-lock file by hand.
+**How to apply:** still always background `candidate` (a few minutes is
+normal, not a hang) — self-healing removes the need for manual recovery, it
+doesn't make a kill fast. A retry that still fails closed after a kill means
+the branch's outcome record IS present but doesn't match (tampering or
+corruption after a real build completed) — a genuinely different, intentional
+failure case; don't clear it by hand, treat it as a real integrity finding.
+Lease reclaim (dead pid + expired TTL) was already automatic before this fix
+and still requires no manual lock-file deletion.
 

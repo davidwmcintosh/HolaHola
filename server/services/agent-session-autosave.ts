@@ -39,7 +39,7 @@
 import { existsSync, statSync, readFileSync, writeFileSync, watch, readdirSync, unlinkSync, mkdirSync } from 'fs';
 import { createHash } from 'crypto';
 import { tryAcquireInnerLifeLock, releaseInnerLifeLock, waitForInnerLifeLock } from './inner-life-lock';
-import { join, basename } from 'path';
+import { join, basename, dirname } from 'path';
 import { getUserDb } from '../db';
 import { sql } from 'drizzle-orm';
 import {
@@ -1459,6 +1459,10 @@ function _writeCaptureStatusFile(episodeFilename: string | null, captureMs: numb
   ];
 
   const writePath = _captureStatusPathOverrideForTest ?? CAPTURE_STATUS_PATH;
+  // .local/ is gitignored and does not exist on a fresh checkout (e.g. a
+  // GitHub Actions runner) -- create the parent directory before writing
+  // instead of assuming a prior process already created it.
+  mkdirSync(dirname(writePath), { recursive: true });
   writeFileSync(writePath, outputLines.join('\n'), 'utf-8');
 }
 

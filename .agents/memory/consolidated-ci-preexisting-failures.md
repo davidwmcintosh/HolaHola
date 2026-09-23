@@ -8,3 +8,10 @@ As of Sep 22 2026, `bash server/scripts/test-all-consolidated-ci.sh` (part of `m
 
 **How to apply:** if consolidated CI fails, check which group/script failed first. If it's `episode-sync` (`test-rolling-sync-guard.ts` Pass 2/3, or `test-chat-episode-hook-e2e.ts` Step 4/5), or a DB "Failed query" in a script your diff never touches, don't assume you caused it — grep your diff for any overlap with the failing script's imports, and if there is none, a worktree check against the parent commit (or `git stash` if the diff is still uncommitted) per `validation-failure-triage.md` will confirm pre-existing status quickly. `skip_validation_reason` citing this file is legitimate once confirmed.
 
+
+**Update (Sep 23 2026, task 1539 — proving the GitHub Actions CI surface):** confirmed a 4th failure mode plus an important scope boundary.
+
+4. **Reproducible, pre-existing — the `luca-inner-life` group.** Fails with 3/3 checks failed (e.g. `_seededFromPriorSession true even with no inner-life markers`, `.local/episode-capture-status.md` not restored as expected) — a capture-status seed/race issue. Confirmed pre-existing via `git worktree add <path> <parent-commit>` at the commit immediately before task 1539's 5 unrelated fixes: the identical failure signature reproduces there with zero code overlap with the diff under test.
+
+**Scope boundary confirmed by grep:** none of the `episode-sync` / `luca-inner-life` / `north-star` group scripts are referenced anywhere in `scripts/run-ci-test-steps.mjs`. `test-all-consolidated-ci.sh` is a broader LOCAL validation-only script; these particular failing groups are not even part of the GitHub-Actions-reachable CI surface (`.github/workflows/ci.yml` → `run-ci-test-steps.mjs`). A task scoped to "does this pass on GitHub Actions" should not spend time chasing these groups — they're orthogonal, pre-existing, Replit-sandbox-local flakiness, confirmed separately from whatever GitHub Actions itself reports.
+
