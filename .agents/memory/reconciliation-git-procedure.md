@@ -87,3 +87,14 @@ entries) rather than hand-splicing the JSON. Verify the corresponding
 before trusting the journal-level identity — the journal entry alone
 doesn't prove the migration body matches.
 
+
+## Landing a long-blocked push can surface CI-environment-only bugs
+
+## Landing a long-blocked push can surface CI-environment-only bugs
+
+A commit fully validated in Replit's own dev environment and local test runs can still be broken in GitHub Actions CI if the two environments' configured secrets differ (e.g. a provider API key set in Replit but never added as a GitHub Actions secret). If local `main` has been unable to reach GitHub for a while (blocked by divergence, lease contention, or any other reason), every commit added during that window has never actually executed inside GitHub's own CI runners.
+
+**Why:** hit this live — reconciling a multi-day divergence and landing the merge on GitHub triggered the real Actions run for several already-"validated" local commits for the first time. The Windows-specific job (the actual target of that reconciliation) passed cleanly, but an unrelated same-day commit's unit test failed only in Actions with "Gemini API key is not configured" — a route-registration path that eagerly constructed a provider adapter requiring a key neither `AI_INTEGRATIONS_GEMINI_API_KEY` nor `GEMINI_API_KEY` supplied in that CI environment, even though the specific test exercised a Gemini-independent flow.
+
+**How to apply:** after landing a long-blocked reconciliation, watch the real GitHub Actions run to completion rather than trusting the local/dev test suite's prior green result. If something fails there that passed locally, check which side of the divergence (local-only vs remote-only history) actually owns the failing file before assuming your merge conflict resolution caused it — a failure surfacing for the first time is often a pre-existing latent bug in an unpushed commit, exposed by CI-environment differences (missing secrets, different runner OS) rather than anything introduced during reconciliation.
+
