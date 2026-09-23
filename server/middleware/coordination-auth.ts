@@ -4,11 +4,14 @@ import {
   type CoordinationCredentialCapability,
   type CoordinationActorId,
 } from '@shared/schema';
-import {
-  auditBrokerAccessDenied,
-  resolveBrokerCredential,
-  type BrokerCredential,
-} from '../services/coordination-credential-broker';
+// Type-only: the broker module (and its transitive server/db.ts import) must
+// never load merely by importing this file. External coordination clients
+// (server/scripts/coordination-cli.ts -> coordination-actor-client.ts ->
+// this file, for COORDINATION_TOKEN_ENV_BY_ACTOR) run on machines with no
+// database credential at all. The two functions that do need the broker's
+// real implementation are imported lazily inside resolveCoordinationCapability,
+// the one code path that actually resolves a broker credential.
+import type { BrokerCredential } from '../services/coordination-credential-broker';
 
 type CoordinationEnvironment = Record<string, string | undefined>;
 
@@ -139,6 +142,8 @@ export async function resolveCoordinationCapability(
     return { ok: true, actor: fixed.actor, authType: 'legacy' };
   }
   try {
+    const { resolveBrokerCredential, auditBrokerAccessDenied } =
+      await import('../services/coordination-credential-broker');
     const credential = await resolveBrokerCredential(token, sourceIp);
     if (!credential) return { ok: false, status: fixed.status, error: fixed.error };
     if (!credential.capabilities.includes(capability)) {

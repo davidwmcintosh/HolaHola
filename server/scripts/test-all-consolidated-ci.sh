@@ -400,6 +400,7 @@ group_body_workflow_safety() {
   run test-source-reconciliation-inspection.ts
   run test-source-reconciliation-hermetic-env.ts
   npx tsx server/scripts/test-source-reconciliation-hermetic-env.ts --self-check
+  npx tsx --test server/scripts/test-coordination-cli-hermetic-env.test.ts
   npx tsx --test server/scripts/test-agent-note-coordination-ingress.test.ts
   npx tsx --test server/scripts/test-coordination-v2-first-host-bootstrap.test.ts
   npx tsx --test \
