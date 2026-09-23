@@ -125,6 +125,35 @@ jobs:
       - name: Validate migration + data-ops + full test suite on an isolated Neon branch
         run: npm run db:branch -- gate
 
+      - name: Re-verify main has not advanced since the earlier ancestry check
+        run: |
+          # The ancestry check in "Refuse if main is not an ancestor of this
+          # branch" ran before the typecheck/build/Neon-branch-gate steps
+          # above -- a real gap, several minutes long, in which a different
+          # actor (Replit's source-control coordinator, or another
+          # cross-tool-promote run) could have pushed to main. The next step
+          # applies a migration + data-ops directly to the single shared
+          # production database -- a real, not-always-reversible side effect
+          # (see the file header) -- so it must never run against a main that
+          # has moved since it was last validated. A stale-but-still-attempted
+          # run here would otherwise mutate production for a promotion that
+          # then fails (non-fast-forward) at the final push step below,
+          # leaving production changed without the corresponding code
+          # landing.
+          #
+          # This does not shrink the race window to zero -- main could still
+          # move in the few seconds between this check and the push -- but it
+          # shrinks it from "the whole pipeline's duration" down to "a few
+          # seconds", using the same fast-forward-ancestry guarantee the
+          # final push already enforces, checked again immediately before the
+          # irreversible step instead of only long before it.
+          git fetch origin main --no-tags
+          MAIN_SHA="$(git rev-parse --verify FETCH_HEAD^{commit})"
+          if ! git merge-base --is-ancestor "$MAIN_SHA" HEAD; then
+            echo "::error::main advanced past this branch while validation was running (now at $MAIN_SHA) -- refusing to mutate production for a stale candidate. Re-run cross-tool-promote against the current main."
+            exit 1
+          fi
+
       - name: Apply migration + data-ops to production (gate-approved)
         run: |
           # Direct (unpooled) connection string, required for drizzle-kit —
