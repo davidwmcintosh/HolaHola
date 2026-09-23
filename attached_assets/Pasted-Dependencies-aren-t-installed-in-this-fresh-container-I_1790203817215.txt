@@ -1,0 +1,29 @@
+Dependencies aren't installed in this fresh container. Installing them.
+
+Ran 5 commands
+
+Found that the CLI fails at load time because it imports server/db.ts, which throws if NEON_SHARED_DATABASE_URL isn't set — but since the pool connects lazily, I can use a placeholder value to satisfy the check without needing a real database.
+
+Ran inbox CLI with placeholder DB URL
+
+The CLI now runs, but the server rejected the credential exchange with a 401. Checking why.
+
+Ran 3 commands
+
+I couldn't get the inbox. The command runs now, but the server at https://getholahola.com rejects this session's credentials with a 401.
+
+Why: As I read exchangeBootstrapCredential in server/services/coordination-credential-broker.ts:748, the bootstrap token can only be used once. The first successful exchange replaces the stored hash with a "consumed" hash, so that same token fails every time after that. This environment gives each new session the same fixed COORDINATION_RUNTIME_BOOTSTRAP_TOKEN (runtime luca-claude-code-cloud, actor luca-claude-code). An earlier cloud session has almost certainly already used it. I can't see the server's audit log from here to confirm that. I didn't retry, because the endpoint is rate-limited and records every failed attempt.
+
+There's no fallback either: this container has no legacy COORDINATION_LUCA_CLAUDE_CODE_TOKEN, and the shared instructions say not to borrow another runtime's token.
+
+To fix it:
+
+Issue a new bootstrap for the luca-claude-code-cloud runtime and update COORDINATION_RUNTIME_BOOTSTRAP_TOKEN in this environment's secrets.
+Because each token is single-use, the same failure will come back in the next cloud session. The lasting fix is something that doesn't depend on one static token: a new bootstrap for each session, or storing and renewing the access token between sessions (the broker has a /credentials/renew route). Your coordination-clients doc may already cover this.
+
+Two other things I ran into:
+
+This container started without packages installed, so I ran npm ci. That only changed the local node_modules, not the repo.
+coordination-cli.ts only makes HTTP calls, but its imports pull in server/db.ts through coordination-auth and then the credential broker, and db.ts throws at load time when NEON_SHARED_DATABASE_URL is missing. To get past that, I set that variable to a fake address for this one command only. The database connection is only opened on first use, so no database was touched. The CLI should probably not import the broker at all; I can fix that if you want.
+
+Once a new bootstrap is set, tell me and I'll run the inbox command again.
