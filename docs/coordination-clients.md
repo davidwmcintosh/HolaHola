@@ -124,6 +124,18 @@ profile, shared `.env`, command argument, chat, or coordination message.
 
 ### Zero-downtime bootstrap rotation
 
+Use rotation only when the source registration currently holds a valid,
+renewable credential that real traffic depends on staying uninterrupted --
+that is the specific problem rotation solves. If the source's bootstrap was
+already consumed without the client ever keeping a working credential from it
+(for example, an access token was issued but lost before anything persisted
+it), there is nothing live to protect. Provision the replacement through the
+plain `coordination-runtime-bootstrap.ts` command instead, under a new runtime
+ID, and skip staging and completion entirely. The dead source registration can
+never be exchanged again and can be revoked later at leisure; it poses no
+ongoing risk beyond its own short-lived, already-orphaned access token
+expiring on schedule.
+
 Run rotation only from the trusted HolaHola server environment. The bootstrap
 is never passed as a command argument. First stage a new immutable runtime ID:
 
