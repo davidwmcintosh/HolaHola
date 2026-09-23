@@ -363,6 +363,124 @@ await withFixture(async (f) => {
   primaryUnchanged(f, local, remote); noTemporaryMetadata(f);
 });
 
+// A candidate() run that gets killed outright (e.g. an external process
+// timeout) leaves its worktree and branch behind with no outcome record --
+// the mutation lease proves no live process can still own that debris, so the
+// next run must reclaim it and rebuild rather than failing closed forever.
+await withFixture(async (f) => {
+  const { local, remote } = f.divergeClean();
+  const preflight = await f.service().preflight(local);
+  const fingerprint = preflight.packet!.fingerprint;
+  const branch = preflight.packet!.candidateBranch;
+  const audit = candidateAudit(f, fingerprint);
+  const worktreePath = join(f.root, '.local', `reconcile-worktree-${fingerprint}`);
+  const outcomePath = join(f.root, '.local/reconciliation-audits', fingerprint, 'candidate-outcome.json');
+  git(f.root, 'worktree', 'add', '--detach', worktreePath, local);
+  git(worktreePath, 'switch', '-c', branch);
+  rmSync(worktreePath, { recursive: true, force: true }); // kill: directory gone, worktree admin metadata and branch survive
+  assert.ok(!existsSync(outcomePath), 'no outcome should have been written yet');
+  const result = await f.service().candidate(audit);
+  assert.equal(result.state, 'candidate_ready', result.error);
+  assert.equal(f.validations, 1, 'the reclaimed branch must be discarded and rebuilt exactly once, never trusted as-is');
+  assert.ok(!existsSync(worktreePath), 'the reclaimed worktree directory must not survive');
+  primaryUnchanged(f, local, remote); noTemporaryMetadata(f);
+});
+
+// The same kill can land before the branch is even created (mid `worktree
+// add`), leaving only a registered-but-missing worktree with no branch at
+// all. `git worktree add` fails outright on a path that is still registered,
+// so this must also be reclaimed before rebuilding.
+await withFixture(async (f) => {
+  const { local, remote } = f.divergeClean();
+  const preflight = await f.service().preflight(local);
+  const fingerprint = preflight.packet!.fingerprint;
+  const audit = candidateAudit(f, fingerprint);
+  const worktreePath = join(f.root, '.local', `reconcile-worktree-${fingerprint}`);
+  git(f.root, 'worktree', 'add', '--detach', worktreePath, local);
+  rmSync(worktreePath, { recursive: true, force: true }); // kill: no branch was ever created
+  refMissing(f, `refs/heads/${preflight.packet!.candidateBranch}`);
+  const result = await f.service().candidate(audit);
+  assert.equal(result.state, 'candidate_ready', result.error);
+  assert.ok(!existsSync(worktreePath), 'the reclaimed worktree directory must not survive');
+  primaryUnchanged(f, local, remote); noTemporaryMetadata(f);
+});
+
+// A kill can also land WHILE `git worktree add` itself is still checking out
+// files: git holds the new registration locked (reason "initializing") until
+// checkout completes, and only clears the lock on success. `remove` refuses
+// a locked worktree outright and `prune` deliberately skips locked entries
+// (by design -- e.g. a worktree on removable media), so even after the
+// directory is gone, the next `add` at the same path fails outright unless
+// the registration is explicitly unlocked first.
+await withFixture(async (f) => {
+  const { local, remote } = f.divergeClean();
+  const preflight = await f.service().preflight(local);
+  const fingerprint = preflight.packet!.fingerprint;
+  const audit = candidateAudit(f, fingerprint);
+  const worktreePath = join(f.root, '.local', `reconcile-worktree-${fingerprint}`);
+  git(f.root, 'worktree', 'add', '--detach', worktreePath, local);
+  git(f.root, 'worktree', 'lock', worktreePath, '--reason', 'initializing'); // simulate git's own mid-checkout lock
+  rmSync(worktreePath, { recursive: true, force: true }); // kill: directory gone, locked registration survives
+  refMissing(f, `refs/heads/${preflight.packet!.candidateBranch}`);
+  const result = await f.service().candidate(audit);
+  assert.equal(result.state, 'candidate_ready', result.error);
+  assert.ok(!existsSync(worktreePath), 'the reclaimed worktree directory must not survive');
+  primaryUnchanged(f, local, remote); noTemporaryMetadata(f);
+});
+
+// A stale outcome can also survive with its SHA/parents matching the current
+// branch tip while recording a FAILURE, not success: a first attempt
+// genuinely fails validation (writing a 'protected_path_proof_failed' outcome
+// and deleting its own branch, per the finally block), then a bare retry
+// reproduces the identical deterministic candidate commit but is itself
+// killed before it can overwrite that stale record. Because the commit is
+// fully deterministic (same fingerprint-derived timestamp, same content, same
+// parents), the recreated branch's SHA/parents match the OLD failed outcome
+// exactly -- that must never be mistaken for a successful 'candidate_created'
+// record just because the identifying fields line up.
+await withFixture(async (f) => {
+  const { local, remote } = f.divergeClean();
+  const preflight = await f.service().preflight(local);
+  const fingerprint = preflight.packet!.fingerprint;
+  const branch = preflight.packet!.candidateBranch;
+  const audit = candidateAudit(f, fingerprint);
+  const failing = f.service(async () => { throw new Error('synthetic validation failure'); });
+  const first = await failing.candidate(audit);
+  assert.equal(first.state, 'protected_path_proof_failed', first.error);
+  const staleSha = first.candidateSha;
+  assert.ok(staleSha, 'the failed attempt must still record the candidate SHA it built');
+  refMissing(f, `refs/heads/${branch}`); // the failed attempt deletes its own branch
+  git(f.root, 'update-ref', `refs/heads/${branch}`, staleSha!); // a retry recreates the identical deterministic commit, then is killed before it can overwrite the stale outcome
+  const second = await f.service().candidate(audit);
+  assert.equal(second.state, 'candidate_ready', second.error);
+  assert.equal(f.validations, 2, 'the stale failed outcome must not be trusted as success -- validation must run again rather than being skipped');
+  primaryUnchanged(f, local, remote); noTemporaryMetadata(f);
+});
+
+// A stale outcome can also disagree with the branch tip entirely: the outcome
+// records the full merge commit from an earlier failed attempt, but the
+// branch tip left behind by a later, differently-timed kill is only at the
+// pre-merge local checkout (e.g. killed right after `switch -c`, before the
+// merge and commit ever ran). This must self-heal exactly like a missing
+// outcome would, not fail closed forever just because an outcome file happens
+// to exist for this fingerprint.
+await withFixture(async (f) => {
+  const { local, remote } = f.divergeClean();
+  const preflight = await f.service().preflight(local);
+  const fingerprint = preflight.packet!.fingerprint;
+  const branch = preflight.packet!.candidateBranch;
+  const audit = candidateAudit(f, fingerprint);
+  const failing = f.service(async () => { throw new Error('synthetic validation failure'); });
+  const first = await failing.candidate(audit);
+  assert.equal(first.state, 'protected_path_proof_failed', first.error);
+  refMissing(f, `refs/heads/${branch}`);
+  git(f.root, 'update-ref', `refs/heads/${branch}`, local); // a later kill lands before the merge commit was even created
+  const second = await f.service().candidate(audit);
+  assert.equal(second.state, 'candidate_ready', second.error);
+  assert.equal(f.validations, 2, 'a non-matching stale outcome must not block a rebuild');
+  primaryUnchanged(f, local, remote); noTemporaryMetadata(f);
+});
+
 await withFixture(async (f) => {
   const { local, remote } = f.diverge('missing.txt', 'local\n', 'remote\n');
   const service = f.service();

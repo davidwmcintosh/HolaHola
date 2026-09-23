@@ -101,46 +101,67 @@ A commit fully validated in Replit's own dev environment and local test runs can
 
 ## `candidate` killed mid-run leaves an orphaned worktree, branch, and lease
 
-`candidate()`'s own `finally` block removes its worktree and (if the commit
-never completed) deletes the candidate branch ref, then releases the mutation
-lease — but only on a normal return. A hard kill from outside (e.g. a
-ShellExec/shell timeout firing while `candidate` is still running) terminates
-the Node process before that `finally` block runs, leaving three separate
-kinds of debris:
+A hard kill of the reconciliation `candidate()` step (external timeout, not a
+graceful return) skips its own cleanup entirely, leaving worktree, branch,
+and lease debris pointing at whatever partial state existed at the moment of
+the kill. Self-healing this on the next run requires covering every distinct
+point a kill can land, not just the obvious "before it started" and "after it
+finished" cases:
 
-1. A stale `.local/reconcile-worktree-<fingerprint>` directory (and its git
-   worktree registration) and a `reconcile/candidate-<fingerprint>` branch
-   ref, still pointing at whatever partial state existed when it was killed.
-2. A stale `.local/source-control.lock` (token/pid/expiresAt) whose owning
-   pid is already dead — `ps -o pid,etimes,cmd -p <pid>` returning nothing
-   confirms this. It carries a hard TTL (10 minutes observed).
-3. On retry (as of Sep 23 2026), `candidate()` sees the existing branch ref,
-   looks for a matching `candidate-outcome.json` audit record, finds none
-   (the kill happened before that write), and now discards that branch and
-   rebuilds fresh instead of failing closed forever — holding the mutation
-   lease during this check proves no live process can still own the debris,
-   since every graceful return path deletes its own branch before a caller
-   could ever observe one with no outcome. It also defensively reclaims a
-   worktree directory/registration left dirty or missing by the kill (via
-   `git worktree remove`, falling back to `rm -rf` + `git worktree prune`)
-   before creating a fresh one, so a kill at *any* point — before or after
-   the branch existed — self-heals on the next call. See the two fixture
-   tests in `server/scripts/test-source-reconciliation-service.ts` (orphaned
-   branch+worktree, and worktree-only debris) that pin this.
+- Before any branch exists: a bare worktree registration with no candidate
+  branch.
+- After the branch exists but before the outcome record is written: a branch
+  with no matching outcome, which must be verified safe to discard (proven by
+  holding the mutation lease — no live process can still own it) rather than
+  trusted as-is or left to fail closed forever.
+- During worktree creation itself: git holds a brand-new worktree
+  registration locked (reason "initializing") until its checkout completes,
+  and by design both `remove` and `prune` refuse to touch a locked worktree
+  (protecting, e.g., a worktree on removable media). A kill inside that
+  narrow window leaves a locked registration that outlives a plain
+  remove-then-prune cleanup and makes the next `add` at the same path fail
+  outright — easy to miss because it doesn't look like leftover files, it
+  looks like a phantom reservation on a path whose directory is already gone.
+- After a genuine validation failure already wrote its own outcome record and
+  deleted its branch, a bare retry can rebuild the identical branch (the merge
+  is fully deterministic from the immutable packet) and be killed again before
+  overwriting that record. The stale record's `candidateSha`/parents can then
+  coincidentally match the retry's branch tip while its `state` still says
+  failure, not success. Only a record whose `state` itself claims a
+  completed, validated build may ever be trusted or used to justify a hard
+  failure on mismatch; a record that never claimed success has proven nothing
+  about any commit and must not gate a rebuild either way. The stale record
+  must also be deleted, not just the branch — the outcome write is
+  create-exclusive and refuses to overwrite differing content, so leaving it
+  in place makes the rebuild crash outright the moment it tries to record a
+  genuinely different result.
 
-**Why:** hit this live Sep 23 2026 — ran `candidate` in the foreground with a
-180s ShellExec timeout; `validateCandidate` (typecheck + the reconciliation
-self-check, not the full prepare manifest, but still ~2-3 minutes) hadn't
-finished, the shell killed it, and the retry failed with
-`protected_path_proof_failed` requiring hand-run `git worktree remove` /
-`git update-ref -d` to recover, before the self-heal above existed.
+The lease itself reclaims independently of all of this: a stale lock file
+whose owning pid is confirmed dead and whose TTL has expired was already
+handled before any of the above existed.
 
-**How to apply:** still always background `candidate` (a few minutes is
-normal, not a hang) — self-healing removes the need for manual recovery, it
-doesn't make a kill fast. A retry that still fails closed after a kill means
-the branch's outcome record IS present but doesn't match (tampering or
-corruption after a real build completed) — a genuinely different, intentional
-failure case; don't clear it by hand, treat it as a real integrity finding.
-Lease reclaim (dead pid + expired TTL) was already automatic before this fix
-and still requires no manual lock-file deletion.
+**Why:** hit live Sep 23 2026 during a real reconciliation — an external
+timeout killed `candidate()` mid-validation and manual recovery was required
+before any self-heal existed. A follow-up review then caught that the first
+self-heal fix still missed the locked-mid-`add` case specifically, because
+its regression test modeled the kill landing just after `add` completed
+rather than during it. A second follow-up review then caught that the
+self-heal fix itself could wrongly trust, or wrongly hard-fail on, a stale
+*failure* outcome record, because the original mismatch check only compared
+identifying fields (fingerprint/SHA/parents) and never checked whether the
+record's `state` actually claimed success in the first place.
+
+**How to apply:** when testing or extending kill-recovery for any git
+worktree lifecycle, enumerate every phase git itself moves the registration
+through (unregistered → locked/initializing → unlocked/active) rather than
+just "file exists" vs "file doesn't exist" — a kill can land in any of them,
+and the locked phase specifically defeats both `remove` and `prune`
+regardless of whether the underlying directory still exists. Never reach for
+`--force` to paper over this: an unconditional `unlock` attempt (harmless
+when nothing is locked) is the correct non-destructive fix. Separately: when
+deciding whether an on-disk outcome/proof record may gate a decision (trust
+it outright, or hard-fail when it disagrees with current state), check what
+the record's own `state`/status field actually claims before comparing
+identifying fields like SHA — a record that never claimed success can't
+prove tampering when it disagrees with reality, only a record that did can.
 

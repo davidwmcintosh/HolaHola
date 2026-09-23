@@ -436,22 +436,75 @@ export class SourceReconciliationService {
         const candidateSha = existing.stdout.trim();
         const outcome = await this.readAudit(packet.fingerprint, 'candidate-outcome.json');
         const parents = await this.parents(candidateSha);
-        if (
-          !outcome
-          || outcome.packetFingerprint !== packet.fingerprint
-          || outcome.candidateSha !== candidateSha
-          || !Array.isArray(outcome.parents)
-          || stable(outcome.parents) !== stable(parents)
-          || parents[0] !== packet.localSha
-          || parents[1] !== packet.remoteSha
-        ) {
-          return this.failure('protected_path_proof_failed', 'Existing candidate branch does not match its immutable packet and outcome.');
+        const provenSuccess = !!outcome && outcome.state === 'candidate_created';
+        if (provenSuccess) {
+          // An outcome that already proves this fingerprint's candidate was
+          // successfully built and validated must never be silently discarded:
+          // if the branch tip, its parents, or the outcome's own record of
+          // them no longer agree exactly, something moved a *proven* candidate
+          // away from its verified state -- tampering or corruption after a
+          // real build completed -- which is a genuine integrity finding, not
+          // ordinary interrupted-run debris. Don't clear it by hand or rebuild
+          // over it.
+          if (
+            outcome.packetFingerprint !== packet.fingerprint
+            || outcome.candidateSha !== candidateSha
+            || !Array.isArray(outcome.parents)
+            || stable(outcome.parents) !== stable(parents)
+            || parents[0] !== packet.localSha
+            || parents[1] !== packet.remoteSha
+            || !outcome.checks || typeof outcome.checks !== 'object'
+          ) {
+            return this.failure('protected_path_proof_failed', 'Existing candidate branch does not match its immutable packet and outcome.');
+          }
+          return this.verifyRemote(packet, candidateSha, outcome.checks as Record<string, string>, parents);
         }
-        return this.verifyRemote(packet, candidateSha, outcome.checks as Record<string, string>, parents);
+        // No outcome proves this branch tip is a validated candidate. Either
+        // there is no outcome at all (killed before it could be written), or
+        // the recorded outcome never claimed success in the first place: a
+        // prior attempt genuinely failed validation, wrote that failure
+        // outcome, and deleted its own branch, then a bare retry rebuilt the
+        // branch -- reproducing the identical deterministic candidate commit,
+        // since the merge is fully determined by the immutable packet, or
+        // landing on an earlier, different commit entirely -- and was itself
+        // killed before it could write a fresh outcome. A stale failure
+        // outcome must not gate this: it never proved anything trustworthy
+        // about any commit, so it can't turn a harmless retry into either a
+        // wrongly-trusted success (deterministic SHA/parents coincidentally
+        // matching a stale failure record) or a failure closed forever
+        // (SHA/parents not matching a stale record for a different commit).
+        // None of these can be a live process's work in progress -- holding
+        // the mutation lease here proves that -- so this debris is safe to
+        // discard and rebuild fresh below (see
+        // .agents/memory/reconciliation-git-procedure.md). The stale outcome
+        // file itself must be discarded too, not just the branch: `audit()`
+        // writes are create-exclusive and refuse to overwrite existing
+        // content that differs, so leaving the old (non-success) outcome in
+        // place would make the rebuild below crash outright the moment it
+        // tries to record a genuinely different outcome for this fingerprint.
+        await this.git(['update-ref', '-d', `refs/heads/${packet.candidateBranch}`]);
+        await rm(join(this.root, '.local/reconciliation-audits', packet.fingerprint, 'candidate-outcome.json')).catch(() => undefined);
       }
 
       worktree = join(this.root, '.local', `reconcile-worktree-${packet.fingerprint}`);
+      // Defensively reclaim a worktree registration/directory left behind by a
+      // killed prior run: `git worktree add` fails outright if the path is
+      // still registered even after its directory was removed. `remove`
+      // refuses a worktree that still has uncommitted changes, so fall back to
+      // deleting it directly before pruning the now-dangling registration.
+      // A kill can also land WHILE `add` itself is still checking out files:
+      // git holds the new registration locked (reason "initializing") until
+      // checkout completes, and both `remove` and `prune` deliberately refuse
+      // a locked worktree (by design, e.g. one on removable media) -- so a
+      // kill in that exact window needs an explicit `unlock` first, or the
+      // registration outlives every step below and the final `add` still
+      // fails. `unlock` fails harmlessly (and is ignored, like the other
+      // best-effort calls here) when the path isn't registered or isn't
+      // actually locked.
+      await this.git(['worktree', 'unlock', worktree]);
+      await this.git(['worktree', 'remove', worktree]);
       await rm(worktree, { recursive: true }).catch(() => undefined);
+      await this.git(['worktree', 'prune']);
       if ((await this.git(['worktree', 'add', '--detach', worktree, packet.localSha])).code) return finish('missing_git_object', 'Cannot create isolated worktree.');
       if ((await this.git(['switch', '-c', packet.candidateBranch], worktree)).code) return finish('protected_path_proof_failed', 'Cannot create candidate branch.');
       const merged = await this.git(['merge', '--no-commit', '--no-ff', packet.remoteSha], worktree);
