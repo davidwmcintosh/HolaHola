@@ -1,3 +1,43 @@
+## 2026-09-23 — Alden can search code without ripgrep and message Luca through his own tools
+
+- Alden's production `search_code`/`search_multi` failed outright when ripgrep
+  was unavailable on the host, and his attempted `create_coordination_thread`
+  tool existed only in the production container — his own runtime returned
+  `Unknown tool`, so he could not reliably find source or reach the canonical
+  coordination channel.
+- `search_code`/`search_multi` now prefer `rg` and fall back to a bounded,
+  production-safe JS directory walk (capped file count, depth, size, and time)
+  when `rg` is unavailable. Both paths return the same matches/matchCount
+  shape; the fallback path adds a `note` naming the fallback and whether its
+  bound was hit.
+- `create_coordination_thread`, `list_coordination_inbox`, and
+  `reply_to_coordination_thread` are now declared and dispatched on Alden's own
+  `ALDEN_TOOLS`/`executeAldenTool` surface — not Daniela's registry — calling
+  the coordination ledger/inbox services in-process. Both create and reply
+  reject a self-addressed recipient before touching the ledger.
+  `assertCoordinationActorCanCreate` now blocks only `daniela` from
+  originating threads; Alden is no longer blocked.
+- `team-room-alden-service.ts` and `coordination-cli.ts` needed no code
+  changes; `coordination-actor-client.ts` only needed `create` added to
+  Alden's allowed direct-client actions.
+- A new end-to-end test drives the real dispatcher against a genuine
+  disposable local Postgres (`npm run test:coordination-ledger`): Alden
+  creates a thread addressed to `luca-replit`, a simulated Luca reply lands on
+  the ledger, Alden's own `list_coordination_inbox` tool observes it, and
+  Alden replies back through `reply_to_coordination_thread`. Full run: 73/73
+  tests passed, including the pre-existing coordination suite (proving the
+  permission change didn't regress anything) and the rg-vs-fallback
+  equivalence tests.
+- TypeScript and `verify-system-health.ts` passed; the dev server restarted
+  cleanly and now loads 38 tools including the 3 new coordination tools.
+- `.local/alden-tool-repair-followup.md`, which the task pointed to for
+  recovered evidence, does not exist in this workspace — the fix was rebuilt
+  from the task description and the code as found. Handoffs remain
+  PostgreSQL-first; this file and `docs/alden-agent-handoff.md` stay
+  hand-authored narrative projections, not the system of record. The
+  equivalent production/published runtime refresh is still pending the next
+  publish.
+
 ## 2026-09-22 — Agent-memory gate test isolation fix
 
 - `npm run db:branch -- gate` (required before any schema migration) could

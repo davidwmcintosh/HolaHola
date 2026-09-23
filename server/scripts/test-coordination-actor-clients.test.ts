@@ -342,14 +342,16 @@ test('direct clients and server enforce the same least-privilege lifecycle profi
     environment: ENVIRONMENT,
     fetchImpl: noRequest,
   });
+  // Alden originates threads directly (task 1450 — he must be able to reach Luca
+  // without waiting to be addressed first), so `create` is no longer a forbidden
+  // action for him. `reopen` remains outside his lifecycle profile and stands in
+  // as the still-restricted action this test exercises.
   await assert.rejects(
-    alden.create({
-      title: 'Not permitted',
-      description: 'Alden delegates by reassigning a thread he participates in.',
-      intendedRecipient: 'luca-replit',
-      idempotencyKey: 'test-alden-create',
+    alden.reopen('thread-1', {
+      expectedSequence: 2,
+      idempotencyKey: 'test-alden-reopen',
     }),
-    /cannot perform create/,
+    /cannot perform reopen/,
   );
 
   const daniela = createCoordinationActorClient('daniela', {
@@ -368,6 +370,9 @@ test('direct clients and server enforce the same least-privilege lifecycle profi
 
   assert.equal(coordinationClientActions('luca-holahola').has('create'), true);
   assert.equal(coordinationClientActions('luca-holahola').has('complete'), false);
+  assert.equal(coordinationClientActions('alden').has('create'), true);
+  assert.equal(coordinationClientActions('alden').has('reopen'), false);
+  assert.equal(coordinationClientActions('daniela').has('create'), false);
   assert.equal(canCoordinationActorPerform('luca-holahola', 'reassigned'), true);
   assert.equal(canCoordinationActorPerform('luca-holahola', 'completed'), false);
   assert.equal(canCoordinationActorPerform('alden', 'reassigned'), true);

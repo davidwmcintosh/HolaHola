@@ -14,15 +14,23 @@ import {
   agentNorthStar,
   conversationMemories,
 } from "@shared/schema";
+import type { CoordinationActorId } from "@shared/schema";
 import { sql, desc, eq, and, gte, isNull, inArray } from "drizzle-orm";
 import { computeHealthStatus } from "./voice-health-monitor";
 import { founderCollabService } from "./founder-collaboration-service";
 import * as fs from "fs";
 import * as path from "path";
 import { execSync, spawn } from "child_process";
+import { randomUUID } from "crypto";
 import { aldenActivity } from "./alden-activity-emitter";
 import { getMonitoringSnapshots, analyzePatterns } from "./monitoring-service";
 import { workspaceResolution } from "./workspace-root";
+import {
+  createCoordinationThread,
+  appendCoordinationEvent,
+  getCoordinationThread,
+} from "./coordination-ledger-service";
+import { listCoordinationInbox } from "./coordination-inbox-service";
 
 // Was hardcoded to '/home/runner/workspace' -- a Replit-only container path.
 // Once production ran on Render (post-DNS-swap), every file/shell tool here
@@ -41,6 +49,7 @@ function safePath(filePath: string): string {
   return resolved;
 }
 
+let _rgAvailableCache: boolean | null = null;
 export type AldenTool = Anthropic.Tool & { gemini_description?: string };
 
 export const ALDEN_TOOLS: AldenTool[] = [
@@ -603,6 +612,48 @@ export const ALDEN_TOOLS: AldenTool[] = [
         question: { type: "string" as const, description: "The specific question you need answered before acting." },
       },
       required: ["friction", "question"],
+    },
+  },
+  {
+    name: "create_coordination_thread",
+    description: "Open a new canonical coordination thread addressed to another team actor (a Luca runtime, Daniela, or David) and record it in the PostgreSQL coordination ledger — the shared source of truth for cross-actor handoffs. Use this to hand off work, report a finding, or start a task-shaped conversation with another actor. Markdown handoff docs are a projection of this ledger, never the record itself.",
+    gemini_description: "Open a new canonical coordination thread addressed to another actor (a Luca runtime, Daniela, or David), recorded directly in the PostgreSQL coordination ledger. Use to hand off work or start a task-shaped conversation. This is the record — docs are just a projection of it.",
+    input_schema: {
+      type: "object" as const,
+      properties: {
+        recipient: { type: "string" as const, enum: ["luca-replit", "luca-claude-code", "luca-holahola", "luca-gemini", "daniela", "david"], description: "Who this thread is addressed to." },
+        title: { type: "string" as const, description: "Short thread title (what this is about)." },
+        description: { type: "string" as const, description: "Full description of the work, finding, or question — the body the recipient reads first." },
+        priority: { type: "string" as const, enum: ["low", "normal", "high", "urgent"], description: "Optional. Defaults to normal." },
+      },
+      required: ["recipient", "title", "description"],
+    },
+  },
+  {
+    name: "list_coordination_inbox",
+    description: "Read your canonical coordination inbox — events other actors (a Luca runtime, Daniela, David) have addressed to you or delivered on threads you participate in, ordered oldest-first. Use this to check for replies before assuming a message went unanswered. Reading does not acknowledge the items. A call only ever returns up to `limit` items even when more are waiting: if the response's `window.complete` is false, the newest items (including a reply you care about) have NOT been returned yet — you must call again with `token` set to `window.nextToken` to advance. Passing `after` again on its own repeats the same page.",
+    gemini_description: "Read my canonical coordination inbox — events other actors have addressed to me or delivered on threads I'm part of, oldest first. Use to check for replies. Does not acknowledge items. If `window.complete` is false, newer items (maybe the reply I'm looking for) are still hidden — I must call again with `token` set to `window.nextToken` to see them; re-passing `after` alone just repeats the same page.",
+    input_schema: {
+      type: "object" as const,
+      properties: {
+        after: { type: "number" as const, description: "Only for the very first call in a session: a numeric cursor (defaults to your last acknowledged position). Omit this once you have a token." },
+        token: { type: "string" as const, description: "Continuation token from a previous call's `window.nextToken` — pass it back to advance past that page. Takes priority over `after` when both are set." },
+        limit: { type: "number" as const, description: "Max items to return per call (default 20, max 50). A low limit makes `window.complete: false` more likely — always check it before concluding there is nothing new." },
+      },
+    },
+  },
+  {
+    name: "reply_to_coordination_thread",
+    description: "Post a recipient-facing reply on an existing coordination thread you participate in — this is how you actually message another actor back (a Luca runtime, Daniela, David), atomically recorded in the PostgreSQL ledger and delivered to their inbox. Requires the thread_id from create_coordination_thread or list_coordination_inbox.",
+    gemini_description: "Post a recipient-facing reply on a coordination thread I'm part of — how I message another actor back. Recorded in the ledger and delivered to their inbox. Needs the thread_id from create_coordination_thread or list_coordination_inbox.",
+    input_schema: {
+      type: "object" as const,
+      properties: {
+        thread_id: { type: "string" as const, description: "The coordination thread ID to reply on." },
+        recipient: { type: "string" as const, enum: ["luca-replit", "luca-claude-code", "luca-holahola", "luca-gemini", "daniela", "david"], description: "Who this specific reply is addressed to (usually the thread's other participant)." },
+        content: { type: "string" as const, description: "The reply text." },
+      },
+      required: ["thread_id", "recipient", "content"],
     },
   },
 ];
@@ -1765,61 +1816,37 @@ export async function executeAldenTool(
         const caseSensitive = Boolean(args.case_sensitive);
         const contextLines = typeof args.context_lines === 'number' ? Math.min(args.context_lines, 50) : 0;
 
-        const rgParts: string[] = [
-          'rg',
-          '--line-number',
-          '--with-filename',
-          '--glob=!node_modules/**',
-          '--glob=!dist/**',
-          '--glob=!.git/**',
-        ];
-        if (!caseSensitive) rgParts.push('-i');
-        if (glob) rgParts.push(`--glob=${glob}`);
-
         if (contextLines > 0) {
           // Context mode: return surrounding lines, formatted for readability
-          rgParts.push(`-C ${contextLines}`);
-          const safePattern = pattern.replace(/'/g, `'\\''`);
-          const safeDir = searchDir.replace(/'/g, `'\\''`);
-          rgParts.push(`-e '${safePattern}'`);
-          rgParts.push(`'${safeDir}'`);
-
-          let output = '';
+          let search: { output: string; usedFallback: boolean; bounded: boolean };
           try {
-            output = execSync(rgParts.join(' '), { cwd: WORKSPACE_ROOT, maxBuffer: 1024 * 1024, timeout: 15000, shell: '/bin/sh' }).toString();
+            search = runCodeSearch(pattern, searchDir, { contextLines, glob, caseSensitive, maxMatches: 200, maxBuffer: 1024 * 1024, timeoutMs: 15000 });
           } catch (e: any) {
-            if (e.status === 1) return { data: { pattern, contextLines, results: '', matchCount: 0, note: 'No matches found' } };
-            throw e;
+            return { data: { error: e.message } };
           }
+          const { output, usedFallback, bounded } = search;
+          if (!output) return { data: { pattern, contextLines, results: '', matchCount: 0, note: 'No matches found' } };
           // Truncate if very long
           const truncated = output.length > 40000;
           const trimmed = truncated ? output.slice(0, 40000) + '\n... [truncated — narrow your search]' : output;
           // Count match lines (lines with line numbers, not context separators)
           const matchCount = (output.match(/^[^-][^:]+:\d+:/gm) || []).length;
-          return {
-            data: {
-              pattern,
-              contextLines,
-              matchCount,
-              results: trimmed,
-              note: truncated ? 'Output truncated — use directory or file_glob to narrow' : undefined,
-            },
-          };
+          const notes = [
+            truncated ? 'Output truncated — use directory or file_glob to narrow' : null,
+            usedFallback ? 'rg unavailable on this host — used bounded JS fallback search' : null,
+            bounded ? 'Fallback scan hit its file/time/size bound — results may be partial' : null,
+          ].filter(Boolean).join('; ') || undefined;
+          return { data: { pattern, contextLines, matchCount, results: trimmed, note: notes } };
         } else {
           // Standard mode: just matching lines
-          rgParts.push('--no-heading', '--max-count=3');
-          const safePattern = pattern.replace(/'/g, `'\\''`);
-          const safeDir = searchDir.replace(/'/g, `'\\''`);
-          rgParts.push(`-e '${safePattern}'`);
-          rgParts.push(`'${safeDir}'`);
-
-          let output = '';
+          let search: { output: string; usedFallback: boolean; bounded: boolean };
           try {
-            output = execSync(rgParts.join(' '), { cwd: WORKSPACE_ROOT, maxBuffer: 512 * 1024, timeout: 15000, shell: '/bin/sh' }).toString();
+            search = runCodeSearch(pattern, searchDir, { contextLines: 0, glob, caseSensitive, maxMatches: 40, maxBuffer: 512 * 1024, timeoutMs: 15000, rgExtraArgs: ['--max-count=3'] });
           } catch (e: any) {
-            if (e.status === 1) return { data: { pattern, matches: [], matchCount: 0, note: 'No matches found' } };
-            throw e;
+            return { data: { error: e.message } };
           }
+          const { output, usedFallback, bounded } = search;
+          if (!output) return { data: { pattern, matches: [], matchCount: 0, note: 'No matches found' } };
 
           const lines = output.trim().split('\n').filter(Boolean).slice(0, 40);
           const matches = lines.map(line => {
@@ -1832,14 +1859,12 @@ export async function executeAldenTool(
             };
           });
 
-          return {
-            data: {
-              pattern,
-              matchCount: matches.length,
-              matches,
-              note: matches.length === 40 ? 'Results capped at 40 — narrow your search or restrict directory/glob' : undefined,
-            },
-          };
+          const notes = [
+            matches.length === 40 ? 'Results capped at 40 — narrow your search or restrict directory/glob' : null,
+            usedFallback ? 'rg unavailable on this host — used bounded JS fallback search' : null,
+            bounded ? 'Fallback scan hit its file/time/size bound — results may be partial' : null,
+          ].filter(Boolean).join('; ') || undefined;
+          return { data: { pattern, matchCount: matches.length, matches, note: notes } };
         }
       }
 
@@ -1859,41 +1884,36 @@ export async function executeAldenTool(
         const runOneSearch = (spec: typeof capped[0]) => {
           const searchDir = spec.directory ? safePath(spec.directory) : WORKSPACE_ROOT;
           const contextLines = typeof spec.context_lines === 'number' ? Math.min(spec.context_lines, 50) : 0;
-          const rgParts: string[] = [
-            'rg', '--line-number', '--with-filename',
-            '--glob=!node_modules/**', '--glob=!dist/**', '--glob=!.git/**',
-          ];
-          if (!spec.case_sensitive) rgParts.push('-i');
-          if (spec.file_glob) rgParts.push(`--glob=${spec.file_glob}`);
-          const safePattern = spec.pattern.replace(/'/g, `'\\''`);
-          const safeDir = searchDir.replace(/'/g, `'\\''`);
-          if (contextLines > 0) {
-            rgParts.push(`-C ${contextLines}`);
-          } else {
-            rgParts.push('--no-heading', '--max-count=3');
-          }
-          rgParts.push(`-e '${safePattern}'`, `'${safeDir}'`);
+          let search: { output: string; usedFallback: boolean; bounded: boolean };
           try {
-            const output = execSync(rgParts.join(' '), {
-              cwd: WORKSPACE_ROOT, maxBuffer: 1024 * 512, timeout: 10000, shell: '/bin/sh',
-            }).toString();
-            const truncated = output.length > 12000;
-            const trimmed = truncated ? output.slice(0, 12000) + '\n... [truncated]' : output;
-            if (contextLines > 0) {
-              const matchCount = (output.match(/^[^-][^:]+:\d+:/gm) || []).length;
-              return { pattern: spec.pattern, matchCount, results: trimmed, truncated };
-            } else {
-              const lines = output.trim().split('\n').filter(Boolean).slice(0, 20);
-              const matches = lines.map(line => {
-                const m = line.match(/^(.+?):(\d+):(.*)$/);
-                if (!m) return { raw: line };
-                return { file: m[1].replace(WORKSPACE_ROOT + '/', ''), line: parseInt(m[2]), content: m[3].trim() };
-              });
-              return { pattern: spec.pattern, matchCount: matches.length, matches };
-            }
+            search = runCodeSearch(spec.pattern, searchDir, {
+              contextLines,
+              glob: spec.file_glob,
+              caseSensitive: Boolean(spec.case_sensitive),
+              maxMatches: contextLines > 0 ? 100 : 20,
+              maxBuffer: 1024 * 512,
+              timeoutMs: 10000,
+              rgExtraArgs: ['--max-count=3'],
+            });
           } catch (e: any) {
-            if (e.status === 1) return { pattern: spec.pattern, matchCount: 0, note: 'No matches found' };
             return { pattern: spec.pattern, error: e.message?.slice(0, 200) };
+          }
+          const { output, usedFallback, bounded } = search;
+          if (!output) return { pattern: spec.pattern, matchCount: 0, note: 'No matches found' };
+          const truncated = output.length > 12000;
+          const trimmed = truncated ? output.slice(0, 12000) + '\n... [truncated]' : output;
+          const fallbackNote = [usedFallback ? 'rg unavailable — used JS fallback' : null, bounded ? 'fallback bounded' : null].filter(Boolean).join('; ') || undefined;
+          if (contextLines > 0) {
+            const matchCount = (output.match(/^[^-][^:]+:\d+:/gm) || []).length;
+            return { pattern: spec.pattern, matchCount, results: trimmed, truncated, note: fallbackNote };
+          } else {
+            const lines = output.trim().split('\n').filter(Boolean).slice(0, 20);
+            const matches = lines.map(line => {
+              const m = line.match(/^(.+?):(\d+):(.*)$/);
+              if (!m) return { raw: line };
+              return { file: m[1].replace(WORKSPACE_ROOT + '/', ''), line: parseInt(m[2]), content: m[3].trim() };
+            });
+            return { pattern: spec.pattern, matchCount: matches.length, matches, note: fallbackNote };
           }
         };
 
@@ -2554,6 +2574,112 @@ ${agentSection}`;
         };
       }
 
+      case "create_coordination_thread": {
+        const recipient = args.recipient as CoordinationActorId;
+        const title = String(args.title || '').trim();
+        const description = String(args.description || '').trim();
+        const priority = args.priority as 'low' | 'normal' | 'high' | 'urgent' | undefined;
+        if (!recipient) return { data: { error: 'recipient is required' } };
+        if (recipient === 'alden') return { data: { error: 'recipient cannot be alden — you cannot address a coordination thread to yourself' } };
+        if (!title || !description) return { data: { error: 'title and description are required' } };
+
+        try {
+          const result = await createCoordinationThread({
+            actor: 'alden',
+            intendedRecipient: recipient,
+            title,
+            description,
+            priority,
+            idempotencyKey: randomUUID(),
+          });
+          console.log(`[Alden Tool] create_coordination_thread: "${title}" → ${recipient} (thread ${result.thread.id})`);
+          return {
+            data: {
+              threadId: result.thread.id,
+              state: result.thread.state,
+              sequence: result.thread.latestSequence,
+              recipient: result.thread.intendedRecipient,
+              deliveryState: result.deliveryState,
+            },
+          };
+        } catch (e: any) {
+          return { data: { error: e.message, code: e.code } };
+        }
+      }
+
+      case "list_coordination_inbox": {
+        const token = typeof args.token === 'string' && args.token.trim() ? args.token.trim() : undefined;
+        const after = typeof args.after === 'number' ? args.after : undefined;
+        const limit = typeof args.limit === 'number' ? Math.min(args.limit, 50) : 20;
+
+        try {
+          const result = await listCoordinationInbox('alden', { token, after, limit });
+          return {
+            data: {
+              items: result.items.map((item: any) => ({
+                threadId: item.thread.id,
+                threadTitle: item.thread.title,
+                eventType: item.event.eventType,
+                from: item.event.actor,
+                content: item.event.content,
+                sequence: item.event.sequence,
+                globalSequence: item.event.globalSequence,
+                createdAt: item.event.createdAt,
+              })),
+              window: result.window,
+            },
+          };
+        } catch (e: any) {
+          return { data: { error: e.message, code: e.code } };
+        }
+      }
+
+      case "reply_to_coordination_thread": {
+        const threadId = args.thread_id as string;
+        const content = String(args.content || '').trim();
+        const recipient = args.recipient as CoordinationActorId;
+        if (!threadId || !recipient) return { data: { error: 'thread_id and recipient are required' } };
+        if (recipient === 'alden') return { data: { error: 'recipient cannot be alden — you cannot address a reply to yourself' } };
+        if (!content) return { data: { error: 'content is required' } };
+
+        const attempt = async () => {
+          const { thread } = await getCoordinationThread(threadId, 'alden');
+          return appendCoordinationEvent({
+            threadId,
+            actor: 'alden',
+            eventType: 'comment',
+            content,
+            recipientActor: recipient,
+            idempotencyKey: randomUUID(),
+            expectedSequence: thread.latestSequence,
+          });
+        };
+
+        try {
+          let result;
+          try {
+            result = await attempt();
+          } catch (e: any) {
+            if (e.code === 'sequence_conflict') {
+              result = await attempt(); // one retry against the freshly-read sequence
+            } else {
+              throw e;
+            }
+          }
+          console.log(`[Alden Tool] reply_to_coordination_thread: thread ${threadId} → ${recipient}`);
+          return {
+            data: {
+              threadId: result.thread.id,
+              state: result.thread.state,
+              sequence: result.thread.latestSequence,
+              deliveryState: result.deliveryState,
+            },
+          };
+        } catch (e: any) {
+          return { data: { error: e.message, code: e.code } };
+        }
+      }
+
       default:
         return { data: { error: `Unknown tool: ${toolName}` } };
     }
@@ -2563,4 +2689,220 @@ ${agentSection}`;
   }
 }
 
-console.log('[Alden Functions] Loaded — 35 tools ready (monitoring + code + shell + memory + notifications + browser + web-fetch + briefing + express-lane-search + agent-notes + ai-cost-report + build-queue + self-tune + engine-switch)');
+console.log('[Alden Functions] Loaded — 38 tools ready (monitoring + code + shell + memory + notifications + browser + web-fetch + briefing + express-lane-search + agent-notes + ai-cost-report + build-queue + self-tune + engine-switch + coordination)');
+
+interface FallbackSearchOptions {
+  glob?: string;
+  caseSensitive?: boolean;
+  contextLines?: number;
+  maxMatches: number;
+}
+
+/**
+ * Pure Node.js recursive regex search used only when rg is unavailable. Emits
+ * ripgrep-compatible plain-text output (`file:line:content` for matches,
+ * `file-line-content` for context lines, `--` between disjoint groups) so the
+ * existing rg-output parsing in search_code/search_multi keeps working as-is.
+ */
+function fallbackCodeSearch(
+  pattern: string,
+  searchDir: string,
+  opts: FallbackSearchOptions,
+): { output: string; matchCount: number; bounded: boolean } {
+  let matcher: RegExp;
+  try {
+    matcher = new RegExp(pattern, opts.caseSensitive ? '' : 'i');
+  } catch (e: any) {
+    throw new Error(`Invalid regex pattern: ${e.message}`);
+  }
+  const globMatcher = opts.glob ? globToRegExp(opts.glob) : null;
+  const contextLines = opts.contextLines ?? 0;
+  const startedAt = Date.now();
+  const outputLines: string[] = [];
+  let matchCount = 0;
+  let filesScanned = 0;
+  let bytesScanned = 0;
+  let bounded = false;
+
+  function walk(dir: string, depth: number): void {
+    if (bounded || matchCount >= opts.maxMatches) return;
+    if (depth > FALLBACK_MAX_DEPTH) {
+      bounded = true;
+      return;
+    }
+    let entries: fs.Dirent[];
+    try {
+      entries = fs.readdirSync(dir, { withFileTypes: true });
+    } catch {
+      return;
+    }
+    for (const entry of entries) {
+      if (bounded || matchCount >= opts.maxMatches) return;
+      if (
+        Date.now() - startedAt > FALLBACK_MAX_MS ||
+        filesScanned > FALLBACK_MAX_FILES_SCANNED ||
+        bytesScanned > FALLBACK_MAX_BYTES_SCANNED
+      ) {
+        bounded = true;
+        return;
+      }
+      if (entry.isSymbolicLink()) continue;
+      const fullPath = path.join(dir, entry.name);
+      if (entry.isDirectory()) {
+        if (FALLBACK_EXCLUDED_DIRS.has(entry.name)) continue;
+        walk(fullPath, depth + 1);
+        continue;
+      }
+      if (!entry.isFile()) continue;
+      const ext = path.extname(entry.name).toLowerCase();
+      if (FALLBACK_EXCLUDED_EXTENSIONS.has(ext)) continue;
+      if (globMatcher && !globMatcher.test(entry.name)) continue;
+      filesScanned++;
+      let stat: fs.Stats;
+      try {
+        stat = fs.statSync(fullPath);
+      } catch {
+        continue;
+      }
+      if (stat.size > 4 * 1024 * 1024) continue; // skip unusually large files
+      bytesScanned += stat.size;
+      let content: string;
+      try {
+        content = fs.readFileSync(fullPath, 'utf8');
+      } catch {
+        continue;
+      }
+      if (content.includes('\u0000')) continue; // skip binary-looking files
+      const lines = content.split('\n');
+      const relPath = fullPath.startsWith(WORKSPACE_ROOT + '/') ? fullPath.slice(WORKSPACE_ROOT.length + 1) : fullPath;
+      let lastEmittedLine = -1;
+      for (let i = 0; i < lines.length; i++) {
+        if (matchCount >= opts.maxMatches) break;
+        if (!matcher.test(lines[i])) continue;
+        matchCount++;
+        const from = Math.max(0, i - contextLines);
+        const to = Math.min(lines.length - 1, i + contextLines);
+        if (lastEmittedLine >= 0 && from > lastEmittedLine + 1) {
+          outputLines.push('--');
+        }
+        for (let j = Math.max(from, lastEmittedLine + 1); j <= to; j++) {
+          const sep = j === i ? ':' : '-';
+          outputLines.push(`${relPath}${sep}${j + 1}${sep}${lines[j]}`);
+        }
+        lastEmittedLine = to;
+      }
+    }
+  }
+
+  walk(searchDir, 0);
+  return { output: outputLines.join('\n'), matchCount, bounded };
+}
+
+interface CodeSearchExecOptions {
+  contextLines: number;
+  glob?: string;
+  caseSensitive: boolean;
+  maxMatches: number;
+  maxBuffer: number;
+  timeoutMs: number;
+  rgExtraArgs?: string[];
+}
+
+function rgAvailable(): boolean {
+  if (_rgAvailableOverride !== null) return _rgAvailableOverride;
+  if (_rgAvailableCache === null) {
+    try {
+      execSync('command -v rg', { stdio: 'ignore', shell: '/bin/sh' });
+      _rgAvailableCache = true;
+    } catch {
+      _rgAvailableCache = false;
+      console.warn('[Alden search_code] ripgrep (rg) not found on PATH — using bounded JS fallback search');
+    }
+  }
+  return _rgAvailableCache;
+}
+
+const FALLBACK_EXCLUDED_DIRS = new Set([
+  'node_modules', 'dist', 'build', '.git', '.cache', '.next', '.turbo', 'coverage', 'out', '.local',
+]);
+
+let _rgAvailableOverride: boolean | null = null;
+
+const FALLBACK_MAX_MS = 8_000;
+
+const FALLBACK_MAX_DEPTH = 12;
+
+/**
+ * Run a code search preferring rg, transparently falling back to the bounded
+ * JS scan when rg is absent from PATH (status 127 / ENOENT in production
+ * containers that never bundled it). Both paths return rg-compatible plain
+ * text so callers parse one format regardless of which path executed.
+ */
+function runCodeSearch(
+  pattern: string,
+  searchDir: string,
+  opts: CodeSearchExecOptions,
+): { output: string; usedFallback: boolean; bounded: boolean } {
+  if (rgAvailable()) {
+    const rgParts: string[] = ['rg', '--line-number', '--with-filename', '--glob=!node_modules/**', '--glob=!dist/**', '--glob=!.git/**'];
+    if (!opts.caseSensitive) rgParts.push('-i');
+    if (opts.glob) rgParts.push(`--glob=${opts.glob}`);
+    if (opts.contextLines > 0) {
+      rgParts.push(`-C ${opts.contextLines}`);
+    } else {
+      rgParts.push('--no-heading', ...(opts.rgExtraArgs ?? ['--max-count=3']));
+    }
+    const safePattern = pattern.replace(/'/g, `'\\''`);
+    const safeDir = searchDir.replace(/'/g, `'\\''`);
+    rgParts.push(`-e '${safePattern}'`, `'${safeDir}'`);
+    try {
+      const output = execSync(rgParts.join(' '), {
+        cwd: WORKSPACE_ROOT,
+        maxBuffer: opts.maxBuffer,
+        timeout: opts.timeoutMs,
+        shell: '/bin/sh',
+      }).toString();
+      return { output, usedFallback: false, bounded: false };
+    } catch (e: any) {
+      if (e.status === 1) return { output: '', usedFallback: false, bounded: false };
+      if (e.status === 127 || e.code === 'ENOENT') {
+        // rg vanished between the availability check and execution — force the
+        // fallback for this call and re-check availability for future calls.
+        _rgAvailableCache = false;
+      } else {
+        throw e;
+      }
+    }
+  }
+  const result = fallbackCodeSearch(pattern, searchDir, {
+    glob: opts.glob,
+    caseSensitive: opts.caseSensitive,
+    contextLines: opts.contextLines,
+    maxMatches: opts.maxMatches,
+  });
+  return { output: result.output, usedFallback: true, bounded: result.bounded };
+}
+
+const FALLBACK_MAX_FILES_SCANNED = 20_000;
+
+const FALLBACK_EXCLUDED_EXTENSIONS = new Set([
+  '.png', '.jpg', '.jpeg', '.gif', '.ico', '.webp', '.bmp', '.svg',
+  '.pdf', '.zip', '.tar', '.gz', '.woff', '.woff2', '.ttf', '.eot',
+  '.mp3', '.mp4', '.mov', '.wav', '.ogg', '.avi',
+  '.lock', '.map',
+]);
+
+/** Test-only seam: force the rg-available check to a fixed value. Pass null to clear the override. */
+export function __setRgAvailableOverrideForTesting(value: boolean | null): void {
+  _rgAvailableOverride = value;
+}
+
+const FALLBACK_MAX_BYTES_SCANNED = 80 * 1024 * 1024;
+
+function globToRegExp(glob: string): RegExp {
+  const escaped = glob
+    .replace(/[.+^${}()|[\]\\]/g, '\\$&')
+    .replace(/\*/g, '.*')
+    .replace(/\?/g, '.');
+  return new RegExp(`^${escaped}$`, 'i');
+}

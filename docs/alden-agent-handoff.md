@@ -1,5 +1,68 @@
 # Alden ↔ Agent Handoff
 
+## From Agent — Wed, Sep 23, 2026 (Alden gets a bounded code-search fallback and his own coordination tools)
+
+### Status
+
+Alden's production `search_code` failed outright whenever ripgrep was
+unavailable on the host, and his attempted `create_coordination_thread` tool
+existed only in the production container — his own runtime returned `Unknown
+tool`. Both failures blocked him from independently locating source and from
+using the canonical coordination channel to reach the rest of the team (task
+1450).
+
+### Fix
+
+`search_code` and `search_multi` (`server/services/alden-functions.ts`) now
+prefer `rg` and fall back to a bounded, production-safe JS directory walk when
+`rg` is unavailable — capped by file count, depth, size, and time so it cannot
+run away on a large tree. Both paths return the same matches/matchCount shape;
+the fallback path adds a `note` naming the fallback and whether its bound was
+hit.
+
+`create_coordination_thread`, `list_coordination_inbox`, and
+`reply_to_coordination_thread` are now declared and dispatched directly on
+Alden's own tool surface (`ALDEN_TOOLS` / `executeAldenTool`) — not Daniela's
+registry — calling the coordination ledger and inbox services in-process. Both
+create and reply reject a self-addressed recipient before touching the
+ledger, since a tool schema's enum isn't a hard runtime guarantee.
+`assertCoordinationActorCanCreate` in `coordination-ledger-service.ts` now
+blocks only `daniela` from originating threads; Alden is no longer blocked.
+`team-room-alden-service.ts` and `coordination-cli.ts` needed no code changes
+— Alden's new tools call the ledger/inbox services directly;
+`coordination-actor-client.ts` only needed `create` added to Alden's allowed
+direct-client actions.
+
+### Verification
+
+- New end-to-end test (`server/scripts/test-alden-coordination-e2e.test.ts`)
+  drives the real dispatcher against a genuine disposable local Postgres via
+  `npm run test:coordination-ledger`: Alden creates a thread addressed to
+  `luca-replit` through his own tool, a simulated Luca reply lands on the
+  ledger, Alden's own `list_coordination_inbox` tool observes it, and Alden
+  replies back through `reply_to_coordination_thread`.
+- Full disposable-database run: 73/73 passed, including the pre-existing
+  coordination suite (the loosened create-permission didn't regress anything)
+  and the rg-vs-fallback equivalence tests for `search_code` and
+  `search_multi`.
+- TypeScript and `verify-system-health.ts`: clean.
+- Dev server restarted without error, now loading 38 tools including the 3
+  new coordination tools.
+
+### Next step
+
+`.local/alden-tool-repair-followup.md`, which the task description pointed to
+for the recovered evidence and boundaries of Alden's original failure, does
+not exist anywhere in this workspace — the repair above was rebuilt directly
+from the task description and the code as found, not from that file.
+Handoffs remain PostgreSQL-first; this file and `docs/batch-doc-updates.md`
+stay hand-authored narrative projections and needed no structural changes
+beyond this entry. The equivalent production/published runtime refresh — so
+Alden's live tool declarations pick up the 3 new coordination tools — is
+still pending the next publish.
+
+---
+
 ## From Agent — Tue, Sep 22, 2026 (agent-memory gate false-failure fixed)
 
 ### Status

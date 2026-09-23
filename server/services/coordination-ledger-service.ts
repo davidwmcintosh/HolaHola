@@ -63,7 +63,10 @@ export function canCoordinationActorPerform(
 }
 
 function assertCoordinationActorCanCreate(actor: CoordinationActorId): void {
-  if (actor === 'alden' || actor === 'daniela') {
+  // Alden originates threads directly — he needs to reach Luca and the rest of the
+  // team without waiting to be addressed first (task 1450). Daniela remains
+  // receive-and-update only: she has no coordination tools on her own registry.
+  if (actor === 'daniela') {
     throw new CoordinationError(
       `${actor} may receive and update coordination work but cannot originate threads`,
       403,

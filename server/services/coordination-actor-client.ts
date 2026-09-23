@@ -31,7 +31,7 @@ export type CoordinationClientAction =
 const DIRECT_CLIENT_ACTIONS: Record<DirectCoordinationActor, ReadonlySet<CoordinationClientAction>> = {
   'luca-holahola': new Set(['list', 'acknowledge-feed', 'list-inbox', 'acknowledge-inbox', 'show', 'create', 'reassign', 'comment']),
   alden: new Set([
-    'list', 'acknowledge-feed', 'list-inbox', 'acknowledge-inbox', 'show', 'accept', 'progress', 'evidence', 'block', 'complete',
+    'list', 'acknowledge-feed', 'list-inbox', 'acknowledge-inbox', 'show', 'create', 'accept', 'progress', 'evidence', 'block', 'complete',
     'acknowledge', 'reassign', 'comment',
   ]),
   daniela: new Set([
