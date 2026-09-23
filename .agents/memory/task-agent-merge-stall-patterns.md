@@ -35,3 +35,31 @@ validation. Keep the blocked task until the replacement is proven.
 
 **Generalization — open-ended scope can diverge, not just overlap:** the fallback above assumes a from-scratch reconstruction covers the same ground as the stuck task-agent's real work. That holds for precisely-specified tasks (add this one field, gate this one named check) but not for open-ended/exploratory ones (e.g. "find and gate other live external actions X could still trigger"). In one case, reconstructing an open-ended task from scratch produced a narrow, one-call-site fix; the actual stuck task-agent had already implemented and tested a completely non-overlapping multi-call-site fix touching entirely different files, with no overlap at all. Both independently satisfied the literal task title; neither was wrong; they just didn't cover the same ground. The mismatch only surfaced because the user later pasted the task-agent's own completion summary and it named files absent from the reconstruction's own diff. Before treating a from-scratch reconstruction of an open-ended task as equivalent to "the task is done," check whether the stuck agent's own completion report (or any other visible trace of its actual diff) names the same files; if it names different files, the reconstruction under-covers the task and both sets of changes are likely still needed.
 
+
+## Stuck-merge task record can be stale bookkeeping, not missing code
+
+## Stuck-merge task record can be stale bookkeeping, not missing code
+
+Before reconstructing a fix for a task stuck in `MERGING` (any `blockedBy`
+reason, e.g. `WAITING_FOR_LOCK`), check whether the code is already committed
+and passing on main. A stuck task-tracking record does not reliably mean the
+implementation is absent.
+
+**Why:** A task showed `MERGING` / `blockedBy: WAITING_FOR_LOCK` for 4+ hours
+with nothing else visible in the merge queue holding the lock — indistinguishable
+from a genuinely missing implementation if you only look at the task metadata.
+But `git log -- <relevant files>` showed a commit whose message matched the
+task's own title, already landed on main a day earlier, and re-running the
+file's own self-check/regression test against current HEAD passed cleanly.
+The platform task record was stale/redundant bookkeeping, not a true signal
+that work was missing.
+
+**How to apply:** before reconstructing anything for a stuck-merge task, run
+`git log --oneline -- <relevant files>` looking for a commit matching the
+task's title or description, and actually execute any existing test/self-check
+for that code path against current HEAD. Only reconstruct if that check
+genuinely fails or the code is genuinely absent. This is the mirror image of
+"Unmerged task-agent database drift" above (DB already live despite code
+missing) — check the live artifact (git history + a real test run), never
+infer completeness or absence from the task-tracking display state alone.
+
