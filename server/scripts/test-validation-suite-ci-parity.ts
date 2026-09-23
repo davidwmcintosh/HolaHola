@@ -108,11 +108,22 @@ const HARNESS_PATH = 'scripts/run-ci-test-steps.mjs';
 //   - test-canonical-capture-health-route.ts calls a running local
 //     application server's health route; GitHub Actions never starts the
 //     app server before running tests.
+//   - test-agent-memory-drift-guard.ts (plain/live mode, no flags) scopes
+//     its findings to .agents/memory/*.md paths THIS checkout's own git
+//     working tree shows as locally modified, deleted, or untracked --
+//     real signal only in a long-running interactive checkout where a
+//     hand-edit could actually happen between commits. A fresh GitHub
+//     Actions checkout never has local uncommitted changes relative to
+//     the single commit it just cloned, so it would always trivially
+//     report zero findings there. (Its --self-check variant IS reachable
+//     from CI -- see run-ci-test-steps.mjs -- since that mode is
+//     hermetic and git-free for the core comparison logic.)
 // Adding an entry here requires editing this file directly -- there is no
 // external config file or env var this allowlist reads from.
 const REPLIT_ONLY_ALLOWLIST = new Set<string>([
   'server/scripts/restore-episode-28-from-db.ts --self-check',
   'server/scripts/test-canonical-capture-health-route.ts',
+  'server/scripts/test-agent-memory-drift-guard.ts',
 ]);
 
 // Matches a repo-relative script path (one or more "segment/" directory

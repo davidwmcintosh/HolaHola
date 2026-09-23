@@ -222,13 +222,18 @@ export async function writeTopicFile(topicSlug: string): Promise<string> {
   return filePath;
 }
 
-export async function regenerateAll(): Promise<{ indexPath: string; topicPaths: string[] }> {
+export async function fetchAllTopicSlugs(): Promise<string[]> {
   const db = getSharedDb();
   const topics = await db.select({ slug: agentMemoryTopics.slug }).from(agentMemoryTopics).orderBy(asc(agentMemoryTopics.slug));
+  return topics.map((topic) => topic.slug);
+}
+
+export async function regenerateAll(): Promise<{ indexPath: string; topicPaths: string[] }> {
+  const topicSlugs = await fetchAllTopicSlugs();
   const indexPath = await writeMemoryIndexFile();
   const topicPaths: string[] = [];
-  for (const topic of topics) {
-    topicPaths.push(await writeTopicFile(topic.slug));
+  for (const slug of topicSlugs) {
+    topicPaths.push(await writeTopicFile(slug));
   }
   return { indexPath, topicPaths };
 }

@@ -174,6 +174,7 @@ commands.splice(safetyInsertion, 0,
   'npx tsx --test server/__tests__/live-voice-routing.test.ts',
   'npx tsx server/scripts/test-inner-life-no-episode-row.ts',
   'npx tsx --test server/scripts/test-agent-memory-round-trip-gate-isolation.test.ts',
+  'npx tsx server/scripts/test-agent-memory-drift-guard.ts --self-check',
 
   // GL/raw-window/startup-recovery guards.
   'npx tsx server/scripts/test-gl-reconnected-client-recovery.ts',

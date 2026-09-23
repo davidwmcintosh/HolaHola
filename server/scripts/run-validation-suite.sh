@@ -122,6 +122,17 @@ run_check "Live exchange accounting lifecycle" npx tsx --test server/__tests__/v
 run_check "Live voice provider routing" npx tsx --test server/__tests__/live-voice-routing.test.ts
 run_check "Inner-life no-episode-row guard" npx tsx server/scripts/test-inner-life-no-episode-row.ts
 run_check "Agent-memory round-trip gate isolation" npx tsx --test server/scripts/test-agent-memory-round-trip-gate-isolation.test.ts
+run_check "Agent-memory drift guard self-check" npx tsx server/scripts/test-agent-memory-drift-guard.ts --self-check
+# Replit-only: normal mode scopes its findings to the .agents/memory/*.md
+# paths THIS checkout's own git working tree shows as locally modified,
+# deleted, or untracked, so it only has real signal in a long-running
+# interactive checkout where a hand-edit could actually happen between
+# commits. A fresh GitHub Actions checkout has nothing locally modified
+# relative to the single commit it just cloned -- there is no interactive
+# session in which a hand-edit could occur -- so this would always
+# trivially report zero findings there and add nothing but runtime. Keep
+# it out of run-ci-test-steps.mjs.
+run_check "Agent-memory drift guard (live, working-tree scoped)" npx tsx server/scripts/test-agent-memory-drift-guard.ts
 run_check "GL reconnected client recovery" npx tsx server/scripts/test-gl-reconnected-client-recovery.ts
 run_check "GL game-session detector" bash -c 'npx tsx server/scripts/test-gl-game-session-detector.ts && npx tsx server/scripts/test-gl-game-session-detector.ts --self-check'
 run_check "Raw-window capture alignment" npx tsx server/scripts/test-raw-window-capture.ts --self-check
