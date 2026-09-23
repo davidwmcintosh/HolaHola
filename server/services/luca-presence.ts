@@ -77,7 +77,11 @@ let _nudgeBuffer: NudgeEntry[] = [];
 
 /** Returns true when this message is a nudge directed at Luca. */
 function isNudgeForLuca(speaker: string, content: string): boolean {
-  if (speaker.toLowerCase() === "luca") return false; // Luca's own outgoing messages
+  // Luca's own outgoing messages -- matches both the bare "Luca" label used by
+  // in-process posters (luca-responder.ts, source-control-service.ts, etc.)
+  // and the hat-specific "Luca [Replit]" / "Luca [Claude Code]" / etc. labels
+  // the Team Room HTTP endpoint attributes per authenticated coordination actor.
+  if (speaker.toLowerCase().startsWith("luca")) return false;
   const lower = content.toLowerCase();
   return (
     lower.includes("@luca") ||
