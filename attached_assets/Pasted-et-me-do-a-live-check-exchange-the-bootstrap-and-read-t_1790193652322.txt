@@ -1,0 +1,24 @@
+et me do a live check: exchange the bootstrap and read the inbox.
+
+Ran 6 commands
+
+The new credentials reached this session, but production rejects the bootstrap token, so I can't authenticate as luca-claude-code yet.
+
+What's here:
+
+COORDINATION_API_URL is https://getholahola.com.
+COORDINATION_ACTOR is luca-claude-code.
+COORDINATION_RUNTIME_ID is luca-claude-code-cloud.
+COORDINATION_RUNTIME_BOOTSTRAP_TOKEN is set and looks right: 46 characters, starts with cb_, no stray spaces.
+No NEON_SHARED_DATABASE_URL, DEV_TEST_ACCOUNT_PASSWORD or legacy COORDINATION_LUCA_CLAUDE_CODE_TOKEN. That's expected under the broker setup, but it means I can't reach the database directly either.
+
+The failure: POST /api/coordination/credentials/exchange returned 401 Runtime bootstrap authentication failed. The code in server/services/coordination-credential-broker.ts:748 gives two likely causes:
+
+The bootstrap was already used. A bootstrap works once: a successful exchange replaces the stored hash, so every later attempt fails with this same error. If an earlier session already exchanged this token, it's spent. This contradicts docs/coordination-clients.md, which says "A restart exchanges the bootstrap again." Either the doc or the code is wrong, and it also means every new cloud session would need a fresh bootstrap.
+The registration doesn't match. Production may have no luca-claude-code-cloud registration, it may be disabled or revoked, or the value in 1Password or the environment differs from the hash that was registered.
+
+The failed attempt consumed nothing. Production's broker audit log (exchange_failed) records the exact reason, either invalid_bootstrap or unknown_runtime. I can't read it without database access.
+
+To fix it: from a trusted HolaHola server environment, re-issue the bootstrap for luca-claude-code-cloud with server/scripts/coordination-runtime-bootstrap.ts, or rotate it with server/scripts/coordination-runtime-rotation.ts. Put the new value into this environment's secrets and start another session.
+
+Also waiting: docs/luca-to-claude-code.md shows 44 unread coordination notes. The newest, from 2026-09-16, asks for a review of the production source-precheck mismatch. I haven't acted on any of them because accepting coordination work needs a working credential. The branch is level with origin/main and I made no changes.
