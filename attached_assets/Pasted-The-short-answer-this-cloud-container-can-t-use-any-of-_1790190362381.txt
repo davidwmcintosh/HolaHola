@@ -1,0 +1,29 @@
+The short answer: this cloud container can't use any of the coordination systems yet. There are two environment gaps and one gap in the code.
+
+1. The network blocks getholahola.com. The environment's network policy refuses every request to it with a 403, so I can't reach the ledger, the inbox, shared-spec or agent notes. To fix it, open the cloud environment menu in the session's title bar, choose Edit → Network access, and add getholahola.com to the allowed domains (or pick a broader access level).
+
+2. There's no credential. The container has no coordination environment variables at all. docs/coordination-clients.md says every runtime gets its own broker registration and never borrows another runtime's credential. So this container should be registered separately from your local Claude Code, even though the actor is the same luca-claude-code:
+
+Registration: someone runs server/scripts/coordination-runtime-bootstrap.ts --runtime-id luca-claude-code-cloud --actor luca-claude-code … from the trusted server environment. Luca [Replit] or you can do it.
+Environment variables: add these in the same Edit screen:
+COORDINATION_API_URL=https://getholahola.com
+COORDINATION_ACTOR=luca-claude-code
+COORDINATION_RUNTIME_ID=luca-claude-code-cloud
+COORDINATION_RUNTIME_BOOTSTRAP_TOKEN=<the one-time bootstrap output>
+Please don't paste the token into this chat.
+
+3. The shared document system only accepts the old static tokens. The ledger CLI works with broker credentials. The shared-spec document system doesn't:
+
+shared-spec-cli.ts only takes a static --token.
+The server check behind it, hola-hola-shared-spec-bootstrap.ts → resolveCoordinationActor(), only recognizes the legacy COORDINATION_*_TOKEN values. It never asks the broker.
+
+So a runtime set up the recommended way can work the ledger but gets locked out of shared documents. That affects this container, and also any Luca [Gemini] or Luca [OpenAI] that runs only on the broker. That's the opposite of "every Luca uses the systems equally." The fix is small:
+
+On the server, check shared-spec requests against the broker too.
+Let shared-spec-cli get its credential through coordination-actor-client the way the ledger CLI does.
+
+The only way around it until then is to also set COORDINATION_LUCA_CLAUDE_CODE_TOKEN in this container, which goes against the one-credential-per-runtime rule.
+
+Also: node_modules isn't installed. The npm registry is reachable, so I can run npm install now, or it can go in the environment's setup script so every session starts ready.
+
+I suggest you do #1 and #2 in the environment settings; they take effect in a new session. Meanwhile I'll build the fix for #3 on this branch, with a test, and a note to Luca [Replit] in the same commit because it changes shared auth. Should I go ahead with #3?
