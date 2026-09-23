@@ -119,6 +119,80 @@ async function audit(input: {
   });
 }
 
+/**
+ * Detects a duplicate `id` insert into coordination_runtime_registrations
+ * (see shared/schema.ts) -- the natural failure when a human re-runs
+ * coordination-runtime-bootstrap.ts with a --runtime-id that is already
+ * registered, often after a copy-paste mistake. Walks a possible `.cause`
+ * chain since some drivers wrap the underlying driver error, matching
+ * isActiveDestinationRace in shared-spec-core.ts.
+ */
+function isDuplicateRuntimeIdError(error: unknown): boolean {
+  let current: unknown = error;
+  for (let depth = 0; depth < 4 && current && typeof current === 'object'; depth += 1) {
+    const value = current as { code?: unknown; constraint?: unknown; cause?: unknown };
+    if (value.code === '23505' && value.constraint === 'coordination_runtime_registrations_pkey') {
+      return true;
+    }
+    current = value.cause;
+  }
+  return false;
+}
+
+/**
+ * Builds the operator-facing error for a duplicate --runtime-id registration
+ * attempt. Runtime IDs are immutable (docs/coordination-clients.md):
+ * revokeRuntimeCredentials() only sets enabled=false/revokedAt on the row, it
+ * never deletes it, so the exact same id can never be inserted again even
+ * after revocation -- a message suggesting "revoke it, then register this id
+ * again" would be false and could talk an operator into revoking a live,
+ * still-needed runtime for no benefit. Looks up the conflicting row's own
+ * state so the guidance matches what stageCoordinationRuntimeReplacement
+ * itself will actually accept: rotation only succeeds while the source is
+ * still enabled and not revoked (it fails closed with
+ * 'source_runtime_unavailable' otherwise).
+ */
+async function buildDuplicateRuntimeIdError(input: {
+  runtimeId: string;
+  actor: CoordinationActorId;
+  displayName: string;
+  capabilities: CoordinationCredentialCapability[];
+  tokenTtlSeconds: number;
+}): Promise<Error> {
+  const [existing] = await getSharedDb()
+    .select({ enabled: coordinationRuntimeRegistrations.enabled, revokedAt: coordinationRuntimeRegistrations.revokedAt })
+    .from(coordinationRuntimeRegistrations)
+    .where(eq(coordinationRuntimeRegistrations.id, input.runtimeId));
+
+  const freshBootstrapCommand = 'npx tsx server/scripts/coordination-runtime-bootstrap.ts --runtime-id <new-id> '
+    + `--actor ${input.actor} --display-name "${input.displayName}" `
+    + `--capabilities ${input.capabilities.join(',')} --ttl-seconds ${input.tokenTtlSeconds}`;
+
+  const immutabilityNotice = `Runtime "${input.runtimeId}" is already registered. Runtime IDs are immutable: `
+    + 'revoking a registration disables it but never deletes the row, so this exact id can never be '
+    + 'registered again, even after revocation. Pick a different --runtime-id.';
+
+  if (existing && existing.enabled && !existing.revokedAt) {
+    const rotationCommand = 'npx tsx server/scripts/coordination-runtime-rotation.ts stage '
+      + `--from-runtime-id ${input.runtimeId} --runtime-id <new-id> --display-name "${input.displayName}"`;
+    return new Error(
+      `${immutabilityNotice} That registration is still active, so the recommended next step is to stage `
+      + 'a rotation, which copies its actor, capabilities, and token TTL onto the new id and then '
+      + `retires "${input.runtimeId}" automatically once the replacement is ready:\n${rotationCommand}\n`
+      + 'See docs/coordination-clients.md for the full stage/complete flow. To start over instead '
+      + `without preserving anything, bootstrap a fresh id directly:\n${freshBootstrapCommand}\nand `
+      + `optionally revoke "${input.runtimeId}" afterward if you no longer need it (revoking does not `
+      + 'free the id for reuse).',
+    );
+  }
+
+  return new Error(
+    `${immutabilityNotice} That registration is already revoked, so rotation is not available for it `
+    + '(coordination-runtime-rotation.ts requires an active source). Bootstrap a new runtime instead:\n'
+    + freshBootstrapCommand,
+  );
+}
+
 export async function registerCoordinationRuntime(input: {
   runtimeId: string;
   actor: CoordinationActorId;
@@ -128,14 +202,21 @@ export async function registerCoordinationRuntime(input: {
 }): Promise<{ bootstrapToken: string }> {
   const tokenTtlSeconds = validateRuntimeRegistrationInput(input);
   const bootstrapToken = generateCoordinationSecret('cb');
-  await getSharedDb().insert(coordinationRuntimeRegistrations).values({
-    id: input.runtimeId,
-    actor: input.actor,
-    displayName: input.displayName,
-    bootstrapHash: hashCoordinationSecret(bootstrapToken),
-    capabilities: input.capabilities,
-    tokenTtlSeconds,
-  });
+  try {
+    await getSharedDb().insert(coordinationRuntimeRegistrations).values({
+      id: input.runtimeId,
+      actor: input.actor,
+      displayName: input.displayName,
+      bootstrapHash: hashCoordinationSecret(bootstrapToken),
+      capabilities: input.capabilities,
+      tokenTtlSeconds,
+    });
+  } catch (error) {
+    if (isDuplicateRuntimeIdError(error)) {
+      throw await buildDuplicateRuntimeIdError({ ...input, tokenTtlSeconds });
+    }
+    throw error;
+  }
   await audit({ eventType: 'runtime_registered', success: true, runtimeId: input.runtimeId, actor: input.actor });
   return { bootstrapToken };
 }

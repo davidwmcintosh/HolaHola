@@ -740,6 +740,13 @@ databaseTest('broker issues, rotates, expires from use, revokes, and audits with
     capabilities: ['coordination:read', 'coordination:credential:renew', 'coordination:credential:revoke'],
     tokenTtlSeconds: 60,
   });
+  // A re-run with an already-registered --runtime-id (e.g. a copy-paste
+  // retry) must surface a clear, actionable message pointing at rotation or
+  // revocation -- never the raw Postgres duplicate-primary-key error. The
+  // source registration is still active here, so the message must offer the
+  // full, literally-runnable rotation command and must never imply that
+  // revoking frees the id for reuse (it doesn't -- see
+  // buildDuplicateRuntimeIdError's own doc comment).
   await assert.rejects(
     () => registerCoordinationRuntime({
       runtimeId,
@@ -747,7 +754,59 @@ databaseTest('broker issues, rotates, expires from use, revokes, and audits with
       displayName: 'Attempted actor rebind',
       capabilities: ['coordination:read'],
     }),
+    (error: unknown) => {
+      assert.ok(error instanceof Error);
+      assert.match(error.message, /is already registered/);
+      assert.match(error.message, /immutable/i);
+      assert.match(error.message, /still active/i);
+      assert.match(
+        error.message,
+        new RegExp(`npx tsx server/scripts/coordination-runtime-rotation\\.ts stage --from-runtime-id ${runtimeId} --runtime-id <new-id> --display-name`),
+      );
+      assert.match(error.message, /does not\s+free the id for reuse/i);
+      // The exact bug the reviewer caught: revocation never deletes the row,
+      // so "revoke it, then register this id again" is false and must never
+      // appear, in either active-source or already-revoked wording.
+      assert.doesNotMatch(error.message, /revok\w*[^.]*(?:before|then)[^.]*regist\w*[^.]*(?:this|the same)\s+id/i);
+      assert.doesNotMatch(error.message, /duplicate key value/i);
+      assert.doesNotMatch(error.message, /coordination_runtime_registrations_pkey/);
+      return true;
+    },
   );
+
+  // Once that same registration is actually revoked, rotation is no longer a
+  // valid suggestion (stageCoordinationRuntimeReplacement itself rejects a
+  // revoked source with 'source_runtime_unavailable') -- the message must
+  // switch to a plain "bootstrap a new id" instruction and drop the rotation
+  // command entirely, never repeat the still-active wording.
+  assert.equal(await revokeRuntimeCredentials(runtimeId, 'luca-replit'), true);
+  await assert.rejects(
+    () => registerCoordinationRuntime({
+      runtimeId,
+      actor: 'luca-replit',
+      displayName: 'Attempted reuse after revocation',
+      capabilities: ['coordination:read'],
+    }),
+    (error: unknown) => {
+      assert.ok(error instanceof Error);
+      assert.match(error.message, /is already registered/);
+      assert.match(error.message, /immutable/i);
+      assert.match(error.message, /already revoked/i);
+      assert.match(error.message, /npx tsx server\/scripts\/coordination-runtime-bootstrap\.ts --runtime-id <new-id>/);
+      assert.doesNotMatch(error.message, /still active/i);
+      assert.doesNotMatch(error.message, /coordination-runtime-rotation\.ts stage --from-runtime-id/);
+      assert.doesNotMatch(error.message, /revok\w*[^.]*(?:before|then)[^.]*regist\w*[^.]*(?:this|the same)\s+id/i);
+      assert.doesNotMatch(error.message, /duplicate key value/i);
+      assert.doesNotMatch(error.message, /coordination_runtime_registrations_pkey/);
+      return true;
+    },
+  );
+  // Restore so the remainder of this test still exercises an active
+  // registration for exchange/renewal/audit, matching the restore pattern
+  // used for operatorRuntimeId's own revocation-overlap test above.
+  await getSharedDb().update(coordinationRuntimeRegistrations)
+    .set({ enabled: true, revokedAt: null, updatedAt: new Date() })
+    .where(eq(coordinationRuntimeRegistrations.id, runtimeId));
 
   assert.equal(await exchangeBootstrapCredential(runtimeId, 'wrong-bootstrap'), null);
   const issued = await exchangeBootstrapCredential(runtimeId, bootstrapToken);

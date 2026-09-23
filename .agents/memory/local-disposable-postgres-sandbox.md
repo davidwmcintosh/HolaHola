@@ -45,11 +45,13 @@ check `package.json` for a `test:*-local`-style script (e.g.
 `test:coordination-ledger`, backed by `scripts/run-coordination-ledger-local.mjs`)
 -- several test families already have a one-shot script that stands up a
 disposable local Postgres, applies migrations, seeds fixtures, runs the full
-relevant test suite (including any CI self-checks), and tears everything down
-automatically. It uses ShellExec's own `run_in_background` correctly
-internally (spawns Postgres directly, not via `pg_ctl`/`nohup`), so it doesn't
-hit the teardown quirk above. Confirmed for the coordination-credential-broker
-family Sep 23 2026. Prefer it over the manual recipe whenever a matching
-script exists; fall back to the manual recipe only for files/areas with no
-such harness.
+relevant test suite (including any CI self-checks), and tears everything
+down automatically. These scripts spawn Postgres directly as a real child
+process (not `pg_ctl`/`nohup` in a foreground shell), so launch them with
+your own shell tool's true background-task support rather than a trailing
+`&`, and don't assume they need the manual-recipe workaround above -- that
+quirk is about how *you* invoke a long-running command, not something the
+script itself does or doesn't handle. Prefer an existing script like this
+over the manual recipe whenever one matches the area under test; fall back
+to the manual recipe only where no such harness exists.
 

@@ -1,23 +1,26 @@
-Three call sites already convert a detected Postgres unique-constraint
-conflict into a human-actionable domain error instead of returning a bare
-boolean or letting the raw driver error escape: `coordination-credential-broker.ts`'s
-`registerCoordinationRuntime` (duplicate `--runtime-id`),
-`coordination-windows-generation.ts`'s `isCoordinationPreparationUniqueConflict`,
-and `shared-spec-core.ts`'s `isActiveDestinationRace`. For the cause-chain-walking
-detection technique itself, see postgres-hermetic-testing-gotchas.md
-("PostgreSQL wrapped structured errors") -- this entry is about the next
-step: what to do once the conflict is detected.
+When a caught database conflict (e.g. a Postgres unique-constraint violation
+on an exact allowlisted constraint) reaches a human operator through a CLI or
+one-shot script rather than a machine caller, convert it into a message that
+states what is already true and names the exact next command to run -- not a
+generic "already exists" message, a machine-readable reason code, or the raw
+driver error and stack trace.
 
-**Why:** a bare `insert()` with no existing-record check surfaces a raw
-`duplicate key value violates unique constraint "..."` Postgres error and a
-stack trace to whoever triggered it. When the caller is a human running a CLI
-by hand (e.g. after a copy-paste retry) rather than an engineer who can
-interpret a DB error, that raw error is a dead end, not an answer.
+**Why:** a raw duplicate-key error is a dead end for someone running a
+provisioning/bootstrap script by hand, often after a copy-paste retry --
+they have no way to interpret a Postgres error, but they can follow a
+concrete next command. For the cause-chain-walking detection technique
+itself (how to positively identify the conflict in the first place), see
+postgres-hermetic-testing-gotchas.md ("PostgreSQL wrapped structured
+errors") -- this entry is about the next step: what to do once it's
+detected.
 
-**How to apply:** once the conflict is positively identified (exact SQLSTATE
-+ exact allowlisted constraint name, matching the linked entry's method),
-throw a new `Error` whose message states what's already true and names the
-exact next command or route to run (not a generic "already exists" message or
-a machine-readable reason code) -- e.g. pointing at a sibling rotation/revoke
-script by its real invocation, not just its filename.
+**How to apply:** verify what the record's current state actually permits
+before suggesting a recovery path, rather than assuming the obvious-sounding
+fix works. A first draft of exactly this message said "revoke it, then
+register this id again" -- false, because revocation in that codebase is a
+soft-delete (disables the row, never removes it), so the same identifier can
+never be reinserted. Check the row's real state, and how any sibling
+recovery command itself gates on that state, before recommending it, and
+give a different message for each state that actually permits a different
+action rather than one message covering every case.
 
