@@ -82,22 +82,28 @@ side-effect-free way to confirm a splice edit didn't break the grouping.
 
 ## SPLICE_SAFE/REPLIT_ONLY triage rule and a verification-script gotcha
 
-**Triage rule for closing a validation-suite vs CI gap (used across #1528/#1531/#1536):** classify a
-file SPLICE_SAFE (safe to add to `run-ci-test-steps.mjs` as-is) only if its code cannot
-crash/hang/false-claim-success when a needed resource (DB, secret, running server) is absent —
-i.e. it prints an explicit SKIP/informational message and exits 0, or calls node:test's
-`context.skip()`. Classify it REPLIT_ONLY (document the reason inline near its `run_check` line
-instead of splicing) only if it would actually throw/exit non-zero on a missing resource, or needs
-something structurally impossible in GitHub Actions (e.g. a pre-running local app server). Do not
-guess from the file's *topic* (e.g. "this sounds DB-related so it must be unsafe") — read the
-actual failure-path code. Most files gated on `getVerifiedCiDatabaseUrl()` or a similar
-CI-database check already degrade gracefully and are SPLICE_SAFE; only a hard `process.exit(1)` on
-a *specific* expected row/state (not just "no DB") should be REPLIT_ONLY.
+**Triage rule for closing a gap between a shell-script validation suite and its CI-spliced
+equivalent:** classify a file SPLICE_SAFE (safe to add to the CI splice list as-is) only if its
+code cannot crash/hang/false-claim-success when a needed resource (DB, secret, running server) is
+absent — i.e. it prints an explicit SKIP/informational message and exits 0, or calls node:test's
+`context.skip()`. Classify it REPLIT_ONLY (document the reason inline near its validation-suite
+registration instead of splicing) only if it would actually throw/exit non-zero on a missing
+resource, or needs something structurally impossible in the CI runner (e.g. a pre-running local
+app server). Do not guess from the file's *topic* (e.g. "this sounds DB-related so it must be
+unsafe") — read the actual failure-path code. Most files gated on a verified-CI-database-URL check
+already degrade gracefully and are SPLICE_SAFE; only a hard exit on a *specific* expected
+row/state (not just "no DB") should be REPLIT_ONLY.
 
-**Writing a script to diff `run-validation-suite.sh` against `run-ci-test-steps.mjs`:** if you
-regex-extract single-quoted JS string literals to find the spliced commands, strip `//` line
-comments first. A stray apostrophe inside a comment (e.g. a possessive like "file.ts's") is
-completely valid JS but desyncs naive quote-pair matching for everything after it in the same
-block, silently producing garbage "commands" and false gap reports — this cost significant
-rework in #1536. Prefer comment-stripping over trying to avoid apostrophes in future comments.
+**A path-level file-name diff between the two lists is not sufficient — a new validation-suite
+registration can land between audits.** Re-run the cross-reference immediately before finishing,
+not just once at the start, since another concurrent change can add a new `run_check` line after
+your initial gap list was built.
+
+**Writing a script to diff a validation suite's registered checks against a CI runner's spliced
+command list:** if you regex-extract single-quoted JS string literals to find the spliced
+commands, strip `//` line comments first. A stray apostrophe inside a comment (e.g. a possessive
+like "file's") is completely valid JS but desyncs naive quote-pair matching for everything after it
+in the same block, silently producing garbage "commands" and false gap reports. Prefer
+comment-stripping over trying to avoid apostrophes in future comments, or avoid hand-rolled
+regex parsing entirely and instead execute the file directly to verify behavior.
 

@@ -105,6 +105,8 @@ commands.splice(safetyInsertion, 0,
   'npx tsx server/scripts/test-github-branch-bypass-guard.ts --self-check',
   'npx tsx server/scripts/test-cross-tool-promote-content-loss-guard.ts',
   'npx tsx server/scripts/test-cross-tool-promote-content-loss-guard.ts --self-check',
+  'npx tsx server/scripts/test-cross-tool-promote-stale-main-guard.ts',
+  'npx tsx server/scripts/test-cross-tool-promote-stale-main-guard.ts --self-check',
   'npx tsx server/scripts/test-agent-skills-symlink.ts',
   'npx tsx server/scripts/test-agent-skills-symlink.ts --self-check',
 
