@@ -98,3 +98,41 @@ A commit fully validated in Replit's own dev environment and local test runs can
 
 **How to apply:** after landing a long-blocked reconciliation, watch the real GitHub Actions run to completion rather than trusting the local/dev test suite's prior green result. If something fails there that passed locally, check which side of the divergence (local-only vs remote-only history) actually owns the failing file before assuming your merge conflict resolution caused it — a failure surfacing for the first time is often a pre-existing latent bug in an unpushed commit, exposed by CI-environment differences (missing secrets, different runner OS) rather than anything introduced during reconciliation.
 
+
+## `candidate` killed mid-run leaves an orphaned worktree, branch, and lease
+
+`candidate()`'s own `finally` block removes its worktree and (if the commit
+never completed) deletes the candidate branch ref, then releases the mutation
+lease — but only on a normal return. A hard kill from outside (e.g. a
+ShellExec/shell timeout firing while `candidate` is still running) terminates
+the Node process before that `finally` block runs, leaving three separate
+kinds of debris:
+
+1. A stale `.local/reconcile-worktree-<fingerprint>` directory and its
+   `reconcile/candidate-<fingerprint>` branch ref, still pointing at whatever
+   partial state existed when it was killed.
+2. A stale `.local/source-control.lock` (token/pid/expiresAt) whose owning
+   pid is already dead — `ps -o pid,etimes,cmd -p <pid>` returning nothing
+   confirms this. It carries a hard TTL (10 minutes observed); either wait it
+   out or confirm the pid is truly dead before treating it as free.
+3. On retry, `candidate()` sees the existing branch ref, looks for a matching
+   `candidate-outcome.json` audit record, finds none (the kill happened
+   before that write), and correctly refuses with
+   `protected_path_proof_failed` / "Existing candidate branch does not match
+   its immutable packet and outcome" rather than trusting the unverified
+   branch.
+
+**Why:** hit this live Sep 23 2026 — ran `candidate` in the foreground with a
+180s ShellExec timeout; `validateCandidate` (typecheck + the reconciliation
+self-check, not the full prepare manifest, but still ~2-3 minutes) hadn't
+finished, the shell killed it, and the retry failed exactly as above.
+
+**How to apply:** always background `candidate`, the same as `prepare`/
+`record` — a few minutes is normal, not a hang. If a prior attempt was
+killed, clean up before retrying: `git worktree remove --force
+.local/reconcile-worktree-<fingerprint>` (fall back to `rm -rf` +
+`git worktree prune` if that errors), then
+`git update-ref -d refs/heads/reconcile/candidate-<fingerprint>`. Wait out the
+lease TTL (confirming the holder pid is dead first) rather than deleting the
+lock file by hand.
+
