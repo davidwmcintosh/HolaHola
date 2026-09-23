@@ -88,6 +88,92 @@ commands.splice(safetyInsertion, 0,
   'npx tsx --test server/services/coordination-v2-runtime-bootstrap-service.test.ts',
   'npx tsx --test server/scripts/test-coordination-v2-runtime-bootstrap-http.test.ts',
   'npx tsx --test server/scripts/test-coordination-v2-windows-runtime-bootstrap-static.test.ts',
+
+  // Coordination-check CI parity (below): every run_check registered in
+  // server/scripts/run-validation-suite.sh must also run here, or a
+  // regression only a manual/task-completion validation run would ever
+  // catch. These entries close that gap for checks confirmed hermetic or
+  // correctly CI-database-gated. See run-validation-suite.sh for the
+  // handful of checks intentionally left out, with reasoning inline.
+
+  // Source-bridge and GitHub transport safety.
+  'bash scripts/test-github-sync-guards.sh',
+  'npx tsx server/scripts/test-source-control-service.ts',
+  'npx tsx server/scripts/test-source-control-mutation-boundary.ts',
+  'npx tsx server/scripts/test-github-release-safety.ts',
+  'npx tsx server/scripts/test-github-branch-bypass-guard.ts',
+  'npx tsx server/scripts/test-github-branch-bypass-guard.ts --self-check',
+  'npx tsx server/scripts/test-cross-tool-promote-content-loss-guard.ts',
+  'npx tsx server/scripts/test-cross-tool-promote-content-loss-guard.ts --self-check',
+  'npx tsx server/scripts/test-cross-tool-promote-stale-main-guard.ts',
+  'npx tsx server/scripts/test-cross-tool-promote-stale-main-guard.ts --self-check',
+  'npx tsx server/scripts/test-agent-skills-symlink.ts',
+  'npx tsx server/scripts/test-agent-skills-symlink.ts --self-check',
+
+  // Coordinator V2 lifecycle diagnostics, cleanup, fault fallback, evidence,
+  // and neighboring first-host-bootstrap/contract/reauthorization suites.
+  'npx tsx --test server/scripts/test-coordination-v2-first-host-bootstrap.test.ts',
+  'npx tsx --test server/scripts/test-coordination-lifecycle-facade.test.ts',
+  'npx tsx --test server/scripts/test-coordination-windows-host.test.ts',
+  'npx tsx --test server/scripts/test-coordination-v2-cli.test.ts',
+  'npx tsx --test server/scripts/test-coordination-errors.test.ts',
+  'npx tsx --test server/scripts/test-coordination-session-status.test.ts',
+  'npx tsx --test server/scripts/test-coordination-cleanup.test.ts',
+  'npx tsx --test server/scripts/test-coordination-v2-e2e.test.ts',
+  'npx tsx --test server/scripts/test-coordination-v2-fault-injection.test.ts',
+  'npx tsx --test server/scripts/test-coordination-v2-provider-fallback.test.ts',
+  'npx tsx --test server/scripts/test-coordination-v2-evidence-integrity.test.ts',
+  'npx tsx --test server/scripts/test-coordination-v2-host-completion-boundary.test.ts',
+  'npx tsx --test server/scripts/test-coordination-v2-host-factory-route.test.ts',
+  'npx tsx --test server/scripts/test-coordination-v2-dpapi-contract.test.ts',
+  'npx tsx --test server/scripts/test-coordination-v2-authority-seams.test.ts',
+  'npx tsx --test server/scripts/test-coordination-v2-public-material-digest.test.ts',
+  'npx tsx --test server/scripts/test-coordination-v2-deferred-session.test.ts',
+  'npx tsx --test server/scripts/test-coordinator-v2-schema.test.ts',
+  'npx tsx --test server/scripts/test-coordination-v2-powershell-contract.test.ts',
+  'npx tsx --test server/scripts/test-coordination-v2-staged-enrollment-contract.test.ts',
+  'npx tsx --test server/services/coordination-v2-host-reauthorization-contract.test.ts',
+  'npx tsx --test server/services/coordination-v2-host-reauthorization-validation.test.ts',
+  'npx tsx --test server/scripts/test-coordination-v2-host-reauthorization-static.test.ts',
+
+  // Episode/capture/inbox lifecycle guards. The plain mode of
+  // detect-episode-dialogue-loss.ts degrades to an informational no-op when
+  // history/DB signal is thin (e.g. a fresh checkout) instead of failing --
+  // see its own SKIP/informational logging -- so it is safe here even
+  // though it will rarely have real signal to report in this environment.
+  'npx tsx server/scripts/audit-episode-28-gaps.ts --self-check',
+  'npx tsx server/scripts/check-episode-content-loss.ts --self-check',
+  'npx tsx server/scripts/detect-episode-dialogue-loss.ts --self-check',
+  'npx tsx server/scripts/detect-episode-dialogue-loss.ts',
+  'npx tsx server/scripts/test-capture-status-ordering.ts',
+  'npx tsx server/scripts/test-truth-pipeline-unified-recall-diagnosis.ts',
+  'npx tsx server/scripts/test-capture-status-stale-escalation.ts',
+  'npx tsx server/scripts/test-canonical-conversation-capture.ts',
+  'npx tsx server/scripts/test-canonical-capture-worker-readiness.ts',
+  'npx tsx server/scripts/test-chat-capture-episode-outbox.ts',
+  'npx tsx --test server/scripts/repair-preincident-watchdog-source-identity.test.ts',
+  'npx tsx server/scripts/test-agent-notes-inbox.ts',
+  'npx tsx server/scripts/test-alden-provider-tool-projection.ts',
+  'npx tsx server/scripts/test-linked-outcome-static-guard.ts',
+  'npx tsx --test server/__tests__/daniela-memory-boundary.test.ts',
+  'npx tsx --test server/__tests__/voice-exchange-accounting.test.ts',
+  'npx tsx --test server/__tests__/live-voice-routing.test.ts',
+  'npx tsx server/scripts/test-inner-life-no-episode-row.ts',
+  'npx tsx --test server/scripts/test-agent-memory-round-trip-gate-isolation.test.ts',
+
+  // GL/raw-window/startup-recovery guards.
+  'npx tsx server/scripts/test-gl-reconnected-client-recovery.ts',
+  'npx tsx server/scripts/test-gl-game-session-detector.ts',
+  'npx tsx server/scripts/test-gl-game-session-detector.ts --self-check',
+  'npx tsx server/scripts/test-raw-window-capture.ts --self-check',
+  'npx tsx server/scripts/test-memory-decay-startup-schema-guard.ts',
+  'npx tsx server/scripts/test-memory-decay-startup-schema-guard.ts --self-check',
+  'bash server/scripts/test-start-application-recovery.sh',
+  'bash server/scripts/test-start-application-recovery.sh --self-check',
+  'npx tsx --test server/scripts/test-infra-mutation-ownership-guard.test.ts',
+  'npx tsx server/scripts/test-release-identity.ts',
+  'npx tsx server/scripts/test-replit-attribution-discipline.ts',
+
   'npx tsx --test server/scripts/test-agent-note-coordination-ingress.test.ts',
 );
 
