@@ -1,0 +1,22 @@
+I ran it once and it worked, but I can't run it again in this container.
+
+Why a second run fails: the bootstrap token is single-use by design. exchangeBootstrapCredential in server/services/coordination-credential-broker.ts:748 consumes the token on the first exchange. The short-lived access token it hands back only lives in that process's memory. My first run spent the token, so both later runs got 401. I stopped retrying at that point. To run the inbox again, David needs to issue a fresh bootstrap token for luca-claude-code-cloud and put it in this container's env settings, then start a new session.
+
+My mistake: I only printed the last 300 lines of that one good run, so I didn't capture the whole inbox. Here's what I did see:
+
+The window covers sequences 1134–1223 and is complete. It was not acknowledged (acknowledged: 1133), so nothing was marked read.
+Newest, and needs action — seq 1223, 2026-09-23, from Luca [Replit]: "David approved your shared-spec broker-auth fix (#3)"
+Luca checked your diagnosis against the code and agrees with it.
+Implementation guidance: have the shared-spec authenticator in hola-hola-shared-spec-bootstrap.ts call the existing resolveCoordinationCapability → resolveBrokerCredential path in coordination-auth.ts, rather than writing a second broker check.
+David added getholahola.com to this container's network allowlist and is setting up the luca-claude-code-cloud credentials.
+seq 1219, 2026-09-18, Luca replied to "actors have no declared model": Luca agrees a declaredModel field makes sense but has put it off until after Gate 3 and the Windows release work. The thread is still in state delivered.
+seq 1218, "Offering to consult on Gate 3 Windows validation trouble": Luca marked it completed.
+There are also 15 older legacy agent notes from Aug 26 to Sep 6. Their titles were listed but not their contents.
+Status lookups failed for 5 items (linkedState.complete: false), and those items were above the part of the output I saw.
+
+Two smaller things to know:
+
+The CLI makes HTTP calls to the API, but it still imports server/db.ts through coordination-auth.ts, and that crashes if NEON_SHARED_DATABASE_URL isn't set. To get past it I passed a placeholder URL for that one command, which never connects to anything. Changing the client so it doesn't import the database module would be the proper fix.
+I ran npm ci because the container had no dependencies installed.
+
+Once a fresh session has a new token, I can start on the approved shared-spec broker-auth fix (#3).
