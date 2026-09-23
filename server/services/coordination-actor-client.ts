@@ -1,3 +1,6 @@
+import { randomUUID } from 'node:crypto';
+import { chmod, mkdir, readFile, rename, rm, writeFile } from 'node:fs/promises';
+import { dirname } from 'node:path';
 import {
   COORDINATION_TOKEN_ENV_BY_ACTOR,
 } from '../middleware/coordination-auth';
@@ -46,6 +49,18 @@ export type CoordinationActorClientOptions = {
   apiUrl: string;
   environment?: Environment;
   fetchImpl?: FetchLike;
+  /**
+   * Optional local file path used to persist the broker-issued access token
+   * across process restarts, so a properly-configured client can recover on
+   * its own instead of needing a human to hand-carry a new bootstrap. Opt-in
+   * only: falls back to `COORDINATION_RUNTIME_TOKEN_CACHE_PATH`, and with
+   * neither set the client behaves exactly as before (in-memory only).
+   *
+   * Legacy static tokens (`broker: false`) are never written here. Treat the
+   * file with the same handling care as the bootstrap itself: a location
+   * outside the repository, never logged, never in shell history.
+   */
+  tokenCachePath?: string;
 };
 
 type CachedCredential = {
@@ -54,6 +69,13 @@ type CachedCredential = {
   broker: boolean;
 };
 
+type PersistedCredential = {
+  runtimeId: string;
+  actor: string;
+  token: string;
+  expiresAt: number | null;
+  broker: true;
+};
 export type CoordinationFeedOptions = {
   cursor?: number;
   limit?: number;
@@ -128,6 +150,8 @@ export class CoordinationActorClient {
   private credential: CachedCredential | null;
   private renewalPromise: Promise<CachedCredential> | null = null;
   private readonly fetchImpl: FetchLike;
+  private readonly tokenCachePath: string | undefined;
+  private cacheLoadAttempted = false;
 
   constructor(
     actor: CoordinationClientActor,
@@ -140,6 +164,85 @@ export class CoordinationActorClient {
     const legacyToken = legacyTokenForActor(actor, this.environment);
     this.credential = legacyToken ? { token: legacyToken, expiresAt: null, broker: false } : null;
     this.fetchImpl = options.fetchImpl ?? fetch;
+    this.tokenCachePath =
+      options.tokenCachePath?.trim() || this.environment.COORDINATION_RUNTIME_TOKEN_CACHE_PATH?.trim() || undefined;
+  }
+
+  /**
+   * Best-effort local recovery for a broker-issued token lost to a restart,
+   * crash, or one-off process invocation. Never throws: a cache miss, a
+   * missing/corrupt file, or a mismatched/expired entry all fall through to
+   * `exchangeBootstrap()` exactly as if no cache path had been configured.
+   * The one bootstrap that produced a used token cannot be re-exchanged
+   * (see the broker's grace re-exchange doc comment), so this is the primary
+   * recovery path once a credential has actually been used.
+   */
+  private async loadCachedCredential(): Promise<CachedCredential | null> {
+    if (!this.tokenCachePath) return null;
+    const runtimeId = this.environment.COORDINATION_RUNTIME_ID?.trim();
+    if (!runtimeId) return null;
+    let raw: string;
+    try {
+      raw = await readFile(this.tokenCachePath, 'utf8');
+    } catch (error) {
+      if ((error as NodeJS.ErrnoException)?.code !== 'ENOENT') {
+        console.warn(`[coordination-actor-client] ${this.actor}: token cache read failed, continuing without it`, error);
+      }
+      return null;
+    }
+    let parsed: unknown;
+    try {
+      parsed = JSON.parse(raw);
+    } catch {
+      console.warn(`[coordination-actor-client] ${this.actor}: token cache is not valid JSON, ignoring it`);
+      return null;
+    }
+    if (typeof parsed !== 'object' || parsed === null) return null;
+    const cached = parsed as Record<string, unknown>;
+    if (
+      cached.broker !== true
+      || cached.actor !== this.actor
+      || cached.runtimeId !== runtimeId
+      || typeof cached.token !== 'string'
+      || !cached.token
+      || (cached.expiresAt !== null && typeof cached.expiresAt !== 'number')
+    ) {
+      console.warn(`[coordination-actor-client] ${this.actor}: token cache entry does not match this runtime/actor, ignoring it`);
+      return null;
+    }
+    if (typeof cached.expiresAt === 'number' && cached.expiresAt <= Date.now()) {
+      return null;
+    }
+    return { token: cached.token, expiresAt: cached.expiresAt as number | null, broker: true };
+  }
+
+  /**
+   * Persists a broker-issued token so a later restart can recover without a
+   * human re-issuing credentials. Opt-in (requires `tokenCachePath`), never
+   * used for legacy static tokens, and never lets a write failure fail the
+   * caller -- the cache is a convenience, not a trust boundary.
+   */
+  private async persistCredential(credential: CachedCredential): Promise<void> {
+    if (!this.tokenCachePath || !credential.broker) return;
+    const runtimeId = this.environment.COORDINATION_RUNTIME_ID?.trim();
+    if (!runtimeId) return;
+    const payload: PersistedCredential = {
+      runtimeId,
+      actor: this.actor,
+      token: credential.token,
+      expiresAt: credential.expiresAt,
+      broker: true,
+    };
+    const tempPath = `${this.tokenCachePath}.${randomUUID()}.tmp`;
+    try {
+      await mkdir(dirname(this.tokenCachePath), { recursive: true });
+      await writeFile(tempPath, `${JSON.stringify(payload)}\n`, { mode: 0o600 });
+      await chmod(tempPath, 0o600);
+      await rename(tempPath, this.tokenCachePath);
+    } catch (error) {
+      console.warn(`[coordination-actor-client] ${this.actor}: token cache write failed, continuing in-memory only`, error);
+      await rm(tempPath, { force: true }).catch(() => undefined);
+    }
   }
 
   private async exchangeBootstrap(): Promise<CachedCredential> {
@@ -181,8 +284,13 @@ export class CoordinationActorClient {
   }
 
   private async currentCredential(): Promise<CachedCredential> {
+    if (!this.credential && !this.cacheLoadAttempted) {
+      this.cacheLoadAttempted = true;
+      this.credential = await this.loadCachedCredential();
+    }
     if (!this.credential) {
       this.credential = await this.exchangeBootstrap();
+      await this.persistCredential(this.credential);
     } else if (
       this.credential.broker
       && this.credential.expiresAt !== null
@@ -212,11 +320,13 @@ export class CoordinationActorClient {
       if (!response.ok || result.actor !== this.actor || typeof result.accessToken !== 'string' || typeof result.expiresAt !== 'string') {
         throw new Error(`Coordination credential renewal failed (${response.status})`);
       }
-      return {
+      const renewed: CachedCredential = {
         token: result.accessToken,
         expiresAt: Date.parse(result.expiresAt),
         broker: true,
       };
+      await this.persistCredential(renewed);
+      return renewed;
   }
 
   private assertAllowed(action: CoordinationClientAction): void {

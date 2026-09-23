@@ -167,14 +167,22 @@ below.
 
 Use rotation only when the source registration currently holds a valid,
 renewable credential that real traffic depends on staying uninterrupted --
-that is the specific problem rotation solves. If the source's bootstrap was
-already consumed without the client ever keeping a working credential from it
-(for example, an access token was issued but lost before anything persisted
-it), there is nothing live to protect. Use the in-place reissue command above
-instead: it keeps the same runtime ID and needs no staging or completion. The
-old, already-orphaned registration can be revoked later at leisure if you
-provision a replacement under a new runtime ID for some other reason; it poses
-no ongoing risk beyond its own short-lived access token expiring on schedule.
+that is the specific problem rotation solves.
+
+If the source's bootstrap was already consumed without the client ever
+authenticating a request with the resulting credential (for example, an
+access token was issued but lost before anything used it), there is nothing
+live to protect, and usually no operator action is needed at all: the broker
+accepts the exact same bootstrap value again and mints a fresh credential
+automatically -- see "Recovering a lost access token" below. Reach for the
+in-place reissue command ("Recovering a stranded bootstrap" above) only when
+the bootstrap value itself is also gone (never recorded, or recorded
+somewhere now unrecoverable); it keeps the same runtime ID and needs no
+staging or completion either way. The dead source registration can never be
+exchanged past the point something it issued is actually used, and can be
+revoked later at leisure if you provision a replacement under a new runtime
+ID for some other reason; it poses no ongoing risk beyond its own
+short-lived, already-orphaned access token expiring on schedule.
 
 Run rotation only from the trusted HolaHola server environment. The bootstrap
 is never passed as a command argument. First stage a new immutable runtime ID:
@@ -248,20 +256,67 @@ COORDINATION_API_URL=https://getholahola.com
 COORDINATION_ACTOR=luca-replit
 COORDINATION_RUNTIME_ID=luca-replit-primary
 COORDINATION_RUNTIME_BOOTSTRAP_TOKEN=<injected by that runtime's 1Password service account>
+COORDINATION_RUNTIME_TOKEN_CACHE_PATH=<optional -- see "Recovering a lost access token">
 ```
 
 The actor client exchanges the bootstrap at first use, keeps the access token
-in memory only, and renews it within 60 seconds of expiration. Renewal rotates
-the token; the prior token is revoked. The bootstrap itself is consumed on
-that first successful exchange and can never be exchanged again. A restart
-before the first successful exchange can still retry it. A restart afterward
-has no persisted credential to fall back on -- the access token lives only in
-that process's memory, never on disk or in the database -- so it needs a new
-bootstrap before it can authenticate again. Reissue one in place for the same
-runtime ID ("Recovering a stranded bootstrap" above); reserve a brand new
-runtime ID or a staged rotation for when the runtime's identity itself is
-changing or its current credential must keep serving traffic during the
-changeover.
+in memory, and renews it within 60 seconds of expiration. Renewal rotates the
+token; the prior token is revoked. The bootstrap itself is consumed on that
+first successful exchange and can never be exchanged again once something it
+issued is actually used to authenticate a request. A restart before that
+point can still retry the exchange automatically, and a restart after it can
+recover without operator involvement too if a token cache is configured --
+see "Recovering a lost access token" below for both mechanisms. Reissue in
+place for the same runtime ID ("Recovering a stranded bootstrap" above) only
+when the bootstrap value itself is unrecoverable; reserve a brand new runtime
+ID or a staged rotation for when the runtime's identity itself is changing or
+its current credential must keep serving traffic during the changeover.
+
+### Recovering a lost access token
+
+A restart, crash, or a series of one-off command invocations loses whatever
+access token lived only in the previous process's memory. A properly
+configured client recovers from this on its own, through either or both of:
+
+- **A local token cache.** Set `COORDINATION_RUNTIME_TOKEN_CACHE_PATH` (or pass
+  `tokenCachePath` to `createCoordinationActorClient`) to a file path outside
+  the repository. The client writes its current broker-issued token there
+  (mode `0600`, atomic rename) after every exchange and renewal, and reads it
+  back before exchanging a new one. A cache entry is used only when it names
+  the same runtime ID and actor and has not expired; anything else -- a
+  missing file, unparsable JSON, a mismatched runtime/actor, or a legacy
+  static token -- is ignored and falls back to a normal exchange, logging a
+  warning but never throwing and never logging the token itself. Treat this
+  file with the same handling care as the bootstrap: never in the repository,
+  shell history, or logs. This is opt-in and off by default; an unconfigured
+  client behaves exactly as before (in-memory only).
+- **Grace re-exchange.** Even without a configured cache, the broker itself
+  accepts the exact same bootstrap value again -- and mints a genuinely new
+  credential -- for as long as nothing it has ever issued for that runtime has
+  actually authenticated a request. This covers the specific case that used to
+  require a human to re-provision: an exchange succeeds, but the resulting
+  token is lost before anything persists or uses it. Grace requires
+  reproducing the original bootstrap value byte-for-byte (it is gated on the
+  bootstrap's own SHA-256 tombstone hash), so it never grants a caller any
+  capability it did not already have by possessing that secret. Each grace
+  re-exchange also revokes every not-yet-used credential previously issued for
+  that runtime, so a stale copy from an earlier, abandoned process can never
+  resurface and authenticate alongside the replacement; the two outcomes are
+  serialized against each other so that whichever of "an old credential's
+  first use" or "a new grace re-exchange" reaches the broker first is the one
+  that wins. It closes permanently, with no time limit otherwise, the moment
+  any issued credential authenticates one request; from then on a restart
+  depends on a working token cache or a renewal that happened before the
+  loss, or otherwise needs the in-place reissue below -- exactly as before
+  this recovery path existed.
+
+Neither mechanism helps if the bootstrap value itself was never recorded
+anywhere recoverable. That case still needs the in-place reissue command
+("Recovering a stranded bootstrap" above), which keeps the same runtime ID
+and needs no staging or completion; reserve a fresh
+`coordination-runtime-bootstrap.ts` registration under a new runtime ID for
+when the runtime's identity itself is changing, or a staged rotation if a
+live credential depends on continuity.
 
 ### Runtime-specific setup
 

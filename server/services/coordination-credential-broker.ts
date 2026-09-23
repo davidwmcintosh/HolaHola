@@ -1,5 +1,5 @@
 import crypto from 'node:crypto';
-import { and, eq, gt, inArray, isNull, ne, or, sql } from 'drizzle-orm';
+import { and, eq, gt, inArray, isNotNull, isNull, ne, or, sql } from 'drizzle-orm';
 import {
   COORDINATION_ACTOR_IDS,
   COORDINATION_CREDENTIAL_CAPABILITIES,
@@ -827,6 +827,108 @@ async function issueForRegistration(
   };
 }
 
+/**
+ * Handles a bootstrap exchange attempt that does not match the registration's
+ * live bootstrap hash. This is not automatically a forged or guessed secret:
+ * it is also exactly what a later, legitimate retry looks like once the
+ * original exchange already consumed the bootstrap and replaced its stored
+ * hash with the tombstone derived from it.
+ *
+ * Grace only fires when the presented secret's tombstone hash matches the
+ * registration's stored hash byte-for-byte -- i.e. the caller already knows
+ * the exact original bootstrap value, which is exactly as hard to forge as
+ * the original exchange itself (SHA-256 preimage resistance). It never grants
+ * anyone new authority beyond what possessing that secret already implied.
+ *
+ * "Consumed" and "used" are different facts. A process can legitimately
+ * consume its bootstrap (get an access token back) and then crash, get
+ * killed, or fail its very first authenticated call (wrong header, transient
+ * network error) before that token ever authenticates anything. Treating the
+ * bootstrap as permanently burned in that case only forces a human to
+ * hand-provision a replacement runtime for no security benefit -- see the
+ * "nothing live to protect" reasoning in docs/coordination-clients.md. Once
+ * any credential issued for this runtime has actually authenticated a
+ * request, grace no longer applies; the caller must renew, use a cached
+ * token, or be reprovisioned like today.
+ */
+async function attemptGraceBootstrapReexchange(input: {
+  executor: ReturnType<typeof getSharedDb>;
+  runtimeId: string;
+  registration: typeof coordinationRuntimeRegistrations.$inferSelect;
+  bootstrapToken: string | undefined;
+  bootstrapSha256: string;
+  sourceIp?: string;
+}): Promise<{ accessToken: string; credential: BrokerCredential } | null> {
+  const { executor, runtimeId, registration, bootstrapToken, bootstrapSha256, sourceIp } = input;
+  const graceEligible = Boolean(
+    registration.enabled
+    && !registration.revokedAt
+    && bootstrapToken
+    && crypto.timingSafeEqual(
+      Buffer.from(consumedCoordinationBootstrapHash(runtimeId, bootstrapSha256)),
+      Buffer.from(registration.bootstrapHash),
+    ),
+  );
+  if (!graceEligible) {
+    await audit({
+      eventType: 'exchange_failed',
+      success: false,
+      runtimeId,
+      actor: registration.actor,
+      reason: 'invalid_bootstrap',
+      sourceIp,
+    }, executor);
+    return null;
+  }
+  const [everUsed] = await executor.select({ id: coordinationRuntimeCredentials.id })
+    .from(coordinationRuntimeCredentials)
+    .where(and(
+      eq(coordinationRuntimeCredentials.runtimeId, runtimeId),
+      isNotNull(coordinationRuntimeCredentials.lastUsedAt),
+    ))
+    .limit(1);
+  if (everUsed) {
+    await audit({
+      eventType: 'exchange_failed',
+      success: false,
+      runtimeId,
+      actor: registration.actor,
+      reason: 'bootstrap_already_consumed',
+      sourceIp,
+    }, executor);
+    return null;
+  }
+  // Nothing issued for this runtime has ever authenticated a request, so
+  // every still-live row found here is an abandoned dead end, never an
+  // active session -- safe to revoke. This is what closes the race against a
+  // concurrent *first* use of one of them: resolveBrokerCredential takes the
+  // exact advisory lock this function's caller already holds (see
+  // exchangeBootstrapCredential) before marking a never-used credential as
+  // used, so that racing call either commits before this transaction starts
+  // (and the everUsed check above would already have caught it) or blocks
+  // until this transaction commits and then finds its credential revoked.
+  // Either way, exactly one of "the old credential authenticates" or "grace
+  // mints a replacement" ends up authorized -- never both.
+  const revoked = await executor.update(coordinationRuntimeCredentials)
+    .set({ revokedAt: new Date() })
+    .where(and(
+      eq(coordinationRuntimeCredentials.runtimeId, runtimeId),
+      isNull(coordinationRuntimeCredentials.revokedAt),
+    ))
+    .returning({ id: coordinationRuntimeCredentials.id });
+  await audit({
+    eventType: 'bootstrap_grace_reexchange',
+    success: true,
+    runtimeId,
+    actor: registration.actor,
+    sourceIp,
+    metadata: {
+      reason: 'prior_consumption_never_authenticated_a_request',
+      priorUnusedCredentialsRevoked: revoked.length,
+    },
+  }, executor);
+  return issueForRegistration(registration, 'issued', sourceIp, undefined, executor);
+}
 export async function exchangeBootstrapCredential(
   runtimeId: string,
   bootstrapToken: string | undefined,
@@ -837,6 +939,7 @@ export async function exchangeBootstrapCredential(
     throw new Error('credential broker test hooks require a verified disposable CI database');
   }
   return getSharedDb().transaction(async (tx) => {
+    const executor = tx as unknown as ReturnType<typeof getSharedDb>;
     const bootstrapSha256 = bootstrapToken
       ? hashCoordinationSecret(bootstrapToken)
       : hashCoordinationSecret('missing-bootstrap');
@@ -857,16 +960,7 @@ export async function exchangeBootstrapCredential(
     const [registration] = await tx.select().from(coordinationRuntimeRegistrations)
       .where(eq(coordinationRuntimeRegistrations.id, runtimeId));
     await testHooks?.afterRegistrationLocked?.();
-    const valid = Boolean(
-      registration?.enabled
-      && !registration.revokedAt
-      && bootstrapToken
-      && crypto.timingSafeEqual(
-         Buffer.from(bootstrapSha256),
-        Buffer.from(registration.bootstrapHash),
-      ),
-    );
-    if (!registration || !valid || !validCapabilities(registration.capabilities)) {
+    if (!registration || !validCapabilities(registration.capabilities)) {
       await audit({
         eventType: 'exchange_failed',
         success: false,
@@ -874,8 +968,32 @@ export async function exchangeBootstrapCredential(
         actor: registration?.actor,
         reason: registration ? 'invalid_bootstrap' : 'unknown_runtime',
         sourceIp,
-      }, tx as unknown as ReturnType<typeof getSharedDb>);
+      }, executor);
       return null;
+    }
+    const matchesLiveBootstrap = Boolean(
+      registration.enabled
+      && !registration.revokedAt
+      && bootstrapToken
+      && crypto.timingSafeEqual(
+         Buffer.from(bootstrapSha256),
+        Buffer.from(registration.bootstrapHash),
+      ),
+    );
+    if (!matchesLiveBootstrap) {
+      // Not a match against the live bootstrap. This is not automatically a
+      // hard failure: it is also what a later, legitimate retry looks like
+      // when the original exchange already consumed the bootstrap. Hand off
+      // to the grace path, which only succeeds for the exact original secret
+      // and only when nothing it ever produced was actually used.
+      return attemptGraceBootstrapReexchange({
+        executor,
+        runtimeId,
+        registration,
+        bootstrapToken,
+        bootstrapSha256,
+        sourceIp,
+      });
     }
     const [tombstoneOwner] = await tx.select({ id: coordinationRuntimeRegistrations.id })
       .from(coordinationRuntimeRegistrations)
@@ -941,45 +1059,65 @@ export async function resolveBrokerCredential(
   sourceIp?: string,
 ): Promise<BrokerCredential | null> {
   const tokenHash = hashCoordinationSecret(accessToken);
-  const [row] = await getSharedDb().select({
-    credential: coordinationRuntimeCredentials,
-    runtimeEnabled: coordinationRuntimeRegistrations.enabled,
-    runtimeRevokedAt: coordinationRuntimeRegistrations.revokedAt,
-    standingVerifier: coordinationRuntimeRegistrations.standingVerifier,
-  }).from(coordinationRuntimeCredentials)
-    .innerJoin(
-      coordinationRuntimeRegistrations,
-      eq(coordinationRuntimeCredentials.runtimeId, coordinationRuntimeRegistrations.id),
-    )
+  const [precheck] = await getSharedDb().select({ runtimeId: coordinationRuntimeCredentials.runtimeId })
+    .from(coordinationRuntimeCredentials)
     .where(eq(coordinationRuntimeCredentials.tokenHash, tokenHash));
-  const stored = row?.credential;
-  if (!stored || !actorIds.has(stored.actor) || !validCapabilities(stored.capabilities)) {
+  if (!precheck) {
     await audit({ eventType: 'access_failed', success: false, reason: 'invalid_token', sourceIp });
     return null;
   }
-  if (!row.runtimeEnabled || row.runtimeRevokedAt || stored.revokedAt || stored.expiresAt <= new Date()) {
-    await audit({
-      eventType: row.runtimeRevokedAt || stored.revokedAt ? 'access_failed' : 'expired',
-      success: false,
+  return getSharedDb().transaction(async (tx) => {
+    const executor = tx as unknown as ReturnType<typeof getSharedDb>;
+    // Serialize this credential's use against a concurrent grace bootstrap
+    // re-exchange for the same runtime (see exchangeBootstrapCredential /
+    // attemptGraceBootstrapReexchange), which takes this exact advisory lock
+    // before deciding whether anything issued for the runtime has ever
+    // authenticated a request. Without this, a grace re-exchange could
+    // observe "never used" and mint a second live credential at the same
+    // instant this call is authenticating the first one.
+    await tx.execute(sql`
+      SELECT pg_advisory_xact_lock(hashtextextended(${precheck.runtimeId}, 0))
+    `);
+    const [row] = await tx.select({
+      credential: coordinationRuntimeCredentials,
+      runtimeEnabled: coordinationRuntimeRegistrations.enabled,
+      runtimeRevokedAt: coordinationRuntimeRegistrations.revokedAt,
+      standingVerifier: coordinationRuntimeRegistrations.standingVerifier,
+    }).from(coordinationRuntimeCredentials)
+      .innerJoin(
+        coordinationRuntimeRegistrations,
+        eq(coordinationRuntimeCredentials.runtimeId, coordinationRuntimeRegistrations.id),
+      )
+      .where(eq(coordinationRuntimeCredentials.tokenHash, tokenHash));
+    const stored = row?.credential;
+    if (!stored || !actorIds.has(stored.actor) || !validCapabilities(stored.capabilities)) {
+      await audit({ eventType: 'access_failed', success: false, reason: 'invalid_token', sourceIp }, executor);
+      return null;
+    }
+    if (!row.runtimeEnabled || row.runtimeRevokedAt || stored.revokedAt || stored.expiresAt <= new Date()) {
+      await audit({
+        eventType: row.runtimeRevokedAt || stored.revokedAt ? 'access_failed' : 'expired',
+        success: false,
+        runtimeId: stored.runtimeId,
+        actor: stored.actor,
+        credentialId: stored.id,
+        reason: row.runtimeRevokedAt || stored.revokedAt ? 'revoked' : 'expired',
+        sourceIp,
+      }, executor);
+      return null;
+    }
+    await tx.update(coordinationRuntimeCredentials)
+      .set({ lastUsedAt: new Date() })
+      .where(eq(coordinationRuntimeCredentials.id, stored.id));
+    return {
+      actor: stored.actor as CoordinationActorId,
       runtimeId: stored.runtimeId,
-      actor: stored.actor,
       credentialId: stored.id,
-      reason: row.runtimeRevokedAt || stored.revokedAt ? 'revoked' : 'expired',
-      sourceIp,
-    });
-    return null;
-  }
-  await getSharedDb().update(coordinationRuntimeCredentials)
-    .set({ lastUsedAt: new Date() })
-    .where(eq(coordinationRuntimeCredentials.id, stored.id));
-  return {
-    actor: stored.actor as CoordinationActorId,
-    runtimeId: stored.runtimeId,
-    credentialId: stored.id,
-    capabilities: stored.capabilities,
-    expiresAt: stored.expiresAt,
-    standingVerifier: row.standingVerifier,
-  };
+      capabilities: stored.capabilities,
+      expiresAt: stored.expiresAt,
+      standingVerifier: row.standingVerifier,
+    };
+  });
 }
 
 export async function auditBrokerAccessDenied(

@@ -1,4 +1,7 @@
 import assert from 'node:assert/strict';
+import { mkdtemp, readFile, rm, writeFile } from 'node:fs/promises';
+import { tmpdir } from 'node:os';
+import { join } from 'node:path';
 import test from 'node:test';
 import { resolveCoordinationActor } from '../middleware/coordination-auth';
 import {
@@ -408,4 +411,198 @@ test('CLI rejects obsolete or irrelevant options instead of silently dropping th
     }),
     ['recipient'],
   );
+});
+
+async function withTokenCacheDir(
+  run: (cachePath: string) => Promise<void>,
+): Promise<void> {
+  const cacheDir = await mkdtemp(join(tmpdir(), 'coordination-token-cache-'));
+  try {
+    await run(join(cacheDir, 'token.json'));
+  } finally {
+    await rm(cacheDir, { recursive: true, force: true });
+  }
+}
+
+test('a client persists a broker-issued token to disk so a restarted process recovers it without re-exchanging the bootstrap', async () => {
+  await withTokenCacheDir(async (cachePath) => {
+    const exchangeCalls: string[] = [];
+    const environment = {
+      COORDINATION_RUNTIME_ID: 'luca-replit-primary',
+      COORDINATION_RUNTIME_BOOTSTRAP_TOKEN: 'cb_runtime-only-bootstrap',
+    };
+    const fetchImpl = async (input: string | URL): Promise<Response> => {
+      const url = String(input);
+      if (url.endsWith('/api/coordination/credentials/exchange')) {
+        exchangeCalls.push(url);
+        return new Response(JSON.stringify({
+          accessToken: 'ct_persisted-token',
+          actor: 'luca-replit',
+          expiresAt: new Date(Date.now() + 15 * 60_000).toISOString(),
+        }), { status: 201 });
+      }
+      return new Response(JSON.stringify({ threads: [] }), { status: 200 });
+    };
+
+    const firstProcess = createCoordinationActorClient('luca-replit', {
+      apiUrl: 'https://coordination.example',
+      environment,
+      fetchImpl,
+      tokenCachePath: cachePath,
+    });
+    await firstProcess.listFeed();
+    assert.equal(exchangeCalls.length, 1, 'the first process must exchange its bootstrap exactly once');
+
+    const cached = JSON.parse(await readFile(cachePath, 'utf8')) as Record<string, unknown>;
+    assert.equal(cached.broker, true);
+    assert.equal(cached.actor, 'luca-replit');
+    assert.equal(cached.runtimeId, 'luca-replit-primary');
+    assert.equal(cached.token, 'ct_persisted-token');
+
+    // Simulate a restart: a brand new client instance (fresh in-memory state)
+    // pointed at the same cache file.
+    const restartedProcess = createCoordinationActorClient('luca-replit', {
+      apiUrl: 'https://coordination.example',
+      environment,
+      fetchImpl,
+      tokenCachePath: cachePath,
+    });
+    await restartedProcess.listFeed();
+    assert.equal(
+      exchangeCalls.length,
+      1,
+      'a restarted client must recover the cached token instead of re-exchanging the already-consumed bootstrap',
+    );
+  });
+});
+
+test('a client ignores a cache entry that does not match this runtime, actor, or is expired or unparsable', async () => {
+  const environment = {
+    COORDINATION_RUNTIME_ID: 'luca-replit-primary',
+    COORDINATION_RUNTIME_BOOTSTRAP_TOKEN: 'cb_runtime-only-bootstrap',
+  };
+  const validCachedEntry = {
+    runtimeId: 'luca-replit-primary',
+    actor: 'luca-replit',
+    token: 'ct_should-be-ignored',
+    expiresAt: null,
+    broker: true,
+  };
+  const invalidCacheVariants: Array<{ label: string; contents: string }> = [
+    { label: 'wrong runtimeId', contents: JSON.stringify({ ...validCachedEntry, runtimeId: 'some-other-runtime' }) },
+    { label: 'wrong actor', contents: JSON.stringify({ ...validCachedEntry, actor: 'luca-claude-code' }) },
+    { label: 'already expired', contents: JSON.stringify({ ...validCachedEntry, expiresAt: Date.now() - 1_000 }) },
+    { label: 'legacy static token (broker: false)', contents: JSON.stringify({ ...validCachedEntry, broker: false }) },
+    { label: 'not JSON', contents: 'not valid json {{{' },
+    { label: 'empty token', contents: JSON.stringify({ ...validCachedEntry, token: '' }) },
+  ];
+
+  for (const variant of invalidCacheVariants) {
+    await withTokenCacheDir(async (cachePath) => {
+      await writeFile(cachePath, variant.contents, 'utf8');
+      const exchangeCalls: string[] = [];
+      const fetchImpl = async (input: string | URL): Promise<Response> => {
+        const url = String(input);
+        if (url.endsWith('/api/coordination/credentials/exchange')) {
+          exchangeCalls.push(url);
+          return new Response(JSON.stringify({
+            accessToken: 'ct_freshly-exchanged',
+            actor: 'luca-replit',
+            expiresAt: new Date(Date.now() + 15 * 60_000).toISOString(),
+          }), { status: 201 });
+        }
+        return new Response(JSON.stringify({ threads: [] }), { status: 200 });
+      };
+      const client = createCoordinationActorClient('luca-replit', {
+        apiUrl: 'https://coordination.example',
+        environment,
+        fetchImpl,
+        tokenCachePath: cachePath,
+      });
+
+      await client.listFeed();
+      assert.equal(
+        exchangeCalls.length,
+        1,
+        `client must fall back to exchanging a fresh bootstrap when the cache entry is invalid (${variant.label})`,
+      );
+    });
+  }
+});
+
+test('a client without a configured cache path behaves exactly as before (in-memory only, no file written)', async () => {
+  await withTokenCacheDir(async (cachePath) => {
+    const fetchImpl = async (input: string | URL): Promise<Response> => {
+      const url = String(input);
+      if (url.endsWith('/api/coordination/credentials/exchange')) {
+        return new Response(JSON.stringify({
+          accessToken: 'ct_never-persisted',
+          actor: 'luca-replit',
+          expiresAt: new Date(Date.now() + 15 * 60_000).toISOString(),
+        }), { status: 201 });
+      }
+      return new Response(JSON.stringify({ threads: [] }), { status: 200 });
+    };
+    const client = createCoordinationActorClient('luca-replit', {
+      apiUrl: 'https://coordination.example',
+      environment: {
+        COORDINATION_RUNTIME_ID: 'luca-replit-primary',
+        COORDINATION_RUNTIME_BOOTSTRAP_TOKEN: 'cb_runtime-only-bootstrap',
+      },
+      fetchImpl,
+      // tokenCachePath intentionally omitted, and COORDINATION_RUNTIME_TOKEN_CACHE_PATH is
+      // not part of this environment object, so the client falls back to process.env for it.
+      // Passing a plain environment object without that key keeps caching opted out.
+    });
+
+    await client.listFeed();
+    await assert.rejects(readFile(cachePath, 'utf8'), /ENOENT/, 'no cache file must be written when tokenCachePath is not configured');
+  });
+});
+
+test('renewing a credential updates the on-disk cache, not just the in-memory copy', async () => {
+  await withTokenCacheDir(async (cachePath) => {
+    let renewalCount = 0;
+    const fetchImpl = async (input: string | URL): Promise<Response> => {
+      const url = String(input);
+      if (url.endsWith('/api/coordination/credentials/exchange')) {
+        return new Response(JSON.stringify({
+          accessToken: 'ct_near-expiry',
+          actor: 'luca-replit',
+          expiresAt: new Date(Date.now() + 30_000).toISOString(),
+        }), { status: 201 });
+      }
+      if (url.endsWith('/api/coordination/credentials/renew')) {
+        renewalCount += 1;
+        return new Response(JSON.stringify({
+          accessToken: 'ct_renewed-and-persisted',
+          actor: 'luca-replit',
+          expiresAt: new Date(Date.now() + 15 * 60_000).toISOString(),
+        }), { status: 200 });
+      }
+      return new Response(JSON.stringify({ threads: [] }), { status: 200 });
+    };
+    const client = createCoordinationActorClient('luca-replit', {
+      apiUrl: 'https://coordination.example',
+      environment: {
+        COORDINATION_RUNTIME_ID: 'luca-replit-primary',
+        COORDINATION_RUNTIME_BOOTSTRAP_TOKEN: 'cb_runtime-only-bootstrap',
+      },
+      fetchImpl,
+      tokenCachePath: cachePath,
+    });
+
+    await client.listFeed();
+    assert.equal((JSON.parse(await readFile(cachePath, 'utf8')) as Record<string, unknown>).token, 'ct_near-expiry');
+
+    // The cached credential expires in 30s, under the 60s renewal threshold,
+    // so this second call triggers renewal before making its request.
+    await client.listFeed();
+    assert.equal(renewalCount, 1);
+    assert.equal(
+      (JSON.parse(await readFile(cachePath, 'utf8')) as Record<string, unknown>).token,
+      'ct_renewed-and-persisted',
+      'the cache file must reflect the renewed token so a later restart never recovers a token already rotated away',
+    );
+  });
 });

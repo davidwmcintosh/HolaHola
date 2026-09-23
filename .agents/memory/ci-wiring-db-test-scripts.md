@@ -135,3 +135,24 @@ in the same block, silently producing garbage "commands" and false gap reports. 
 comment-stripping over trying to avoid apostrophes in future comments, or avoid hand-rolled
 regex parsing entirely and instead execute the file directly to verify behavior.
 
+
+## A fourth pattern: subsystem-specific npm scripts with their own disposable Postgres
+
+Beyond the three splice/shell-script/Neon-gate locations above, a DB-backed test file
+can also be reached only through a dedicated per-subsystem npm script — e.g.
+`test:coordination-ledger`, which shells out to a standalone Node script
+(`scripts/run-coordination-ledger-local.mjs`) that provisions its own throwaway local
+Postgres cluster, runs `drizzle-kit migrate` and a seed script against it, then invokes
+a further dedicated script (e.g. `test:coordination-ledger:run`) covering a whole
+subsystem's `*.test.ts` files plus any selfcheck script, all with `CI=true` and
+`CI_DATABASE_URL` pointed at that throwaway cluster. `.github/workflows/ci.yml` can
+reach this transitively through a thin `test:ci:unit`-style wrapper (e.g.
+`run-ci-test-steps.mjs --group=unit && npm run test:coordination-ledger && ...`)
+without the subsystem script, or the test file, ever appearing in
+`run-ci-test-steps.mjs`'s own splice list.
+
+Grepping only the splice list and the main `test` script for a target file's name can
+therefore produce a false "not wired into CI" conclusion. Before reporting a DB-backed
+test file as lacking CI coverage, grep `package.json`'s *entire* `scripts` block for
+the file name (not just the `test`/`test:ci:*` entries), and trace any subsystem
+`test:*` script it turns up back to `.github/workflows/ci.yml` to confirm reachability.

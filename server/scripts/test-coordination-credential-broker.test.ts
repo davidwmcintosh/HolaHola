@@ -57,6 +57,9 @@ const revocationRaceRuntimeId = `${runtimeId}-revocation-race`;
 const prehashedRuntimeId = `${runtimeId}-prehashed`;
 const standingVerifierRuntimeId = `${runtimeId}-standing-verifier`;
 const standingVerifierWrongActorRuntimeId = `${runtimeId}-standing-verifier-wrong-actor`;
+const graceReexchangeNeverUsedRuntimeId = `${runtimeId}-grace-never-used`;
+const graceReexchangeUsedRuntimeId = `${runtimeId}-grace-used`;
+const graceRaceRuntimeId = `${runtimeId}-grace-race`;
 let operatorRuntimeId = '';
 const operatorTaskRef = `operator-${Date.now()}`;
 
@@ -998,6 +1001,201 @@ verifiedDisposableDatabaseTest(
       )),
       true,
       'denied use of the returned credential must be audited as revoked',
+    );
+  },
+);
+
+databaseTest(
+  'a bootstrap that was consumed but never used to authenticate a request can be re-exchanged',
+  async () => {
+    const { bootstrapToken } = await registerCoordinationRuntime({
+      runtimeId: graceReexchangeNeverUsedRuntimeId,
+      actor: 'luca-replit',
+      displayName: 'Credential broker grace re-exchange CI runtime (never used)',
+      capabilities: ['coordination:read'],
+      tokenTtlSeconds: 60,
+    });
+
+    const first = await exchangeBootstrapCredential(graceReexchangeNeverUsedRuntimeId, bootstrapToken);
+    assert.ok(first, 'the original exchange must succeed');
+
+    // The first credential is never resolved/used. A retry with the exact
+    // same bootstrap must succeed under grace instead of returning null, and
+    // must mint a genuinely new credential rather than replaying the first.
+    const second = await exchangeBootstrapCredential(graceReexchangeNeverUsedRuntimeId, bootstrapToken);
+    assert.ok(second, 'grace re-exchange must succeed while nothing issued has ever been used');
+    assert.notEqual(second.accessToken, first.accessToken);
+    assert.notEqual(second.credential.credentialId, first.credential.credentialId);
+
+    // Grace is not a one-shot: as long as nothing issued for this runtime has
+    // ever authenticated a request, the same bootstrap can be retried again.
+    const third = await exchangeBootstrapCredential(graceReexchangeNeverUsedRuntimeId, bootstrapToken);
+    assert.ok(third, 'grace re-exchange must remain available across repeated unused retries');
+    assert.notEqual(third.accessToken, second.accessToken);
+
+    // A wrong secret against this same (already-consumed) registration must
+    // still be rejected outright -- grace never widens what counts as proof
+    // of possessing the original bootstrap.
+    assert.equal(
+      await exchangeBootstrapCredential(graceReexchangeNeverUsedRuntimeId, 'cb_definitely-the-wrong-secret'),
+      null,
+    );
+
+    // Using the most recently granted credential now closes the grace window.
+    assert.ok(await resolveBrokerCredential(third.accessToken));
+    assert.equal(
+      await exchangeBootstrapCredential(graceReexchangeNeverUsedRuntimeId, bootstrapToken),
+      null,
+      'grace must stop once any issued credential has actually authenticated a request',
+    );
+
+    const auditEvents = await getSharedDb().select().from(coordinationCredentialAuditEvents)
+      .where(eq(coordinationCredentialAuditEvents.runtimeId, graceReexchangeNeverUsedRuntimeId));
+    assert.equal(
+      auditEvents.filter((event) => event.eventType === 'bootstrap_grace_reexchange' && event.success).length,
+      2,
+      'each successful grace re-exchange must be audited distinctly from the original issuance',
+    );
+    assert.equal(
+      auditEvents.some((event) => (
+        event.eventType === 'exchange_failed' && !event.success && event.reason === 'invalid_bootstrap'
+      )),
+      true,
+      'a wrong secret must be audited as invalid_bootstrap, never as a grace attempt',
+    );
+    assert.equal(
+      auditEvents.some((event) => (
+        event.eventType === 'exchange_failed' && !event.success && event.reason === 'bootstrap_already_consumed'
+      )),
+      true,
+      'the final exchange after first use must be audited as bootstrap_already_consumed',
+    );
+  },
+);
+
+databaseTest(
+  'a bootstrap cannot be re-exchanged once the very first issued credential has authenticated a request',
+  async () => {
+    const { bootstrapToken } = await registerCoordinationRuntime({
+      runtimeId: graceReexchangeUsedRuntimeId,
+      actor: 'luca-replit',
+      displayName: 'Credential broker grace re-exchange CI runtime (used)',
+      capabilities: ['coordination:read'],
+      tokenTtlSeconds: 60,
+    });
+
+    const issued = await exchangeBootstrapCredential(graceReexchangeUsedRuntimeId, bootstrapToken);
+    assert.ok(issued);
+    assert.ok(
+      await resolveBrokerCredential(issued.accessToken),
+      'the issued credential must authenticate normally',
+    );
+
+    assert.equal(
+      await exchangeBootstrapCredential(graceReexchangeUsedRuntimeId, bootstrapToken),
+      null,
+      'a bootstrap must stay burned once its credential has actually authenticated a request',
+    );
+
+    const auditEvents = await getSharedDb().select().from(coordinationCredentialAuditEvents)
+      .where(eq(coordinationCredentialAuditEvents.runtimeId, graceReexchangeUsedRuntimeId));
+    assert.equal(
+      auditEvents.some((event) => (
+        event.eventType === 'exchange_failed'
+        && !event.success
+        && event.reason === 'bootstrap_already_consumed'
+      )),
+      true,
+    );
+    assert.equal(
+      auditEvents.some((event) => event.eventType === 'bootstrap_grace_reexchange'),
+      false,
+      'grace must never fire once a credential has been used',
+    );
+  },
+);
+
+verifiedDisposableDatabaseTest(
+  'a credential racing its first use against a concurrent grace re-exchange never leaves both authorized',
+  async () => {
+    const { bootstrapToken } = await registerCoordinationRuntime({
+      runtimeId: graceRaceRuntimeId,
+      actor: 'luca-replit',
+      displayName: 'Credential broker grace race CI runtime',
+      capabilities: ['coordination:read'],
+      tokenTtlSeconds: 60,
+    });
+
+    const first = await exchangeBootstrapCredential(graceRaceRuntimeId, bootstrapToken);
+    assert.ok(first, 'the original exchange must succeed');
+
+    const exchangePaused = deferred();
+    const releaseExchange = deferred();
+
+    // Re-presenting the same (now-consumed) bootstrap takes the grace path.
+    // Pause it right after it takes the runtime's advisory lock -- the exact
+    // lock resolveBrokerCredential now takes before marking a never-used
+    // credential as used -- so the two operations are proven mutually
+    // exclusive instead of merely sequential by accident.
+    const gracePromise = exchangeBootstrapCredential(
+      graceRaceRuntimeId,
+      bootstrapToken,
+      undefined,
+      {
+        afterRegistrationLocked: async () => {
+          exchangePaused.resolve();
+          await releaseExchange.promise;
+        },
+      },
+    );
+    await exchangePaused.promise;
+
+    const resolvePromise = resolveBrokerCredential(first.accessToken);
+    const resolveFinishedBeforeRelease = await Promise.race([
+      resolvePromise.then(() => true),
+      new Promise<false>((resolve) => {
+        setTimeout(() => resolve(false), 1_000);
+      }),
+    ]);
+    releaseExchange.resolve();
+    const [grace, resolved] = await Promise.all([gracePromise, resolvePromise]);
+
+    assert.equal(
+      resolveFinishedBeforeRelease,
+      false,
+      'the racing first use must wait while grace re-exchange holds the runtime advisory lock',
+    );
+    assert.ok(grace, 'grace must succeed: nothing had authenticated yet when it took the lock');
+    assert.notEqual(grace.credential.credentialId, first.credential.credentialId);
+    assert.equal(
+      resolved,
+      null,
+      'the racing first use must fail once grace has revoked the credential it superseded',
+    );
+
+    // The credential grace minted remains independently usable afterward,
+    // and the one it superseded stays dead -- exactly one survives the race.
+    assert.ok(await resolveBrokerCredential(grace.accessToken));
+    assert.equal(await resolveBrokerCredential(first.accessToken), null);
+
+    const auditEvents = await getSharedDb().select().from(coordinationCredentialAuditEvents)
+      .where(eq(coordinationCredentialAuditEvents.runtimeId, graceRaceRuntimeId));
+    assert.equal(
+      auditEvents.some((event) => (
+        event.eventType === 'access_failed'
+        && !event.success
+        && event.reason === 'revoked'
+        && event.credentialId === first.credential.credentialId
+      )),
+      true,
+      'the credential grace revoked out from under the racing first use must be audited as revoked',
+    );
+    const graceEvent = auditEvents.find((event) => event.eventType === 'bootstrap_grace_reexchange');
+    assert.ok(graceEvent, 'the successful grace re-exchange must be audited');
+    assert.equal(
+      (graceEvent.metadata as Record<string, unknown>).priorUnusedCredentialsRevoked,
+      1,
+      'the grace audit event must record that it revoked the one superseded credential',
     );
   },
 );
