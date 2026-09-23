@@ -189,6 +189,7 @@ commands.splice(safetyInsertion, 0,
   'npx tsx server/scripts/test-release-identity.ts',
   'npx tsx server/scripts/test-replit-attribution-discipline.ts',
 
+  'npx tsx --test server/scripts/test-team-room-attribution-route.test.ts',
   'npx tsx --test server/scripts/test-agent-note-coordination-ingress.test.ts',
 );
 

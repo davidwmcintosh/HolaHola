@@ -80,6 +80,34 @@ splice + group-boundary + contiguous-coverage validation and then cleanly throws
 "Unknown CI test group" without spawning a single test command — a safe,
 side-effect-free way to confirm a splice edit didn't break the grouping.
 
+**A fourth indirection layer the parity guard cannot see through:** `test:ci:unit` (a
+GitHub-Actions-only composite script, distinct from the plain `test:ci` that
+`run-validation-suite.sh`'s "Application test suite" check runs) tacks on
+`&& npm run test:coordination-ledger && npm run test:shared-spec:unit` after the
+`run-ci-test-steps.mjs --group=unit` call. `test:coordination-ledger` resolves
+(via the parity guard's static `npm run <name>` text-substitution) to the single
+opaque command `node scripts/run-coordination-ledger-local.mjs` -- but that
+script's *real* test list (`test-agent-note-reply-route.test.ts`,
+`test-luca-observer-route.test.ts`, and others) lives inside a
+`spawn('npm', ['run', 'test:coordination-ledger:run'])` call in its own JS
+source, provisioning a real local Postgres cluster first. Because that nested
+`npm run` reference is JS-programmatic (a runtime `spawn` argv), not literal
+text anywhere in package.json or run-ci-test-steps.mjs, `test-validation-suite-ci-parity.ts`'s
+static scan can never expand through it -- a file wired only into
+`test:coordination-ledger:run` is invisible to both sides of the parity check
+(neither "required" without its own `run_check` line, nor counted "reachable").
+Two concrete, practical consequences: (1) `run-validation-suite.sh` (this
+project's task-completion validation gate) never runs anything in
+`test:coordination-ledger:run`'s list at all -- it has no `run_check` line for
+`test:coordination-ledger` anywhere, and plain `test:ci` (unlike `test:ci:unit`)
+never chains to it either; (2) even if GitHub Actions' `test:ci:unit` job does
+successfully provision Postgres and run that list, the parity guard gives zero
+signal either way. A coordination-auth route test that actually needs guaranteed
+CI + validation-suite coverage should be spliced directly into
+`run-ci-test-steps.mjs`'s literal command array (paired with its own
+`run_check` line), the same as every other hermetic test -- not left relying on
+`test:coordination-ledger:run` alone.
+
 ## SPLICE_SAFE/REPLIT_ONLY triage rule and a verification-script gotcha
 
 **Triage rule for closing a gap between a shell-script validation suite and its CI-spliced

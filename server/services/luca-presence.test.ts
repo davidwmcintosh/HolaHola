@@ -61,6 +61,26 @@ test("Luca credential validation matches the dedicated broker token boundary", (
   assert.equal(isValidLucaCredential(`  ${"a".repeat(32)}  `), true);
 });
 
+test("nudge detection recognizes every hat-specific Team Room label as Luca's own outgoing message", () => {
+  const { isNudgeForLuca } = __lucaPresenceTest;
+  // Hat-specific attribution labels (server/routes/team-room-routes.ts) must
+  // never be mistaken for a nudge directed at Luca -- Luca must not react to
+  // its own posts as if someone else were addressing it.
+  for (const speaker of ["Luca [Replit]", "Luca [Claude Code]", "Luca [Gemini]", "Luca [HolaHola]", "Luca"]) {
+    assert.equal(
+      isNudgeForLuca(speaker, "@luca check this"),
+      false,
+      `${speaker} must be recognized as Luca's own voice, not a nudge`,
+    );
+  }
+
+  // A real nudge from a non-Luca speaker must still be detected.
+  assert.equal(isNudgeForLuca("David", "@luca can you check this?"), true);
+  assert.equal(isNudgeForLuca("Alden", "luca, look at this"), true);
+  assert.equal(isNudgeForLuca("Daniela", "luca: what do you think?"), true);
+  assert.equal(isNudgeForLuca("David", "no mention here"), false);
+});
+
 test("joins an existing authoritative room only after broker acknowledgement", async () => {
   let acknowledgeJoin: Ack | undefined;
   let requestId = "";

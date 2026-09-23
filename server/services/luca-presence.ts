@@ -463,6 +463,8 @@ export function connectLucaToTeamRoom(): void {
 }
 
 export const __lucaPresenceTest = {
+  /** Exposes the module-private nudge predicate for direct unit testing. */
+  isNudgeForLuca,
   setSocket(socket: ClientSocket | null): void {
     _socket = socket;
     _state.connected = Boolean(socket?.connected);

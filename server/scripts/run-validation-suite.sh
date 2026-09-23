@@ -44,6 +44,7 @@ run_check "Application test suite" npm run test:ci
 run_check "Source bridge safety" npm run test:source-bridge
 run_check "Source reconciliation safety" npm run test:source-reconciliation
 run_check "Agent-note coordination ingress" npx tsx --test server/scripts/test-agent-note-coordination-ingress.test.ts
+run_check "Team Room speaker attribution" npx tsx --test server/scripts/test-team-room-attribution-route.test.ts
 run_check "GitHub release safety" npm run test:github-release-safety
 run_check "GitHub sync shell guards" bash scripts/test-github-sync-guards.sh
 run_check "GitHub main-branch bypass surface guard" bash -c 'npx tsx server/scripts/test-github-branch-bypass-guard.ts && npx tsx server/scripts/test-github-branch-bypass-guard.ts --self-check'
