@@ -117,14 +117,28 @@ async function main() {
   sep();
 
   // ── Find a real session to attach fixtures to ─────────────────────────────
-  const sessions = await sql`
-    SELECT id, user_id, started_at
-    FROM voice_sessions
-    WHERE user_id IS NOT NULL
-      AND exchange_count > 0
-    ORDER BY started_at DESC
-    LIMIT 1
-  `;
+  // neon() speaks Neon's HTTPS proxy protocol, not raw Postgres wire
+  // protocol -- it cannot reach a job-local CI Postgres service (GitHub
+  // Actions' service container, or a disposable local replica) and fails
+  // with an unrelated-looking "Failed to parse URL" error instead of a
+  // clean connection refusal. This check already has a documented SKIP path
+  // below for "no usable fixture data" (no voice_sessions row); an
+  // unreachable CI database is the same situation reached a different way.
+  let sessions: any[];
+  try {
+    sessions = await sql`
+      SELECT id, user_id, started_at
+      FROM voice_sessions
+      WHERE user_id IS NOT NULL
+        AND exchange_count > 0
+      ORDER BY started_at DESC
+      LIMIT 1
+    `;
+  } catch (err: any) {
+    console.log(Y(`  SKIP: DB unavailable (${err?.message ?? err}).`));
+    console.log(Y('  Cannot run fixture-based tests without a real database connection.'));
+    process.exit(0);
+  }
 
   if (sessions.length === 0) {
     console.log(Y('  SKIP: no voice_sessions row with exchange_count > 0 found.'));
