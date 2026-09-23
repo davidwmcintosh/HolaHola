@@ -131,6 +131,15 @@ run_check "Application startup recovery self-check" bash server/scripts/test-sta
 run_check "Infra-mutation ownership guard (Cloudflare DNS, GitHub spec publish)" npx tsx --test server/scripts/test-infra-mutation-ownership-guard.test.ts
 run_check "Source-mutation write guard (server/scripts writes stay out of client/src, server/, shared/)" npx tsx --test server/scripts/scan-source-mutation-writes.test.ts
 run_check "Cross-hat skill discovery symlink" bash -c 'npx tsx server/scripts/test-agent-skills-symlink.ts && npx tsx server/scripts/test-agent-skills-symlink.ts --self-check'
+# Meta-guard: every run_check line above must also be reachable from
+# scripts/run-ci-test-steps.mjs, or a regression here would only ever be
+# caught by a manual/task-completion validation run, not by GitHub CI on a
+# PR. See server/scripts/test-validation-suite-ci-parity.ts for the
+# documented Replit-only allowlist (currently: the Episode 28 self-check
+# above, which reads the real Neon row, and the live capture health-route
+# check, which needs a running app server -- neither exists in GitHub's
+# disposable CI environment).
+run_check "Validation-suite to CI parity guard" bash -c 'npx tsx server/scripts/test-validation-suite-ci-parity.ts && npx tsx server/scripts/test-validation-suite-ci-parity.ts --self-check'
 echo ""
 echo "════════════════════════════════════════════════════════════"
 if [[ ${#FAILED[@]} -eq 0 ]]; then

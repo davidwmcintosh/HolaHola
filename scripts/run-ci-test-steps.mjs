@@ -67,6 +67,13 @@ const safetyInsertion = commands.findIndex((command) =>
   command.startsWith('npx tsx server/scripts/test-openai-pronunciation-error-notice.ts'));
 if (safetyInsertion < 0) throw new Error('Could not register projection/source safety checks before the guards group');
 commands.splice(safetyInsertion, 0,
+  // TypeScript typecheck: registered as a run_check in run-validation-suite.sh
+  // but, unlike every other entry there, it never bottoms out in a file path
+  // (npm run typecheck -> tsc --noEmit) -- so test-validation-suite-ci-parity.ts
+  // models it as a pathless "cmd:" key instead of a file-path key. Kept here,
+  // not left to the parity guard's Replit-only allowlist, because typecheck has
+  // no live-DB or live-server dependency and can run in any CI environment.
+  'npm run typecheck',
   'npx tsx server/scripts/test-context-lineage-migration-guard-selfcheck.ts',
   'npx tsx server/scripts/test-projection-receipts.ts',
   'npx tsx server/scripts/test-projection-writer-coverage.ts',
@@ -95,6 +102,13 @@ commands.splice(safetyInsertion, 0,
   // catch. These entries close that gap for checks confirmed hermetic or
   // correctly CI-database-gated. See run-validation-suite.sh for the
   // handful of checks intentionally left out, with reasoning inline.
+  //
+  // This parity is now enforced automatically -- not just documented -- by
+  // test-validation-suite-ci-parity.ts below. It fails loudly if a future
+  // run_check line is ever added to run-validation-suite.sh without a
+  // matching entry appearing somewhere in this CI command set.
+  'npx tsx server/scripts/test-validation-suite-ci-parity.ts',
+  'npx tsx server/scripts/test-validation-suite-ci-parity.ts --self-check',
 
   // Source-bridge and GitHub transport safety.
   'bash scripts/test-github-sync-guards.sh',
