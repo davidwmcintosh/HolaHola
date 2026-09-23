@@ -212,7 +212,13 @@ COORDINATION_RUNTIME_BOOTSTRAP_TOKEN=<injected by that runtime's 1Password servi
 
 The actor client exchanges the bootstrap at first use, keeps the access token
 in memory, and renews it within 60 seconds of expiration. Renewal rotates the
-token; the prior token is revoked. A restart exchanges the bootstrap again.
+token; the prior token is revoked. The bootstrap itself is consumed on that
+first successful exchange and can never be exchanged again. A restart before
+the first successful exchange can still retry it, but a restart afterward has
+no persisted credential to fall back on (the access token lives only in that
+process's memory) and needs a brand new bootstrap -- a fresh
+`coordination-runtime-bootstrap.ts` registration under a new runtime ID, or a
+staged rotation -- rather than reusing the original value.
 
 ### Runtime-specific setup
 
