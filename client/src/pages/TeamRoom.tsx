@@ -39,6 +39,10 @@ interface ParticipantConfig {
   bgColor: string;
   borderColor: string;
   isGuest?: boolean;
+  /** Which Luca hat sent this (e.g. "Replit", "Claude Code") — set only when
+   *  the speaker label carries a "Luca [Hat]" suffix. See lucaHatTeamRoomSpeaker
+   *  in server/routes.ts for the server-side label convention. */
+  hat?: string;
 }
 
 const CORE_PARTICIPANTS: Record<CoreParticipantId, ParticipantConfig> = {
@@ -108,11 +112,24 @@ const GUEST_COLORS = [
   { color: "text-indigo-500", bgColor: "bg-indigo-500/10", borderColor: "border-indigo-500/20" },
 ];
 
+// Matches every "Luca [Hat]" label the server can attribute a Team Room
+// message to (e.g. "Luca [Replit]", "Luca [Claude Code]"), plus bare "Luca"
+// for older/hat-less messages. Mirrors the convention produced server-side by
+// lucaHatTeamRoomSpeaker() in server/routes.ts — keep in sync if that changes.
+const LUCA_HAT_LABEL_PATTERN = /^luca(?:\s*\[([^\]]+)\])?$/i;
+
 function getParticipantConfig(speakerName: string, guestTutors: GuestTutorInfo[] = []): ParticipantConfig {
   const key = speakerName.toLowerCase() as CoreParticipantId;
   if (CORE_PARTICIPANTS[key]) return CORE_PARTICIPANTS[key];
   if (speakerName.toLowerCase() === "system") {
     return { id: "system", name: "System", role: "", Icon: Info, color: "text-muted-foreground", bgColor: "bg-muted/50", borderColor: "border-border" };
+  }
+  // A hat-specific label is still Luca -- keep the Luca icon/color rather than
+  // falling through to generic Guest styling. The hat itself (if any) is kept
+  // on `hat` so callers can still show which hat posted at a glance.
+  const hatMatch = LUCA_HAT_LABEL_PATTERN.exec(speakerName.trim());
+  if (hatMatch) {
+    return { ...CORE_PARTICIPANTS.luca, hat: hatMatch[1]?.trim() };
   }
   const guestIdx = guestTutors.findIndex(g => g.tutorName.toLowerCase() === speakerName.toLowerCase());
   const colorSet = GUEST_COLORS[Math.max(0, guestIdx) % GUEST_COLORS.length];
@@ -292,6 +309,7 @@ function ExpressLaneMessage({ participant, content, time, guestTutors }: { parti
       <div className="flex items-center gap-1.5 min-w-0">
         <Icon className={`h-3 w-3 shrink-0 ${p.color}`} />
         <span className={`text-xs font-medium shrink-0 ${p.color}`}>{p.name}</span>
+        {p.hat && <Badge variant="outline" className="text-xs py-0 h-3.5 px-1 shrink-0">{p.hat}</Badge>}
         <span className="text-xs text-muted-foreground shrink-0">{time}</span>
       </div>
       <div className={`text-xs ${p.bgColor} ${p.borderColor} border rounded-md p-2 whitespace-pre-wrap leading-relaxed break-words overflow-hidden`}>{content}</div>
@@ -339,6 +357,7 @@ function MessageBubble({ message, onPlayVoice, guestTutors }: {
       <div className={`flex items-center gap-1.5 ${isDavid ? "flex-row-reverse" : ""}`}>
         <Icon className={`h-3.5 w-3.5 ${p.color}`} />
         <span className={`text-xs font-medium ${p.color}`}>{p.name}</span>
+        {p.hat && <Badge variant="outline" className="text-xs py-0 h-3.5 px-1">{p.hat}</Badge>}
         {p.isGuest && <Badge variant="outline" className="text-xs py-0 h-3.5 px-1">guest</Badge>}
         <span className="text-xs text-muted-foreground">{time}</span>
         {!isDavid && onPlayVoice && (
