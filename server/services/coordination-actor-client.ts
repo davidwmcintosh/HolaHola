@@ -162,7 +162,12 @@ export class CoordinationActorClient {
     });
     const result = apiResult(await response.text());
     if (!response.ok || typeof result !== 'object' || result === null) {
-      throw new Error(`Coordination credential exchange failed (${response.status})`);
+      throw new Error(
+        `Coordination credential exchange failed (${response.status}) for runtime ${runtimeId}; `
+        + 'if the bootstrap was already consumed by an earlier successful exchange, an operator must '
+        + `reissue it in place with \`npx tsx server/scripts/coordination-runtime-rotation.ts reissue --runtime-id ${runtimeId}\` `
+        + 'and inject the new token before this process can authenticate again',
+      );
     }
     const payload = result as Record<string, unknown>;
     if (payload.actor !== this.actor || typeof payload.accessToken !== 'string' || typeof payload.expiresAt !== 'string') {

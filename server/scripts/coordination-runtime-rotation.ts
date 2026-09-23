@@ -1,6 +1,7 @@
 import { closeDbConnections } from '../db';
 import {
   completeCoordinationRuntimeReplacement,
+  reissueCoordinationRuntimeBootstrap,
   rollbackCoordinationRuntimeReplacement,
   stageCoordinationRuntimeReplacement,
 } from '../services/coordination-credential-broker';
@@ -16,6 +17,15 @@ function usage(): never {
     '  stage --from-runtime-id <current-id> --runtime-id <new-id> --display-name <name>',
     '  complete --from-runtime-id <current-id> --runtime-id <new-id>',
     '  rollback --from-runtime-id <current-id> --runtime-id <new-id>',
+    '  reissue --runtime-id <existing-id>',
+    '',
+    'stage/complete/rollback move a live runtime to a new immutable ID without',
+    'interrupting its current credential (zero-downtime rotation).',
+    '',
+    'reissue replaces the bootstrap secret in place for the SAME existing',
+    'runtime ID. Use it to recover a runtime whose bootstrap was already',
+    'consumed or lost and has nothing live left to protect -- the common case',
+    'after a crash, redeploy, or container recycle.',
   ].join('\n'));
 }
 
@@ -38,6 +48,24 @@ export function formatRollbackOutcome(input: {
 
 async function main(): Promise<void> {
   const action = process.argv[2];
+
+  if (action === 'reissue') {
+    const runtimeId = option('runtime-id');
+    if (!runtimeId) usage();
+    const result = await reissueCoordinationRuntimeBootstrap(runtimeId);
+    if (!result.ok) throw new Error(`Bootstrap could not be reissued: ${result.reason}`);
+    process.stdout.write([
+      `Bootstrap reissued in place for ${runtimeId} (${result.actor}).`,
+      'The runtime ID, actor, capabilities, and token TTL are unchanged; only the bootstrap secret is new.',
+      'Any credential this runtime already holds is untouched and keeps working until it expires or is revoked.',
+      'Store this bootstrap token in that runtime’s existing 1Password item, replacing the old value.',
+      'It is shown once and cannot be recovered from the database:',
+      result.bootstrapToken,
+      '',
+    ].join('\n'));
+    return;
+  }
+
   const sourceRuntimeId = option('from-runtime-id');
   const replacementRuntimeId = option('runtime-id');
   if (!sourceRuntimeId || !replacementRuntimeId) usage();

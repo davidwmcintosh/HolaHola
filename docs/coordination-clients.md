@@ -122,6 +122,47 @@ The command prints the bootstrap token once. Paste it directly into a new
 clear the terminal scrollback. Never place it in a repository file, shell
 profile, shared `.env`, command argument, chat, or coordination message.
 
+### Recovering a stranded bootstrap (in-place reissue)
+
+A bootstrap is consumed forever on its first successful exchange (the exact
+exchange and renewal mechanics are explained at the end of the next section).
+If a runtime process restarts after that point with no
+cached credential -- a crash, a redeploy, a cloud container recycle -- it is
+stranded: the original bootstrap will never work again, and there is no other
+live credential worth protecting. This is the common recovery case, not a
+zero-downtime concern, and it does not need a second runtime ID.
+
+Reissue a fresh bootstrap for the *same* runtime ID from the trusted HolaHola
+server environment:
+
+```bash
+npx tsx server/scripts/coordination-runtime-rotation.ts reissue \
+  --runtime-id luca-claude-code-cloud
+```
+
+This overwrites only the registration's bootstrap secret. The runtime ID,
+actor, display name, capabilities, and token TTL are unchanged, so nothing
+else needs to be reprovisioned, re-approved, or updated at any other caller.
+It never reads, revokes, or otherwise touches a credential the runtime already
+holds, so a process that is actually still alive and renewing normally keeps
+working exactly as before -- reissue is safe to run even when you are not
+certain whether the old bootstrap was ever consumed. Store the newly printed
+bootstrap in that runtime's existing 1Password item, replacing the old value,
+then restart the process. If a suspected-duplicate or compromised process
+might still be using the runtime's last issued credential, pair this with a
+credential revoke call; reissue by itself does not force anything out.
+
+Every call is audited as `bootstrap_reissued` (or `bootstrap_reissue_failed`
+with a `runtime_not_found` or `runtime_disabled_or_revoked` reason), and the
+success event records whether a still-valid credential existed at the moment
+of reissue, so a later review can distinguish a routine restart recovery from
+a reissue performed while the runtime was still live.
+
+Reach for staged rotation instead only when the runtime is still live and its
+current credential must keep working without interruption during the
+changeover, or when the runtime's identity itself needs to change -- see
+below.
+
 ### Zero-downtime bootstrap rotation
 
 Use rotation only when the source registration currently holds a valid,
@@ -129,12 +170,11 @@ renewable credential that real traffic depends on staying uninterrupted --
 that is the specific problem rotation solves. If the source's bootstrap was
 already consumed without the client ever keeping a working credential from it
 (for example, an access token was issued but lost before anything persisted
-it), there is nothing live to protect. Provision the replacement through the
-plain `coordination-runtime-bootstrap.ts` command instead, under a new runtime
-ID, and skip staging and completion entirely. The dead source registration can
-never be exchanged again and can be revoked later at leisure; it poses no
-ongoing risk beyond its own short-lived, already-orphaned access token
-expiring on schedule.
+it), there is nothing live to protect. Use the in-place reissue command above
+instead: it keeps the same runtime ID and needs no staging or completion. The
+old, already-orphaned registration can be revoked later at leisure if you
+provision a replacement under a new runtime ID for some other reason; it poses
+no ongoing risk beyond its own short-lived access token expiring on schedule.
 
 Run rotation only from the trusted HolaHola server environment. The bootstrap
 is never passed as a command argument. First stage a new immutable runtime ID:
@@ -211,14 +251,17 @@ COORDINATION_RUNTIME_BOOTSTRAP_TOKEN=<injected by that runtime's 1Password servi
 ```
 
 The actor client exchanges the bootstrap at first use, keeps the access token
-in memory, and renews it within 60 seconds of expiration. Renewal rotates the
-token; the prior token is revoked. The bootstrap itself is consumed on that
-first successful exchange and can never be exchanged again. A restart before
-the first successful exchange can still retry it, but a restart afterward has
-no persisted credential to fall back on (the access token lives only in that
-process's memory) and needs a brand new bootstrap -- a fresh
-`coordination-runtime-bootstrap.ts` registration under a new runtime ID, or a
-staged rotation -- rather than reusing the original value.
+in memory only, and renews it within 60 seconds of expiration. Renewal rotates
+the token; the prior token is revoked. The bootstrap itself is consumed on
+that first successful exchange and can never be exchanged again. A restart
+before the first successful exchange can still retry it. A restart afterward
+has no persisted credential to fall back on -- the access token lives only in
+that process's memory, never on disk or in the database -- so it needs a new
+bootstrap before it can authenticate again. Reissue one in place for the same
+runtime ID ("Recovering a stranded bootstrap" above); reserve a brand new
+runtime ID or a staged rotation for when the runtime's identity itself is
+changing or its current credential must keep serving traffic during the
+changeover.
 
 ### Runtime-specific setup
 

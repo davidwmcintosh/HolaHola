@@ -347,6 +347,7 @@ export async function registerCoordinationRuntimeWithBootstrapSha256(input: {
 export const registerCoordinationRuntimeWithBootstrapHash =
   registerCoordinationRuntimeWithBootstrapSha256;
 
+export type BootstrapReissueFailureReason = 'runtime_not_found' | 'runtime_disabled_or_revoked';
 function sameStringArray(left: string[], right: string[]): boolean {
   return left.length === right.length && left.every((value, index) => value === right[index]);
 }
@@ -1191,3 +1192,102 @@ export async function auditMissingBootstrapAttempt(runtimeId: string | undefined
     sourceIp,
   });
 }
+
+/**
+ * Issues a brand new one-time bootstrap for an EXISTING, still-enabled runtime
+ * registration. The runtime ID, actor, display name, capabilities, and token
+ * TTL are all left exactly as they are -- only the bootstrap secret changes.
+ *
+ * This is the fast recovery path for a runtime whose bootstrap was already
+ * consumed (see exchangeBootstrapCredential) or otherwise lost, and which has
+ * no live credential worth protecting with a full
+ * stage/markReady/completeCoordinationRuntimeReplacement rotation. It never
+ * reads, revokes, or otherwise touches any credential the registration has
+ * already issued: a process that is still alive and renewing normally keeps
+ * working exactly as before. Pair this with revokeRuntimeCredentials if a
+ * suspected-duplicate or compromised process must also be forced out.
+ *
+ * Use stageCoordinationRuntimeReplacement instead when the registration's
+ * current credential is live and must keep serving traffic without
+ * interruption during the changeover, or when the runtime's identity itself
+ * needs to change.
+ */
+export async function reissueCoordinationRuntimeBootstrap(
+  runtimeId: string,
+  sourceIp?: string,
+): Promise<BootstrapReissueResult> {
+  return getSharedDb().transaction(async (tx) => {
+    const executor = tx as unknown as ReturnType<typeof getSharedDb>;
+    await tx.execute(sql`
+      SELECT id FROM coordination_runtime_registrations
+      WHERE id = ${runtimeId}
+      FOR UPDATE
+    `);
+    const [registration] = await tx.select().from(coordinationRuntimeRegistrations)
+      .where(eq(coordinationRuntimeRegistrations.id, runtimeId));
+    if (!registration) {
+      await audit({
+        eventType: 'bootstrap_reissue_failed',
+        success: false,
+        runtimeId,
+        reason: 'runtime_not_found',
+        sourceIp,
+      }, executor);
+      return { ok: false, reason: 'runtime_not_found' };
+    }
+    if (!registration.enabled || registration.revokedAt) {
+      await audit({
+        eventType: 'bootstrap_reissue_failed',
+        success: false,
+        runtimeId,
+        actor: registration.actor,
+        reason: 'runtime_disabled_or_revoked',
+        sourceIp,
+      }, executor);
+      return { ok: false, reason: 'runtime_disabled_or_revoked' };
+    }
+
+    const [activeCredential] = await tx.select({ id: coordinationRuntimeCredentials.id })
+      .from(coordinationRuntimeCredentials)
+      .where(and(
+        eq(coordinationRuntimeCredentials.runtimeId, runtimeId),
+        isNull(coordinationRuntimeCredentials.revokedAt),
+        gt(coordinationRuntimeCredentials.expiresAt, new Date()),
+      ))
+      .limit(1);
+
+    const bootstrapToken = generateCoordinationSecret('cb');
+    const [updated] = await tx.update(coordinationRuntimeRegistrations).set({
+      bootstrapHash: hashCoordinationSecret(bootstrapToken),
+      updatedAt: new Date(),
+    }).where(and(
+      eq(coordinationRuntimeRegistrations.id, runtimeId),
+      eq(coordinationRuntimeRegistrations.enabled, true),
+      isNull(coordinationRuntimeRegistrations.revokedAt),
+    )).returning({ id: coordinationRuntimeRegistrations.id });
+    if (!updated) {
+      await audit({
+        eventType: 'bootstrap_reissue_failed',
+        success: false,
+        runtimeId,
+        actor: registration.actor,
+        reason: 'runtime_disabled_or_revoked',
+        sourceIp,
+      }, executor);
+      return { ok: false, reason: 'runtime_disabled_or_revoked' };
+    }
+    await audit({
+      eventType: 'bootstrap_reissued',
+      success: true,
+      runtimeId,
+      actor: registration.actor,
+      sourceIp,
+      metadata: { hadActiveCredentialAtReissue: Boolean(activeCredential) },
+    }, executor);
+    return { ok: true, bootstrapToken, actor: registration.actor as CoordinationActorId };
+  });
+}
+
+export type BootstrapReissueResult =
+  | { ok: true; bootstrapToken: string; actor: CoordinationActorId }
+  | { ok: false; reason: BootstrapReissueFailureReason };
