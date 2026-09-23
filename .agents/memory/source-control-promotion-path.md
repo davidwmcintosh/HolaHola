@@ -60,3 +60,24 @@ project's whole reconciliation apparatus (dirty-tree check, single scheduler
 writer, GitHub App auth) exists to prevent, especially on deploy-sensitive files.
 Land the change through the same in-process scheduler path everything else
 legitimate uses instead.
+
+## Direct CLI invocation and prepare/record timing
+
+A fourth, direct path exists alongside the wake-file/scheduler flow above:
+`npx tsx server/scripts/source-control-cli.ts sync|prepare|record <sha> --actor <name> --machine-readable`
+calls the same `SourceControlService` methods synchronously and prints
+`SOURCE_CONTROL_RESULT_JSON:{...}` on completion — no wake file or poll loop needed.
+
+`prepare` runs the full validation manifest against the exact candidate SHA
+(typecheck, build, `test:ci:unit`, `test:ci:guards`, `test:ci:episodes`,
+source-bridge safety, GitHub release safety, sync-guard shell checks)
+sequentially. Observed runtime: 15-20+ minutes. This is normal, not a hang —
+confirm via `ps -o pid,etimes,cmd -p <pid>` showing rising elapsed time and an
+active child test process, not silence.
+
+**How to apply:** launch `prepare`/`record` with ShellExec `run_in_background:
+true`, then wait with a small number of long sleeps (200-280s) or one armed
+Monitor on the `SOURCE_CONTROL_RESULT_JSON` pattern. Repeated short polls
+(every 10-30s) burn round-trips without changing when the result actually
+lands.
+
