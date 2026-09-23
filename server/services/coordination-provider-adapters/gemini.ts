@@ -220,8 +220,9 @@ function normalized(value: unknown, callSeed = ''): {
 }
 
 export class CoordinationGeminiAdapter {
-  private readonly apiKey: string;
-  private readonly endpointUrl: string;
+  private readonly apiKey: string | undefined;
+  private readonly endpointUrl: string | undefined;
+  private readonly configurationError: string | undefined;
 
   constructor(
     private readonly transport: GeminiTransport,
@@ -232,19 +233,45 @@ export class CoordinationGeminiAdapter {
       (process.env.GEMINI_API_KEY ? 'https://generativelanguage.googleapis.com/v1beta' : undefined),
     private readonly maxAttempts = 2,
   ) {
-    if (!apiKey) throw new Error('Gemini API key is not configured');
-    if (!baseUrl) throw new Error('Gemini API base URL is not configured');
+    // Configuration is validated lazily, on first real use inside turn(),
+    // rather than here. Constructing this adapter must stay side-effect-free
+    // so that routes/tests which wire it up but never execute a
+    // Gemini-backed call (no AI_INTEGRATIONS_GEMINI_API_KEY / GEMINI_API_KEY
+    // configured -- e.g. GitHub CI, which doesn't provision that secret) do
+    // not crash at wiring/startup time.
+    const validation = CoordinationGeminiAdapter.validateConfiguration(apiKey, baseUrl);
+    if ('error' in validation) {
+      this.configurationError = validation.error;
+      this.apiKey = undefined;
+      this.endpointUrl = undefined;
+    } else {
+      this.configurationError = undefined;
+      this.apiKey = apiKey;
+      this.endpointUrl = validation.endpointUrl;
+    }
+  }
+
+  private static validateConfiguration(
+    apiKey: string | undefined,
+    baseUrl: string | undefined,
+  ): { endpointUrl: string } | { error: string } {
+    if (!apiKey) return { error: 'Gemini API key is not configured' };
+    if (!baseUrl) return { error: 'Gemini API base URL is not configured' };
     let parsedBaseUrl: URL;
-    try { parsedBaseUrl = new URL(baseUrl); } catch { throw new Error('Gemini API base URL is invalid'); }
+    try { parsedBaseUrl = new URL(baseUrl); } catch { return { error: 'Gemini API base URL is invalid' }; }
     if (!['http:', 'https:'].includes(parsedBaseUrl.protocol) || parsedBaseUrl.username ||
         parsedBaseUrl.password || parsedBaseUrl.search || parsedBaseUrl.hash) {
-      throw new Error('Gemini API base URL must be a credential-free HTTP(S) base URL');
+      return { error: 'Gemini API base URL must be a credential-free HTTP(S) base URL' };
     }
-    this.apiKey = apiKey;
-    this.endpointUrl = `${baseUrl.replace(/\/+$/, '')}/models/${COORDINATION_GEMINI_MODEL}:generateContent`;
+    return { endpointUrl: `${baseUrl.replace(/\/+$/, '')}/models/${COORDINATION_GEMINI_MODEL}:generateContent` };
   }
 
   async turn(packet: InheritancePacket, turn: number, priorToolResults: unknown[] = [], signal?: AbortSignal): Promise<GeminiTurnResult[]> {
+    if (this.configurationError || !this.apiKey || !this.endpointUrl) {
+      throw new Error(this.configurationError ?? 'Gemini adapter is not configured');
+    }
+    const apiKey = this.apiKey;
+    const endpointUrl = this.endpointUrl;
     if (!Number.isInteger(turn) || turn < 1 || turn > 4) {
       throw new RuntimeProtocolError('model_call_limit_exceeded', 'Model turn is outside the approved limit');
     }
@@ -270,7 +297,7 @@ export class CoordinationGeminiAdapter {
       let status = 0;
       try {
         const response = await this.transport({
-          url: this.endpointUrl, headers: { 'content-type': 'application/json', 'x-goog-api-key': this.apiKey },
+          url: endpointUrl, headers: { 'content-type': 'application/json', 'x-goog-api-key': apiKey },
           body: requestBytes, signal,
         });
         status = response.status;

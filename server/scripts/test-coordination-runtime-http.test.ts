@@ -121,14 +121,24 @@ test('fixed compatibility tokens and authority overrides cannot authenticate', a
   } finally { await new Promise<void>((resolve) => f.server.close(() => resolve())); }
 });
 
-test('Gemini transport requires a credential-free configured HTTP(S) base URL', () => {
+test('Gemini transport requires a credential-free configured HTTP(S) base URL', async () => {
   const transport = async () => ({ status: 200, body: '{}' });
-  assert.throws(
-    () => new CoordinationGeminiAdapter(transport, 'test-key', ''),
+  const dummyPacket = {} as InheritancePacket;
+  // Construction itself must never throw: routes/tests that wire this
+  // adapter up but never actually drive a Gemini turn (e.g. GitHub CI,
+  // which provisions no Gemini secret) must not crash at registration
+  // time. Misconfiguration surfaces only when turn() is actually called.
+  assert.doesNotThrow(() => new CoordinationGeminiAdapter(transport, '', ''));
+  await assert.rejects(
+    () => new CoordinationGeminiAdapter(transport, '', '').turn(dummyPacket, 1),
+    /Gemini API key is not configured/,
+  );
+  await assert.rejects(
+    () => new CoordinationGeminiAdapter(transport, 'test-key', '').turn(dummyPacket, 1),
     /Gemini API base URL is not configured/,
   );
-  assert.throws(
-    () => new CoordinationGeminiAdapter(transport, 'test-key', 'not-a-url'),
+  await assert.rejects(
+    () => new CoordinationGeminiAdapter(transport, 'test-key', 'not-a-url').turn(dummyPacket, 1),
     /Gemini API base URL is invalid/,
   );
   for (const baseUrl of [
@@ -137,8 +147,8 @@ test('Gemini transport requires a credential-free configured HTTP(S) base URL', 
     'https://gemini-proxy.example.test?credential=value',
     'https://gemini-proxy.example.test#fragment',
   ]) {
-    assert.throws(
-      () => new CoordinationGeminiAdapter(transport, 'test-key', baseUrl),
+    await assert.rejects(
+      () => new CoordinationGeminiAdapter(transport, 'test-key', baseUrl).turn(dummyPacket, 1),
       /credential-free HTTP\(S\) base URL/,
     );
   }
