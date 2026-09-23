@@ -95,6 +95,13 @@ commands.splice(safetyInsertion, 0,
   // catch. These entries close that gap for checks confirmed hermetic or
   // correctly CI-database-gated. See run-validation-suite.sh for the
   // handful of checks intentionally left out, with reasoning inline.
+  //
+  // This parity is now enforced automatically -- not just documented -- by
+  // test-validation-suite-ci-parity.ts below. It fails loudly if a future
+  // run_check line is ever added to run-validation-suite.sh without a
+  // matching entry appearing somewhere in this CI command set.
+  'npx tsx server/scripts/test-validation-suite-ci-parity.ts',
+  'npx tsx server/scripts/test-validation-suite-ci-parity.ts --self-check',
 
   // Source-bridge and GitHub transport safety.
   'bash scripts/test-github-sync-guards.sh',
