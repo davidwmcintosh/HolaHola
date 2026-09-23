@@ -7,6 +7,16 @@ Format: `[date found] — location — description — severity`
 
 ## Active
 
+**2026-09-23 — Any hard restart of a brokered coordination client locks it out until the bootstrap is rotated — OPEN**
+
+`exchangeBootstrapCredential()` consumes the runtime's bootstrap on first exchange (the registration's `bootstrapHash` is replaced with a consumed digest), and `CoordinationActorClient` keeps the resulting access token in memory only. Nothing persists the token, so any process restart — a crash, a redeploy, a fresh cloud container — leaves the client with nothing to renew and a bootstrap that now fails with `bootstrap_already_consumed`. The only recovery is an operator-driven bootstrap rotation. Hit for real on 2026-09-23 when a Claude Code cloud session lost its first access token and was locked out; the header mistake that triggered it was incidental — a plain restart does the same thing.
+
+Not fixed here: the fix is a design decision (persist the access token in the runtime's secret store, allow a bounded re-exchange, or a self-request/founder-approval re-issue flow like task ownership's `begin` → approve → `prove`), and is being worked through as part of the reusable LLM onboarding process. The doc line that claimed "A restart exchanges the bootstrap again" was corrected in `docs/coordination-clients.md` the same day.
+
+Location: `server/services/coordination-credential-broker.ts` (`exchangeBootstrapCredential()`), `server/services/coordination-actor-client.ts` (`exchangeBootstrap()`) — Severity: MEDIUM (every brokered runtime is one restart away from needing manual rotation).
+
+---
+
 **2026-09-22 — `syncEpisodeFile()` restores `.md` from DB instead of pushing a longer local `.md` into a shorter DB row — OPEN**
 
 `server/scripts/test-chat-episode-hook-e2e.ts` fails deterministically at STEP 5 ("Verify DB row contains sentinel text"): STEP 3 appends a sentinel to the isolated `episode-9993.md` fixture (116 → 214 bytes) while the DB baseline is force-set to the original 116 bytes, then STEP 4 calls `syncEpisodeFile()` expecting it to push the fixture's now-longer `.md` content into the DB — a legitimate growth, not a shrink. Instead the log shows `[AgentAutosave] Rolling episode Markdown replica restored from canonical DB: Episode 9993`: the sync ran DB→`.md` instead of `.md`→DB, so the DB row stays at 116 bytes and the sentinel never lands (2 of 12 assertions fail).
