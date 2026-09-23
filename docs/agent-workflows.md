@@ -294,28 +294,49 @@ Teaching skills are **different from Replit skills**. They live in the `teaching
 
 Replit skills (`.local/skills/`, `.agents/skills/`) are tools for the Agent while building — pdf, canvas, validation, etc. No overlap.
 
-**These two directories are not equivalent.** `.agents/skills/` is git-tracked
-— both Replit and Claude Code see the same files once pulled. Pulling the
-files is not the same as discovering them, though: Claude Code has no native
-mechanism to glob an arbitrary repo path on its own initiative — it only
-auto-loads skills it finds under its own `.claude/skills/` convention. That
-gap used to require restating each skill's existence somewhere else by hand.
-It's now closed structurally: `.claude/skills` is a git-tracked symlink to
-`../.agents/skills`, so Claude Code's own native skill-discovery picks up
-every skill there automatically, with nothing to keep in sync by hand.
-`server/scripts/test-agent-skills-symlink.ts` (wired into the validation
-suite, normal + `--self-check` modes) guards against the symlink ever being
-silently replaced by a plain directory or pointed at the wrong target.
+**These two directories are not equivalent, but the gap between hats is
+narrower than it used to be.** `.agents/skills/` is git-tracked and is the
+one canonical, cross-hat skill store: Replit Agent and Google Antigravity
+each natively scan it (Antigravity's own workspace-skill path is literally
+`<workspace-root>/.agents/skills/`), and Claude Code does too via the
+checked-in `.claude/skills` symlink (→ `../.agents/skills`) — all three read
+the identical `agentskills.io`-format `SKILL.md` files through their own
+native Skill-tool discovery, not just by an instructed agent grepping the
+repo. A `server/scripts/test-agent-skills-symlink.ts` guard (wired into the
+validation suite, with a `--self-check` mode) fails if that symlink is ever
+removed or lets `.claude/skills` diverge from `.agents/skills`. See
+`docs/superpowers/specs/2026-09-21-cross-hat-skill-discovery-design.md` for
+the full design and its disclosed limits (mainly: a checkout with Git's
+`core.symlinks=false`, most commonly on Windows without Developer Mode,
+still materializes `.claude/skills` as a plain file instead of a real
+symlink — confirm `git config core.symlinks` is `true` before relying on it
+there).
 
-`.local/skills/` is gitignored — anything only placed there (like
-`security_scan` below) is genuinely invisible to Claude Code, on any
-checkout, forever, by construction; a symlink can't help here because there
-is nothing git-tracked to point at. That gap is real and still open. If a
-skill only makes sense to keep local, add a pointer for it to
-`editor_insights` (category `tools`) — title, one-line description, and
-confirmation it's `.local/`-only — per `docs/shared-agent-instructions.md`'s
-Shared Institutional Memory section. That remains the one channel that
-crosses this specific (local-only) boundary.
+`.local/skills/` is gitignored Replit-platform tooling (pdf, canvas,
+deployment, security-scan, and similar) — it doesn't exist as a directory on
+any non-Replit runtime at all, so no per-runtime projection can make it
+natively appear elsewhere; it is genuinely invisible to Claude Code and
+Antigravity, on any checkout, forever, by construction. The same is true of
+any skill a hat installs at its own personal or global scope outside this
+checkout (a Claude Code plugin, something dropped into Antigravity's global
+`~/.gemini/antigravity/skills/`) — that content lives outside git for that
+runtime instance alone. Closing that gap is always an explicit act, never
+automatic sync:
+
+- **Pointer** (something worth other hats knowing exists, even if it can't
+  be copied): add a row to `editor_insights` (category `tools`) — title,
+  one-line description, and confirmation of where it actually lives — per
+  `docs/shared-agent-instructions.md`'s Shared Institutional Memory section,
+  and/or push a `shared-spec-cli.ts share` fast-share note (optionally
+  `--notify <actor-id>`) when a specific hat should know right now rather
+  than the next time someone queries `editor_insights`.
+- **Promotion** (the tool is actually usable outside its originating
+  runtime — it doesn't depend on Replit-only callbacks or another runtime's
+  proprietary plugin API): copy its `SKILL.md` and any bundled resources into
+  `.agents/skills/<name>/`, credit the origin, and commit. Once promoted, it
+  is exactly the same shared asset as every other entry in `.agents/skills/`
+  — visible to every hat through the native/symlinked paths above, no
+  special-casing required.
 
 To add or modify a teaching skill:
 - Skills are seeded in `server/services/teaching-skills-service.ts` in the `SEED_SKILLS` array.

@@ -120,6 +120,7 @@ run_check "Application startup recovery" bash server/scripts/test-start-applicat
 run_check "Application startup recovery self-check" bash server/scripts/test-start-application-recovery.sh --self-check
 run_check "Infra-mutation ownership guard (Cloudflare DNS, GitHub spec publish)" npx tsx --test server/scripts/test-infra-mutation-ownership-guard.test.ts
 run_check "Source-mutation write guard (server/scripts writes stay out of client/src, server/, shared/)" npx tsx --test server/scripts/scan-source-mutation-writes.test.ts
+run_check "Cross-hat skill discovery symlink" bash -c 'npx tsx server/scripts/test-agent-skills-symlink.ts && npx tsx server/scripts/test-agent-skills-symlink.ts --self-check'
 echo ""
 echo "════════════════════════════════════════════════════════════"
 if [[ ${#FAILED[@]} -eq 0 ]]; then
