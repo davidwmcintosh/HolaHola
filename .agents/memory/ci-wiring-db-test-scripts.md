@@ -79,3 +79,25 @@ checking whether the requested `--group=` value is valid. So running
 splice + group-boundary + contiguous-coverage validation and then cleanly throws
 "Unknown CI test group" without spawning a single test command — a safe,
 side-effect-free way to confirm a splice edit didn't break the grouping.
+
+## SPLICE_SAFE/REPLIT_ONLY triage rule and a verification-script gotcha
+
+**Triage rule for closing a validation-suite vs CI gap (used across #1528/#1531/#1536):** classify a
+file SPLICE_SAFE (safe to add to `run-ci-test-steps.mjs` as-is) only if its code cannot
+crash/hang/false-claim-success when a needed resource (DB, secret, running server) is absent —
+i.e. it prints an explicit SKIP/informational message and exits 0, or calls node:test's
+`context.skip()`. Classify it REPLIT_ONLY (document the reason inline near its `run_check` line
+instead of splicing) only if it would actually throw/exit non-zero on a missing resource, or needs
+something structurally impossible in GitHub Actions (e.g. a pre-running local app server). Do not
+guess from the file's *topic* (e.g. "this sounds DB-related so it must be unsafe") — read the
+actual failure-path code. Most files gated on `getVerifiedCiDatabaseUrl()` or a similar
+CI-database check already degrade gracefully and are SPLICE_SAFE; only a hard `process.exit(1)` on
+a *specific* expected row/state (not just "no DB") should be REPLIT_ONLY.
+
+**Writing a script to diff `run-validation-suite.sh` against `run-ci-test-steps.mjs`:** if you
+regex-extract single-quoted JS string literals to find the spliced commands, strip `//` line
+comments first. A stray apostrophe inside a comment (e.g. a possessive like "file.ts's") is
+completely valid JS but desyncs naive quote-pair matching for everything after it in the same
+block, silently producing garbage "commands" and false gap reports — this cost significant
+rework in #1536. Prefer comment-stripping over trying to avoid apostrophes in future comments.
+

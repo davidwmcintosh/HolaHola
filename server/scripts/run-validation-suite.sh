@@ -92,6 +92,11 @@ run_check "Coordination runtime Antigravity e2e (real Express Gate3 lifecycle)" 
 # independent growth-cap or workflow-boundary checks.
 run_check "Replit attribution discipline" npx tsx server/scripts/test-replit-attribution-discipline.ts
 run_check "Episode 28 gap audit self-check" npx tsx server/scripts/audit-episode-28-gaps.ts --self-check
+# Replit-only: this self-check reads the real canonical Episode 28 row
+# (conversation_memories WHERE id = EPISODE_ID) from NEON_SHARED_DATABASE_URL
+# and calls process.exit(1) if that specific row is missing. GitHub Actions'
+# job-local disposable Postgres never has this row, so this would be a false
+# failure there, not a caught regression -- keep it out of run-ci-test-steps.mjs.
 run_check "Episode 28 startup shrinkage self-check" npx tsx server/scripts/restore-episode-28-from-db.ts --self-check
 run_check "Episode content-loss guard self-check (all docs/episode-*.md, direct commit or merge)" npx tsx server/scripts/check-episode-content-loss.ts --self-check
 run_check "Episode dialogue-loss detector self-check" npx tsx server/scripts/detect-episode-dialogue-loss.ts --self-check
@@ -101,6 +106,10 @@ run_check "Truth-pipeline unified recall diagnosis" npx tsx server/scripts/test-
 run_check "Capture status stale escalation" npx tsx server/scripts/test-capture-status-stale-escalation.ts
 run_check "Canonical Claude Code/Replit conversation capture" npx tsx server/scripts/test-canonical-conversation-capture.ts
 run_check "Canonical capture worker readiness" npx tsx server/scripts/test-canonical-capture-worker-readiness.ts
+# Replit-only: this check calls a running local application server's health
+# route and needs COORDINATION_LUCA_REPLIT_TOKEN. GitHub Actions never starts
+# the app server before running tests, so this cannot execute there --
+# keep it out of run-ci-test-steps.mjs.
 run_check "Live canonical capture health route" npx tsx server/scripts/test-canonical-capture-health-route.ts
 run_check "Chat capture episode mirror outbox" npx tsx server/scripts/test-chat-capture-episode-outbox.ts
 run_check "Legacy watchdog source-identity repair fixtures" npx tsx --test server/scripts/repair-preincident-watchdog-source-identity.test.ts
