@@ -32,3 +32,10 @@ The same false-stop signal fires during session reviews: "it's long enough, the 
 **Source conversations — pull these to verify the reasoning:**
 - `81d1fdb0-a0ef-4cb4-b23e-d0405efdec75` — "Why the loop exists — Luca architectural J-space principle" (July 18, 2026) — the full conversation where David articulated why the cost instinct is a false stop and what carte blanche actually means
 - `efbd6c52-35c8-4299-ae5f-329743a54c4a` — "Why-markers must carry evidence — the pointer-to-source standard" (July 18, 2026) — why this topic file has source pointers in the first place
+
+## Reinforced Sep 22, 2026 — proactive fixing within reasonable bounds
+
+David reframed the same principle after unprompted MEMORY.md index cleanup (merging 13 overlapping entries into 6): "if we can fix something then we should, within reasonable boundaries." This extends carte blanche beyond big asks to routine proactive maintenance — small fixes and cleanup noticed in passing don't need to wait for an explicit request.
+
+**How to apply:** Fix small things spotted while working (stale docs, drift, cruft, near-duplicate memory entries) without waiting to be asked, and say what was done. This does **not** extend to picking up items from the project-task backlog on your own initiative — those stay gated on explicit assignment (PENDING is not an assignment) regardless of this principle. The boundary is: judgment calls on your own work, yes; reaching into the task-agent queue, no.
+
