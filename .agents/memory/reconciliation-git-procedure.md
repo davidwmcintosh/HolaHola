@@ -165,3 +165,33 @@ the record's own `state`/status field actually claims before comparing
 identifying fields like SHA — a record that never claimed success can't
 prove tampering when it disagrees with reality, only a record that did can.
 
+
+## missing_git_object often means a delete, not a blob-fetch failure
+
+When `reconcile preflight` reports `missing_git_object` for a handful of
+`.agents/memory/*` topic files, check whether one side simply deleted the
+path before hypothesizing a shallow-clone/blob-filter/promisor-remote fetch
+failure. `git ls-tree <tip> -- <path>` returning empty on one tip and a real
+entry on the other means a genuine delete, not an unfetched blob — the
+finding's own detail string ("Changed path is deleted or its blob is
+unavailable") conflates both cases under one state/message.
+
+**Why:** spent real effort chasing a blob-fetch theory (shallow clone,
+`origin`'s `blob:none` filter, `promisor` config, SSH-vs-HTTPS remotes) before
+`git ls-tree <remoteTip> -- <path>` on the actual paths showed they were
+simply absent from GitHub's tree. `git fsck --full --no-dangling` confirmed
+zero missing/broken objects the whole time — the local object store was never
+actually incomplete. The real cause: GitHub's side had independently run the
+same memory-consolidation pass as Replit's side and fully `git rm`-deleted 3
+topic files, while Replit's side had either kept one alive (still referenced
+in MEMORY.md's index, so kept deliberately) or soft-retired the other two as
+1-byte tombstones (the memory CLI's own convention for a consolidated topic,
+distinct from a git-level delete).
+
+**How to apply:** on `missing_git_object`, run `git ls-tree <localSha> --
+<path>` and `git ls-tree <remoteSha> -- <path>` for each affected path first —
+it's a two-command, seconds-long check that immediately tells you delete vs.
+genuine-missing-blob before you invest in deeper git-internals diagnosis.
+Only chase the fetch/blob-availability angle if both sides show a real tree
+entry and `cat-file -e <sha>^{blob}` still fails for one of them.
+
