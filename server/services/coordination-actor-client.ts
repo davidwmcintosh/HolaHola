@@ -157,6 +157,44 @@ function legacyTokenForActor(actor: CoordinationClientActor, environment: Enviro
   return token;
 }
 
+// Bootstrap tokens are minted by generateCoordinationSecret('cb') in
+// coordination-credential-broker.ts: a "cb_" prefix followed by the unpadded
+// base64url encoding of 32 random bytes, always 43 characters (46 total).
+// This module intentionally never imports that broker file by value -- doing
+// so would pull in server/db.ts, which throws at load time on any machine
+// with no database credential configured, exactly the machines external
+// runtimes like Claude Code run on (see coordination-auth.ts's import-chain
+// comment and test-coordination-cli-hermetic-env.test.ts) -- so the shape is
+// duplicated here as a plain pattern instead of imported.
+// server/scripts/prepare-antigravity-provisioning.ts independently encodes
+// the identical `^cb_[A-Za-z0-9_-]{43}$` shape for the same reason; keep the
+// two in sync if either changes. test-coordination-actor-clients.test.ts
+// cross-checks this pattern against real generateCoordinationSecret('cb')
+// output so the two can never silently drift apart.
+const BOOTSTRAP_TOKEN_PATTERN = /^cb_[A-Za-z0-9_-]{43}$/;
+
+/**
+ * Local, offline check for a mistyped or truncated bootstrap token -- by far
+ * the most common cause of a wasted `invalid_bootstrap` round trip against
+ * the live server (see docs/coordination-clients.md's "Diagnosing a failed
+ * exchange"). Returns a description of what looks wrong, or undefined when
+ * the token's shape is plausible. This cannot prove the token is *correct*
+ * -- only the server's hash comparison can -- but it catches the copy/paste
+ * mistakes that used to cost a full reissue-and-retry cycle just to diagnose.
+ */
+export function coordinationBootstrapTokenShapeIssue(token: string): string | undefined {
+  if (BOOTSTRAP_TOKEN_PATTERN.test(token)) return undefined;
+  if (!token.startsWith('cb_')) {
+    return 'must start with "cb_" -- double-check this is the bootstrap token itself, not an access token (ct_) or another value';
+  }
+  if (token.length !== 46) {
+    return `must be exactly 46 characters ("cb_" plus 43 base64url characters), but is ${token.length}; `
+      + 'it looks truncated or has extra/stray characters from a copy/paste';
+  }
+  return 'must contain only letters, digits, "-", and "_" after the "cb_" prefix; '
+    + 'it looks corrupted by a copy/paste (e.g. stray whitespace, a newline, or URL-encoding)';
+}
+
 function apiResult(text: string): unknown {
   if (!text) return {};
   try {
@@ -321,6 +359,13 @@ export class CoordinationActorClient {
       const envName = COORDINATION_TOKEN_ENV_BY_ACTOR[this.actor];
       throw new Error(
         `${this.actor} coordination authentication is not configured; set ${envName} during migration or set COORDINATION_RUNTIME_ID and COORDINATION_RUNTIME_BOOTSTRAP_TOKEN`,
+      );
+    }
+    const shapeIssue = coordinationBootstrapTokenShapeIssue(bootstrap);
+    if (shapeIssue) {
+      throw new Error(
+        `COORDINATION_RUNTIME_BOOTSTRAP_TOKEN ${shapeIssue}. Checked locally before contacting the server, `
+        + 'so no reissue is needed for this -- fix the value in this runtime\'s secret store and retry.',
       );
     }
     const response = await this.fetchImpl(new URL('/api/coordination/credentials/exchange', `${this.baseUrl}/`), {

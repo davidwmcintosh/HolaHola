@@ -307,6 +307,20 @@ clients keep the memory-only behavior described above unless an operator
 separately opts one into `COORDINATION_RUNTIME_TOKEN_CACHE_PATH`.
 ### Diagnosing a failed exchange
 
+Check this first: `CoordinationActorClient`'s `exchangeBootstrap()` validates
+the configured bootstrap token's shape locally, before any HTTP call. A valid
+bootstrap is `cb_` followed by exactly 43 base64url characters (46 characters
+total) -- the exact shape `generateCoordinationSecret` in
+coordination-credential-broker.ts produces. A value that fails this check
+throws immediately with a description of what looks wrong (wrong prefix or
+wrong length) instead of reaching the server at all. This is almost always a
+bad copy/paste into the runtime's secret store, not a server-side problem,
+and costs nothing to fix locally -- it is never a reason to ask an operator
+for a reissue. To check by hand, run
+`echo -n "$COORDINATION_RUNTIME_BOOTSTRAP_TOKEN" | wc -c` in the runtime's own
+environment and compare against 46. Only move on to the codes below once the
+token's shape passes locally and the exchange still fails.
+
 `POST /api/coordination/credentials/exchange` returns `401` with a JSON body
 `{ "error": "...", "reason": "<code>" }` for every failure, so a runtime
 without database access can self-diagnose instead of guessing. The `reason`

@@ -5,18 +5,27 @@ import { join } from 'node:path';
 import test from 'node:test';
 import { resolveCoordinationActor } from '../middleware/coordination-auth';
 import {
+  coordinationBootstrapTokenShapeIssue,
   coordinationClientActions,
   createCoordinationActorClient,
   type CoordinationClientActor,
   type CoordinationCredentialCache,
   type CoordinationCredentialCacheEntry,
 } from '../services/coordination-actor-client';
+import { generateCoordinationSecret } from '../services/coordination-credential-broker';
 import { canCoordinationActorPerform } from '../services/coordination-ledger-service';
 import {
   assertExplicitCoordinationCommentIntent,
   coordinationCliDeliverySummary,
   unsupportedCoordinationCliOptions,
 } from './coordination-cli';
+
+// A structurally valid bootstrap fixture: "cb_" + 43 base64url characters,
+// matching the exact shape CoordinationActorClient.exchangeBootstrap() now
+// checks locally before making any HTTP call. Using a real-shaped value here
+// keeps the tests below exercising the actual request flow instead of
+// tripping the new local shape guard.
+const VALID_BOOTSTRAP_TOKEN = `cb_${'r'.repeat(43)}`;
 
 const TOKENS = {
   'luca-replit': 'r'.repeat(40),
@@ -206,7 +215,7 @@ test('actor clients exchange only their own runtime bootstrap and use the short-
     apiUrl: 'https://coordination.example',
     environment: {
       COORDINATION_RUNTIME_ID: 'luca-replit-primary',
-      COORDINATION_RUNTIME_BOOTSTRAP_TOKEN: 'cb_runtime-only-bootstrap',
+      COORDINATION_RUNTIME_BOOTSTRAP_TOKEN: VALID_BOOTSTRAP_TOKEN,
     },
     fetchImpl,
   });
@@ -216,7 +225,7 @@ test('actor clients exchange only their own runtime bootstrap and use the short-
   assert.deepEqual(observed, [
     {
       url: 'https://coordination.example/api/coordination/credentials/exchange',
-      bootstrap: 'cb_runtime-only-bootstrap',
+      bootstrap: VALID_BOOTSTRAP_TOKEN,
       token: null,
       body: JSON.stringify({ runtimeId: 'luca-replit-primary' }),
     },
@@ -234,7 +243,7 @@ test('actor clients reject a broker response attributed to another actor', async
     apiUrl: 'https://coordination.example',
     environment: {
       COORDINATION_RUNTIME_ID: 'luca-replit-primary',
-      COORDINATION_RUNTIME_BOOTSTRAP_TOKEN: 'cb_runtime-only-bootstrap',
+      COORDINATION_RUNTIME_BOOTSTRAP_TOKEN: VALID_BOOTSTRAP_TOKEN,
     },
     fetchImpl: async () => new Response(JSON.stringify({
       accessToken: 'ct_wrong-actor-token',
@@ -245,6 +254,67 @@ test('actor clients reject a broker response attributed to another actor', async
   });
 
   await assert.rejects(() => client.listFeed(), /cross-actor credential/);
+});
+
+test('coordinationBootstrapTokenShapeIssue accepts every token generateCoordinationSecret(\'cb\') actually produces', () => {
+  for (let i = 0; i < 50; i += 1) {
+    const token = generateCoordinationSecret('cb');
+    assert.equal(
+      coordinationBootstrapTokenShapeIssue(token),
+      undefined,
+      `a real broker-minted bootstrap must pass the client's local shape check, got an issue for: ${token}`,
+    );
+  }
+});
+
+test('coordinationBootstrapTokenShapeIssue names a wrong prefix, a truncated token, a padded token, and bad characters', () => {
+  const real = generateCoordinationSecret('cb');
+  assert.match(
+    coordinationBootstrapTokenShapeIssue(`ct_${real.slice(3)}`) ?? '',
+    /must start with "cb_"/,
+    'an access-token prefix on what should be a bootstrap must be flagged',
+  );
+  assert.match(
+    coordinationBootstrapTokenShapeIssue(real.slice(0, -4)) ?? '',
+    /must be exactly 46 characters/,
+    'a truncated bootstrap (a dropped tail from a bad copy/paste) must be flagged',
+  );
+  assert.match(
+    coordinationBootstrapTokenShapeIssue(`${real}x`) ?? '',
+    /must be exactly 46 characters/,
+    'a bootstrap with a stray trailing character must be flagged',
+  );
+  assert.match(
+    coordinationBootstrapTokenShapeIssue(`cb_${'='.repeat(43)}`) ?? '',
+    /must contain only letters, digits/,
+    'a correctly-sized token with invalid characters must be flagged distinctly from a length problem',
+  );
+  assert.equal(coordinationBootstrapTokenShapeIssue(real), undefined, 'sanity check: the unmodified real token must still pass');
+});
+
+test('actor clients reject a locally malformed bootstrap token before making any HTTP call', async () => {
+  const malformedTokens: Array<{ label: string; value: string; expected: RegExp }> = [
+    { label: 'wrong prefix', value: `ct_${'r'.repeat(43)}`, expected: /must start with "cb_"/ },
+    { label: 'truncated', value: 'cb_tooShort', expected: /must be exactly 46 characters/ },
+    { label: 'padded with a stray trailing character', value: `${VALID_BOOTSTRAP_TOKEN}x`, expected: /must be exactly 46 characters/ },
+  ];
+  for (const { label, value, expected } of malformedTokens) {
+    let fetchCalls = 0;
+    const client = createCoordinationActorClient('luca-replit', {
+      apiUrl: 'https://coordination.example',
+      environment: {
+        COORDINATION_RUNTIME_ID: 'luca-replit-primary',
+        COORDINATION_RUNTIME_BOOTSTRAP_TOKEN: value,
+      },
+      fetchImpl: async () => {
+        fetchCalls += 1;
+        throw new Error('must not reach the network for a locally malformed bootstrap token');
+      },
+    });
+
+    await assert.rejects(() => client.listFeed(), expected, `expected a clear local error for: ${label}`);
+    assert.equal(fetchCalls, 0, `must not make any HTTP call for a locally malformed bootstrap token (${label})`);
+  }
 });
 
 test('actor clients coalesce concurrent near-expiry renewal into one request', async () => {
@@ -273,7 +343,7 @@ test('actor clients coalesce concurrent near-expiry renewal into one request', a
     apiUrl: 'https://coordination.example',
     environment: {
       COORDINATION_RUNTIME_ID: 'luca-replit-primary',
-      COORDINATION_RUNTIME_BOOTSTRAP_TOKEN: 'cb_runtime-only-bootstrap',
+      COORDINATION_RUNTIME_BOOTSTRAP_TOKEN: VALID_BOOTSTRAP_TOKEN,
     },
     fetchImpl,
   });
@@ -637,7 +707,7 @@ test('a client persists a broker-issued token to disk so a restarted process rec
     const exchangeCalls: string[] = [];
     const environment = {
       COORDINATION_RUNTIME_ID: 'luca-replit-primary',
-      COORDINATION_RUNTIME_BOOTSTRAP_TOKEN: 'cb_runtime-only-bootstrap',
+      COORDINATION_RUNTIME_BOOTSTRAP_TOKEN: VALID_BOOTSTRAP_TOKEN,
     };
     const fetchImpl = async (input: string | URL): Promise<Response> => {
       const url = String(input);
@@ -687,7 +757,7 @@ test('a client persists a broker-issued token to disk so a restarted process rec
 test('a client ignores a cache entry that does not match this runtime, actor, or is expired or unparsable', async () => {
   const environment = {
     COORDINATION_RUNTIME_ID: 'luca-replit-primary',
-    COORDINATION_RUNTIME_BOOTSTRAP_TOKEN: 'cb_runtime-only-bootstrap',
+    COORDINATION_RUNTIME_BOOTSTRAP_TOKEN: VALID_BOOTSTRAP_TOKEN,
   };
   const validCachedEntry = {
     runtimeId: 'luca-replit-primary',
@@ -755,7 +825,7 @@ test('a client without a configured cache path behaves exactly as before (in-mem
       apiUrl: 'https://coordination.example',
       environment: {
         COORDINATION_RUNTIME_ID: 'luca-replit-primary',
-        COORDINATION_RUNTIME_BOOTSTRAP_TOKEN: 'cb_runtime-only-bootstrap',
+        COORDINATION_RUNTIME_BOOTSTRAP_TOKEN: VALID_BOOTSTRAP_TOKEN,
       },
       fetchImpl,
       // tokenCachePath intentionally omitted, and COORDINATION_RUNTIME_TOKEN_CACHE_PATH is
@@ -794,7 +864,7 @@ test('renewing a credential updates the on-disk cache, not just the in-memory co
       apiUrl: 'https://coordination.example',
       environment: {
         COORDINATION_RUNTIME_ID: 'luca-replit-primary',
-        COORDINATION_RUNTIME_BOOTSTRAP_TOKEN: 'cb_runtime-only-bootstrap',
+        COORDINATION_RUNTIME_BOOTSTRAP_TOKEN: VALID_BOOTSTRAP_TOKEN,
       },
       fetchImpl,
       tokenCachePath: cachePath,
