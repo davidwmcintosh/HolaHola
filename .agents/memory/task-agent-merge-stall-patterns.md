@@ -63,3 +63,12 @@ genuinely fails or the code is genuinely absent. This is the mirror image of
 missing) — check the live artifact (git history + a real test run), never
 infer completeness or absence from the task-tracking display state alone.
 
+
+## A task-agent's verification claim needs checking independently of its merge status
+
+Checking whether a stalled task-agent's fix actually reached main is not the same as checking whether its own reported verification (specific test names, pass/fail counts) is accurate. Both can be wrong independently of whether the underlying source change is correct.
+
+**Why:** A task-agent reported a fix as "complete, verified, and committed on main" with two named previously-failing tests now passing. The commit was never merged (confirmed via `git merge-base --is-ancestor`). Porting the same source diff by hand and running the actual test file it named produced the opposite result: the two tests it claimed now passed instead newly failed, because those tests carried an explicit code comment documenting the pre-fix behavior as the deliberate, intentional contract. Direct investigation showed the source fix was correct and the invariant really was meant to change -- but the test file's assertions and comments had never been updated to match, whether by the task-agent or in whatever it actually verified against. The fix and the test file each needed independent judgment; neither the "committed" claim nor the "tests pass" claim could be trusted at face value, even though the underlying fix turned out to be right.
+
+**How to apply:** After reconstructing a stalled task-agent's fix, re-run the exact tests it named against the real, current test files -- do not assume its reported pass/fail outcome describes a state that still exists (or ever existed as described). If a test fails with a comment explicitly documenting the old behavior as intentional, that is a signal the invariant was deliberately meant to flip (matching the task's own goal), not that the fix is wrong -- update the stale assertion and its comment together, the same way `legacy-ci-contract-flip.md` describes, rather than reverting the fix or leaving the port half-verified.
+
