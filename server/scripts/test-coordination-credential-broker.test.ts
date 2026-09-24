@@ -18,6 +18,7 @@ import {
 import { closeDbConnections, getSharedDb } from '../db';
 import { getVerifiedCiDatabaseUrl } from '../ci-database';
 import {
+  consumedCoordinationBootstrapHash,
   designateStandingCoordinationVerifier,
   exchangeBootstrapCredential,
   registerCoordinationRuntime,
@@ -120,12 +121,14 @@ databaseTest('trusted prehashed registration is strict, retry-safe, and never re
     assert.ok(caught, 'expected operation to reject');
     return caught;
   };
-  assert.equal(await exchangeBootstrapCredential(prehashedRuntimeId, digest), null);
+  const wrongDigest = await exchangeBootstrapCredential(prehashedRuntimeId, digest);
+  assert.equal(wrongDigest.ok, false);
+  if (!wrongDigest.ok) assert.equal(wrongDigest.reason, 'invalid_bootstrap');
 
   const replayed = await registerCoordinationRuntimeWithBootstrapSha256(input);
   assert.equal(replayed.status, 'replayed');
   assert.deepEqual(replayed, { ...created, status: 'replayed' });
-  assert.ok(await exchangeBootstrapCredential(prehashedRuntimeId, bootstrap));
+  assert.equal((await exchangeBootstrapCredential(prehashedRuntimeId, bootstrap)).ok, true);
 
   for (const invalidDigest of [
     digest.toUpperCase(),
@@ -319,8 +322,9 @@ databaseTest('operator provisioning is two-phase, receipt-bound, atomic, and con
   const replay = await registerAntigravityRuntime(bundle, freshPhaseA.challengeId);
   assert.equal(replay.status, 'replayed');
   const exchanged = await exchangeBootstrapCredential(operatorRuntimeId, secret);
-  assert.ok(exchanged);
-  const brokerCredential = await resolveBrokerCredential(exchanged!.accessToken);
+  assert.equal(exchanged.ok, true);
+  if (!exchanged.ok) return;
+  const brokerCredential = await resolveBrokerCredential(exchanged.accessToken);
   assert.ok(brokerCredential);
   const renewedGrantCredential = await renewBrokerCredential(brokerCredential);
   assert.ok(renewedGrantCredential);
@@ -712,8 +716,9 @@ databaseTest('operator provisioning is two-phase, receipt-bound, atomic, and con
     'replayed',
   );
   const secondExchanged = await exchangeBootstrapCredential(second.runtimeId, secondSecret);
-  assert.ok(secondExchanged);
-  const secondCredential = await resolveBrokerCredential(secondExchanged!.accessToken);
+  assert.equal(secondExchanged.ok, true);
+  if (!secondExchanged.ok) return;
+  const secondCredential = await resolveBrokerCredential(secondExchanged.accessToken);
   assert.ok(secondCredential);
   await assert.rejects(
     () => validateGate3ProofGrant(grant.id, secondCredential!.credential),
@@ -811,15 +816,32 @@ databaseTest('broker issues, rotates, expires from use, revokes, and audits with
     .set({ enabled: true, revokedAt: null, updatedAt: new Date() })
     .where(eq(coordinationRuntimeRegistrations.id, runtimeId));
 
-  assert.equal(await exchangeBootstrapCredential(runtimeId, 'wrong-bootstrap'), null);
+  const wrongBootstrap = await exchangeBootstrapCredential(runtimeId, 'wrong-bootstrap');
+  assert.equal(wrongBootstrap.ok, false);
+  if (!wrongBootstrap.ok) assert.equal(wrongBootstrap.reason, 'invalid_bootstrap');
+  const unknownRuntime = await exchangeBootstrapCredential(`${runtimeId}-does-not-exist`, bootstrapToken);
+  assert.equal(unknownRuntime.ok, false);
+  if (!unknownRuntime.ok) assert.equal(unknownRuntime.reason, 'unknown_runtime');
+
   const issued = await exchangeBootstrapCredential(runtimeId, bootstrapToken);
-  assert.ok(issued);
+  assert.equal(issued.ok, true);
+  if (!issued.ok) return;
   assert.equal(issued.credential.actor, 'luca-replit');
   assert.deepEqual(issued.credential.capabilities, [
     'coordination:read',
     'coordination:credential:renew',
     'coordination:credential:revoke',
   ]);
+
+  // Resending the exact bootstrap that was just consumed must be classified
+  // as bootstrap_already_consumed, not the generic invalid_bootstrap, so a
+  // client without database access can tell "ask for a new bootstrap" apart
+  // from "check the token you were given". This is the motivating case for
+  // task 1557: consumption overwrites bootstrapHash with a tombstone, so a
+  // naive hash-equality check alone would misclassify this as invalid.
+  const reExchanged = await exchangeBootstrapCredential(runtimeId, bootstrapToken);
+  assert.equal(reExchanged.ok, false);
+  if (!reExchanged.ok) assert.equal(reExchanged.reason, 'bootstrap_already_consumed');
 
   const [registration] = await getSharedDb().select().from(coordinationRuntimeRegistrations)
     .where(eq(coordinationRuntimeRegistrations.id, runtimeId));
@@ -856,6 +878,59 @@ databaseTest('broker issues, rotates, expires from use, revokes, and audits with
 });
 
 databaseTest(
+  'exchange reports consumed_bootstrap_digest_conflict when a tombstone hash collides with another runtime\'s live bootstrap',
+  async () => {
+    // A genuine SHA-256 collision is computationally infeasible to construct
+    // in a test, so this uses the prehashed-registration path to place a
+    // second runtime's live bootstrapHash at the exact value the first
+    // runtime's tombstone will occupy after consumption -- the same DB state
+    // a real collision would produce, exercised through the real code path.
+    const conflictSourceRuntimeId = `${runtimeId}-digest-conflict-source`;
+    const conflictOwnerRuntimeId = `${runtimeId}-digest-conflict-owner`;
+    const { bootstrapToken: sourceBootstrap } = await registerCoordinationRuntime({
+      runtimeId: conflictSourceRuntimeId,
+      actor: 'luca-replit',
+      displayName: 'Digest conflict source CI runtime',
+      capabilities: ['coordination:read'],
+      tokenTtlSeconds: 60,
+    });
+    const futureTombstone = consumedCoordinationBootstrapHash(
+      conflictSourceRuntimeId,
+      hashCoordinationSecret(sourceBootstrap),
+    );
+    await registerCoordinationRuntimeWithBootstrapSha256({
+      runtimeId: conflictOwnerRuntimeId,
+      actor: 'luca-claude-code',
+      displayName: 'Digest conflict owner CI runtime',
+      capabilities: ['coordination:read'],
+      tokenTtlSeconds: 60,
+      bootstrapSha256: futureTombstone,
+    });
+
+    const conflicted = await exchangeBootstrapCredential(conflictSourceRuntimeId, sourceBootstrap);
+    assert.equal(conflicted.ok, false);
+    if (!conflicted.ok) assert.equal(conflicted.reason, 'consumed_bootstrap_digest_conflict');
+
+    // The colliding owner registration must be untouched: the conflict must
+    // block the source's exchange, not silently consume or alter the owner.
+    const [ownerAfter] = await getSharedDb().select().from(coordinationRuntimeRegistrations)
+      .where(eq(coordinationRuntimeRegistrations.id, conflictOwnerRuntimeId));
+    assert.equal(ownerAfter.bootstrapHash, futureTombstone);
+
+    const auditEvents = await getSharedDb().select().from(coordinationCredentialAuditEvents)
+      .where(eq(coordinationCredentialAuditEvents.runtimeId, conflictSourceRuntimeId));
+    assert.equal(
+      auditEvents.some((event) =>
+        event.eventType === 'exchange_failed'
+        && !event.success
+        && event.reason === 'consumed_bootstrap_digest_conflict'
+      ),
+      true,
+    );
+  },
+);
+
+databaseTest(
   'designateStandingCoordinationVerifier is restricted to approved verifier actors and the matching registration',
   async () => {
     const { bootstrapToken } = await registerCoordinationRuntime({
@@ -866,7 +941,8 @@ databaseTest(
       tokenTtlSeconds: 60,
     });
     const issued = await exchangeBootstrapCredential(standingVerifierRuntimeId, bootstrapToken);
-    assert.ok(issued);
+    assert.equal(issued.ok, true);
+    if (!issued.ok) return;
     assert.equal(issued.credential.standingVerifier, false);
     assert.equal((await resolveBrokerCredential(issued.accessToken))?.standingVerifier, false);
 
@@ -969,7 +1045,8 @@ verifiedDisposableDatabaseTest(
       'runtime revocation must wait while bootstrap exchange holds the registration lock',
     );
 
-    assert.ok(issued, 'the lock-winning exchange should return its credential before revocation commits');
+    assert.equal(issued.ok, true, 'the lock-winning exchange should return its credential before revocation commits');
+    if (!issued.ok) return;
     assert.equal(revoked, true);
 
     const [registration] = await getSharedDb().select().from(coordinationRuntimeRegistrations)

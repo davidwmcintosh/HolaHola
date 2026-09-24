@@ -33,12 +33,12 @@ export function registerCoordinationCredentialRoutes(app: Application): void {
         : undefined;
       if (!runtimeId || !bootstrap) {
         await auditMissingBootstrapAttempt(runtimeId || undefined, sourceIp(req));
-        res.status(401).json({ error: 'Runtime bootstrap authentication required' });
+        res.status(401).json({ error: 'Runtime bootstrap authentication required', reason: 'missing_credentials' });
         return;
       }
       const issued = await exchangeBootstrapCredential(runtimeId, bootstrap, sourceIp(req));
-      if (!issued) {
-        res.status(401).json({ error: 'Runtime bootstrap authentication failed' });
+      if (!issued.ok) {
+        res.status(401).json({ error: 'Runtime bootstrap authentication failed', reason: issued.reason });
         return;
       }
       res.status(201).json({

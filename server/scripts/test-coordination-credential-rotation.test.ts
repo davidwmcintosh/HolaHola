@@ -84,7 +84,8 @@ databaseTest('runtime bootstrap rotation drains safely, completes only after use
     tokenTtlSeconds: 60,
   });
   const sourceCredential = await exchangeBootstrapCredential(runtimeIds[0], source.bootstrapToken);
-  assert.ok(sourceCredential);
+  assert.equal(sourceCredential.ok, true);
+  if (!sourceCredential.ok) return;
 
   const staged = await stageCoordinationRuntimeReplacement({
     sourceRuntimeId: runtimeIds[0],
@@ -107,7 +108,8 @@ databaseTest('runtime bootstrap rotation drains safely, completes only after use
   );
 
   const replacementCredential = await exchangeBootstrapCredential(runtimeIds[1], staged.bootstrapToken);
-  assert.ok(replacementCredential);
+  assert.equal(replacementCredential.ok, true);
+  if (!replacementCredential.ok) return;
   assert.deepEqual(replacementCredential.credential.capabilities, sourceCredential.credential.capabilities);
   assert.deepEqual(
     await completeCoordinationRuntimeReplacement({
@@ -135,7 +137,9 @@ databaseTest('runtime bootstrap rotation drains safely, completes only after use
     }),
     { ok: true, actor: 'luca-replit' },
   );
-  assert.equal(await exchangeBootstrapCredential(runtimeIds[0], source.bootstrapToken), null);
+  const sourceReExchanged = await exchangeBootstrapCredential(runtimeIds[0], source.bootstrapToken);
+  assert.equal(sourceReExchanged.ok, false);
+  if (!sourceReExchanged.ok) assert.equal(sourceReExchanged.reason, 'bootstrap_already_consumed');
   assert.equal(await resolveBrokerCredential(sourceCredential.accessToken), null);
   assert.equal((await resolveBrokerCredential(replacementCredential.accessToken))?.runtimeId, runtimeIds[1]);
 
@@ -147,7 +151,8 @@ databaseTest('runtime bootstrap rotation drains safely, completes only after use
   assert.equal(rollbackStage.ok, true);
   if (!rollbackStage.ok) return;
   const rollbackCredential = await exchangeBootstrapCredential(runtimeIds[2], rollbackStage.bootstrapToken);
-  assert.ok(rollbackCredential);
+  assert.equal(rollbackCredential.ok, true);
+  if (!rollbackCredential.ok) return;
   const rollbackProof = await resolveBrokerCredential(rollbackCredential.accessToken);
   assert.equal(rollbackProof?.runtimeId, runtimeIds[2]);
   assert.equal(await revokeRuntimeCredentials(runtimeIds[1], 'luca-replit'), true);
@@ -277,7 +282,8 @@ databaseTest('concurrent complete and rollback attempts produce one terminal out
   if (!staged.ok) return;
 
   const issued = await exchangeBootstrapCredential(runtimeIds[7], staged.bootstrapToken);
-  assert.ok(issued);
+  assert.equal(issued.ok, true);
+  if (!issued.ok) return;
   const proof = await resolveBrokerCredential(issued.accessToken);
   assert.ok(proof);
   assert.equal((await markCoordinationRuntimeReplacementReady({
@@ -346,7 +352,8 @@ databaseTest('rollback wins a race with replacement readiness and stale readines
   if (!staged.ok) return;
 
   const issued = await exchangeBootstrapCredential(runtimeIds[9], staged.bootstrapToken);
-  assert.ok(issued);
+  assert.equal(issued.ok, true);
+  if (!issued.ok) return;
   const proof = await resolveBrokerCredential(issued.accessToken);
   assert.ok(proof);
 
@@ -383,7 +390,9 @@ databaseTest('rollback wins a race with replacement readiness and stale readines
   assert.equal([rollbackAttempt, readinessResult].filter((attempt) => attempt.ok).length, 1);
 
   assert.equal(await resolveBrokerCredential(issued.accessToken), null);
-  assert.equal(await exchangeBootstrapCredential(runtimeIds[9], staged.bootstrapToken), null);
+  const replacementReExchanged = await exchangeBootstrapCredential(runtimeIds[9], staged.bootstrapToken);
+  assert.equal(replacementReExchanged.ok, false);
+  if (!replacementReExchanged.ok) assert.equal(replacementReExchanged.reason, 'bootstrap_already_consumed');
 
   const [rotation] = await getSharedDb().select().from(coordinationRuntimeRotations)
     .where(eq(coordinationRuntimeRotations.id, staged.rotationId));
@@ -491,7 +500,8 @@ databaseTest('in-place bootstrap reissue is repeatable, kills only prior bootstr
     tokenTtlSeconds: 60,
   });
   const firstCredential = await exchangeBootstrapCredential(runtimeId, source.bootstrapToken);
-  assert.ok(firstCredential);
+  assert.equal(firstCredential.ok, true);
+  if (!firstCredential.ok) return;
 
   const firstReissue = await reissueCoordinationRuntimeBootstrap(runtimeId);
   assert.equal(firstReissue.ok, true);
@@ -499,11 +509,18 @@ databaseTest('in-place bootstrap reissue is repeatable, kills only prior bootstr
   assert.equal(firstReissue.actor, 'luca-claude-code');
   assert.notEqual(firstReissue.bootstrapToken, source.bootstrapToken);
 
-  // The original bootstrap was already consumed and stays dead after reissue.
-  assert.equal(await exchangeBootstrapCredential(runtimeId, source.bootstrapToken), null);
+  // The original bootstrap stays dead after reissue. Reissue overwrites
+  // bootstrapHash with a live hash of the new token rather than a tombstone
+  // of the old one, so the single-slot "already consumed" comparison no
+  // longer matches the old token and it reads as invalid_bootstrap instead
+  // of bootstrap_already_consumed -- still correctly rejected either way.
+  const staleAfterFirstReissue = await exchangeBootstrapCredential(runtimeId, source.bootstrapToken);
+  assert.equal(staleAfterFirstReissue.ok, false);
+  if (!staleAfterFirstReissue.ok) assert.equal(staleAfterFirstReissue.reason, 'invalid_bootstrap');
   // The freshly reissued bootstrap works.
   const secondCredential = await exchangeBootstrapCredential(runtimeId, firstReissue.bootstrapToken);
-  assert.ok(secondCredential);
+  assert.equal(secondCredential.ok, true);
+  if (!secondCredential.ok) return;
   // Reissue never touched the credential issued before it ran.
   assert.equal((await resolveBrokerCredential(firstCredential.accessToken))?.runtimeId, runtimeId);
 
@@ -513,9 +530,15 @@ databaseTest('in-place bootstrap reissue is repeatable, kills only prior bootstr
   assert.equal(secondReissue.ok, true);
   if (!secondReissue.ok) return;
   assert.notEqual(secondReissue.bootstrapToken, firstReissue.bootstrapToken);
-  assert.equal(await exchangeBootstrapCredential(runtimeId, firstReissue.bootstrapToken), null);
+  // Same single-slot tombstone limitation as above: the second reissue
+  // overwrote bootstrapHash again, so this earlier-generation bootstrap also
+  // reads as invalid_bootstrap rather than bootstrap_already_consumed.
+  const staleAfterSecondReissue = await exchangeBootstrapCredential(runtimeId, firstReissue.bootstrapToken);
+  assert.equal(staleAfterSecondReissue.ok, false);
+  if (!staleAfterSecondReissue.ok) assert.equal(staleAfterSecondReissue.reason, 'invalid_bootstrap');
   const thirdCredential = await exchangeBootstrapCredential(runtimeId, secondReissue.bootstrapToken);
-  assert.ok(thirdCredential);
+  assert.equal(thirdCredential.ok, true);
+  if (!thirdCredential.ok) return;
   assert.equal((await resolveBrokerCredential(firstCredential.accessToken))?.runtimeId, runtimeId);
   assert.equal((await resolveBrokerCredential(secondCredential.accessToken))?.runtimeId, runtimeId);
   assert.equal((await resolveBrokerCredential(thirdCredential.accessToken))?.runtimeId, runtimeId);
@@ -543,7 +566,7 @@ databaseTest('bootstrap reissue records whether a live credential existed, and f
   if (!reissueWithoutCredential.ok) return;
 
   const credential = await exchangeBootstrapCredential(runtimeId, reissueWithoutCredential.bootstrapToken);
-  assert.ok(credential);
+  assert.equal(credential.ok, true);
 
   // A live, unexpired credential now exists at the moment of the next reissue.
   const reissueWithCredential = await reissueCoordinationRuntimeBootstrap(runtimeId);
@@ -590,7 +613,8 @@ databaseTest('bootstrap reissue refuses a revoked registration', async () => {
   assert.equal(staged.ok, true);
   if (!staged.ok) return;
   const replacementCredential = await exchangeBootstrapCredential(replacementRuntimeId, staged.bootstrapToken);
-  assert.ok(replacementCredential);
+  assert.equal(replacementCredential.ok, true);
+  if (!replacementCredential.ok) return;
   const replacementProof = await resolveBrokerCredential(replacementCredential.accessToken);
   assert.ok(replacementProof);
   assert.equal((await markCoordinationRuntimeReplacementReady({

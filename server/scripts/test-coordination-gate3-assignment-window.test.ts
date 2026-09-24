@@ -191,7 +191,7 @@ databaseTest('creates exact projection for a fresh generation and preserves the 
     });
   });
   const issued = await exchangeBootstrapCredential(initialBundle.runtimeId, initialBootstrapSecret);
-  assert.ok(issued);
+  assert.equal(issued.ok, true);
   await getSharedDb().update(coordinationRuntimeCredentials)
     .set({ revokedAt: new Date() })
     .where(eq(coordinationRuntimeCredentials.runtimeId, initialBundle.runtimeId));

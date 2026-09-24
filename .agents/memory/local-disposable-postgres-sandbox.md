@@ -55,3 +55,22 @@ script itself does or doesn't handle. Prefer an existing script like this
 over the manual recipe whenever one matches the area under test; fall back
 to the manual recipe only where no such harness exists.
 
+
+## Testing one file outside a harness's fixed list: copy the wrapper, keep it in-tree
+
+A harness like `run-coordination-ledger-local.mjs` hardcodes its final test
+invocation (e.g. `npm run test:coordination-ledger:run`, itself a fixed
+file list in `package.json`) — it does not forward extra file arguments. To
+verify a *different* file that shares the same DB setup/migrations but isn't
+in that list (e.g. a sibling `test-*.test.ts` not wired into the same
+`package.json` script), copy the harness `.mjs` file and replace only its
+final `run(...)` line with a direct `npx tsx --test <your-file>` call.
+
+**Quirk:** the copy must live somewhere inside the project tree (repo root or
+below), not `/tmp`. Node's ESM resolver looks for `node_modules` starting from
+the *importing file's own path* upward, not from `cwd` — a copy saved to
+`/tmp/foo.mjs` and run with `cwd` set to the project root still fails with
+`ERR_MODULE_NOT_FOUND` on the harness's own dependencies (e.g. `pg`), because
+`/tmp` has no `node_modules` ancestor. Save the copy at the project root (e.g.
+`./run-<name>-local.tmp.mjs`), run it, then delete it immediately after —
+whether it passed or failed — so it never lands in a commit.

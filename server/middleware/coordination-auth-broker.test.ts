@@ -48,8 +48,9 @@ databaseTest('broker Luca credential requires observation:read and audits denial
   });
   const permitted = await exchangeBootstrapCredential(permittedRuntimeId, permittedBootstrap.bootstrapToken);
   const denied = await exchangeBootstrapCredential(deniedRuntimeId, deniedBootstrap.bootstrapToken);
-  assert.ok(permitted);
-  assert.ok(denied);
+  assert.equal(permitted.ok, true);
+  assert.equal(denied.ok, true);
+  if (!permitted.ok || !denied.ok) return;
 
   const allowedResolution = await resolveCoordinationCapability(
     permitted.accessToken,

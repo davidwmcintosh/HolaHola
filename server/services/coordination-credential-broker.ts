@@ -48,6 +48,19 @@ export type RuntimeReplacementResult<T> =
   | ({ ok: true } & T)
   | { ok: false; reason: RuntimeReplacementFailureReason };
 
+/**
+ * Failure categories a bootstrap-exchange client can act on without database
+ * access: `unknown_runtime` / `invalid_bootstrap` mean check the runtime ID or
+ * token you were given; `bootstrap_already_consumed` means ask an operator for
+ * a fresh bootstrap; `consumed_bootstrap_digest_conflict` is a rare internal
+ * collision that also needs an operator. These are also the literal `reason`
+ * values written to coordinationCredentialAuditEvents for this event.
+ */
+export type ExchangeBootstrapFailureReason =
+  | 'unknown_runtime'
+  | 'invalid_bootstrap'
+  | 'bootstrap_already_consumed'
+  | 'consumed_bootstrap_digest_conflict';
 export type BrokerCredential = {
   actor: CoordinationActorId;
   runtimeId: string;
@@ -827,6 +840,10 @@ async function issueForRegistration(
   };
 }
 
+function hashesMatch(a: string, b: string): boolean {
+  return a.length === b.length && crypto.timingSafeEqual(Buffer.from(a), Buffer.from(b));
+}
+
 /**
  * Handles a bootstrap exchange attempt that does not match the registration's
  * live bootstrap hash. This is not automatically a forged or guessed secret:
@@ -858,7 +875,7 @@ async function attemptGraceBootstrapReexchange(input: {
   bootstrapToken: string | undefined;
   bootstrapSha256: string;
   sourceIp?: string;
-}): Promise<{ accessToken: string; credential: BrokerCredential } | null> {
+}): Promise<ExchangeBootstrapResult> {
   const { executor, runtimeId, registration, bootstrapToken, bootstrapSha256, sourceIp } = input;
   const graceEligible = Boolean(
     registration.enabled
@@ -878,7 +895,7 @@ async function attemptGraceBootstrapReexchange(input: {
       reason: 'invalid_bootstrap',
       sourceIp,
     }, executor);
-    return null;
+    return { ok: false, reason: 'invalid_bootstrap' };
   }
   const [everUsed] = await executor.select({ id: coordinationRuntimeCredentials.id })
     .from(coordinationRuntimeCredentials)
@@ -896,7 +913,7 @@ async function attemptGraceBootstrapReexchange(input: {
       reason: 'bootstrap_already_consumed',
       sourceIp,
     }, executor);
-    return null;
+    return { ok: false, reason: 'bootstrap_already_consumed' };
   }
   // Nothing issued for this runtime has ever authenticated a request, so
   // every still-live row found here is an abandoned dead end, never an
@@ -927,14 +944,15 @@ async function attemptGraceBootstrapReexchange(input: {
       priorUnusedCredentialsRevoked: revoked.length,
     },
   }, executor);
-  return issueForRegistration(registration, 'issued', sourceIp, undefined, executor);
+  const issued = await issueForRegistration(registration, 'issued', sourceIp, undefined, executor);
+  return { ok: true, ...issued };
 }
 export async function exchangeBootstrapCredential(
   runtimeId: string,
   bootstrapToken: string | undefined,
   sourceIp?: string,
   testHooks?: ExchangeBootstrapCredentialTestHooks,
-): Promise<{ accessToken: string; credential: BrokerCredential } | null> {
+): Promise<ExchangeBootstrapResult> {
   if (testHooks && !getVerifiedCiDatabaseUrl()) {
     throw new Error('credential broker test hooks require a verified disposable CI database');
   }
@@ -961,31 +979,32 @@ export async function exchangeBootstrapCredential(
       .where(eq(coordinationRuntimeRegistrations.id, runtimeId));
     await testHooks?.afterRegistrationLocked?.();
     if (!registration || !validCapabilities(registration.capabilities)) {
+      const reason: ExchangeBootstrapFailureReason = registration ? 'invalid_bootstrap' : 'unknown_runtime';
       await audit({
         eventType: 'exchange_failed',
         success: false,
         runtimeId,
         actor: registration?.actor,
-        reason: registration ? 'invalid_bootstrap' : 'unknown_runtime',
+        reason,
         sourceIp,
       }, executor);
-      return null;
+      return { ok: false, reason };
     }
     const matchesLiveBootstrap = Boolean(
       registration.enabled
       && !registration.revokedAt
       && bootstrapToken
-      && crypto.timingSafeEqual(
-         Buffer.from(bootstrapSha256),
-        Buffer.from(registration.bootstrapHash),
-      ),
+      && hashesMatch(bootstrapSha256, registration.bootstrapHash),
     );
     if (!matchesLiveBootstrap) {
       // Not a match against the live bootstrap. This is not automatically a
       // hard failure: it is also what a later, legitimate retry looks like
       // when the original exchange already consumed the bootstrap. Hand off
       // to the grace path, which only succeeds for the exact original secret
-      // and only when nothing it ever produced was actually used.
+      // and only when nothing it ever produced was actually used, and which
+      // itself distinguishes bootstrap_already_consumed from invalid_bootstrap
+      // (see attemptGraceBootstrapReexchange) so the caller still gets a
+      // precise reason even when grace does not apply.
       return attemptGraceBootstrapReexchange({
         executor,
         runtimeId,
@@ -1011,7 +1030,7 @@ export async function exchangeBootstrapCredential(
         reason: 'consumed_bootstrap_digest_conflict',
         sourceIp,
       }, tx as unknown as ReturnType<typeof getSharedDb>);
-      return null;
+      return { ok: false, reason: 'consumed_bootstrap_digest_conflict' };
     }
     const [consumed] = await tx.update(coordinationRuntimeRegistrations).set({
       bootstrapHash: consumedHash,
@@ -1031,7 +1050,7 @@ export async function exchangeBootstrapCredential(
         reason: 'bootstrap_already_consumed',
         sourceIp,
       }, tx as unknown as ReturnType<typeof getSharedDb>);
-      return null;
+      return { ok: false, reason: 'bootstrap_already_consumed' };
     }
     await audit({
       eventType: 'runtime_bootstrap_consumed',
@@ -1044,13 +1063,14 @@ export async function exchangeBootstrapCredential(
         consumedBootstrapSha256: consumedHash,
       },
     }, tx as unknown as ReturnType<typeof getSharedDb>);
-    return issueForRegistration(
+    const issued = await issueForRegistration(
       registration,
       'issued',
       sourceIp,
       undefined,
       tx as unknown as ReturnType<typeof getSharedDb>,
     );
+    return { ok: true, ...issued };
   });
 }
 
@@ -1331,6 +1351,9 @@ export async function auditMissingBootstrapAttempt(runtimeId: string | undefined
   });
 }
 
+export type ExchangeBootstrapResult =
+  | { ok: true; accessToken: string; credential: BrokerCredential }
+  | { ok: false; reason: ExchangeBootstrapFailureReason };
 /**
  * Issues a brand new one-time bootstrap for an EXISTING, still-enabled runtime
  * registration. The runtime ID, actor, display name, capabilities, and token

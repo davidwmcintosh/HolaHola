@@ -272,6 +272,32 @@ when the bootstrap value itself is unrecoverable; reserve a brand new runtime
 ID or a staged rotation for when the runtime's identity itself is changing or
 its current credential must keep serving traffic during the changeover.
 
+
+### Diagnosing a failed exchange
+
+`POST /api/coordination/credentials/exchange` returns `401` with a JSON body
+`{ "error": "...", "reason": "<code>" }` for every failure, so a runtime
+without database access can self-diagnose instead of guessing. The `reason`
+codes are:
+
+| `reason` | Meaning | Client action |
+| --- | --- | --- |
+| `missing_credentials` | The request omitted `runtimeId` or the `x-coordination-bootstrap` header. | Fix the request; this is a client-side bug, not a credential problem. |
+| `unknown_runtime` | No registration exists for the given `runtimeId`. | Check the runtime ID for typos, or confirm the runtime was actually provisioned with `coordination-runtime-bootstrap.ts`. |
+| `invalid_bootstrap` | A registration exists, but the presented bootstrap does not match its current unconsumed hash, or its capabilities are misconfigured. | Check the bootstrap token you were given; do not blindly retry with the same value. |
+| `bootstrap_already_consumed` | The presented bootstrap exactly matches the one already consumed for this runtime. | Do not retry. This runtime already completed its one-time exchange (successfully or not) and any access token from that exchange may be lost -- ask an operator for a new bootstrap: a fresh registration or a staged rotation. |
+| `consumed_bootstrap_digest_conflict` | The bootstrap's hash collides with another runtime's already-consumed tombstone. | Rare internal collision; ask an operator to investigate rather than retrying. |
+
+Every code is also the literal value written to the server-side audit log
+(`coordinationCredentialAuditEvents.reason`), so operators reading the audit
+trail and clients reading the HTTP response share the same vocabulary.
+Revealing these codes does not weaken the broker: `bootstrap_already_consumed`
+requires cryptographic proof of possessing the exact consumed secret,
+`unknown_runtime` only reveals whether a non-secret operator-assigned ID
+exists, and the endpoint stays rate-limited to 10 requests/hour per source IP.
+`server/services/coordination-actor-client.ts`'s `exchangeBootstrap()` already
+includes `reason` in the error it throws.
+
 ### Recovering a lost access token
 
 A restart, crash, or a series of one-off command invocations loses whatever

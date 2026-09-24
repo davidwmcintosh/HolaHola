@@ -145,10 +145,15 @@ function apiResult(text: string): unknown {
 
 export class CoordinationActorClient {
   readonly actor: CoordinationClientActor;
+
   private readonly baseUrl: string;
+
   private readonly environment: Environment;
+
   private credential: CachedCredential | null;
+
   private renewalPromise: Promise<CachedCredential> | null = null;
+
   private readonly fetchImpl: FetchLike;
   private readonly tokenCachePath: string | undefined;
   private cacheLoadAttempted = false;
@@ -265,11 +270,23 @@ export class CoordinationActorClient {
     });
     const result = apiResult(await response.text());
     if (!response.ok || typeof result !== 'object' || result === null) {
+      const reason = typeof result === 'object' && result !== null && typeof (result as Record<string, unknown>).reason === 'string'
+        ? (result as Record<string, unknown>).reason as string
+        : undefined;
+      // A reissue only helps when the runtime registration itself is fine and
+      // just needs a fresh bootstrap secret; it fails with runtime_not_found
+      // for unknown_runtime, so don't suggest it there or for a client-side
+      // missing_credentials bug.
+      const reissuable = reason === 'bootstrap_already_consumed'
+        || reason === 'consumed_bootstrap_digest_conflict'
+        || reason === 'invalid_bootstrap';
       throw new Error(
-        `Coordination credential exchange failed (${response.status}) for runtime ${runtimeId}; `
-        + 'if the bootstrap was already consumed by an earlier successful exchange, an operator must '
-        + `reissue it in place with \`npx tsx server/scripts/coordination-runtime-rotation.ts reissue --runtime-id ${runtimeId}\` `
-        + 'and inject the new token before this process can authenticate again',
+        `Coordination credential exchange failed (${response.status})${reason ? `: ${reason}` : ''} for runtime ${runtimeId}`
+        + (reissuable
+          ? '; an operator must reissue it in place with '
+            + `\`npx tsx server/scripts/coordination-runtime-rotation.ts reissue --runtime-id ${runtimeId}\` `
+            + 'and inject the new token before this process can authenticate again'
+          : ''),
       );
     }
     const payload = result as Record<string, unknown>;
