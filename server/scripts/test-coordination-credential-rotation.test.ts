@@ -641,4 +641,19 @@ databaseTest('bootstrap reissue refuses a revoked registration', async () => {
     ),
     true,
   );
+
+  // The rejection must come from the early disabled/revoked check (run
+  // right after the row is read), not from the UPDATE's own WHERE clause
+  // falling through to its "no row matched" branch. Both guards enforce
+  // the identical condition on the same FOR-UPDATE-locked row and so
+  // return byte-identical { ok, reason } shapes -- this guardStage tag is
+  // the only thing that can tell them apart, and it is what lets a
+  // mutation that deletes ONLY the early check (leaving the UPDATE guard
+  // standing) be caught here instead of silently passing.
+  assert.equal(
+    auditEvents.find((event) =>
+      event.eventType === 'bootstrap_reissue_failed' && !event.success
+    )?.metadata?.guardStage,
+    'pre_update_check',
+  );
 });

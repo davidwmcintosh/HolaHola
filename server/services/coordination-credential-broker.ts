@@ -1404,6 +1404,14 @@ export async function reissueCoordinationRuntimeBootstrap(
         actor: registration.actor,
         reason: 'runtime_disabled_or_revoked',
         sourceIp,
+        // guardStage distinguishes this early rejection from the
+        // structurally-identical one below that the UPDATE's own WHERE
+        // clause produces. Both enforce the same enabled/revokedAt
+        // condition on the same FOR-UPDATE-locked row -- this tag exists
+        // so an operator (or a test) can tell which of the two fired,
+        // even though neither can currently fire without the other also
+        // being true for the same row. See coordination-runtime-race-guards.md.
+        metadata: { guardStage: 'pre_update_check' },
       }, executor);
       return { ok: false, reason: 'runtime_disabled_or_revoked' };
     }
@@ -1434,6 +1442,15 @@ export async function reissueCoordinationRuntimeBootstrap(
         actor: registration.actor,
         reason: 'runtime_disabled_or_revoked',
         sourceIp,
+        // The UPDATE's own WHERE clause (enabled = true AND revokedAt IS
+        // NULL) is what caught this -- the pre_update_check guard above
+        // either already ran and somehow missed it, or was removed. Under
+        // the current single-transaction-with-early-FOR-UPDATE-lock
+        // design this guard cannot fire for any row the pre_update_check
+        // guard didn't already reject, so seeing this tag in an audit
+        // trail for the correct implementation is itself a signal worth
+        // investigating.
+        metadata: { guardStage: 'update_where_clause' },
       }, executor);
       return { ok: false, reason: 'runtime_disabled_or_revoked' };
     }
