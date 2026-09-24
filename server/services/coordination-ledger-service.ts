@@ -40,6 +40,17 @@ const PARTICIPANT_EVENT_TYPES = new Set<CoordinationEventType>([
   'completed',
 ]);
 
+// Actors who see every coordination event system-wide via listCoordinationFeed,
+// not just threads where they are origin, intended recipient, or current owner.
+// Luca [HolaHola] is the coordination observer/delegator; Alden is the steward
+// of the code (docs/alden-steward-role-design.md section 3.1). Checked by
+// membership so a third full-feed actor never needs a second equality check
+// added by hand.
+const FULL_FEED_READ_ACTORS: ReadonlySet<CoordinationActorId> = new Set([
+  'luca-holahola',
+  'alden',
+]);
+
 const DIRECT_ACTOR_EVENT_PERMISSIONS: Record<
   'luca-holahola' | 'alden' | 'daniela',
   ReadonlySet<CoordinationEventType>
@@ -47,7 +58,7 @@ const DIRECT_ACTOR_EVENT_PERMISSIONS: Record<
   'luca-holahola': new Set(['reassigned', 'comment']),
   alden: new Set([
     'accepted', 'progress', 'evidence_added', 'blocked', 'completed',
-    'outcome_acknowledged', 'reassigned', 'comment',
+    'outcome_acknowledged', 'reassigned', 'comment', 'steward_comment',
   ]),
   daniela: new Set([
     'accepted', 'progress', 'evidence_added', 'blocked', 'completed', 'comment',
@@ -300,8 +311,20 @@ async function assertLinkedOutcome(
   }
 }
 
-function assertParticipant(thread: CoordinationThread, actor: CoordinationActorId): void {
+function assertParticipant(
+  thread: CoordinationThread,
+  actor: CoordinationActorId,
+  eventType?: CoordinationEventType,
+): void {
   if (actor === 'luca-holahola') return;
+  // Alden's steward bypass is deliberately narrower than Luca [HolaHola]'s:
+  // it covers pure reads (no eventType — e.g. getCoordinationThread, used to
+  // read context before interjecting) and the steward_comment event type
+  // (cross-thread interjection), never any other direct-actor event type.
+  // Alden's accepted/progress/evidence_added/blocked/completed/
+  // outcome_acknowledged/reassigned/comment stay exactly as participant-gated
+  // as every other actor's. See docs/alden-steward-role-design.md section 3.2.
+  if (actor === 'alden' && (eventType === undefined || eventType === 'steward_comment')) return;
   if (
     actor !== thread.originActor
     && actor !== thread.intendedRecipient
@@ -316,7 +339,7 @@ function stateForEvent(
   eventType: CoordinationEventType,
 ): CoordinationThreadState {
   if (eventType === 'progress' || eventType === 'evidence_added') return 'in_progress';
-  if (eventType === 'comment') return thread.state;
+  if (eventType === 'comment' || eventType === 'steward_comment') return thread.state;
   if (eventType === 'delivered') {
     return ['created', 'reassigned', 'reopened'].includes(thread.state)
       ? 'delivered'
@@ -356,7 +379,25 @@ function validateLifecycle(
     );
   }
 
-  assertParticipant(thread, actor);
+  // steward_comment exists to mark that a comment came from Alden's stewardship
+  // role, not from a thread participant -- that distinction only holds if no
+  // other actor can ever emit one. DIRECT_ACTOR_EVENT_PERMISSIONS alone is not
+  // enough to guarantee this: it's an opt-in restriction list keyed on
+  // 'luca-holahola' | 'alden' | 'daniela', so canCoordinationActorPerform
+  // returns true unconditionally for every actor NOT in that list (e.g.
+  // luca-replit, luca-claude-code, david, luca-gemini), even for an event type
+  // none of them should ever be able to send. This explicit check is the only
+  // thing standing between "Alden-only event type" and "any participant can
+  // forge one on their own thread."
+  if (eventType === 'steward_comment' && actor !== 'alden') {
+    throw new CoordinationError(
+      'steward_comment is reserved for Alden, the steward of the code',
+      403,
+      'operation_not_allowed',
+    );
+  }
+
+  assertParticipant(thread, actor, eventType);
 
   if (eventType === 'accepted') {
     if (actor !== thread.intendedRecipient || thread.currentOwner) {
@@ -1074,7 +1115,7 @@ export async function listCoordinationFeed(
     .innerJoin(coordinationThreads, eq(coordinationThreads.id, coordinationEvents.threadId))
     .where(and(
       gt(coordinationEvents.globalSequence, previousCursor),
-      actor === 'luca-holahola'
+      FULL_FEED_READ_ACTORS.has(actor)
         ? sql`true`
         : or(
           eq(coordinationThreads.originActor, actor),

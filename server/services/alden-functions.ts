@@ -31,6 +31,7 @@ import {
   getCoordinationThread,
 } from "./coordination-ledger-service";
 import { listCoordinationInbox } from "./coordination-inbox-service";
+import { OPERATIONS_CATALOG, toPublicOperationManifest } from "./operations-catalog";
 
 // Was hardcoded to '/home/runner/workspace' -- a Replit-only container path.
 // Once production ran on Render (post-DNS-swap), every file/shell tool here
@@ -654,6 +655,32 @@ export const ALDEN_TOOLS: AldenTool[] = [
         content: { type: "string" as const, description: "The reply text." },
       },
       required: ["thread_id", "recipient", "content"],
+    },
+  },
+  {
+    name: "interject_on_coordination_thread",
+    description: "Post a steward-scoped comment on ANY coordination thread system-wide, even one you are not a participant of — the one exception to normal thread-participation rules, reserved for genuine cross-thread stewardship (flagging a conflict, connecting two threads, surfacing something the participants may be missing). It never requires you to already be origin, intended recipient, or current owner. It records a distinct steward_comment event type so the thread's record always shows this came from stewardship, not from a participant. It never changes thread state or ownership, and it never lets you accept, reassign, or otherwise act on work you do not own — for that, wait to be delegated the thread normally through reply_to_coordination_thread's participant-gated event types. Requires the thread_id from your full system-wide feed or list_coordination_inbox.",
+    gemini_description: "Post a steward-scoped comment on ANY coordination thread, even ones I don't participate in — the one exception to normal thread rules, for flagging conflicts or connecting threads across hats. Always steward_comment, never changes thread state/ownership, never lets me accept or reassign work I don't own.",
+    input_schema: {
+      type: "object" as const,
+      properties: {
+        thread_id: { type: "string" as const, description: "The coordination thread ID to interject on." },
+        recipient: { type: "string" as const, enum: ["luca-replit", "luca-claude-code", "luca-holahola", "luca-gemini", "daniela", "david"], description: "Who this interjection is addressed to — usually the thread's current owner or origin actor." },
+        content: { type: "string" as const, description: "The interjection text." },
+      },
+      required: ["thread_id", "recipient", "content"],
+    },
+  },
+  {
+    name: "brief_new_actor",
+    description: "Proactively hand a newly active or newly onboarded actor its own capability map, instead of leaving it to discover access by trial and error. Reads that actor's operations from the shared operations catalog (filtered to what it's actually scoped for, the same filter every other consumer of the catalog uses), formats a short orientation briefing, and posts it as a new coordination thread addressed to that actor — the same delivery path as create_coordination_thread. Fails closed with a clear error if the recipient has no catalog entries at all (a strong signal onboarding was skipped) rather than posting an empty or fabricated briefing.",
+    gemini_description: "Proactively brief a newly active actor on what it already has access to. Reads its scoped operations from the shared catalog, formats a short briefing, and posts it as a coordination thread to that actor. Fails closed (clear error, no empty/fabricated briefing) if the recipient has zero catalog entries.",
+    input_schema: {
+      type: "object" as const,
+      properties: {
+        recipient: { type: "string" as const, enum: ["luca-replit", "luca-claude-code", "luca-holahola", "luca-gemini", "daniela", "david"], description: "The actor to brief on its own access." },
+      },
+      required: ["recipient"],
     },
   },
 ];
@@ -2672,6 +2699,102 @@ ${agentSection}`;
               threadId: result.thread.id,
               state: result.thread.state,
               sequence: result.thread.latestSequence,
+              deliveryState: result.deliveryState,
+            },
+          };
+        } catch (e: any) {
+          return { data: { error: e.message, code: e.code } };
+        }
+      }
+
+      case "interject_on_coordination_thread": {
+        const threadId = args.thread_id as string;
+        const content = String(args.content || '').trim();
+        const recipient = args.recipient as CoordinationActorId;
+        if (!threadId || !recipient) return { data: { error: 'thread_id and recipient are required' } };
+        if (recipient === 'alden') return { data: { error: 'recipient cannot be alden — you cannot address an interjection to yourself' } };
+        if (!content) return { data: { error: 'content is required' } };
+
+        const attempt = async () => {
+          const { thread } = await getCoordinationThread(threadId, 'alden');
+          return appendCoordinationEvent({
+            threadId,
+            actor: 'alden',
+            eventType: 'steward_comment',
+            content,
+            recipientActor: recipient,
+            idempotencyKey: randomUUID(),
+            expectedSequence: thread.latestSequence,
+          });
+        };
+
+        try {
+          let result;
+          try {
+            result = await attempt();
+          } catch (e: any) {
+            if (e.code === 'sequence_conflict') {
+              result = await attempt(); // one retry against the freshly-read sequence
+            } else {
+              throw e;
+            }
+          }
+          console.log(`[Alden Tool] interject_on_coordination_thread: thread ${threadId} → ${recipient}`);
+          return {
+            data: {
+              threadId: result.thread.id,
+              state: result.thread.state,
+              sequence: result.thread.latestSequence,
+              deliveryState: result.deliveryState,
+            },
+          };
+        } catch (e: any) {
+          return { data: { error: e.message, code: e.code } };
+        }
+      }
+
+      case "brief_new_actor": {
+        const recipient = args.recipient as CoordinationActorId;
+        if (!recipient) return { data: { error: 'recipient is required' } };
+        if (recipient === 'alden') return { data: { error: 'recipient cannot be alden — you cannot brief yourself' } };
+
+        const scoped = OPERATIONS_CATALOG
+          .filter((operation) => operation.actorScope.includes(recipient))
+          .map(toPublicOperationManifest);
+        if (scoped.length === 0) {
+          return {
+            data: {
+              error: `No operations catalog entries are scoped to ${recipient}. This usually means onboarding was `
+                + 'skipped — see docs/coordination-new-actor-onboarding.md Step -1 (Alden endorsement) before briefing it.',
+            },
+          };
+        }
+
+        const description = [
+          'You already have access to the following, verified against the shared operations catalog:',
+          '',
+          ...scoped.map((operation) => `- ${operation.title} (${operation.id}): ${operation.purpose}`),
+          '',
+          'Canonical references:',
+          '- docs/coordination-clients.md — coordination runtime placement, scope, and the full-feed/inbox split.',
+          '- docs/coordination-new-actor-onboarding.md — how new capabilities and actors get added to this system.',
+        ].join('\n');
+
+        try {
+          const result = await createCoordinationThread({
+            actor: 'alden',
+            intendedRecipient: recipient,
+            title: `Orientation briefing for ${recipient}`,
+            description,
+            priority: 'normal',
+            idempotencyKey: randomUUID(),
+          });
+          console.log(`[Alden Tool] brief_new_actor: ${recipient} (${scoped.length} operations, thread ${result.thread.id})`);
+          return {
+            data: {
+              threadId: result.thread.id,
+              recipient: result.thread.intendedRecipient,
+              operationCount: scoped.length,
               deliveryState: result.deliveryState,
             },
           };

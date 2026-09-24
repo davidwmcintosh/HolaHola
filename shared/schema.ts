@@ -8385,6 +8385,7 @@ export const COORDINATION_EVENT_TYPES = [
   'reopened',
   'reassigned',
   'comment',
+  'steward_comment',
 ] as const;
 export type CoordinationEventType = typeof COORDINATION_EVENT_TYPES[number];
 
@@ -8560,6 +8561,14 @@ export const coordinationRuntimeRegistrations = pgTable("coordination_runtime_re
   id: varchar("id", { length: 120 }).primaryKey(),
   actor: varchar("actor", { length: 80 }).notNull(),
   displayName: varchar("display_name", { length: 200 }).notNull(),
+  // LLM provider/model attribution for this runtime, e.g. provider="anthropic",
+  // model="claude-opus-4". Nullable and never backfilled — an unknown
+  // provider/model stays unknown rather than being inferred. Set at
+  // registration time (coordination-runtime-bootstrap.ts) or carried forward
+  // from the source registration during rotation (coordination-runtime-rotation.ts
+  // stage), since a rotation is the same runtime identity continuing.
+  provider: varchar("provider", { length: 40 }),
+  model: varchar("model", { length: 80 }),
   bootstrapHash: varchar("bootstrap_hash", { length: 64 }).notNull(),
   capabilities: text("capabilities").array().notNull(),
   tokenTtlSeconds: integer("token_ttl_seconds").notNull().default(900),

@@ -77,11 +77,16 @@ test('inbox recipient mapping exhausts every event type and never copies to its 
     reopened: [actors.alternate, actors.origin],
     reassigned: [actors.alternate, actors.origin],
     comment: [actors.alternate],
+    // steward_comment shares comment's shape (recipient is whatever the
+    // caller explicitly names -- who Alden's interjection is addressed to),
+    // so it gets the same explicit-recipient coverage below.
+    steward_comment: [actors.alternate],
   };
   assert.deepEqual(Object.keys(expected).sort(), [...COORDINATION_EVENT_TYPES].sort());
 
   for (const eventType of COORDINATION_EVENT_TYPES) {
     const explicit = eventType === 'reassigned' || eventType === 'comment' || eventType === 'reopened'
+      || eventType === 'steward_comment'
       ? actors.alternate
       : undefined;
     assert.deepEqual(recipients(eventType, 'luca-holahola', explicit), expected[eventType], eventType);

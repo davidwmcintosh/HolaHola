@@ -74,6 +74,7 @@ const RECIPIENT_RULES: Record<
     preThread.originActor as CoordinationActorId,
   ],
   comment: ({ explicitRecipient }) => [explicitRecipient],
+  steward_comment: ({ explicitRecipient }) => [explicitRecipient],
 };
 
 const RULE_EVENT_TYPES = Object.keys(RECIPIENT_RULES).sort();

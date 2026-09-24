@@ -28,6 +28,7 @@ import {
   resolveBrokerCredential,
   revokeBrokerCredential,
   revokeRuntimeCredentials,
+  stageCoordinationRuntimeReplacement,
 } from '../services/coordination-credential-broker';
 import {
   createPublicProvisioningBundle,
@@ -740,6 +741,54 @@ databaseTest('operator provisioning is two-phase, receipt-bound, atomic, and con
   );
 });
 
+databaseTest('registerCoordinationRuntime stores provider/model, and stageCoordinationRuntimeReplacement carries them forward on rotation', async () => {
+  const providerModelRuntimeId = `${runtimeId}-provider-model`;
+  const providerModelReplacementRuntimeId = `${runtimeId}-provider-model-replacement`;
+  const defaultProviderModelRuntimeId = `${runtimeId}-provider-model-default`;
+
+  await registerCoordinationRuntime({
+    runtimeId: providerModelRuntimeId,
+    actor: 'luca-replit',
+    displayName: 'Provider/model CI runtime',
+    capabilities: ['coordination:read'],
+    tokenTtlSeconds: 60,
+    provider: 'anthropic',
+    model: 'claude-sonnet-4-5',
+  });
+  const [stored] = await getSharedDb().select().from(coordinationRuntimeRegistrations)
+    .where(eq(coordinationRuntimeRegistrations.id, providerModelRuntimeId));
+  assert.equal(stored.provider, 'anthropic');
+  assert.equal(stored.model, 'claude-sonnet-4-5');
+
+  // Omitting provider/model must leave both columns null -- no inferred
+  // default, per the design's "nullable, no backfill" decision.
+  await registerCoordinationRuntime({
+    runtimeId: defaultProviderModelRuntimeId,
+    actor: 'luca-replit',
+    displayName: 'Provider/model omitted CI runtime',
+    capabilities: ['coordination:read'],
+    tokenTtlSeconds: 60,
+  });
+  const [defaulted] = await getSharedDb().select().from(coordinationRuntimeRegistrations)
+    .where(eq(coordinationRuntimeRegistrations.id, defaultProviderModelRuntimeId));
+  assert.equal(defaulted.provider, null);
+  assert.equal(defaulted.model, null);
+
+  // A rotation is the same runtime identity continuing, not a new model --
+  // stageCoordinationRuntimeReplacement must carry the source's provider/model
+  // forward onto the new registration row rather than leaving it blank.
+  const staged = await stageCoordinationRuntimeReplacement({
+    sourceRuntimeId: providerModelRuntimeId,
+    replacementRuntimeId: providerModelReplacementRuntimeId,
+    replacementDisplayName: 'Provider/model rotation replacement',
+  });
+  assert.equal(staged.ok, true);
+  const [replacement] = await getSharedDb().select().from(coordinationRuntimeRegistrations)
+    .where(eq(coordinationRuntimeRegistrations.id, providerModelReplacementRuntimeId));
+  assert.equal(replacement.provider, 'anthropic');
+  assert.equal(replacement.model, 'claude-sonnet-4-5');
+});
+
 databaseTest('broker issues, rotates, expires from use, revokes, and audits without plaintext storage', async () => {
   const { bootstrapToken } = await registerCoordinationRuntime({
     runtimeId,
@@ -833,6 +882,15 @@ databaseTest('broker issues, rotates, expires from use, revokes, and audits with
     'coordination:credential:revoke',
   ]);
 
+  // Resolve (use) the issued credential before attempting a resend below.
+  // Grace re-exchange (attemptGraceBootstrapReexchange) only mints a second
+  // credential when nothing issued for this runtime has ever authenticated a
+  // request; resolving here first closes that window deliberately, so the
+  // resend below is guaranteed to hit the always_consumed branch instead of
+  // minting a second live credential out from under the rest of this test.
+  const resolved = await resolveBrokerCredential(issued.accessToken);
+  assert.equal(resolved?.runtimeId, runtimeId);
+
   // Resending the exact bootstrap that was just consumed must be classified
   // as bootstrap_already_consumed, not the generic invalid_bootstrap, so a
   // client without database access can tell "ask for a new bootstrap" apart
@@ -851,9 +909,6 @@ databaseTest('broker issues, rotates, expires from use, revokes, and audits with
     .where(eq(coordinationRuntimeCredentials.id, issued.credential.credentialId));
   assert.notEqual(storedCredential.tokenHash, issued.accessToken);
   assert.equal(JSON.stringify(storedCredential).includes(issued.accessToken), false);
-
-  const resolved = await resolveBrokerCredential(issued.accessToken);
-  assert.equal(resolved?.runtimeId, runtimeId);
 
   const renewalAttempts = await Promise.all([
     renewBrokerCredential(issued.credential),
@@ -1094,37 +1149,44 @@ databaseTest(
     });
 
     const first = await exchangeBootstrapCredential(graceReexchangeNeverUsedRuntimeId, bootstrapToken);
-    assert.ok(first, 'the original exchange must succeed');
+    assert.equal(first.ok, true, 'the original exchange must succeed');
+    if (!first.ok) return;
 
     // The first credential is never resolved/used. A retry with the exact
-    // same bootstrap must succeed under grace instead of returning null, and
-    // must mint a genuinely new credential rather than replaying the first.
+    // same bootstrap must succeed under grace instead of failing, and must
+    // mint a genuinely new credential rather than replaying the first.
     const second = await exchangeBootstrapCredential(graceReexchangeNeverUsedRuntimeId, bootstrapToken);
-    assert.ok(second, 'grace re-exchange must succeed while nothing issued has ever been used');
+    assert.equal(second.ok, true, 'grace re-exchange must succeed while nothing issued has ever been used');
+    if (!second.ok) return;
     assert.notEqual(second.accessToken, first.accessToken);
     assert.notEqual(second.credential.credentialId, first.credential.credentialId);
 
     // Grace is not a one-shot: as long as nothing issued for this runtime has
     // ever authenticated a request, the same bootstrap can be retried again.
     const third = await exchangeBootstrapCredential(graceReexchangeNeverUsedRuntimeId, bootstrapToken);
-    assert.ok(third, 'grace re-exchange must remain available across repeated unused retries');
+    assert.equal(third.ok, true, 'grace re-exchange must remain available across repeated unused retries');
+    if (!third.ok) return;
     assert.notEqual(third.accessToken, second.accessToken);
 
     // A wrong secret against this same (already-consumed) registration must
     // still be rejected outright -- grace never widens what counts as proof
     // of possessing the original bootstrap.
-    assert.equal(
-      await exchangeBootstrapCredential(graceReexchangeNeverUsedRuntimeId, 'cb_definitely-the-wrong-secret'),
-      null,
+    const wrongSecretAttempt = await exchangeBootstrapCredential(
+      graceReexchangeNeverUsedRuntimeId,
+      'cb_definitely-the-wrong-secret',
     );
+    assert.equal(wrongSecretAttempt.ok, false);
+    if (!wrongSecretAttempt.ok) assert.equal(wrongSecretAttempt.reason, 'invalid_bootstrap');
 
     // Using the most recently granted credential now closes the grace window.
     assert.ok(await resolveBrokerCredential(third.accessToken));
+    const closedGraceAttempt = await exchangeBootstrapCredential(graceReexchangeNeverUsedRuntimeId, bootstrapToken);
     assert.equal(
-      await exchangeBootstrapCredential(graceReexchangeNeverUsedRuntimeId, bootstrapToken),
-      null,
+      closedGraceAttempt.ok,
+      false,
       'grace must stop once any issued credential has actually authenticated a request',
     );
+    if (!closedGraceAttempt.ok) assert.equal(closedGraceAttempt.reason, 'bootstrap_already_consumed');
 
     const auditEvents = await getSharedDb().select().from(coordinationCredentialAuditEvents)
       .where(eq(coordinationCredentialAuditEvents.runtimeId, graceReexchangeNeverUsedRuntimeId));
@@ -1162,17 +1224,20 @@ databaseTest(
     });
 
     const issued = await exchangeBootstrapCredential(graceReexchangeUsedRuntimeId, bootstrapToken);
-    assert.ok(issued);
+    assert.equal(issued.ok, true);
+    if (!issued.ok) return;
     assert.ok(
       await resolveBrokerCredential(issued.accessToken),
       'the issued credential must authenticate normally',
     );
 
+    const reexchangeAfterUse = await exchangeBootstrapCredential(graceReexchangeUsedRuntimeId, bootstrapToken);
     assert.equal(
-      await exchangeBootstrapCredential(graceReexchangeUsedRuntimeId, bootstrapToken),
-      null,
+      reexchangeAfterUse.ok,
+      false,
       'a bootstrap must stay burned once its credential has actually authenticated a request',
     );
+    if (!reexchangeAfterUse.ok) assert.equal(reexchangeAfterUse.reason, 'bootstrap_already_consumed');
 
     const auditEvents = await getSharedDb().select().from(coordinationCredentialAuditEvents)
       .where(eq(coordinationCredentialAuditEvents.runtimeId, graceReexchangeUsedRuntimeId));

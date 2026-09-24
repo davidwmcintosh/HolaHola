@@ -435,6 +435,13 @@
       "when": 1790043314083,
       "tag": "0062_hard_quasar",
       "breakpoints": true
+    },
+    {
+      "idx": 63,
+      "version": "7",
+      "when": 1790225513459,
+      "tag": "0063_thin_dark_beast",
+      "breakpoints": true
     }
   ]
 }

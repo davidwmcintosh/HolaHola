@@ -1,5 +1,6 @@
 import assert from 'node:assert/strict';
 import { spawn } from 'node:child_process';
+import crypto from 'node:crypto';
 import { mkdtemp, rm } from 'node:fs/promises';
 import { createServer } from 'node:http';
 import { tmpdir } from 'node:os';
@@ -131,6 +132,16 @@ async function startFakeCoordinationServer(): Promise<FakeServer> {
   };
 }
 
+// coordination-cli.ts validates COORDINATION_RUNTIME_BOOTSTRAP_TOKEN's shape
+// locally -- "cb_" plus exactly 43 base64url characters -- before ever
+// contacting the (fake) server, so fixtures here must satisfy that shape or
+// every invocation fails during local validation instead of exercising the
+// cache/exchange behavior these tests are actually about. Mirrors
+// generateCoordinationSecret('cb') in coordination-credential-broker.ts.
+function fakeBootstrapToken(): string {
+  return `cb_${crypto.randomBytes(32).toString('base64url')}`;
+}
+
 function baseChildEnv(overrides: NodeJS.ProcessEnv): NodeJS.ProcessEnv {
   const env: NodeJS.ProcessEnv = { ...process.env, ...overrides };
   for (const name of LEGACY_TOKEN_ENV_NAMES) delete env[name];
@@ -154,7 +165,7 @@ test('a second coordination-cli.ts invocation in the same session reuses the cac
         COORDINATION_API_URL: fakeServer.url,
         COORDINATION_ACTOR: 'luca-claude-code',
         COORDINATION_RUNTIME_ID: 'luca-claude-code-e2e-session',
-        COORDINATION_RUNTIME_BOOTSTRAP_TOKEN: 'cb_e2e-session-bootstrap-token-value',
+        COORDINATION_RUNTIME_BOOTSTRAP_TOKEN: fakeBootstrapToken(),
         COORDINATION_CLI_CREDENTIAL_CACHE_DIR: cacheDir,
       });
 
@@ -183,7 +194,7 @@ test("a different runtime ID never reuses another runtime's cached credential ev
         COORDINATION_API_URL: fakeServer.url,
         COORDINATION_ACTOR: 'luca-claude-code',
         COORDINATION_RUNTIME_ID: runtimeId,
-        COORDINATION_RUNTIME_BOOTSTRAP_TOKEN: `cb_${runtimeId}-bootstrap-token-value`,
+        COORDINATION_RUNTIME_BOOTSTRAP_TOKEN: fakeBootstrapToken(),
         COORDINATION_CLI_CREDENTIAL_CACHE_DIR: cacheDir,
       });
 
@@ -214,7 +225,7 @@ test('an expired cached credential is discarded by a fresh CLI invocation, which
         COORDINATION_API_URL: fakeServer.url,
         COORDINATION_ACTOR: 'luca-claude-code',
         COORDINATION_RUNTIME_ID: runtimeId,
-        COORDINATION_RUNTIME_BOOTSTRAP_TOKEN: 'cb_e2e-expired-bootstrap-token-value',
+        COORDINATION_RUNTIME_BOOTSTRAP_TOKEN: fakeBootstrapToken(),
         COORDINATION_CLI_CREDENTIAL_CACHE_DIR: cacheDir,
       });
 

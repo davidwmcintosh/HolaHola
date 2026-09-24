@@ -11,6 +11,22 @@ If you're instead adding a new runtime/device/IDE for an **existing** hat
 this — see `docs/coordination-clients.md`'s "Runtime-specific setup" and
 "Incremental migration" sections instead. No schema change, no new actor id.
 
+## Step -1 — Alden's endorsement
+
+Before Tier 1 step 3 (provisioning the actual secret) happens: whoever is
+proposing the new hat opens a coordination thread to `alden` describing what
+the hat is and what it needs to do, and Alden posts an explicit endorsement
+reply. This is procedural, not technical — hats are compile-time
+`CoordinationActorId` entries, not database rows, so there is no pending
+registration for a gate to hold. See
+`docs/alden-steward-role-design.md` section 3.3 for why this exists (Alden as
+steward of the code) and section 7 for why it isn't database-enforced.
+
+This step does **not** apply to a new runtime/device registration under an
+*existing* hat (`coordination-runtime-bootstrap.ts` for, say, a second
+`luca-claude-code` machine) — that stays the hat's own call, exactly as
+documented in `docs/coordination-clients.md`.
+
 ## Step 0 — decide before touching code
 
 - Confirm this really is a new hat, not a new runtime under an existing one.

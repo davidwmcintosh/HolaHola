@@ -373,7 +373,7 @@ test('a second CLI-style client instance reuses a cached credential instead of e
   };
   const environment = {
     COORDINATION_RUNTIME_ID: 'luca-claude-code-session',
-    COORDINATION_RUNTIME_BOOTSTRAP_TOKEN: 'cb_session-bootstrap',
+    COORDINATION_RUNTIME_BOOTSTRAP_TOKEN: VALID_BOOTSTRAP_TOKEN,
   };
 
   // First "invocation": nothing cached yet, so it must exchange the bootstrap.
@@ -432,7 +432,7 @@ test('an expired cached credential is discarded, never presented to the API, and
     apiUrl: 'https://coordination.example',
     environment: {
       COORDINATION_RUNTIME_ID: 'luca-claude-code-session',
-      COORDINATION_RUNTIME_BOOTSTRAP_TOKEN: 'cb_session-bootstrap',
+      COORDINATION_RUNTIME_BOOTSTRAP_TOKEN: VALID_BOOTSTRAP_TOKEN,
     },
     fetchImpl,
     credentialCache: store.asCache(),
@@ -469,7 +469,7 @@ test('a credential cache never hands one runtime ID cached credential to a clien
     apiUrl: 'https://coordination.example',
     environment: {
       COORDINATION_RUNTIME_ID: 'luca-claude-code-runtime-b',
-      COORDINATION_RUNTIME_BOOTSTRAP_TOKEN: 'cb_runtime-b-bootstrap',
+      COORDINATION_RUNTIME_BOOTSTRAP_TOKEN: VALID_BOOTSTRAP_TOKEN,
     },
     fetchImpl,
     credentialCache: store.asCache(),
@@ -508,7 +508,7 @@ test('a credential cache never hands one actor cached credential to a client con
     apiUrl: 'https://coordination.example',
     environment: {
       COORDINATION_RUNTIME_ID: 'shared-runtime-id',
-      COORDINATION_RUNTIME_BOOTSTRAP_TOKEN: 'cb_luca-claude-code-bootstrap',
+      COORDINATION_RUNTIME_BOOTSTRAP_TOKEN: VALID_BOOTSTRAP_TOKEN,
     },
     fetchImpl,
     credentialCache: store.asCache(),

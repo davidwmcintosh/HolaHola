@@ -213,6 +213,8 @@ export async function registerCoordinationRuntime(input: {
   displayName: string;
   capabilities: CoordinationCredentialCapability[];
   tokenTtlSeconds?: number;
+  provider?: string;
+  model?: string;
 }): Promise<{ bootstrapToken: string }> {
   const tokenTtlSeconds = validateRuntimeRegistrationInput(input);
   const bootstrapToken = generateCoordinationSecret('cb');
@@ -224,6 +226,8 @@ export async function registerCoordinationRuntime(input: {
       bootstrapHash: hashCoordinationSecret(bootstrapToken),
       capabilities: input.capabilities,
       tokenTtlSeconds,
+      provider: input.provider ?? null,
+      model: input.model ?? null,
     });
   } catch (error) {
     if (isDuplicateRuntimeIdError(error)) {
@@ -480,6 +484,10 @@ export async function stageCoordinationRuntimeReplacement(input: {
       bootstrapHash: hashCoordinationSecret(bootstrapToken),
       capabilities: source.capabilities,
       tokenTtlSeconds: source.tokenTtlSeconds,
+      // A rotation is the same runtime identity continuing, not a new model —
+      // carry the source's provider/model forward rather than starting blank.
+      provider: source.provider,
+      model: source.model,
     });
     const [rotation] = await tx.insert(coordinationRuntimeRotations).values({
       sourceRuntimeId: input.sourceRuntimeId,

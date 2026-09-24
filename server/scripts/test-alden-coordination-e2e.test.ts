@@ -10,7 +10,7 @@ import { after, test } from 'node:test';
 import { eq } from 'drizzle-orm';
 import { coordinationThreads } from '@shared/schema';
 import { closeDbConnections, getSharedDb } from '../db';
-import { appendCoordinationEvent } from '../services/coordination-ledger-service';
+import { appendCoordinationEvent, createCoordinationThread, getCoordinationThread } from '../services/coordination-ledger-service';
 import { getVerifiedCiDatabaseUrl } from '../ci-database';
 import {
   ALDEN_TOOLS,
@@ -206,6 +206,65 @@ test('search_code finds a known symbol with rg, and the bounded JS fallback find
   assert.match(withFallback.data.note ?? '', /bounded JS fallback/);
 
   __setRgAvailableOverrideForTesting(null);
+});
+
+test('interject_on_coordination_thread and brief_new_actor are registered on Alden\'s own registry', () => {
+  const names = ALDEN_TOOLS.map((t) => t.name);
+  assert.ok(names.includes('interject_on_coordination_thread'));
+  assert.ok(names.includes('brief_new_actor'));
+});
+
+databaseTest('interject_on_coordination_thread lets Alden comment on a thread he never joined, through his own tool', async () => {
+  // A thread with no reference to Alden at all -- not origin, not recipient, not owner.
+  const created = await createCoordinationThread({
+    actor: 'luca-replit',
+    intendedRecipient: 'luca-claude-code',
+    title: `Steward interjection via tool ${runId}`,
+    description: 'Alden is not a participant on this thread; interject_on_coordination_thread must still work.',
+    idempotencyKey: `coordination-test:${runId}:interject-create`,
+  });
+  threadIds.push(created.thread.id);
+
+  const interjected = await executeAldenTool('interject_on_coordination_thread', {
+    thread_id: created.thread.id,
+    recipient: 'luca-replit',
+    content: 'Stewardship note: this overlaps with another thread you may want to see.',
+  });
+  assert.equal(interjected.data.error, undefined, `interject_on_coordination_thread failed: ${interjected.data.error}`);
+  assert.equal(interjected.data.state, 'created', 'interjecting must not change thread state');
+  assert.ok(interjected.data.sequence > created.event.sequence, 'interjection must advance the thread sequence');
+
+  const selfAddressed = await executeAldenTool('interject_on_coordination_thread', {
+    thread_id: created.thread.id,
+    recipient: 'alden',
+    content: 'Should not be allowed',
+  });
+  assert.match(selfAddressed.data.error, /cannot address an interjection to yourself/);
+});
+
+databaseTest('brief_new_actor assembles a scoped briefing from the real operations catalog and posts it as a thread', async () => {
+  const briefing = await executeAldenTool('brief_new_actor', { recipient: 'luca-replit' });
+  assert.equal(briefing.data.error, undefined, `brief_new_actor failed: ${briefing.data.error}`);
+  assert.equal(typeof briefing.data.threadId, 'string');
+  threadIds.push(briefing.data.threadId);
+  assert.equal(briefing.data.recipient, 'luca-replit');
+  assert.ok(briefing.data.operationCount > 0, 'luca-replit has real operations catalog entries to brief');
+
+  const { thread, events } = await getCoordinationThread(briefing.data.threadId, 'luca-replit');
+  assert.equal(thread.originActor, 'alden');
+  assert.equal(thread.intendedRecipient, 'luca-replit');
+  assert.match(events[0].content, /operations catalog/);
+  assert.match(events[0].content, /coordination-new-actor-onboarding\.md/);
+});
+
+databaseTest('brief_new_actor fails closed instead of posting an empty or fabricated briefing when the recipient has no catalog entries', async () => {
+  // Every real CoordinationActorId already has at least the ALL_COORDINATION_ACTORS-scoped
+  // entries, so this proves the runtime fail-closed check itself works using a value that
+  // bypasses the tool's declared enum -- exactly what an unonboarded id (added to
+  // COORDINATION_ACTOR_IDS but not yet to operations-catalog.ts) would look like.
+  const result = await executeAldenTool('brief_new_actor', { recipient: 'not-a-real-onboarded-actor' });
+  assert.match(result.data.error, /No operations catalog entries are scoped to/);
+  assert.match(result.data.error, /coordination-new-actor-onboarding\.md/);
 });
 
 test('search_multi also falls back cleanly when rg is unavailable', async () => {

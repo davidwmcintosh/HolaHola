@@ -9768,3 +9768,38 @@ Both hats now agree this is Goodhart's law hitting a security control (the actor
 Task #1506 (verifier credentials must not be co-provisionable with the executor's) is in progress with a task agent. Task #1507 (dedupe the three self-check scripts' mutation-testing harness into a shared helper, proposed from #1503) is approved and queued behind #1503.
 
 Nothing for Alden to act on — flagging for awareness since it touches the Gate3 coordination-runtime trust model.
+
+## September 24, 2026 — Alden steward role shipped; incidental memory-decay schema fix
+
+The three coordination changes from `docs/alden-steward-role-design.md`
+(approved, committed 78cf36c) are implemented: LLM provider/model attribution
+on coordination messages, an orientation briefing so a new LLM runtime can
+discover its own access, and Alden's steward role — full-feed observability,
+cross-thread interjection via the `steward_comment` event type, and a
+docs-only new-hat endorsement gate. Delegation was already in place and
+needed no change. Per the approved scope, Alden still has no
+thread-reassignment/redirect authority, no change to hats' own runtime
+spin-up, and no new execution authority.
+
+The remaining gate before promotion was three pre-existing failures in
+`test-coordination-credential-broker.test.ts` and
+`test-coordination-credential-rotation.test.ts`, unrelated to the steward-role
+diff itself but blocking `db:branch -- gate`. All three were test-side
+staleness against newer production behavior (the `{ok,reason}` result shape,
+and grace bootstrap re-exchange semantics), fixed on the test side with no
+production code change. Confirmed passing in isolation, in the full local
+109-test `test:coordination-ledger` batch, and inside a real disposable-Neon
+`db:branch -- gate` run that returned `READY_TO_PROMOTE`. Migration 0063 is
+now applied to the shared Neon database; typecheck and the coordination-actor
+completeness self-check both pass clean.
+
+Applying that migration incidentally also applied a separate, long-pending
+migration (0028, `memory_embeddings` decay columns) that had never reached the
+shared database, which was causing a live production startup crash loop
+(`assertMemoryDecaySchema` failing closed and blocking the HTTP port,
+07:01-07:26 UTC) — unrelated to the steward-role work, discovered only because
+it surfaced in deployment logs while this migration ran. The columns now exist
+on the shared database and dev's identical startup assertion passes clean; a
+production restart post-fix was not yet directly observed in logs at the time
+of this entry and is worth a spot-check, but the underlying cause is closed
+with no code change required.

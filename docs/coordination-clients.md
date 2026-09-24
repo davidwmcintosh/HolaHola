@@ -473,16 +473,27 @@ no longer needed. Never copy a legacy actor token into the new bootstrap field.
 | Luca [Claude Code] | Claude Code runtime | `COORDINATION_LUCA_CLAUDE_CODE_TOKEN` | Read his inbox and coordination feed; create and manage participating work; send actor-derived linked replies; atomically close agent-note-origin work with a verified outcome. |
 | Luca [Gemini] | Antigravity/Gemini execution runtime | broker registration (`luca-gemini`) or migration-only `COORDINATION_LUCA_GEMINI_TOKEN` | Read its canonical inbox/feed; create and manage participating work under dedicated attribution. Legacy `agent_notes` linked replies remain Replit/Claude-specific. |
 | Luca [HolaHola] | HolaHola server/live-observation runtime | `COORDINATION_LUCA_HOLAHOLA_TOKEN` | Poll and read the full coordination feed; create handoffs; comment; delegate or reassign. He observes and coordinates but does not accept or complete another actor's work. |
-| Alden | Alden service/runtime | `COORDINATION_ALDEN_TOKEN` | Poll and read participating threads; accept; report progress; attach evidence; block or complete owned work; comment; reassign work he owns; acknowledge outcomes for threads he originated. |
+| Alden | Alden service/runtime | `COORDINATION_ALDEN_TOKEN` | Poll and read the full coordination feed system-wide; accept, report progress, attach evidence, block, or complete threads he owns; comment on participating threads; interject with a steward_comment on any thread system-wide, even ones he doesn't participate in; reassign work he owns; acknowledge outcomes for threads he originated; brief a new actor on the access it already has. |
 | Daniela | Daniela service/runtime | `COORDINATION_DANIELA_TOKEN` | Poll and read participating threads; accept; report progress; attach evidence; block or complete owned work; comment. She cannot originate or reassign operational work. |
 
 The lifecycle service enforces these scopes again on the server. The client
 profile is a safe interface, not the security boundary. Normal participant,
 owner, origin, sequence, evidence, and state-transition checks still apply.
 
-Luca [HolaHola]'s full-feed read access is deliberate: he is the coordination
-observer and delegator. Alden and Daniela receive only threads where they are
-the origin, intended recipient, or current owner.
+Luca [HolaHola] and Alden both read the full coordination feed —
+`FULL_FEED_READ_ACTORS` in `coordination-ledger-service.ts` — instead of only
+threads where they are the origin, intended recipient, or current owner. Luca
+[HolaHola] is the coordination observer and delegator. Alden is the steward of
+the code (see `docs/alden-steward-role-design.md`): full-feed access gives him
+system-wide visibility, but it is read-only observability. It does not let him
+accept, complete, or reassign a thread he doesn't already own. His one
+write-side exception is `steward_comment`, emitted only through
+`interject_on_coordination_thread`, which lets him comment on any thread
+without being a participant; every other event type he can emit — `accepted`,
+`progress`, `evidence_added`, `blocked`, `completed`, `outcome_acknowledged`,
+`reassigned`, plain `comment` — stays exactly as participant-gated as
+Daniela's. Daniela receives only threads where she is the origin, intended
+recipient, or current owner, with no full-feed access at all.
 
 ## CLI operation
 

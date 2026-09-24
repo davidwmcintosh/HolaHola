@@ -7149,3 +7149,74 @@ architect reviewer returned an unconditional PASS with no blocker.
 No production source, runtime release,
 reauthorization row, approval, replacement credential, runtime initialization,
 session, or execution authority has been created by this repair.
+
+## Alden steward role — LLM attribution, orientation briefing, steward_comment — September 24, 2026
+
+Implemented the three coordination-system changes from
+`docs/alden-steward-role-design.md` (approved, committed at 78cf36c): LLM
+provider/model attribution on coordination messages, an orientation briefing
+so a new LLM runtime can discover its own access, and Alden's steward role
+(full-feed observability, cross-thread interjection via the `steward_comment`
+event type, docs-only new-hat endorsement gate). Delegation already worked and
+needed no change. Alden thread-reassignment/redirect authority, hats' own
+runtime spin-up, and new execution authority for Alden were explicitly out of
+scope and remain untouched.
+
+Schema, ledger, inbox, and docs changes were already typecheck-clean going
+into this session, and a `steward_comment` actor-restriction bug found during
+testing was fixed. The remaining work was closing out three pre-existing
+failures in `test-coordination-credential-broker.test.ts` and
+`test-coordination-credential-rotation.test.ts` that block
+`db:branch -- gate`'s `test:ci:unit` step (via `test:coordination-ledger`) and
+are unrelated to the steward-role diff. All three were test-side staleness
+against production behavior added after the tests were written — not
+production ambiguity. Two assertions expected the old `null`/
+`bootstrap_already_consumed` shape where production now returns
+`{ok,reason}` and, for a revoked registration, always the generic
+`invalid_bootstrap` (never the more specific reason, because
+`attemptGraceBootstrapReexchange`'s eligibility check gates on
+`enabled && !revokedAt` first) — updated to match. The third resent an
+already-consumed bootstrap before the first issued credential had ever been
+used, which correctly triggers the newer grace-reexchange path instead of the
+`bootstrap_already_consumed` the test predates — fixed by moving the existing
+`resolveBrokerCredential` call ahead of the resend so the test's original
+intent (prove a genuine resend is rejected) holds under current semantics, with
+no production code change.
+
+All three fixes are confirmed passing in isolation, in the full local
+109-test `test:coordination-ledger` batch (0 failures), and inside a real
+disposable-Neon-branch `db:branch -- gate` run end to end, which returned
+`READY_TO_PROMOTE`. Migration 0063 is now applied to the shared Neon database
+via `drizzle-kit migrate`. `npm run typecheck` and the coordination-actor-
+completeness self-check both pass clean.
+
+Applying that migration also applied a separate, unrelated pending migration
+that had never reached the shared database — see the next entry.
+
+## Pre-existing memory-decay schema gap closed as a migration side effect — September 24, 2026
+
+While applying migration 0063 above, production deployment logs showed a
+startup crash loop: `assertMemoryDecaySchema` throwing
+`[MemoryDecay] Required memory_embeddings schema is missing column(s)` and
+blocking the HTTP port from opening, repeating across several restart
+attempts (07:01-07:26 UTC). This is unrelated to the steward-role change —
+`memory_embeddings.strength/last_reinforced_at/pinned/importance` back a
+separate memory-decay feature. The columns were declared in
+`shared/schema.ts` and in migration `0028_memory_embeddings_importance_column.sql`,
+but had apparently never actually been applied to the one shared Neon
+database dev and production both use.
+
+`drizzle-kit migrate` applies every outstanding migration in the folder in one
+batch, so running it for the steward-role migration also applied 0028 — this
+was incidental, not a targeted fix. A direct query against the shared
+database now confirms all four required columns exist on `memory_embeddings`.
+The dev `Start application` workflow, which runs the same fail-closed
+`assertMemoryDecaySchema` startup assertion production's health gate runs,
+restarted clean afterward with no schema error. No new deployment log
+activity had arrived yet at the time of this entry to directly confirm
+production's next restart cycle, so it is worth a spot-check, but the
+underlying cause is fixed and required no code change — only the already-
+required migration apply.
+
+Flagging for awareness since it was live production impact, not something
+this session's work created.

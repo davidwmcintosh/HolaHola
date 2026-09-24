@@ -22,6 +22,7 @@ import {
   getCoordinationFeedCursor,
   listCoordinationFeed,
 } from '../services/coordination-ledger-service';
+import { getCoordinationInboxActivation } from '../services/coordination-inbox-service';
 import { getVerifiedCiDatabaseUrl } from '../ci-database';
 
 const runId = randomUUID();
@@ -582,3 +583,161 @@ databaseTest('feed acknowledgement is durable, actor-scoped, monotonic, and sepa
     }
   }
 });
+
+databaseTest(
+  'Alden reads the full coordination feed like Luca [HolaHola], but Daniela stays scoped to her own threads',
+  async () => {
+    const db = getSharedDb();
+    const created = await createCoordinationThread({
+      actor: 'luca-replit',
+      intendedRecipient: 'luca-claude-code',
+      title: `Full-feed steward visibility ${runId}`,
+      description: 'Neither Alden nor Daniela is origin, recipient, or owner of this thread.',
+      idempotencyKey: keys('full-feed-create'),
+    });
+    try {
+      const aldenFeed = await listCoordinationFeed('alden', 0, 200);
+      assert.ok(
+        aldenFeed.items.some((item) => item.event.id === created.event.id),
+        "Alden's full-feed read (steward of the code) must surface a thread he does not participate in",
+      );
+
+      const lucaHolaHolaFeed = await listCoordinationFeed('luca-holahola', 0, 200);
+      assert.ok(
+        lucaHolaHolaFeed.items.some((item) => item.event.id === created.event.id),
+        'Luca [HolaHola] must retain his existing full-feed read access unchanged',
+      );
+
+      const danielaFeed = await listCoordinationFeed('daniela', 0, 200);
+      assert.equal(
+        danielaFeed.items.some((item) => item.event.id === created.event.id),
+        false,
+        'Daniela must stay scoped to threads where she is origin, recipient, or owner -- no full-feed access',
+      );
+    } finally {
+      await db.delete(coordinationThreads).where(eq(coordinationThreads.id, created.thread.id));
+    }
+  },
+);
+
+databaseTest(
+  'steward_comment lets Alden interject on a thread he does not participate in, without changing thread state',
+  async () => {
+    const db = getSharedDb();
+    const created = await createCoordinationThread({
+      actor: 'luca-replit',
+      intendedRecipient: 'luca-claude-code',
+      title: `Steward interjection ${runId}`,
+      description: 'Alden is not origin, recipient, or owner of this thread.',
+      idempotencyKey: keys('steward-comment-create'),
+    });
+    try {
+      // A pure read (no eventType) must also succeed for Alden before he
+      // interjects -- this is the same bypass path interject_on_coordination_thread
+      // relies on to read context first.
+      const read = await getCoordinationThread(created.thread.id, 'alden');
+      assert.equal(read.thread.id, created.thread.id);
+
+      const interjection = await appendCoordinationEvent({
+        threadId: created.thread.id,
+        actor: 'alden',
+        eventType: 'steward_comment',
+        recipientActor: 'luca-replit',
+        content: 'Flagging a related thread for context.',
+        idempotencyKey: keys('steward-comment-append'),
+        expectedSequence: created.thread.latestSequence,
+      });
+      assert.equal(interjection.thread.state, 'created', 'steward_comment must never change thread state');
+      assert.equal(interjection.thread.currentOwner, null);
+      assert.equal(interjection.event.eventType, 'steward_comment');
+
+      // Every OTHER Alden event type must remain exactly as participant-gated
+      // as before -- the steward bypass is deliberately narrow.
+      await assert.rejects(
+        appendCoordinationEvent({
+          threadId: created.thread.id,
+          actor: 'alden',
+          eventType: 'accepted',
+          content: 'Alden attempting to accept work he was never assigned.',
+          idempotencyKey: keys('steward-comment-alden-accept-blocked'),
+          expectedSequence: interjection.thread.latestSequence,
+        }),
+        (error: unknown) => error instanceof CoordinationError && error.code === 'not_participant',
+      );
+    } finally {
+      await db.delete(coordinationThreads).where(eq(coordinationThreads.id, created.thread.id));
+    }
+  },
+);
+
+databaseTest(
+  'steward_comment is reserved for Alden -- every other actor is rejected, even as a genuine participant',
+  async () => {
+    const db = getSharedDb();
+    const created = await createCoordinationThread({
+      actor: 'luca-replit',
+      intendedRecipient: 'luca-claude-code',
+      title: `Steward comment actor restriction ${runId}`,
+      description: 'luca-replit is the origin actor -- a genuine participant, not a bystander.',
+      idempotencyKey: keys('steward-comment-restriction-create'),
+    });
+    try {
+      // luca-replit is NOT in DIRECT_ACTOR_EVENT_PERMISSIONS at all, so
+      // canCoordinationActorPerform alone would wave this through -- this proves
+      // the dedicated steward_comment actor check catches it regardless.
+      await assert.rejects(
+        appendCoordinationEvent({
+          threadId: created.thread.id,
+          actor: 'luca-replit',
+          eventType: 'steward_comment',
+          content: 'A participant attempting to forge a steward comment on their own thread.',
+          idempotencyKey: keys('steward-comment-luca-replit-blocked'),
+          expectedSequence: created.thread.latestSequence,
+        }),
+        (error: unknown) => error instanceof CoordinationError && error.code === 'operation_not_allowed',
+      );
+
+      // luca-holahola and daniela ARE listed in DIRECT_ACTOR_EVENT_PERMISSIONS,
+      // and steward_comment is deliberately absent from both of their sets.
+      await assert.rejects(
+        appendCoordinationEvent({
+          threadId: created.thread.id,
+          actor: 'luca-holahola',
+          eventType: 'steward_comment',
+          content: 'Luca [HolaHola] has full-feed read access but not the steward_comment write.',
+          idempotencyKey: keys('steward-comment-luca-holahola-blocked'),
+          expectedSequence: created.thread.latestSequence,
+        }),
+        (error: unknown) => error instanceof CoordinationError && error.code === 'operation_not_allowed',
+      );
+      await assert.rejects(
+        appendCoordinationEvent({
+          threadId: created.thread.id,
+          actor: 'daniela',
+          eventType: 'steward_comment',
+          content: 'Daniela cannot emit a steward_comment either.',
+          idempotencyKey: keys('steward-comment-daniela-blocked'),
+          expectedSequence: created.thread.latestSequence,
+        }),
+        (error: unknown) => error instanceof CoordinationError && error.code === 'operation_not_allowed',
+      );
+    } finally {
+      await db.delete(coordinationThreads).where(eq(coordinationThreads.id, created.thread.id));
+    }
+  },
+);
+
+databaseTest(
+  'the coordination inbox recipient rules stay exhaustive and active with steward_comment added',
+  async () => {
+    // This is a narrow regression guard for the version-compatibility question
+    // this feature raised: adding a brand-new event type to RECIPIENT_RULES is
+    // purely additive (no historical event ever used it, so no stored inbox
+    // row's meaning can retroactively change), and must NOT require bumping
+    // COORDINATION_INBOX_RECIPIENT_RULE_VERSION or touching the activation row.
+    const activation = await getCoordinationInboxActivation();
+    if (!activation) return; // inbox activation is environment-provisioned; skip if absent here
+    assert.equal(activation.recipientRuleVersion, 1, 'steward_comment must not have required a version bump');
+    assert.equal(activation.state, 'active');
+  },
+);

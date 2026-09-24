@@ -21,10 +21,13 @@ async function main(): Promise<void> {
     .map((value) => value.trim())
     .filter(Boolean) as CoordinationCredentialCapability[];
   const ttl = Number(option('ttl-seconds') ?? '900');
+  const provider = option('provider');
+  const model = option('model');
 
   if (!runtimeId || !actor || !displayName || capabilities.length === 0) {
     throw new Error(
-      'Usage: --runtime-id <stable-id> --actor <actor> --display-name <name> --capabilities <comma-list> [--ttl-seconds 900]',
+      'Usage: --runtime-id <stable-id> --actor <actor> --display-name <name> --capabilities <comma-list> '
+      + '[--ttl-seconds 900] [--provider <name>] [--model <name>]',
     );
   }
   if (!COORDINATION_ACTOR_IDS.includes(actor) || actor === 'coordination-system') {
@@ -42,6 +45,8 @@ async function main(): Promise<void> {
     displayName,
     capabilities,
     tokenTtlSeconds: ttl,
+    provider,
+    model,
   });
   process.stdout.write([
     `Runtime ${runtimeId} registered as ${actor}.`,
