@@ -1,6 +1,7 @@
 import { closeDbConnections } from '../db';
 import {
   completeCoordinationRuntimeReplacement,
+  disableCoordinationRuntimeRegistration,
   reissueCoordinationRuntimeBootstrap,
   rollbackCoordinationRuntimeReplacement,
   stageCoordinationRuntimeReplacement,
@@ -18,6 +19,7 @@ function usage(): never {
     '  complete --from-runtime-id <current-id> --runtime-id <new-id>',
     '  rollback --from-runtime-id <current-id> --runtime-id <new-id>',
     '  reissue --runtime-id <existing-id>',
+    '  disable --runtime-id <existing-id>',
     '',
     'stage/complete/rollback move a live runtime to a new immutable ID without',
     'interrupting its current credential (zero-downtime rotation).',
@@ -26,6 +28,13 @@ function usage(): never {
     'runtime ID. Use it to recover a runtime whose bootstrap was already',
     'consumed or lost and has nothing live left to protect -- the common case',
     'after a crash, redeploy, or container recycle.',
+    '',
+    'disable permanently closes out a standalone registration that was',
+    'abandoned before it was ever staged into a rotation pair -- e.g. one that',
+    'kept failing bootstrap exchange and was replaced by registering a brand',
+    'new runtime ID from scratch. It refuses to run while the registration',
+    'still has a live, unexpired, or ever-used credential, or is part of an',
+    'active staged/ready rotation -- use revoke or rotation for those instead.',
   ].join('\n'));
 }
 
@@ -63,6 +72,17 @@ async function main(): Promise<void> {
       result.bootstrapToken,
       '',
     ].join('\n'));
+    return;
+  }
+
+  if (action === 'disable') {
+    const runtimeId = option('runtime-id');
+    if (!runtimeId) usage();
+    const result = await disableCoordinationRuntimeRegistration(runtimeId);
+    if (!result.ok) throw new Error(`Registration could not be disabled: ${result.reason}`);
+    process.stdout.write(
+      `Registration ${runtimeId} (${result.actor}) is now disabled and revoked. It can no longer exchange its bootstrap or authenticate any credential.\n`,
+    );
     return;
   }
 

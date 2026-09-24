@@ -3,6 +3,7 @@ import { after, test } from 'node:test';
 import { and, eq, inArray } from 'drizzle-orm';
 import {
   coordinationCredentialAuditEvents,
+  coordinationRuntimeCredentials,
   coordinationRuntimeRegistrations,
   coordinationRuntimeRotations,
 } from '@shared/schema';
@@ -10,6 +11,7 @@ import { closeDbConnections, getSharedDb } from '../db';
 import { getVerifiedCiDatabaseUrl } from '../ci-database';
 import {
   completeCoordinationRuntimeReplacement,
+  disableCoordinationRuntimeRegistration,
   exchangeBootstrapCredential,
   markCoordinationRuntimeReplacementReady,
   registerCoordinationRuntime,
@@ -62,7 +64,23 @@ const runtimeIds = [
   `credential-reissue-metadata-${Date.now()}`,
   `credential-reissue-revoked-source-${Date.now()}`,
   `credential-reissue-revoked-replacement-${Date.now()}`,
+  `credential-disable-unused-${Date.now()}`,
+  `credential-disable-expired-unused-${Date.now()}`,
+  `credential-disable-live-${Date.now()}`,
+  `credential-disable-used-${Date.now()}`,
+  `credential-disable-twice-${Date.now()}`,
+  `credential-disable-rotation-source-${Date.now()}`,
+  `credential-disable-rotation-replacement-${Date.now()}`,
+  `credential-disable-first-use-race-${Date.now()}`,
 ];
+
+function deferred(): { promise: Promise<void>; resolve: () => void } {
+  let resolve!: () => void;
+  const promise = new Promise<void>((done) => {
+    resolve = done;
+  });
+  return { promise, resolve };
+}
 
 after(async () => {
   if (!hasDisposableDatabase) return;
@@ -657,3 +675,296 @@ databaseTest('bootstrap reissue refuses a revoked registration', async () => {
     'pre_update_check',
   );
 });
+
+databaseTest('disabling an abandoned registration that never issued a credential succeeds and is audited', async () => {
+  const runtimeId = runtimeIds[17];
+  const registered = await registerCoordinationRuntime({
+    runtimeId,
+    actor: 'luca-claude-code',
+    displayName: 'Disable unused runtime',
+    capabilities: ['coordination:read'],
+    tokenTtlSeconds: 60,
+  });
+  assert.ok(registered.bootstrapToken);
+
+  const result = await disableCoordinationRuntimeRegistration(runtimeId);
+  assert.deepEqual(result, { ok: true, actor: 'luca-claude-code' });
+
+  const [row] = await getSharedDb().select().from(coordinationRuntimeRegistrations)
+    .where(eq(coordinationRuntimeRegistrations.id, runtimeId));
+  assert.equal(row.enabled, false);
+  assert.ok(row.revokedAt);
+
+  // The dead bootstrap can never be exchanged again once disabled.
+  const exchangeAttempt = await exchangeBootstrapCredential(runtimeId, registered.bootstrapToken);
+  assert.equal(exchangeAttempt.ok, false);
+
+  const auditEvents = await getSharedDb().select().from(coordinationCredentialAuditEvents)
+    .where(eq(coordinationCredentialAuditEvents.runtimeId, runtimeId));
+  assert.equal(
+    auditEvents.some((event) => event.eventType === 'runtime_disabled' && event.success),
+    true,
+  );
+});
+
+databaseTest('disabling a registration whose only credential is expired and unused succeeds and revokes the leftover credential', async () => {
+  const runtimeId = runtimeIds[18];
+  const registered = await registerCoordinationRuntime({
+    runtimeId,
+    actor: 'luca-claude-code',
+    displayName: 'Disable expired-unused runtime',
+    capabilities: ['coordination:read'],
+    tokenTtlSeconds: 60,
+  });
+  const credential = await exchangeBootstrapCredential(runtimeId, registered.bootstrapToken);
+  assert.equal(credential.ok, true);
+  if (!credential.ok) return;
+
+  // Simulate natural expiry without waiting for real time to pass. lastUsedAt
+  // stays null throughout -- this credential was issued but never actually
+  // used to authenticate a request.
+  await getSharedDb().update(coordinationRuntimeCredentials)
+    .set({ expiresAt: new Date(Date.now() - 1000) })
+    .where(eq(coordinationRuntimeCredentials.id, credential.credential.credentialId));
+
+  const result = await disableCoordinationRuntimeRegistration(runtimeId);
+  assert.deepEqual(result, { ok: true, actor: 'luca-claude-code' });
+
+  const [credentialRow] = await getSharedDb().select().from(coordinationRuntimeCredentials)
+    .where(eq(coordinationRuntimeCredentials.id, credential.credential.credentialId));
+  assert.ok(credentialRow.revokedAt, 'leftover expired credential should be revoked for hygiene');
+
+  const [registrationRow] = await getSharedDb().select().from(coordinationRuntimeRegistrations)
+    .where(eq(coordinationRuntimeRegistrations.id, runtimeId));
+  assert.equal(registrationRow.enabled, false);
+});
+
+databaseTest('disabling a registration with a live unexpired credential is refused', async () => {
+  const runtimeId = runtimeIds[19];
+  const registered = await registerCoordinationRuntime({
+    runtimeId,
+    actor: 'luca-claude-code',
+    displayName: 'Disable live-credential runtime',
+    capabilities: ['coordination:read'],
+    tokenTtlSeconds: 60,
+  });
+  const credential = await exchangeBootstrapCredential(runtimeId, registered.bootstrapToken);
+  assert.equal(credential.ok, true);
+  if (!credential.ok) return;
+
+  assert.deepEqual(
+    await disableCoordinationRuntimeRegistration(runtimeId),
+    { ok: false, reason: 'runtime_has_live_or_used_credential' },
+  );
+
+  // Refusal must not have touched anything: the registration stays enabled
+  // and the credential keeps resolving normally.
+  const [registrationRow] = await getSharedDb().select().from(coordinationRuntimeRegistrations)
+    .where(eq(coordinationRuntimeRegistrations.id, runtimeId));
+  assert.equal(registrationRow.enabled, true);
+  assert.equal((await resolveBrokerCredential(credential.accessToken))?.runtimeId, runtimeId);
+
+  const auditEvents = await getSharedDb().select().from(coordinationCredentialAuditEvents)
+    .where(eq(coordinationCredentialAuditEvents.runtimeId, runtimeId));
+  assert.equal(
+    auditEvents.some((event) =>
+      event.eventType === 'runtime_disable_failed'
+      && !event.success
+      && event.reason === 'runtime_has_live_or_used_credential'
+    ),
+    true,
+  );
+});
+
+databaseTest('disabling a registration whose credential was ever used is refused even after it later expires and is revoked', async () => {
+  const runtimeId = runtimeIds[20];
+  const registered = await registerCoordinationRuntime({
+    runtimeId,
+    actor: 'luca-claude-code',
+    displayName: 'Disable used-credential runtime',
+    capabilities: ['coordination:read'],
+    tokenTtlSeconds: 60,
+  });
+  const credential = await exchangeBootstrapCredential(runtimeId, registered.bootstrapToken);
+  assert.equal(credential.ok, true);
+  if (!credential.ok) return;
+
+  // Actually use the credential once, which is what sets lastUsedAt.
+  assert.equal((await resolveBrokerCredential(credential.accessToken))?.runtimeId, runtimeId);
+
+  // Now simulate it having naturally expired and been revoked well after
+  // that use -- the guard must still fire on lastUsedAt alone, independent
+  // of the credential's current expiry/revocation state.
+  await getSharedDb().update(coordinationRuntimeCredentials)
+    .set({ expiresAt: new Date(Date.now() - 1000), revokedAt: new Date() })
+    .where(eq(coordinationRuntimeCredentials.id, credential.credential.credentialId));
+
+  const result = await disableCoordinationRuntimeRegistration(runtimeId);
+  assert.deepEqual(result, { ok: false, reason: 'runtime_has_live_or_used_credential' });
+
+  const [registrationRow] = await getSharedDb().select().from(coordinationRuntimeRegistrations)
+    .where(eq(coordinationRuntimeRegistrations.id, runtimeId));
+  assert.equal(registrationRow.enabled, true);
+});
+
+databaseTest('disabling an already-disabled registration is refused, and an unknown runtime ID is refused', async () => {
+  const runtimeId = runtimeIds[21];
+  await registerCoordinationRuntime({
+    runtimeId,
+    actor: 'luca-claude-code',
+    displayName: 'Disable twice runtime',
+    capabilities: ['coordination:read'],
+    tokenTtlSeconds: 60,
+  });
+
+  assert.deepEqual(
+    await disableCoordinationRuntimeRegistration(runtimeId),
+    { ok: true, actor: 'luca-claude-code' },
+  );
+  assert.deepEqual(
+    await disableCoordinationRuntimeRegistration(runtimeId),
+    { ok: false, reason: 'runtime_already_disabled' },
+  );
+
+  assert.deepEqual(
+    await disableCoordinationRuntimeRegistration('credential-disable-never-registered'),
+    { ok: false, reason: 'runtime_not_found' },
+  );
+
+  const auditEvents = await getSharedDb().select().from(coordinationCredentialAuditEvents)
+    .where(eq(coordinationCredentialAuditEvents.runtimeId, runtimeId));
+  assert.equal(
+    auditEvents.some((event) =>
+      event.eventType === 'runtime_disable_failed' && !event.success && event.reason === 'runtime_already_disabled'
+    ),
+    true,
+  );
+  const notFoundEvents = await getSharedDb().select().from(coordinationCredentialAuditEvents)
+    .where(eq(coordinationCredentialAuditEvents.runtimeId, 'credential-disable-never-registered'));
+  assert.equal(
+    notFoundEvents.some((event) => !event.success && event.reason === 'runtime_not_found'),
+    true,
+  );
+  await getSharedDb().delete(coordinationCredentialAuditEvents)
+    .where(eq(coordinationCredentialAuditEvents.runtimeId, 'credential-disable-never-registered'));
+});
+
+databaseTest('disabling either side of an active staged rotation is refused, including a replacement with no credential yet', async () => {
+  const sourceRuntimeId = runtimeIds[22];
+  const replacementRuntimeId = runtimeIds[23];
+  await registerCoordinationRuntime({
+    runtimeId: sourceRuntimeId,
+    actor: 'luca-claude-code',
+    displayName: 'Disable rotation source',
+    capabilities: ['coordination:read'],
+    tokenTtlSeconds: 60,
+  });
+  const staged = await stageCoordinationRuntimeReplacement({
+    sourceRuntimeId,
+    replacementRuntimeId,
+    replacementDisplayName: 'Disable rotation replacement',
+  });
+  assert.equal(staged.ok, true);
+  if (!staged.ok) return;
+
+  // The replacement has zero credentials at this point -- its bootstrap was
+  // never exchanged. A credential-only guard would see nothing to protect
+  // and let this through; the active-rotation guard is what has to catch it.
+  const replacementCredentialCount = await getSharedDb().select().from(coordinationRuntimeCredentials)
+    .where(eq(coordinationRuntimeCredentials.runtimeId, replacementRuntimeId));
+  assert.equal(replacementCredentialCount.length, 0);
+
+  assert.deepEqual(
+    await disableCoordinationRuntimeRegistration(sourceRuntimeId),
+    { ok: false, reason: 'runtime_has_active_rotation' },
+  );
+  assert.deepEqual(
+    await disableCoordinationRuntimeRegistration(replacementRuntimeId),
+    { ok: false, reason: 'runtime_has_active_rotation' },
+  );
+
+  const auditEvents = await getSharedDb().select().from(coordinationCredentialAuditEvents)
+    .where(inArray(coordinationCredentialAuditEvents.runtimeId, [sourceRuntimeId, replacementRuntimeId]));
+  const failedEvents = auditEvents.filter((event) =>
+    event.eventType === 'runtime_disable_failed' && !event.success && event.reason === 'runtime_has_active_rotation'
+  );
+  assert.equal(failedEvents.length, 2);
+  assert.equal(failedEvents.every((event) => typeof event.metadata?.conflictingRotationId === 'string'), true);
+
+  // Neither registration was touched by the refused attempts.
+  const registrationRows = await getSharedDb().select().from(coordinationRuntimeRegistrations)
+    .where(inArray(coordinationRuntimeRegistrations.id, [sourceRuntimeId, replacementRuntimeId]));
+  assert.equal(registrationRows.every((row) => row.enabled === true), true);
+});
+
+databaseTest(
+  'disable cannot succeed while a credential is completing its first authenticated use',
+  async () => {
+    const runtimeId = runtimeIds[24];
+    const registered = await registerCoordinationRuntime({
+      runtimeId,
+      actor: 'luca-claude-code',
+      displayName: 'Disable-vs-first-use race runtime',
+      capabilities: ['coordination:read'],
+      tokenTtlSeconds: 60,
+    });
+    const credential = await exchangeBootstrapCredential(runtimeId, registered.bootstrapToken);
+    assert.equal(credential.ok, true);
+    if (!credential.ok) return;
+
+    // resolveBrokerCredential has already confirmed this credential is valid
+    // and not expired -- the runtime really is authenticating -- but has not
+    // yet committed lastUsedAt. A plain (non-locking) read from disable at
+    // this exact instant would still see lastUsedAt = null and the old
+    // expiry, and could wrongly conclude there is nothing live to protect.
+    const resolvePaused = deferred();
+    const releaseResolve = deferred();
+    setCoordinationCredentialBrokerConcurrencyTestHook(async (point) => {
+      if (point !== 'resolve_credential_before_use_update') return;
+      resolvePaused.resolve();
+      await releaseResolve.promise;
+    });
+
+    const resolvePromise = resolveBrokerCredential(credential.accessToken);
+    await resolvePaused.promise;
+
+    const disablePromise = disableCoordinationRuntimeRegistration(runtimeId);
+    const disableFinishedBeforeRelease = await Promise.race([
+      disablePromise.then(() => true),
+      new Promise<boolean>((resolve) => {
+        setTimeout(() => resolve(false), 1_000);
+      }),
+    ]);
+    releaseResolve.resolve();
+    const [resolved, disableResult] = await Promise.all([resolvePromise, disablePromise]);
+    setCoordinationCredentialBrokerConcurrencyTestHook(undefined);
+
+    assert.equal(
+      disableFinishedBeforeRelease,
+      false,
+      'disable must wait while a concurrent credential resolution holds the runtime advisory lock',
+    );
+    assert.equal(
+      resolved?.runtimeId,
+      runtimeId,
+      'the in-flight resolution legitimately authenticated before disable ran',
+    );
+    assert.deepEqual(disableResult, { ok: false, reason: 'runtime_has_live_or_used_credential' });
+
+    // The registration that just authenticated must not have been disabled.
+    const [registrationRow] = await getSharedDb().select().from(coordinationRuntimeRegistrations)
+      .where(eq(coordinationRuntimeRegistrations.id, runtimeId));
+    assert.equal(registrationRow.enabled, true);
+
+    const auditEvents = await getSharedDb().select().from(coordinationCredentialAuditEvents)
+      .where(eq(coordinationCredentialAuditEvents.runtimeId, runtimeId));
+    assert.equal(
+      auditEvents.some((event) =>
+        event.eventType === 'runtime_disable_failed'
+        && !event.success
+        && event.reason === 'runtime_has_live_or_used_credential'
+      ),
+      true,
+    );
+  },
+);

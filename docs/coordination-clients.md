@@ -163,6 +163,46 @@ current credential must keep working without interruption during the
 changeover, or when the runtime's identity itself needs to change -- see
 below.
 
+
+### Retiring an abandoned registration
+
+Sometimes a runtime is abandoned outright rather than recovered or rotated --
+for example, a registration that kept failing bootstrap exchange and was
+replaced by registering a brand new runtime ID from scratch, with the old one
+never staged into a formal rotation pair. That old registration has no
+supported way back: reissue only replaces its bootstrap secret in place, and
+`complete`/`rollback` both require an actual staged
+`coordination_runtime_rotations` row naming it, which never existed for a
+registration nobody ever staged. Left alone it stays `enabled` forever.
+
+Disable it from the trusted HolaHola server environment:
+
+```bash
+npx tsx server/scripts/coordination-runtime-rotation.ts disable \
+  --runtime-id luca-claude-code-cloud
+```
+
+This sets `enabled = false` and `revokedAt` on the registration, the same
+terminal state `complete` leaves a retired source registration in, and revokes
+any of its credential rows that are not already revoked. It refuses to run,
+returning the given reason instead of touching anything, when:
+
+- the runtime ID does not exist (`runtime_not_found`);
+- the registration is already disabled or revoked (`runtime_already_disabled`);
+- the registration is currently the source or replacement side of an active
+  staged/ready rotation (`runtime_has_active_rotation`) -- disabling either
+  half out from under an in-flight rotation would strand it, so finish or roll
+  back that rotation first;
+- the registration has a credential that is still live (unexpired and not
+  revoked) or that was ever actually used to authenticate a request
+  (`runtime_has_live_or_used_credential`) -- that is a real in-service runtime,
+  not an abandoned one, and must go through `revokeRuntimeCredentials` or a
+  full staged rotation instead.
+
+Every call is audited as `runtime_disabled`, or `runtime_disable_failed` with
+the specific reason above, so a later review can tell a deliberate retirement
+apart from a live runtime that was mistakenly targeted.
+
 ### Zero-downtime bootstrap rotation
 
 Use rotation only when the source registration currently holds a valid,
@@ -180,9 +220,10 @@ the bootstrap value itself is also gone (never recorded, or recorded
 somewhere now unrecoverable); it keeps the same runtime ID and needs no
 staging or completion either way. The dead source registration can never be
 exchanged past the point something it issued is actually used, and can be
-revoked later at leisure if you provision a replacement under a new runtime
-ID for some other reason; it poses no ongoing risk beyond its own
-short-lived, already-orphaned access token expiring on schedule.
+disabled later at leisure with the `disable` command below if you provision a
+replacement under a new runtime ID for some other reason; it poses no ongoing
+risk beyond its own short-lived, already-orphaned access token expiring on
+schedule.
 
 Run rotation only from the trusted HolaHola server environment. The bootstrap
 is never passed as a command argument. First stage a new immutable runtime ID:

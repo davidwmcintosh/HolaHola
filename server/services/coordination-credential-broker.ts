@@ -24,7 +24,8 @@ type RotationConcurrencyTestPoint =
   | 'stage_snapshot_read'
   | 'ready_before_lock'
   | 'complete_snapshot_read'
-  | 'rollback_snapshot_read';
+  | 'rollback_snapshot_read'
+  | 'resolve_credential_before_use_update';
 let rotationConcurrencyTestHook: ((point: RotationConcurrencyTestPoint) => Promise<void>) | undefined;
 
 export function setCoordinationCredentialBrokerConcurrencyTestHook(
@@ -1126,6 +1127,7 @@ export async function resolveBrokerCredential(
       }, executor);
       return null;
     }
+    await rotationConcurrencyTestHook?.('resolve_credential_before_use_update');
     await tx.update(coordinationRuntimeCredentials)
       .set({ lastUsedAt: new Date() })
       .where(eq(coordinationRuntimeCredentials.id, stored.id));
@@ -1469,3 +1471,169 @@ export async function reissueCoordinationRuntimeBootstrap(
 export type BootstrapReissueResult =
   | { ok: true; bootstrapToken: string; actor: CoordinationActorId }
   | { ok: false; reason: BootstrapReissueFailureReason };
+
+export type RuntimeDisableFailureReason =
+  | 'runtime_not_found'
+  | 'runtime_already_disabled'
+  | 'runtime_has_active_rotation'
+  | 'runtime_has_live_or_used_credential';
+
+export type RuntimeDisableResult =
+  | { ok: true; actor: CoordinationActorId }
+  | { ok: false; reason: RuntimeDisableFailureReason };
+
+/**
+ * Closes out a STANDALONE registration that was abandoned before it was ever
+ * staged into a formal rotation pair -- e.g. a runtime that kept failing
+ * bootstrap exchange and was replaced by registering a brand new runtime ID
+ * from scratch rather than reissuing or rotating onto the same one. Left
+ * alone, that old registration stays `enabled` forever with no supported way
+ * back: reissueCoordinationRuntimeBootstrap only replaces its bootstrap
+ * secret in place, and completeCoordinationRuntimeReplacement /
+ * rollbackCoordinationRuntimeReplacement both require an actual staged
+ * coordinationRuntimeRotations row naming it, which never existed for a
+ * registration nobody ever staged.
+ *
+ * This is deliberately narrower than revokeRuntimeCredentials: it refuses to
+ * touch a registration that currently holds a live (unexpired, unrevoked)
+ * credential, or that has ever issued one that actually authenticated a
+ * request -- that is a real in-service runtime and must go through
+ * revokeRuntimeCredentials (emergency revocation) or a full staged rotation
+ * instead, both of which have operator-facing tradeoffs (immediate forced
+ * cutover vs. a zero-downtime handoff) this function does not attempt to
+ * reproduce. It also refuses a registration that is currently the source or
+ * replacement side of an active (staged/ready) rotation: disabling either
+ * half out from under that pair would leave
+ * completeCoordinationRuntimeReplacement/rollbackCoordinationRuntimeReplacement
+ * unable to find a valid pair to act on (both require the source registration
+ * to still be `enabled`), silently stranding the in-flight rotation instead
+ * of the abandoned standalone registration this function is meant for.
+ *
+ * On success this mirrors exactly what completeCoordinationRuntimeReplacement
+ * and revokeRuntimeCredentials already do to a retired registration: set
+ * `enabled = false` and `revokedAt`, and revoke any remaining unrevoked
+ * credential row for hygiene (the guard above already proved every such row
+ * is expired and was never used, so this discards nothing live).
+ */
+export async function disableCoordinationRuntimeRegistration(
+  runtimeId: string,
+  sourceIp?: string,
+): Promise<RuntimeDisableResult> {
+  return getSharedDb().transaction(async (tx) => {
+    const executor = tx as unknown as ReturnType<typeof getSharedDb>;
+    // Serialize against a concurrent resolveBrokerCredential() call for this
+    // exact runtime, which takes this exact advisory lock (same key, same
+    // advisory-lock-before-row-lock order) before validating a credential and
+    // marking it used. Without this, the live/used-credential check below is
+    // just a plain SELECT racing an uncommitted UPDATE: a credential can
+    // finish validating here and then commit lastUsedAt *after* this
+    // function's SELECT already ran, so the SELECT sees a stale
+    // lastUsedAt = null / not-yet-expired row and lets disable proceed even
+    // though that credential just authenticated a request. Sharing this lock
+    // closes it exactly the way attemptGraceBootstrapReexchange documents for
+    // grace-vs-first-use: whichever side wins the lock commits first, and the
+    // side that waited then sees the fully up-to-date state -- either this
+    // function now sees the committed lastUsedAt and refuses, or a
+    // resolveBrokerCredential call that was waiting instead sees the
+    // now-disabled registration and rejects the authentication. Never both.
+    await tx.execute(sql`
+      SELECT pg_advisory_xact_lock(hashtextextended(${runtimeId}, 0))
+    `);
+    await tx.execute(sql`
+      SELECT id FROM coordination_runtime_registrations
+      WHERE id = ${runtimeId}
+      FOR UPDATE
+    `);
+    const [registration] = await tx.select().from(coordinationRuntimeRegistrations)
+      .where(eq(coordinationRuntimeRegistrations.id, runtimeId));
+    if (!registration) {
+      await audit({
+        eventType: 'runtime_disable_failed',
+        success: false,
+        runtimeId,
+        reason: 'runtime_not_found',
+        sourceIp,
+      }, executor);
+      return { ok: false, reason: 'runtime_not_found' };
+    }
+    if (!registration.enabled || registration.revokedAt) {
+      await audit({
+        eventType: 'runtime_disable_failed',
+        success: false,
+        runtimeId,
+        actor: registration.actor,
+        reason: 'runtime_already_disabled',
+        sourceIp,
+      }, executor);
+      return { ok: false, reason: 'runtime_already_disabled' };
+    }
+
+    const [activeRotation] = await tx.select({ id: coordinationRuntimeRotations.id })
+      .from(coordinationRuntimeRotations)
+      .where(and(
+        inArray(coordinationRuntimeRotations.state, ['staged', 'ready']),
+        or(
+          eq(coordinationRuntimeRotations.sourceRuntimeId, runtimeId),
+          eq(coordinationRuntimeRotations.replacementRuntimeId, runtimeId),
+        ),
+      ))
+      .limit(1);
+    if (activeRotation) {
+      await audit({
+        eventType: 'runtime_disable_failed',
+        success: false,
+        runtimeId,
+        actor: registration.actor,
+        reason: 'runtime_has_active_rotation',
+        sourceIp,
+        metadata: { conflictingRotationId: activeRotation.id },
+      }, executor);
+      return { ok: false, reason: 'runtime_has_active_rotation' };
+    }
+
+    const [blockingCredential] = await tx.select({ id: coordinationRuntimeCredentials.id })
+      .from(coordinationRuntimeCredentials)
+      .where(and(
+        eq(coordinationRuntimeCredentials.runtimeId, runtimeId),
+        or(
+          isNotNull(coordinationRuntimeCredentials.lastUsedAt),
+          and(
+            isNull(coordinationRuntimeCredentials.revokedAt),
+            gt(coordinationRuntimeCredentials.expiresAt, new Date()),
+          ),
+        ),
+      ))
+      .limit(1);
+    if (blockingCredential) {
+      await audit({
+        eventType: 'runtime_disable_failed',
+        success: false,
+        runtimeId,
+        actor: registration.actor,
+        credentialId: blockingCredential.id,
+        reason: 'runtime_has_live_or_used_credential',
+        sourceIp,
+      }, executor);
+      return { ok: false, reason: 'runtime_has_live_or_used_credential' };
+    }
+
+    const now = new Date();
+    await tx.update(coordinationRuntimeRegistrations)
+      .set({ enabled: false, revokedAt: now, updatedAt: now })
+      .where(eq(coordinationRuntimeRegistrations.id, runtimeId));
+    await tx.update(coordinationRuntimeCredentials)
+      .set({ revokedAt: now })
+      .where(and(
+        eq(coordinationRuntimeCredentials.runtimeId, runtimeId),
+        isNull(coordinationRuntimeCredentials.revokedAt),
+      ));
+    await audit({
+      eventType: 'runtime_disabled',
+      success: true,
+      runtimeId,
+      actor: registration.actor,
+      sourceIp,
+    }, executor);
+    return { ok: true, actor: registration.actor as CoordinationActorId };
+  });
+}
