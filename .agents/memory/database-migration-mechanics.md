@@ -41,3 +41,28 @@ When divergent branches contain colliding migration sequence numbers and the sha
 **Why:** the migration ledger records content hashes and timestamps. Replacing or combining already-applied SQL can leave live ledger entries with no matching source artifact, while choosing one branch's snapshot chain silently omits the other branch's schema.
 
 **How to apply:** query the live migration ledger first, match each recorded hash to an exact SQL file, inspect the live schema, assign a collision-free chronological sequence, and rebuild the snapshot chain cumulatively. Prove the result on a disposable production clone before merging.
+
+## 4. migrate applies every pending migration in one batch, not just your target
+
+`drizzle-kit migrate` has no notion of "apply just this one migration." Per
+the skip logic in #1, it applies every migration folder whose `when`
+timestamp is newer than the last row in `drizzle.__drizzle_migrations`, all
+in the same run. If other migrations were generated and committed earlier
+but never actually applied, running migrate for an unrelated schema change
+sweeps those in too, silently.
+
+**Why:** direct consequence of the timestamp-gate skip logic (#1) — there is
+no per-migration selection, only "everything newer than the last applied
+timestamp."
+
+**How to apply:** before running `drizzle-kit migrate` for a specific
+change, check `migrations/meta/_journal.json` against
+`drizzle.__drizzle_migrations` for any other already-generated-but-unapplied
+migrations. Treat those as in scope for this run and review them like your
+own change, since they will be applied together whether you meant to or
+not. Confirmed case: an unrelated schema task's migrate run incidentally
+applied a long-pending migration that had been silently failing a
+fail-closed startup schema assertion in production for weeks — a lucky
+outcome, but the reverse (an unreviewed unrelated migration introducing a
+new problem) is exactly as possible.
+
