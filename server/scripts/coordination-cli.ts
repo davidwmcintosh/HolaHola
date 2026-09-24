@@ -3,6 +3,7 @@ import {
   type CoordinationClientActor,
   type CoordinationEventInput,
 } from '../services/coordination-actor-client';
+import { FileCoordinationCliCredentialCache } from '../services/coordination-cli-credential-cache';
 import type {
   CoordinationEvidenceReference,
   CoordinationActorId,
@@ -226,7 +227,10 @@ async function main(): Promise<void> {
   }
   const actor = actorValue as CoordinationClientActor;
 
-  const client = createCoordinationActorClient(actor, { apiUrl });
+  const client = createCoordinationActorClient(actor, {
+    apiUrl,
+    credentialCache: new FileCoordinationCliCredentialCache(),
+  });
   let result: unknown;
 
   if (command === 'show') {

@@ -15,9 +15,14 @@ Always query `coordinationCredentialAuditEvents` for both candidate runtime IDs 
 for `rotation_started`/`rotation_ready`/`rotation_completed` before treating name or
 timing similarity as evidence of a staged pair.
 
-Separate gap surfaced by the same incident: the abandoned old registration's one issued
-credential was never used and is long expired, so it is a safe dead end needing no
-rotation cleanup -- but there is currently no CLI action that formally disables a
-standalone (never-staged) registration. reissue/stage/complete/rollback don't cover it;
-see task "Let operators retire an abandoned standalone runtime registration".
+Separate gap surfaced by the same incident, now closed: a standalone (never-staged)
+registration with a dead credential had no CLI action to formally disable it --
+reissue/stage/complete/rollback don't cover it. `coordination-runtime-rotation.ts disable
+--runtime-id <id>` now fills this gap (server/services/coordination-credential-broker.ts's
+`disableCoordinationRuntimeRegistration`). Its guard ordering matters: not-found ->
+already-disabled -> **active-staged-rotation membership, checked as either source OR
+replacement** -> live/unexpired/ever-used credential. The active-rotation check is not
+redundant with the credential check -- a freshly-staged replacement has zero credentials
+of its own yet, so only the rotation-membership guard stops an operator from disabling it
+out from under an in-flight rotation.
 

@@ -272,7 +272,39 @@ when the bootstrap value itself is unrecoverable; reserve a brand new runtime
 ID or a staged rotation for when the runtime's identity itself is changing or
 its current credential must keep serving traffic during the changeover.
 
+For the long-running in-process client -- the main HolaHola server's own
+`CoordinationActorClient` instances for alden, daniela, and luca-holahola --
+none currently configure `COORDINATION_RUNTIME_TOKEN_CACHE_PATH`, so in
+practice a restart still has no persisted credential to fall back on today:
+the access token lives only in that process's memory, so it needs a new
+bootstrap (or a grace re-exchange, while eligible) before it can authenticate
+again. Reissue one in place for the same runtime ID ("Recovering a stranded
+bootstrap" above); reserve a brand new runtime ID or a staged rotation for
+when the runtime's identity itself is changing or its current credential must
+keep serving traffic during the changeover.
 
+`server/scripts/coordination-cli.ts` is different: it starts a brand-new OS
+process for every invocation, so a memory-only credential would strand it
+after exactly one successful command -- an ordinary second CLI action in the
+same session, not just a restart, would otherwise need its own bootstrap
+reissue. Rather than relying on an operator to configure
+`COORDINATION_RUNTIME_TOKEN_CACHE_PATH` by hand for every runtime that might
+invoke it, the CLI unconditionally caches its exchanged (or renewed) access
+token on local disk via `FileCoordinationCliCredentialCache`
+(`server/services/coordination-cli-credential-cache.ts`), scoped to the exact
+actor + `COORDINATION_RUNTIME_ID` pair: a hashed filename plus a same-actor,
+same-runtime check inside the file, owner-only file and directory permissions,
+written under the OS temp directory by default (override with
+`COORDINATION_CLI_CREDENTIAL_CACHE_DIR`). The next CLI invocation loads that
+cached token instead of exchanging the bootstrap again, subject to the same
+short TTL and 60-second renewal window as the in-memory case -- this is a
+cross-process cache for the same still-expiring token, not a new long-lived
+secret. A cached token already past its expiry is discarded and treated as if
+no cache existed, falling through to a fresh bootstrap exchange (and, if the
+bootstrap was already consumed, the same in-place reissue recovery above).
+This caching is always on for the CLI; the server's own long-running actor
+clients keep the memory-only behavior described above unless an operator
+separately opts one into `COORDINATION_RUNTIME_TOKEN_CACHE_PATH`.
 ### Diagnosing a failed exchange
 
 `POST /api/coordination/credentials/exchange` returns `401` with a JSON body

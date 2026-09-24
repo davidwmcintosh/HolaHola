@@ -98,6 +98,12 @@ commands.splice(safetyInsertion, 0,
   'npx tsx --test server/scripts/test-coordination-v2-runtime-bootstrap-http.test.ts',
   'npx tsx --test server/scripts/test-coordination-v2-windows-runtime-bootstrap-static.test.ts',
 
+  // Coordination CLI cross-invocation credential cache: lets a runtime run
+  // more than one coordination-cli.ts command per bootstrap instead of
+  // needing an operator-reissued bootstrap for every single command.
+  'npx tsx --test server/services/coordination-cli-credential-cache.test.ts',
+  'npx tsx --test server/scripts/test-coordination-cli-credential-persistence-e2e.test.ts',
+
   // Coordination-check CI parity (below): every run_check registered in
   // server/scripts/run-validation-suite.sh must also run here, or a
   // regression only a manual/task-completion validation run would ever

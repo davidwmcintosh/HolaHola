@@ -81,3 +81,12 @@ Monitor on the `SOURCE_CONTROL_RESULT_JSON` pattern. Repeated short polls
 (every 10-30s) burn round-trips without changing when the result actually
 lands.
 
+
+## Dirty-tree block: isTrackedTreeClean() stops everything, no auto-commit
+
+**Confirmed by direct observation** (merged from the former separate `source-control-dirty-tree-block` topic, which restated this same promotion-pipeline fact without adding independent scope — see `memory-index-rebase-conflicts.md`'s "union duplicates" guidance): `SourceControlService.syncLocked()` calls `isTrackedTreeClean()` before anything else (fetching heads, checking ancestry, etc.). If the tracked tree has uncommitted changes, it returns `state: 'dirty'` immediately and does nothing further — it does not stage, commit, or stash on your behalf.
+
+Two edited-but-uncommitted files once sat through a full app restart; the scheduler's `scheduler-startup` sync ran, hit the dirty check, and returned the same blocked state on every subsequent poll and wake-file nudge until an actor ran `git commit` from the shell. Only after that did the next sync (triggered via the wake file) pick up the new commit SHA and reach `state: 'synced'` with Replit and GitHub converged. "Dirty often self-resolves within a poll or two" (an existing code comment) describes an actor noticing and committing quickly, not the scheduler auto-committing.
+
+**How to apply:** if a sync-status file shows `state: 'dirty'` with error "Uncommitted tracked files prevent automatic source synchronization", the fix is to `git add`/`git commit` the dirty files yourself (normal git, current `git config user.*` identity is fine — no special actor identity needed), then either wait for the next poll or nudge `.local/source-control-wake` for an immediate retry.
+

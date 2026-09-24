@@ -15,3 +15,10 @@ As of Sep 22 2026, `bash server/scripts/test-all-consolidated-ci.sh` (part of `m
 
 **Scope boundary confirmed by grep:** none of the `episode-sync` / `luca-inner-life` / `north-star` group scripts are referenced anywhere in `scripts/run-ci-test-steps.mjs`. `test-all-consolidated-ci.sh` is a broader LOCAL validation-only script; these particular failing groups are not even part of the GitHub-Actions-reachable CI surface (`.github/workflows/ci.yml` → `run-ci-test-steps.mjs`). A task scoped to "does this pass on GitHub Actions" should not spend time chasing these groups — they're orthogonal, pre-existing, Replit-sandbox-local flakiness, confirmed separately from whatever GitHub Actions itself reports.
 
+
+**Update (Sep 24 2026):** confirmed a 5th failure mode, in a DB-backed suite that is a sibling of `test-all-consolidated-ci.sh` rather than one of its groups.
+
+5. **Deterministic, reproducible bug — `test-coordination-credential-rotation.test.ts` (run via `npm run test:coordination-ledger:run`, not part of `test-all-consolidated-ci.sh` itself).** "runtime bootstrap rotation drains safely..." and "rollback wins a race with replacement readiness..." both fail: re-exchanging a source runtime's original bootstrap after `completeCoordinationRuntimeReplacement()` or `rollbackCoordinationRuntimeReplacement()` returns `invalid_bootstrap` instead of the expected `bootstrap_already_consumed`. Confirmed pre-existing via `git stash` against a fresh local disposable Postgres (see `local-disposable-postgres-sandbox.md`): identical failure with the diff stashed out and popped back in. Same single-slot `bootstrapHash` tombstone limitation already documented in `coordination-bootstrap-reissue-tombstone.md` for the `reissue` path, now shown to also reach the rotation-complete/rollback revoke path. Not yet fixed as of this writing.
+
+**Scope note:** this test file is wired into `npm run test:coordination-ledger:run`, a separate DB-backed suite from `test-all-consolidated-ci.sh`'s groups. If that command fails on an unrelated task with this exact symptom, it is this same pre-existing bug, not a regression caused by that task.
+

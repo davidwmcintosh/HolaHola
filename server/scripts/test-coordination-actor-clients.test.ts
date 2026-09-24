@@ -8,6 +8,8 @@ import {
   coordinationClientActions,
   createCoordinationActorClient,
   type CoordinationClientActor,
+  type CoordinationCredentialCache,
+  type CoordinationCredentialCacheEntry,
 } from '../services/coordination-actor-client';
 import { canCoordinationActorPerform } from '../services/coordination-ledger-service';
 import {
@@ -34,6 +36,44 @@ const ENVIRONMENT = {
   COORDINATION_DANIELA_TOKEN: TOKENS.daniela,
   COORDINATION_API_TOKEN: 'shared-token-must-never-be-used'.repeat(2),
 };
+
+/**
+ * In-memory stand-in for FileCoordinationCliCredentialCache, used to prove
+ * CoordinationActorClient's cache integration (which actor/runtimeId it
+ * queries and persists under, and when it trusts vs. discards a hit) without
+ * touching the filesystem. The on-disk implementation's own round-trip and
+ * identity-isolation behavior is covered separately in
+ * server/services/coordination-cli-credential-cache.test.ts.
+ */
+class FakeCredentialCacheStore {
+  private readonly entries = new Map<string, CoordinationCredentialCacheEntry>();
+  readonly loadCalls: Array<{ actor: string; runtimeId: string }> = [];
+  readonly saveCalls: CoordinationCredentialCacheEntry[] = [];
+
+  private key(actor: string, runtimeId: string): string {
+    return `${actor}\u0000${runtimeId}`;
+  }
+
+  seed(entry: CoordinationCredentialCacheEntry): void {
+    this.entries.set(this.key(entry.actor, entry.runtimeId), entry);
+  }
+
+  asCache(): CoordinationCredentialCache {
+    return {
+      load: async (actor, runtimeId) => {
+        this.loadCalls.push({ actor, runtimeId });
+        return this.entries.get(this.key(actor, runtimeId)) ?? null;
+      },
+      save: async (entry) => {
+        this.saveCalls.push(entry);
+        this.entries.set(this.key(entry.actor, entry.runtimeId), entry);
+      },
+      clear: async (actor, runtimeId) => {
+        this.entries.delete(this.key(actor, runtimeId));
+      },
+    };
+  }
+}
 
 test('coordination CLI requires explicit ledger-only intent for plain comments', () => {
   assert.throws(
@@ -242,6 +282,174 @@ test('actor clients coalesce concurrent near-expiry renewal into one request', a
   await Promise.all([client.listFeed(), client.listFeed(), client.listFeed()]);
 
   assert.equal(renewalCount, 1);
+});
+
+test('a second CLI-style client instance reuses a cached credential instead of exchanging the bootstrap again', async () => {
+  const store = new FakeCredentialCacheStore();
+  let exchangeCalls = 0;
+  let listCalls = 0;
+  const fetchImpl = async (input: string | URL): Promise<Response> => {
+    const url = String(input);
+    if (url.endsWith('/api/coordination/credentials/exchange')) {
+      exchangeCalls += 1;
+      return new Response(JSON.stringify({
+        accessToken: 'ct_first-invocation-token',
+        actor: 'luca-claude-code',
+        expiresAt: new Date(Date.now() + 15 * 60_000).toISOString(),
+      }), { status: 201 });
+    }
+    listCalls += 1;
+    return new Response(JSON.stringify({ threads: [] }), { status: 200 });
+  };
+  const environment = {
+    COORDINATION_RUNTIME_ID: 'luca-claude-code-session',
+    COORDINATION_RUNTIME_BOOTSTRAP_TOKEN: 'cb_session-bootstrap',
+  };
+
+  // First "invocation": nothing cached yet, so it must exchange the bootstrap.
+  const first = createCoordinationActorClient('luca-claude-code', {
+    apiUrl: 'https://coordination.example',
+    environment,
+    fetchImpl,
+    credentialCache: store.asCache(),
+  });
+  await first.listFeed();
+  assert.equal(exchangeCalls, 1);
+  assert.equal(listCalls, 1);
+  assert.equal(store.saveCalls.length, 1);
+  assert.equal(store.saveCalls[0]?.accessToken, 'ct_first-invocation-token');
+
+  // Second "invocation": a brand-new client instance -- standing in for a
+  // fresh CLI process -- sharing only the persisted cache, never the first
+  // instance's in-memory state.
+  const second = createCoordinationActorClient('luca-claude-code', {
+    apiUrl: 'https://coordination.example',
+    environment,
+    fetchImpl,
+    credentialCache: store.asCache(),
+  });
+  await second.listFeed();
+
+  // The whole point of the cache: no second bootstrap exchange.
+  assert.equal(exchangeCalls, 1);
+  assert.equal(listCalls, 2);
+});
+
+test('an expired cached credential is discarded, never presented to the API, and triggers a fresh bootstrap exchange', async () => {
+  const store = new FakeCredentialCacheStore();
+  store.seed({
+    actor: 'luca-claude-code',
+    runtimeId: 'luca-claude-code-session',
+    accessToken: 'ct_stale-token-must-never-be-sent',
+    expiresAt: new Date(Date.now() - 60_000).toISOString(),
+  });
+  const observedTokens: Array<string | null> = [];
+  let exchangeCalls = 0;
+  const fetchImpl = async (input: string | URL, init?: RequestInit): Promise<Response> => {
+    const url = String(input);
+    if (url.endsWith('/api/coordination/credentials/exchange')) {
+      exchangeCalls += 1;
+      return new Response(JSON.stringify({
+        accessToken: 'ct_fresh-token',
+        actor: 'luca-claude-code',
+        expiresAt: new Date(Date.now() + 15 * 60_000).toISOString(),
+      }), { status: 201 });
+    }
+    observedTokens.push(new Headers(init?.headers).get('x-coordination-token'));
+    return new Response(JSON.stringify({ threads: [] }), { status: 200 });
+  };
+  const client = createCoordinationActorClient('luca-claude-code', {
+    apiUrl: 'https://coordination.example',
+    environment: {
+      COORDINATION_RUNTIME_ID: 'luca-claude-code-session',
+      COORDINATION_RUNTIME_BOOTSTRAP_TOKEN: 'cb_session-bootstrap',
+    },
+    fetchImpl,
+    credentialCache: store.asCache(),
+  });
+
+  await client.listFeed();
+
+  assert.equal(exchangeCalls, 1);
+  assert.deepEqual(observedTokens, ['ct_fresh-token']);
+});
+
+test('a credential cache never hands one runtime ID cached credential to a client configured for a different runtime ID', async () => {
+  const store = new FakeCredentialCacheStore();
+  store.seed({
+    actor: 'luca-claude-code',
+    runtimeId: 'luca-claude-code-runtime-a',
+    accessToken: 'ct_runtime-a-token',
+    expiresAt: new Date(Date.now() + 15 * 60_000).toISOString(),
+  });
+  let exchangeCalls = 0;
+  const fetchImpl = async (input: string | URL): Promise<Response> => {
+    const url = String(input);
+    if (url.endsWith('/api/coordination/credentials/exchange')) {
+      exchangeCalls += 1;
+      return new Response(JSON.stringify({
+        accessToken: 'ct_runtime-b-token',
+        actor: 'luca-claude-code',
+        expiresAt: new Date(Date.now() + 15 * 60_000).toISOString(),
+      }), { status: 201 });
+    }
+    return new Response(JSON.stringify({ threads: [] }), { status: 200 });
+  };
+  const client = createCoordinationActorClient('luca-claude-code', {
+    apiUrl: 'https://coordination.example',
+    environment: {
+      COORDINATION_RUNTIME_ID: 'luca-claude-code-runtime-b',
+      COORDINATION_RUNTIME_BOOTSTRAP_TOKEN: 'cb_runtime-b-bootstrap',
+    },
+    fetchImpl,
+    credentialCache: store.asCache(),
+  });
+
+  await client.listFeed();
+
+  // Runtime B must never receive runtime A's cached token, even though both
+  // share the same actor and the same cache backing store.
+  assert.equal(exchangeCalls, 1);
+  assert.deepEqual(store.loadCalls, [{ actor: 'luca-claude-code', runtimeId: 'luca-claude-code-runtime-b' }]);
+});
+
+test('a credential cache never hands one actor cached credential to a client configured for a different actor', async () => {
+  const store = new FakeCredentialCacheStore();
+  store.seed({
+    actor: 'luca-replit',
+    runtimeId: 'shared-runtime-id',
+    accessToken: 'ct_luca-replit-token',
+    expiresAt: new Date(Date.now() + 15 * 60_000).toISOString(),
+  });
+  let exchangeCalls = 0;
+  const fetchImpl = async (input: string | URL): Promise<Response> => {
+    const url = String(input);
+    if (url.endsWith('/api/coordination/credentials/exchange')) {
+      exchangeCalls += 1;
+      return new Response(JSON.stringify({
+        accessToken: 'ct_luca-claude-code-token',
+        actor: 'luca-claude-code',
+        expiresAt: new Date(Date.now() + 15 * 60_000).toISOString(),
+      }), { status: 201 });
+    }
+    return new Response(JSON.stringify({ threads: [] }), { status: 200 });
+  };
+  const client = createCoordinationActorClient('luca-claude-code', {
+    apiUrl: 'https://coordination.example',
+    environment: {
+      COORDINATION_RUNTIME_ID: 'shared-runtime-id',
+      COORDINATION_RUNTIME_BOOTSTRAP_TOKEN: 'cb_luca-claude-code-bootstrap',
+    },
+    fetchImpl,
+    credentialCache: store.asCache(),
+  });
+
+  await client.listFeed();
+
+  // luca-claude-code must never receive luca-replit's cached token, even
+  // though both share the same runtime ID and the same cache backing store.
+  assert.equal(exchangeCalls, 1);
+  assert.deepEqual(store.loadCalls, [{ actor: 'luca-claude-code', runtimeId: 'shared-runtime-id' }]);
 });
 
 test('actor clients acknowledge feed progress through the non-lifecycle cursor endpoint', async () => {
