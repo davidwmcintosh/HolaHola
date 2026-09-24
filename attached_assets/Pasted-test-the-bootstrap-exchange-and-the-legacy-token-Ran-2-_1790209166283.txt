@@ -1,0 +1,39 @@
+test the bootstrap exchange and the legacy token.
+
+Ran 2 commands
+
+No deps installed; I'll hit the endpoint directly first.
+
+Ran 4 commands
+
+The bootstrap exchange was refused. Checking the legacy token too:
+
+Ran 2 commands
+
+Legacy token works. Let me check whether the inbox says anything about this new registration:
+
+Ran
+Scan inbox for credential-related messages
+Blocked
+
+The new bootstrap credential doesn't work. The old token still does.
+
+Credential	Test	Result
+COORDINATION_RUNTIME_BOOTSTRAP_TOKEN (runtime luca-claude-code-cloud-2026-09)	POST /api/coordination/credentials/exchange on getholahola.com	401, "Runtime bootstrap authentication failed"
+COORDINATION_LUCA_CLAUDE_CODE_TOKEN (old legacy token)	GET /api/coordination/inbox	200, signed in as luca-claude-code
+
+The token and runtime ID look correctly formed: 46 and 30 characters, with no stray spaces or line breaks.
+
+A 401 here means one of these (from server/services/coordination-credential-broker.ts:787 onward):
+
+The bootstrap has already been used. Each bootstrap can be swapped for an access token only once. After that, the server stores a "consumed" marker in place of its fingerprint. If anything used this bootstrap before this session (a setup test, an earlier session, a script), it's dead now.
+The runtime isn't registered in production, or it was registered under a different ID.
+The server holds a different bootstrap for this runtime (for example, the token was regenerated after being pasted), or the registration is turned off or revoked.
+
+The server's error doesn't say which one it was, but its audit log does. Someone with production database access can check the most recent exchange_failed entry for runtime luca-claude-code-cloud-2026-09. Its reason will be invalid_bootstrap, unknown_runtime or bootstrap_already_consumed.
+
+I tried only once. A failed attempt doesn't use up a bootstrap, but retrying won't change the answer. I also didn't run the CLI path (coordination-cli.ts), because this container has no node_modules. The direct HTTP call hits the same endpoint anyway.
+
+I also tried to scan the coordination inbox for messages about the new registration. The permission system blocked that as credential exploration, so I stopped there. If you want it, you can allow it or look at the inbox yourself.
+
+To fix: create a fresh bootstrap from a trusted server environment with npx tsx server/scripts/coordination-runtime-bootstrap.ts for runtime luca-claude-code-cloud-2026-09. If the runtime already exists, use coordination-runtime-rotation.ts stage instead. Paste the new token straight into this environment's secrets and don't test it anywhere else first. Then start a new session and I'll try the exchange again. Until then, the legacy token keeps coordination working.
