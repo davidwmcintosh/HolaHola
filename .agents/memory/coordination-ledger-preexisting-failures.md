@@ -69,3 +69,34 @@ non-coupling to your own diff (grep your changed files for any import from
 own parent commit) and proceed via `skip_validation_reason` rather than trying to fix
 it under an unrelated task.
 
+
+## Correction: does not reproduce on main
+
+## Correction: does not reproduce on `main` as of commit cbec01c (Sep 24 2026)
+
+Both failure claims above were re-checked directly against `main` at commit
+`cbec01c5f216c49026fc45c67e3ccc6d8d4921dd` and did not reproduce:
+
+- `test-coordination-cli-credential-persistence-e2e.test.ts`: 3/3 pass. Its
+  `fakeBootstrapToken()` fixture generates `cb_` + 43 base64url chars (46
+  total) — already compliant with the guard.
+- `test-coordination-actor-clients.test.ts`: 22/22 pass (run standalone).
+  Its `VALID_BOOTSTRAP_TOKEN` fixture is `cb_` + `'r'.repeat(43)` (46 total)
+  — also already compliant.
+- The full `run-validation-suite.sh` (157/157 checks) passed clean on this
+  commit, including the named e2e file.
+
+**Why:** the original note was likely written against task 1578's own
+in-progress branch state (possibly before its fixtures were updated, or a
+different environment's `COORDINATION_RUNTIME_BOOTSTRAP_TOKEN`), not against
+`main`. The underlying guard (`must be exactly 46 characters` in
+`coordination-actor-client.ts`) is real, but both named fixtures already
+satisfy it on `main`.
+
+**How to apply:** don't cite this note's specific failure counts as a
+`skip_validation_reason` without first re-running the named test file(s)
+yourself — if they pass, the bug isn't present in your checkout and this
+note's claim is stale for your context. If you find a genuinely reproducing
+case, name the exact commit/branch and token value that fails, since "every
+task" was already too broad a claim once.
+
