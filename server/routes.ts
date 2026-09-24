@@ -14,6 +14,7 @@ import { requireRole, allowRoles, loadAuthenticatedUser, requireFounder, require
 import { registerCoordinationRoutes } from "./routes/coordination-routes";
 import { registerCoordinationCredentialRoutes } from "./routes/coordination-credential-routes";
 import { registerCoordinationRuntimeRoutes } from "./routes/coordination-runtime-routes";
+import { registerCoordinationRuntimeStatusRoutes } from "./routes/coordination-runtime-status-routes";
 import { registerCoordinationPolicyRoutes } from "./routes/coordination-policy-routes";
 import { registerCoordinationSessionRoutes } from "./routes/coordination-session-routes";
 import { registerCoordinationHostRoutes } from "./routes/coordination-host-routes";
@@ -647,6 +648,7 @@ function loadTrustedReplitWindowReceiptPrivateKey() {
 export async function registerRoutes(app: Application): Promise<void> {
   registerCoordinationCredentialRoutes(app);
   registerCoordinationRuntimeRoutes(app);
+  registerCoordinationRuntimeStatusRoutes(app);
   registerCoordinationRoutes(app);
   registerHolaHolaSharedSpecApi(app);
   registerObservationBenchCoordinationRoutes(app);

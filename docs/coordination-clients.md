@@ -346,6 +346,45 @@ bootstrap was already consumed, the same in-place reissue recovery above).
 This caching is always on for the CLI; the server's own long-running actor
 clients keep the memory-only behavior described above unless an operator
 separately opts one into `COORDINATION_RUNTIME_TOKEN_CACHE_PATH`.
+
+### Checking runtime status
+
+`coordination-runtime-status.ts` is a read-only surface over
+`coordination_runtime_registrations` and `coordination_runtime_rotations`:
+which actor/provider/model combination is registered under a given runtime
+ID, whether it is enabled, and its rotation lineage (what it replaced, and
+what replaced it). It never sets or infers provider/model -- a registration
+made without `--provider`/`--model` prints `"unknown"` in text output and
+`null` in JSON, distinct from a real value.
+
+```bash
+npx tsx server/scripts/coordination-runtime-status.ts --actor luca-replit --json
+npx tsx server/scripts/coordination-runtime-status.ts --runtime-id luca-replit-primary --all
+```
+
+By default only active (enabled, non-revoked) registrations are shown; `--all`
+includes disabled/revoked ones too. `--runtime-id` restricts to one exact
+registration regardless of `--actor`.
+
+The HTTP equivalent is:
+
+```text
+GET /api/coordination/runtime-status?actor=<actor>&runtimeIds=<id>&runtimeIds=<id>&includeDisabled=true
+```
+
+All three query parameters are optional and match the CLI's filters:
+`actor` (a known coordination actor id), `runtimeIds` (repeat the parameter
+for more than one id -- combined with `actor` as an AND, not an OR), and
+`includeDisabled` (`"true"` to include disabled/revoked registrations;
+omitted or any other value behaves like the CLI's default of active-only).
+Any other query parameter fails closed with `unsupported_query_parameter`.
+Requires `coordination:read`, the same capability as the other coordination
+read routes (`/api/coordination/threads`, `/api/coordination/operations`).
+The response is `{ actor, filter, runtimes }`, where `runtimes` reuses the
+CLI's own JSON formatter -- `provider`/`model` are `null` (not omitted) when
+never set, and `rotatedFrom`/`rotatedTo` carry the same rotation lineage
+fields as the CLI.
+
 ### Diagnosing a failed exchange
 
 Check this first: `CoordinationActorClient`'s `exchangeBootstrap()` validates
