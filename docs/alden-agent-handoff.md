@@ -9803,3 +9803,49 @@ on the shared database and dev's identical startup assertion passes clean; a
 production restart post-fix was not yet directly observed in logs at the time
 of this entry and is worth a spot-check, but the underlying cause is closed
 with no code change required.
+
+## September 24, 2026 — Reconciled a real two-sided divergence; steward-role work now on GitHub main
+
+After the steward-role commit above landed locally, local `main` (34 commits
+ahead, including the steward-role work) and GitHub `main` (3 commits ahead,
+a task agent's validation-suite/CI-parity guard feature) had genuinely
+diverged — neither side was an ancestor of the other.
+
+`reconcile candidate` correctly refused with `unclassified_conflict` on
+`.agents/memory/MEMORY.md` (an `ordinary`-policy path, no auto-resolution
+rule applies). Resolved manually per `reconciliation-git-procedure.md` §5: a
+detached worktree, `git merge --no-commit --no-ff`, two real conflicts
+(`MEMORY.md` content conflict, `test-validation-suite-ci-parity.ts` add/add —
+local's version was a strict superset, taken as-is). Everything else
+intersecting auto-merged cleanly. `MEMORY.md` was resolved by regenerating
+from the shared DB (canonical source), not hand-merged.
+
+Validated in the worktree before landing: typecheck clean, the CI-parity
+guard's own self-check passed, and the full local 109-test
+`test:coordination-ledger` batch passed 109/109. Fast-forwarded primary
+`main` onto the merge commit and synced — GitHub `main` now matches local
+exactly (confirmed via `git ls-remote`, not just the tool's self-report).
+Then re-ran the full `run-validation-suite.sh` against the final merged
+state: 157/157 checks passed clean.
+
+Two pieces of incidental shared-DB memory drift from other concurrent
+sessions surfaced while regenerating `MEMORY.md` and were deliberately kept
+out of the merge commit, then landed as their own separate commits per
+pre-merge-handoff's no-bundling rule:
+
+- A new section in `coordination-runtime-race-guards.md` (disable-guard
+  independence — no action needed, informational).
+- A new topic, `coordination-ledger-preexisting-failures.md`, written by
+  another session working task 1578, claiming a bootstrap-token-length guard
+  breaks `test-coordination-cli-credential-persistence-e2e.test.ts` and
+  `test-coordination-actor-clients.test.ts` on every checkout, including the
+  standard validation gate. Directly re-ran both files against the final
+  merged `main`: both pass cleanly (3/3 and 22/22), and they passed inside
+  the 157/157 full-suite run above too. Appended a correction block to that
+  memory topic (not a deletion — it may still describe task 1578's own
+  branch state) rather than let a same-day false claim stand uncorrected.
+
+Nothing for Alden to act on. Flagging for awareness since it's a real
+merge of another session's work into `main`, and because the corrected
+memory note is exactly the kind of cross-session claim worth a second look
+if it resurfaces elsewhere.
