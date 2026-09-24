@@ -46,3 +46,17 @@ description: reissueCoordinationRuntimeBootstrap's disabled/revoked early-return
 
 **How to apply:** when adding a second, structurally-redundant guard for defense-in-depth (same condition, same lock-held row, different code location), give each one a distinguishing diagnostic tag in its audit/log output and assert on that tag in the positive-path test. That is what turns "the sibling might be compensating" into an actual independent proof, rather than an assumption. Don't claim a mutation test isolates a guard without checking which guard the failure output actually blames.
 
+
+## Disable-registration guards: a contrast case (independently isolable, not entangled)
+
+---
+name: disableCoordinationRuntimeRegistration guard independence
+description: unlike claim() and reissue, disable's four fail-closed guards are NOT structurally entangled -- each is independently provable by mutation testing without a combined scenario.
+---
+
+`disableCoordinationRuntimeRegistration()` in `server/services/coordination-credential-broker.ts` has four fail-closed guards (runtime-not-found, already-disabled, active-staged-rotation, live/unexpired/ever-used credential) run in sequence inside one transaction. Confirmed by direct mutation testing (removing each guard's block one at a time against a real database) that all four are independently isolable: removing any single guard changes the outcome of exactly one behavioral test in `server/scripts/test-coordination-credential-rotation.test.ts`, with no other guard silently compensating.
+
+**Why this differs from claim() / reissue:** those entanglement cases (see the other sections in this file) happen when two guards enforce the *same condition* on a row already locked before both checks run, so nothing can change the row between them. Disable's four guards each read *different* tables/conditions (registration existence, registration enabled/revoked flag, a separate rotations-table lookup, a separate credentials-table lookup), and each guard's own behavioral test constructs fixture data that deliberately fails only that one condition while satisfying the other three (e.g. the active-rotation fixture has no credential row at all, so removing the active-rotation guard alone can't be masked by the credential guard). Different data source + deliberately-disjoint fixtures, not a shared lock-held row, is what makes them independent.
+
+**How to apply:** before assuming a multi-guard function needs a combined mutation scenario (the claim()/reissue pattern), check whether the guards actually read the same condition on the same already-locked row. If they read different tables/conditions and the test fixtures are already constructed to isolate one condition at a time, each guard is very likely independently provable -- confirm by actually running each removal against a real database rather than assuming entanglement by default.
+
