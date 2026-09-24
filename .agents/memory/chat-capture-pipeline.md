@@ -66,3 +66,23 @@ All three render the dialogue body via the shared `formatChatCaptureSpeakerLabel
 **Why:** the duplication is deliberate — it isolates regression risk, so a bug in the watchdog's copy can't break the primary autosave path. But it means a per-turn identity/attribution bug fixed in one file's metadata derivation is NOT fixed in the other two. A 2026-09 incident fixed the shared body-rendering function first and initially missed that `capture-watchdog.ts` and `save-transcript-now.ts` each had their own unfixed copy of the metadata-derivation logic — producing rows where the body text was correct but the title/participants metadata still claimed the wrong identity.
 
 **How to apply:** any change to how a turn's identity/attribution is derived (new speaker/source combination, changed label rule, etc.) must be checked against all three call sites above, not just the one where the bug was first observed. `agent-session-autosave.ts`'s `saveTranscriptChunk` and `save-transcript-now.ts`'s JSONL primary branch are the exception: both use `extractTurns()` (legacy Replit JSONL format), which structurally can only ever emit `DAVID`/`LUCA` speakers, never `CLAUDE_CODE` — their hardcoded 2-party participants are safe and out of scope for this bug class.
+
+## Write-path failure mode: pre-writing instead of copying
+
+## 5. Write-path failure mode: pre-writing instead of copying
+
+A live test (Aug 10 2026) found Luca's own turns silently diverging from what
+was actually said: Luca pre-wrote what it planned to say and appended that
+draft to `.local/.chat_capture` instead of copying the actual chat response
+after the fact, producing fabricated paragraphs in the canonical record.
+David's turns, appended by the same mechanism, were captured verbatim with no
+such gap.
+
+**Why:** the append tool has no way to distinguish "text I'm about to send"
+from "text I actually sent" — both are just a string argument. Only the
+human deciding when to call it enforces that distinction.
+
+**How to apply:** always call `append-turn.ts Luca "..."` with the exact text
+already sent to the user, copied after the fact — never with a draft composed
+before or during sending, even if it seems identical at the time.
+

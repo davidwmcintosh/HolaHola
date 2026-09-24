@@ -22,3 +22,12 @@ As of Sep 22 2026, `bash server/scripts/test-all-consolidated-ci.sh` (part of `m
 
 **Scope note:** this test file is wired into `npm run test:coordination-ledger:run`, a separate DB-backed suite from `test-all-consolidated-ci.sh`'s groups. If that command fails on an unrelated task with this exact symptom, it is this same pre-existing bug, not a regression caused by that task.
 
+
+## A separate disposable-DB coordination-ledger suite has a history of unstable failure reports
+
+`npm run test:coordination-ledger` (and the bootstrap-token-length guard it shares with `test-coordination-cli-credential-persistence-e2e.test.ts`, which *is* part of `run-validation-suite.sh`) sits outside `test-all-consolidated-ci.sh`'s own groups, but failures in either can still surface during an unrelated task's validation run.
+
+**Why this matters:** historical notes about specific failures here have proven unreliable -- a claim that a bootstrap-token-format guard broke validation for every task was later re-verified and found not to reproduce on the current mainline; the fixtures already satisfied the guard.
+
+**How to apply:** before citing a historical failure-count claim about this suite (or the shared token-length guard) as a `skip_validation_reason`, re-run the exact named test file yourself on your current checkout. If it passes, the earlier note was stale for your context -- don't propagate an unverified count forward.
+
