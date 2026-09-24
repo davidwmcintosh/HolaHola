@@ -355,9 +355,14 @@ live credential depends on continuity.
   runtime ID such as `luca-gemini-antigravity-primary`. Use the documented
   DPAPI launcher under the approved Windows user; never reuse Replit or Claude
   Code's registration or bootstrap.
-- **Future runtimes:** add an explicit actor if attribution is distinct, create
-  a new registration and service account, and grant only capabilities required
-  by that runtime's documented operations.
+- **Future runtimes:** if this is another runtime for an *existing* hat
+  (another machine running as `luca-claude-code`, say), just create a new
+  registration and service account as above. If it's a genuinely *new* hat
+  (a new attributed identity, not covered by any existing
+  `CoordinationActorId`), follow
+  `docs/coordination-new-actor-onboarding.md` first — adding the actor id
+  touches several registries beyond this one, some compiler-enforced, one
+  guard-enforced, several conditional on what the hat needs to do.
 
 For emergency revocation, an existing legacy token may call
 `POST /api/coordination/credentials/revoke` with `{ "runtimeId": "..." }`.

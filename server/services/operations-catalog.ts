@@ -42,6 +42,7 @@ export interface PublicOperationManifest {
 const ALL_COORDINATION_ACTORS: readonly CoordinationActorId[] = [
   'luca-replit',
   'luca-claude-code',
+  'luca-gemini',
   'luca-holahola',
   'alden',
   'daniela',
