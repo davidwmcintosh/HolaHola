@@ -157,14 +157,17 @@ databaseTest('runtime bootstrap rotation drains safely, completes only after use
   );
   // Rotation completion revokes the source registration (see
   // completeCoordinationRuntimeReplacement). Grace-reexchange classification
-  // checks registration.enabled/revokedAt before it ever compares tombstone
-  // hashes, so a revoked source's old bootstrap reports the generic
-  // invalid_bootstrap here -- the same as any other non-live registration --
-  // rather than the more specific bootstrap_already_consumed reserved for a
-  // still-active registration's already-consumed bootstrap.
+  // compares the tombstone hash first, before looking at enabled/revokedAt:
+  // the presented secret really is this runtime's already-consumed
+  // bootstrap, so re-exchanging it reports the specific
+  // bootstrap_already_consumed even though the registration has since been
+  // retired by a normal, successful rotation -- distinguishing "this secret
+  // was valid and used, but its runtime moved on" from a bootstrap that was
+  // never valid at all. See attemptGraceBootstrapReexchange in
+  // coordination-credential-broker.ts.
   const sourceReExchanged = await exchangeBootstrapCredential(runtimeIds[0], source.bootstrapToken);
   assert.equal(sourceReExchanged.ok, false);
-  if (!sourceReExchanged.ok) assert.equal(sourceReExchanged.reason, 'invalid_bootstrap');
+  if (!sourceReExchanged.ok) assert.equal(sourceReExchanged.reason, 'bootstrap_already_consumed');
   assert.equal(await resolveBrokerCredential(sourceCredential.accessToken), null);
   assert.equal((await resolveBrokerCredential(replacementCredential.accessToken))?.runtimeId, runtimeIds[1]);
 
@@ -416,12 +419,13 @@ databaseTest('rollback wins a race with replacement readiness and stale readines
 
   assert.equal(await resolveBrokerCredential(issued.accessToken), null);
   // The winning rollback revokes the replacement registration (mirroring the
-  // completion path above), so its already-consumed bootstrap likewise reports
-  // the generic invalid_bootstrap rather than bootstrap_already_consumed --
-  // see the matching comment in the rotation-drain test above.
+  // completion path above), so its already-consumed bootstrap likewise
+  // reports the specific bootstrap_already_consumed rather than the generic
+  // invalid_bootstrap -- see the matching comment in the rotation-drain test
+  // above.
   const replacementReExchanged = await exchangeBootstrapCredential(runtimeIds[9], staged.bootstrapToken);
   assert.equal(replacementReExchanged.ok, false);
-  if (!replacementReExchanged.ok) assert.equal(replacementReExchanged.reason, 'invalid_bootstrap');
+  if (!replacementReExchanged.ok) assert.equal(replacementReExchanged.reason, 'bootstrap_already_consumed');
 
   const [rotation] = await getSharedDb().select().from(coordinationRuntimeRotations)
     .where(eq(coordinationRuntimeRotations.id, staged.rotationId));

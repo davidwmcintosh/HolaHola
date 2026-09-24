@@ -874,8 +874,14 @@ function hashesMatch(a: string, b: string): boolean {
  * hand-provision a replacement runtime for no security benefit -- see the
  * "nothing live to protect" reasoning in docs/coordination-clients.md. Once
  * any credential issued for this runtime has actually authenticated a
- * request, grace no longer applies; the caller must renew, use a cached
- * token, or be reprovisioned like today.
+ * request, or once the registration itself has been retired, grace no longer
+ * applies and no fresh credential is minted; the caller must renew, use a
+ * cached token, or be reprovisioned like today. This does not fix the
+ * sibling single-slot limitation a bootstrap *reissue* still has -- reissue
+ * overwrites this same column with a fresh live hash instead of chaining the
+ * tombstone, so a bootstrap retired by reissue (as opposed to by registration
+ * retirement) still reads as invalid_bootstrap; see
+ * .agents/memory/coordination-bootstrap-reissue-tombstone.md.
  */
 async function attemptGraceBootstrapReexchange(input: {
   executor: ReturnType<typeof getSharedDb>;
@@ -886,16 +892,14 @@ async function attemptGraceBootstrapReexchange(input: {
   sourceIp?: string;
 }): Promise<ExchangeBootstrapResult> {
   const { executor, runtimeId, registration, bootstrapToken, bootstrapSha256, sourceIp } = input;
-  const graceEligible = Boolean(
-    registration.enabled
-    && !registration.revokedAt
-    && bootstrapToken
+  const matchesConsumedTombstone = Boolean(
+    bootstrapToken
     && crypto.timingSafeEqual(
       Buffer.from(consumedCoordinationBootstrapHash(runtimeId, bootstrapSha256)),
       Buffer.from(registration.bootstrapHash),
     ),
   );
-  if (!graceEligible) {
+  if (!matchesConsumedTombstone) {
     await audit({
       eventType: 'exchange_failed',
       success: false,
@@ -905,6 +909,25 @@ async function attemptGraceBootstrapReexchange(input: {
       sourceIp,
     }, executor);
     return { ok: false, reason: 'invalid_bootstrap' };
+  }
+  if (!registration.enabled || registration.revokedAt) {
+    // The presented secret really was this runtime's bootstrap and really
+    // was already consumed -- but the registration has since been retired,
+    // so there is no live runtime left for "grace" to hand a fresh
+    // credential to; minting one here would silently revive a retired
+    // runtime. Still report the honest, non-alarming reason instead of
+    // invalid_bootstrap, which would wrongly suggest the secret was never
+    // valid at all.
+    await audit({
+      eventType: 'exchange_failed',
+      success: false,
+      runtimeId,
+      actor: registration.actor,
+      reason: 'bootstrap_already_consumed',
+      sourceIp,
+      metadata: { registrationRetired: true },
+    }, executor);
+    return { ok: false, reason: 'bootstrap_already_consumed' };
   }
   const [everUsed] = await executor.select({ id: coordinationRuntimeCredentials.id })
     .from(coordinationRuntimeCredentials)
