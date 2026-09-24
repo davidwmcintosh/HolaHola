@@ -1,0 +1,12 @@
+Task 1578's fix is complete, verified, and committed. Completion itself is blocked by a platform-side infrastructure error that isn't related to the code.
+
+Fix (committed on main): attemptGraceBootstrapReexchange() in coordination-credential-broker.ts now separates "this secret matches the runtime's consumed-bootstrap tombstone" from "grace re-issue is still applicable." If the registration has since been retired (disabled/revoked via completeCoordinationRuntimeReplacement() or rollbackCoordinationRuntimeReplacement()), a tombstone match reports bootstrap_already_consumed instead of invalid_bootstrap.
+
+Verification:
+
+Fresh disposable-DB run of npm run test:coordination-ledger: both previously-failing tests in test-coordination-credential-rotation.test.ts now pass. 7 other failures in that same run are confirmed pre-existing/unrelated (different test files).
+Confirmed the two directly-relevant test files aren't reachable by the standard "Validation suite" or "Consolidated CI" workflows at all — only by test:coordination-ledger. Of the other files that import the same broker module and are in the standard chain, I ran the two on current code directly: test-coordination-cli-hermetic-env.test.ts (5/5 pass) and test-coordination-gate3-assignment-window.test.ts (unaffected, all skip as expected in this environment).
+Working tree is clean: the fix commit plus one small memory-file sync commit, both on main.
+Blocker: markTaskComplete failed identically 5 times over several minutes (with two waits in between, 45s and 90s) with TRANSIENT_FETCH while fetching an internal main-repl SSH remote to rebase my commits. I reproduced the same hang manually — that exact git fetch hangs past 60s with no error — while confirming DNS and general outbound network access both work fine, and the SSH proxy itself answers instantly on a plain connection. This points to a platform-side sync issue, not something in the repo.
+
+Aside: the recurring "MEMORY.md near cap" reminder doesn't match direct measurement — read fresh 4 times this session, consistently 156/200 lines (78%) and ~34.4KB/100KB (34%), under both caps. Documented the discrepancy in a memory file rather than trimming anything, since there's nothing to trim.
