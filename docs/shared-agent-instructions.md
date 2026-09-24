@@ -156,6 +156,17 @@ rules. Keep this file free of secrets, credentials, and private user data.
   checklist for this — including cross-checking the note against
   `git log origin/main..HEAD` rather than memory, and not just this rule in
   isolation — is `.agents/skills/pre-merge-handoff/SKILL.md`.
+- **`docs/alden-agent-handoff.md` is DB-canonical, not a file to hand-edit.**
+  Since 2026-09-24 its content lives in a shared-spec note
+  (`notes/alden-agent-handoff.md`, CAS-protected, unreviewed by design — see
+  `server/services/alden-handoff-shared-spec.ts`); the `.md` file is a
+  generated snapshot refreshed after every write. A direct edit to the file
+  is not persisted anywhere durable and will be silently overwritten by the
+  next `write_briefing` call (Alden) or the next `pull --write-file` refresh.
+  Update the "From Agent" / "From Alden" sections through
+  `npx tsx server/scripts/update-alden-handoff-section.ts --body-file <path>
+  [--heading "Agent"|"Alden"]` (retries on a concurrent write instead of
+  clobbering it), not through `fs.writeFileSync` or a manual edit.
 - Project-specific architecture, operating commands, and safety constraints
   remain in `replit.md`; do not duplicate this shared cross-interface contract
   in interface-specific instruction files.

@@ -182,6 +182,25 @@ test("pull looks up by destination, then merges the current document with its re
   assert.deepEqual(parsed.revisions, [{ id: "rev-1" }, { id: "rev-2" }]);
 });
 
+test("pull --write-file writes the current revision's markdown through the injected writer, adding a trailing newline", async () => {
+  const writes: { path: string; content: string }[] = [];
+  await runSharedSpecCli(
+    ["pull", "--url", "https://example.test/api/shared-spec", "--token", "actor-token", "--path", "finding", "--write-file", "docs/finding.md"],
+    {
+      fetchImpl: async (input) => {
+        const url = String(input);
+        if (url.includes("by-destination")) {
+          return Response.json({ document: { id: "doc-1", gitPath: "notes/finding.md" }, currentRevision: { id: "rev-2", markdown: "# Finding" } });
+        }
+        return Response.json([{ id: "rev-1" }, { id: "rev-2" }]);
+      },
+      writeOutput: () => {},
+      writeFile: (path, content) => { writes.push({ path, content }); },
+    },
+  );
+  assert.deepEqual(writes, [{ path: "docs/finding.md", content: "# Finding\n" }]);
+});
+
 test("pull by --id skips the destination lookup and reads revisions for that document directly", async () => {
   const requests: string[] = [];
   await runSharedSpecCli(

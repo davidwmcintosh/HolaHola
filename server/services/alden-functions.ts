@@ -32,6 +32,7 @@ import {
 } from "./coordination-ledger-service";
 import { listCoordinationInbox } from "./coordination-inbox-service";
 import { OPERATIONS_CATALOG, toPublicOperationManifest } from "./operations-catalog";
+import { applyHandoffSection, shareAldenHandoffNote } from "./alden-handoff-shared-spec";
 
 // Was hardcoded to '/home/runner/workspace' -- a Replit-only container path.
 // Once production ran on Render (post-DNS-swap), every file/shell tool here
@@ -2117,40 +2118,25 @@ export async function executeAldenTool(
 
       case "write_briefing": {
         const { content } = args;
-        const handoffPath = path.join(process.cwd(), 'docs/alden-agent-handoff.md');
-
-        // Read existing file to preserve the Agent's section
-        let existing = '';
-        try { existing = fs.readFileSync(handoffPath, 'utf-8'); } catch { /* new file */ }
-
         const timestamp = new Date().toLocaleString('en-US', {
           weekday: 'short', month: 'short', day: 'numeric',
           hour: 'numeric', minute: '2-digit',
         });
 
-        // Update or create the "From Alden" section, preserve "From Agent" section
-        const agentSection = (() => {
-          const match = existing.match(/## From Agent[\s\S]*$/m);
-          return match ? match[0] : '## From Agent — last updated: (none)\n\n*(Nothing yet — the Agent will write here after major build sessions.)*';
-        })();
-
-        const newContent = `# Alden ↔ Agent Handoff
-
-## From Alden — last updated: ${timestamp}
-
-${content}
-
----
-
-${agentSection}`;
-
-        fs.writeFileSync(handoffPath, newContent, 'utf-8');
-        console.log('[Alden Tool] Briefing written to docs/alden-agent-handoff.md');
+        // Shared-spec is canonical (notes/alden-agent-handoff.md); this
+        // pulls the live current content, replaces "From Alden", preserves
+        // "From Agent", and retries if a concurrent write wins the race. See
+        // server/services/alden-handoff-shared-spec.ts.
+        const shared = await shareAldenHandoffNote('alden', (existing) =>
+          applyHandoffSection(existing, 'Alden', content, timestamp),
+        );
+        console.log(`[Alden Tool] Briefing shared via shared-spec (notes/alden-agent-handoff.md, revision ${shared.revisionId}); docs/alden-agent-handoff.md snapshot refreshed`);
 
         return {
           data: {
             written: true,
             file: 'docs/alden-agent-handoff.md',
+            revisionId: shared.revisionId,
             message: `Briefing written. The Agent will see this at the start of their next session with David.`,
           },
         };

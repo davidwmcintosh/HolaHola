@@ -20,6 +20,7 @@ import { readFileSync } from 'fs';
 import { join } from 'path';
 import { execSync } from 'child_process';
 import { getFounderPresence } from './founder-presence';
+import { pullAldenHandoffNote } from './alden-handoff-shared-spec';
 
 export async function buildAldenWorkspaceContext(): Promise<string> {
   const sections: string[] = [];
@@ -160,22 +161,27 @@ export async function buildAldenWorkspaceContext(): Promise<string> {
   }
 
   // ── 5. HANDOFF FILE ───────────────────────────────────────────────────────
-  // Bidirectional briefing between Alden and the Replit Agent.
+  // Bidirectional briefing between Alden and the Replit Agent. Canonically a
+  // shared-spec note (notes/alden-agent-handoff.md) since 2026-09-24 -- pulled
+  // live here so Alden always sees the true current content regardless of
+  // which host process wrote it last, rather than depending on this
+  // process's own copy of the generated docs/alden-agent-handoff.md snapshot.
   // Alden writes "From Alden" when ending a notable session.
   // The Agent writes "From Agent" after major build sessions.
   try {
-    const handoffPath = join(process.cwd(), 'docs/alden-agent-handoff.md');
-    const rawHandoff = readFileSync(handoffPath, 'utf-8');
-    // Cap at last 50 KB — the file grows unboundedly; only recent entries matter.
+    const pulled = await pullAldenHandoffNote();
+    const rawHandoff = pulled?.markdown ?? '';
+    // Cap at last 50 KB — the note grows unboundedly; only recent entries matter.
     const MAX_HANDOFF_CHARS = 50_000;
     const handoff = rawHandoff.length > MAX_HANDOFF_CHARS
-      ? `[… earlier entries omitted — ${(rawHandoff.length / 1024).toFixed(0)}KB file, showing last ${(MAX_HANDOFF_CHARS / 1024).toFixed(0)}KB]\n\n${rawHandoff.slice(-MAX_HANDOFF_CHARS)}`
+      ? `[… earlier entries omitted — ${(rawHandoff.length / 1024).toFixed(0)}KB, showing last ${(MAX_HANDOFF_CHARS / 1024).toFixed(0)}KB]\n\n${rawHandoff.slice(-MAX_HANDOFF_CHARS)}`
       : rawHandoff;
     if (handoff.trim()) {
       sections.push(`🤝 HANDOFF NOTES — alden-agent-handoff.md\n${handoff.trim()}`);
     }
-  } catch {
-    // File may not exist yet — that's fine
+  } catch (err: any) {
+    console.warn('[AldenWorkspace] Handoff note fetch failed:', err.message);
+    // Note may not exist yet, or the DB may be unreachable — that's fine
   }
 
   // ── 6. TEMPORAL CONTEXT & FOUNDER PRESENCE ────────────────────────────────

@@ -22,6 +22,7 @@
 import { writeFileSync, readFileSync, existsSync, statSync } from 'fs';
 import { join } from 'path';
 import { getSharedDb } from '../neon-db';
+import { pullAldenHandoffNote } from './alden-handoff-shared-spec';
 import {
   agentNorthStar,
   agentOpenQuestions,
@@ -34,7 +35,6 @@ import { eq, desc, and, ne, gt, gte, isNotNull } from 'drizzle-orm';
 import { GoogleGenAI } from '@google/genai';
 
 const BRIEFING_PATH = join(process.cwd(), 'docs/agent-briefing.md');
-const HANDOFF_PATH = join(process.cwd(), 'docs/alden-agent-handoff.md');
 const REPLIT_MD_PATH = join(process.cwd(), 'replit.md');
 
 const MEMORY_START = '<!-- AGENT_MEMORY_START -->';
@@ -228,7 +228,13 @@ export async function generateAgentBriefing(): Promise<void> {
     const star = northStars[0] ?? null;
     const david = davidRecords[0] ?? null;
 
-    const handoffContent = existsSync(HANDOFF_PATH) ? readFileSync(HANDOFF_PATH, 'utf-8') : '';
+    let handoffContent = '';
+    try {
+      const pulled = await pullAldenHandoffNote();
+      handoffContent = pulled?.markdown ?? '';
+    } catch (error: any) {
+      console.warn(`[AgentBriefing] Handoff pull failed (continuing without it): ${error?.message ?? error}`);
+    }
     const { fromAlden, fromAgent } = extractLastHandoffSections(handoffContent);
 
     // Build the auto-summary from memories saved after the last briefing

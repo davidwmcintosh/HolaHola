@@ -10,6 +10,7 @@ const DEFAULT_NOTE_REPOSITORY = "luca-hats/notes";
 export interface SharedSpecCliDependencies {
   readonly fetchImpl?: typeof fetch;
   readonly writeOutput?: (output: string) => void;
+  readonly writeFile?: (path: string, content: string) => void;
 }
 
 function fail(message: string): never {
@@ -61,6 +62,21 @@ async function runPull(baseUrl: string, token: string, options: Options, depende
     ? await get(`/documents/${options.id}`)
     : await get(`/documents/by-destination?${new URLSearchParams({ repository: noteRepository(options), gitPath: notePath(options) })}`);
   const revisions = await get(`/documents/${found.document.id}/revisions`);
+  if (typeof options["write-file"] === "string") {
+    const markdown: unknown = found.currentRevision?.markdown;
+    if (typeof markdown !== "string") fail("pull response had no currentRevision.markdown to write");
+    const content = markdown.endsWith("\n") ? markdown : `${markdown}\n`;
+    if (dependencies.writeFile) {
+      dependencies.writeFile(options["write-file"], content);
+    } else {
+      // Dynamic import: shared-spec-cli.ts otherwise has zero filesystem
+      // dependencies, so this stays out of the module's top-level imports
+      // and only loads for real invocations that pass --write-file (tests
+      // always inject dependencies.writeFile instead).
+      const { writeFileSync } = await import("node:fs");
+      writeFileSync(options["write-file"], content, "utf8");
+    }
+  }
   (dependencies.writeOutput ?? ((value) => process.stdout.write(value)))(`${JSON.stringify({ ...found, revisions }, null, 2)}\n`);
 }
 

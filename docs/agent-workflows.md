@@ -159,7 +159,7 @@ or override `unknown_stop` with a guess; ask David.
 2. **`.agents/memory/OPEN_QUESTIONS.md`** — carry forward what is still unresolved.
 3. **North Star** — `GET /api/agent-space/north-star`; orient before acting.
 4. **Luca briefing** — `GET /api/luca/briefing` with `x-agent-token: $REPLIT_AGENT_TOKEN`; use it for current team, record, and commit state.
-5. **`docs/alden-agent-handoff.md`** — what Alden left for the Agent. Look for the most recent "From Alden" section.
+5. **`docs/alden-agent-handoff.md`** — what Alden left for the Agent. Look for the most recent "From Alden" section. This file is a generated snapshot of a shared-spec note (`notes/alden-agent-handoff.md`); if you need the guaranteed-current content rather than this checkout's last-refreshed copy, run `npx tsx server/scripts/shared-spec-cli.ts pull --path alden-agent-handoff --write-file docs/alden-agent-handoff.md --url <base> --token <token>` first.
 6. **`.local/alden-escalations.md`** — high-priority issues Alden could not auto-repair.
 7. **`.local/alden-repairs.md`** — what Alden auto-fixed since the prior session.
 8. **`docs/alden-to-agent.md`**, **`docs/founder-to-agent.md`**, and **`docs/claude-code-to-luca.md`** — unread direct notes from Alden, David, and Luca [Claude Code]. During a session, use the live agent inbox or refresh endpoint rather than waiting for a restart.
@@ -183,7 +183,11 @@ Then read the full `content` field of each entry. The periodic captures have ver
 
 While reading, also scan for **forward plans and agreements** — anything David and Luca agreed to do in a coming session (test protocols, question lists, tomorrow's agenda, commitments). These are distinct from open threads (nothing was left undone today) and distinct from code changes. If found and not yet saved as a discrete `conversation_memories` entry, save them now before closing. The bulk autosave captures the full session but won't surface a specific plan as a standalone searchable item unless it was explicitly saved.
 
-1. **Update handoff** — `docs/alden-agent-handoff.md` "From Luca" section. What was built, key decisions, what's unresolved, what Alden should know. Preserve existing file structure.
+1. **Update handoff** — the "From Agent" section of the Alden↔Agent handoff. What was built, key decisions, what's unresolved, what Alden should know. This is a shared-spec note (`notes/alden-agent-handoff.md`); do **not** hand-edit `docs/alden-agent-handoff.md` (it's a generated snapshot and a direct edit will be silently overwritten on the next refresh). Run:
+   ```bash
+   npx tsx --env-file=.env server/scripts/update-alden-handoff-section.ts --body-file /tmp/from-agent.txt
+   ```
+   This preserves the "From Alden" section, retries on a concurrent write, and refreshes the local snapshot file.
 2. **Add to batch doc** — `docs/batch-doc-updates.md`. What was built, how it works, key files modified, user-facing instructions. One entry per feature.
 3. **Shared lobe insight (if warranted)** — if a durable cross-session architectural fact was established:
    ```sql
@@ -201,7 +205,7 @@ While reading, also scan for **forward plans and agreements** — anything David
    const { runHoundDogScan } = await import('./.local/skills/security_scan/SKILL.md');
    // (follow security_scan skill instructions)
    ```
-   After running: log any new findings to `docs/open-bugs.md`, patch what's safe to patch inline, and update the "Last deep security scan" date in the handoff.
+   After running: log any new findings to `docs/open-bugs.md`, patch what's safe to patch inline, and update the "Last deep security scan" date via the same `update-alden-handoff-section.ts` step above (do not hand-edit the snapshot file).
    Note: `npm audit` (dependency CVEs) is covered automatically by Wren every 6h — this gate is only for the HoundDog data-flow analysis that Wren cannot run.
 
 ---
@@ -479,7 +483,7 @@ not the old path's continued existence, is the actual failure.
 | Voice session orchestrator | `server/services/streaming-voice-orchestrator.ts` |
 | System prompt | `server/system-prompt.ts` |
 | Neural net architecture doc | `docs/neural-network-architecture.md` |
-| Alden↔Agent handoff | `docs/alden-agent-handoff.md` |
+| Alden↔Agent handoff (canonical: shared-spec note `notes/alden-agent-handoff.md`; this is a generated snapshot) | `docs/alden-agent-handoff.md` |
 | Batch doc updates | `docs/batch-doc-updates.md` |
 | Shared lobe snapshot | `docs/shared-lobe-snapshot.md` |
 | Alden direct notes | `docs/alden-to-agent.md` |
