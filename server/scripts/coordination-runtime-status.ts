@@ -1,6 +1,4 @@
 import { and, asc, eq, inArray, isNull, or } from 'drizzle-orm';
-import { resolve as resolvePath } from 'node:path';
-import { fileURLToPath } from 'node:url';
 import {
   COORDINATION_ACTOR_IDS,
   coordinationRuntimeRegistrations,
@@ -8,6 +6,7 @@ import {
   type CoordinationActorId,
 } from '@shared/schema';
 import { closeDbConnections, getSharedDb } from '../db';
+import { isDirectCliInvocation } from './lib/cli-entrypoint';
 
 /**
  * Read-only operator surface for coordination-runtime-bootstrap.ts /
@@ -244,7 +243,7 @@ async function main(): Promise<void> {
   process.stdout.write(flag('json') ? formatCoordinationRuntimeStatusJson(rows) : formatCoordinationRuntimeStatusText(rows));
 }
 
-// Exact-path identity, not a substring check: a substring match against
+// Exact basename match, not a substring check: a substring match against
 // process.argv[1] (e.g. `.includes('coordination-runtime-status')`) would
 // also fire when a *test file* that imports this module for its exported
 // functions is the actual entry point -- test-coordination-runtime-status.test.ts
@@ -252,11 +251,12 @@ async function main(): Promise<void> {
 // this repo's `test-<subject>.test.ts` naming convention. That false-positive
 // would run main() (an unfiltered live query + a stdout dump) and close the
 // shared DB pool as a side effect of merely importing this module, breaking
-// every test in the same process. Comparing resolved absolute paths avoids
-// that collision while still matching a direct `npx tsx .../coordination-runtime-status.ts` invocation.
-const isDirectCliInvocation = process.argv[1] !== undefined
-  && fileURLToPath(import.meta.url) === resolvePath(process.argv[1]);
-if (isDirectCliInvocation) {
+// every test in the same process. isDirectCliInvocation() (argv[1]-basename
+// only, never import.meta.url) avoids that collision while still matching a
+// direct `npx tsx .../coordination-runtime-status.ts` invocation, and stays
+// safe even if this script is ever reached from the esbuild server bundle --
+// see server/scripts/lib/cli-entrypoint.ts.
+if (isDirectCliInvocation('coordination-runtime-status.ts')) {
   main()
     .catch((error) => {
       console.error(error instanceof Error ? error.message : error);

@@ -36,6 +36,7 @@
  */
 
 import { neon } from '@neondatabase/serverless';
+import { isDirectCliInvocation } from './lib/cli-entrypoint';
 
 
 const DRY_RUN = process.argv.includes('--dry-run');
@@ -187,7 +188,7 @@ export async function scopeFounderMemories(opts?: { dryRun?: boolean }): Promise
 }
 
 // Run standalone when invoked directly
-if (process.argv[1]?.includes('scope-founder-memories')) {
+if (isDirectCliInvocation('scope-founder-memories.ts')) {
   scopeFounderMemories().then(n => {
     if (DRY_RUN) console.log(`[scope-founder-memories] Dry run complete. Would resolve ${n} conversation(s).`);
     process.exit(0);

@@ -39,3 +39,20 @@ imported by `server/index.ts`, `server/routes.ts`, or a test must use an exact
 basename or a narrow `.endsWith('<script>.ts')` check, NOT `import.meta.url`.
 Scripts that are CLI-only (never imported by the server) are still affected by
 the bundle collapse if esbuild touches them, so prefer the argv form everywhere.
+
+## Shared helper now exists
+
+Both failure modes above (bundle collapse and test-file substring collision)
+are now consolidated into one guard: `server/scripts/lib/cli-entrypoint.ts`
+exports `isDirectCliInvocation(scriptBasename)`, an exact
+`basename(process.argv[1]) === scriptBasename` check. It is safe both for a
+script reached by the esbuild bundle (the bundle's argv[1] basename is never
+the script's own filename) and for a script whose own test file imports it
+(a `test-<subject>.test.ts` file is never an *exact* basename match, even
+though it contains the script's name as a substring). New CLI scripts under
+`server/scripts/` should import this helper rather than re-deriving either
+check ad hoc — a project-wide audit (Sept 2026) found 20 scripts using the
+unsafe `process.argv[1]?.includes(...)` form and migrated all of them, plus
+the original `coordination-runtime-status.ts` reference implementation, to
+this helper.
+

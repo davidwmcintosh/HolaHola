@@ -49,6 +49,7 @@ import { drizzle } from 'drizzle-orm/neon-http';
 import { conversationMemories, memoryEmbeddings } from '../../shared/schema';
 import { generateAndStoreEmbedding } from '../services/semantic-memory-service';
 import { reembedConversationMemory } from './reembed-memory';
+import { isDirectCliInvocation } from './lib/cli-entrypoint';
 import {
   deriveConvMemoryOwner,
   collectUnindexedMemories,
@@ -445,7 +446,7 @@ async function main() {
   process.exit(0);
 }
 
-if (process.argv[1]?.includes('test-backfill-scoping')) {
+if (isDirectCliInvocation('test-backfill-scoping.ts')) {
   main().catch(err => {
     console.error('\nFATAL:', err);
     process.exit(1);

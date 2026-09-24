@@ -13,6 +13,7 @@
  *   npx tsx scripts/reconciliation-history-object-storage.ts download /tmp/reconciliation-download
  */
 import { neon } from '@neondatabase/serverless';
+import { isDirectCliInvocation } from './lib/cli-entrypoint';
 
 import { workspaceResolution } from '../services/workspace-root';
 import {
@@ -78,7 +79,7 @@ async function main(): Promise<void> {
   ));
 }
 
-if (process.argv[1]?.includes('audit-missing-conversation-evidence')) {
+if (isDirectCliInvocation('audit-missing-conversation-evidence.ts')) {
   main().catch(error => {
     console.error(JSON.stringify({
       schemaVersion: 1,

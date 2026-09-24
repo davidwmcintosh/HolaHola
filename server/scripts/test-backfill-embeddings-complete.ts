@@ -57,6 +57,7 @@
 
 import { neon } from '@neondatabase/serverless';
 import { reembedConversationMemory } from './reembed-memory';
+import { isDirectCliInvocation } from './lib/cli-entrypoint';
 
 // ── Colour helpers ────────────────────────────────────────────────────────────
 const G = (s: string) => `\x1b[32m${s}\x1b[0m`;
@@ -427,8 +428,7 @@ async function main() {
 }
 
 // ── Entry point ───────────────────────────────────────────────────────────────
-const scriptName = 'test-backfill-embeddings-complete';
-if (process.argv[1]?.includes(scriptName)) {
+if (isDirectCliInvocation('test-backfill-embeddings-complete.ts')) {
   if (SELF_CHECK) {
     runSelfCheck().catch((err: any) => {
       console.error(R('FATAL: ' + (err?.message ?? err)));

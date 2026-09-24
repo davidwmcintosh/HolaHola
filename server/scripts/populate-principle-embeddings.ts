@@ -15,6 +15,7 @@ import { getSharedDb } from '../db';
 import { northStarPrinciples } from '@shared/schema';
 import { eq } from 'drizzle-orm';
 import { getCachedPrincipleEmbedding } from '../services/semantic-memory-service';
+import { isDirectCliInvocation } from './lib/cli-entrypoint';
 
 /**
  * Exported function — safe to call from the server boot path (no process.exit).
@@ -57,12 +58,14 @@ export async function populatePrincipleEmbeddings(): Promise<{ total: number; pr
   return { total: principles.length, processed, failed };
 }
 
-// CLI entry-point — only runs when invoked directly (not when imported by the server).
-// IMPORTANT: We cannot use import.meta.url here because esbuild bundles this file into
-// dist/index.js, making import.meta.url === process.argv[1] for every bundled module.
-// Instead, check whether the actual script name appears in argv[1].
-const isMain = Boolean(process.argv[1]?.includes('populate-principle-embeddings'));
-if (isMain) {
+// CLI entry-point — only runs when invoked directly (not when imported by the
+// server, and not when this module is imported for its exports elsewhere).
+// This script is dynamically imported by server/index.ts, so it IS part of
+// the esbuild production bundle: isDirectCliInvocation() (argv[1]-basename
+// only, never import.meta.url) is required here, not optional. See
+// server/scripts/lib/cli-entrypoint.ts for why import.meta.url is unsafe for
+// any bundle-reachable script.
+if (isDirectCliInvocation('populate-principle-embeddings.ts')) {
   (async () => {
     try {
       const result = await populatePrincipleEmbeddings();

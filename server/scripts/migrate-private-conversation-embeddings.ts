@@ -34,6 +34,7 @@
 import { getSharedDb, getUserDb } from '../db';
 import { sql } from 'drizzle-orm';
 import { reembedConversationMemory } from './reembed-memory';
+import { isDirectCliInvocation } from './lib/cli-entrypoint';
 
 const DRY_RUN = process.argv.includes('--dry-run');
 const ARC_NAME = 'david-daniela-chats';
@@ -136,9 +137,9 @@ async function main() {
   }
 }
 
-// Only run when this is the entry point
-const isEntry = process.argv[1]?.includes('migrate-private-conversation-embeddings');
-if (isEntry) {
+// Only run when this is the entry point — exact basename match, not a
+// substring. See server/scripts/lib/cli-entrypoint.ts.
+if (isDirectCliInvocation('migrate-private-conversation-embeddings.ts')) {
   main().catch((err) => {
     console.error(err);
     process.exit(1);

@@ -4,6 +4,7 @@ import {
   type CoordinationEventInput,
 } from '../services/coordination-actor-client';
 import { FileCoordinationCliCredentialCache } from '../services/coordination-cli-credential-cache';
+import { isDirectCliInvocation } from './lib/cli-entrypoint';
 import type {
   CoordinationEvidenceReference,
   CoordinationActorId,
@@ -360,7 +361,7 @@ async function main(): Promise<void> {
   if (delivery) print({ delivery }, process.stderr);
 }
 
-if (process.argv[1]?.includes('coordination-cli')) {
+if (isDirectCliInvocation('coordination-cli.ts')) {
   main().catch((error: unknown) => {
     print({ error: error instanceof Error ? error.message : String(error) }, process.stderr);
     process.exitCode = 1;

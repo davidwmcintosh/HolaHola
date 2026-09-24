@@ -29,6 +29,7 @@ import { neon } from '@neondatabase/serverless';
 import { drizzle } from 'drizzle-orm/neon-http';
 import { conversationMemories } from '../../shared/schema';
 import { reembedConversationMemory } from './reembed-memory';
+import { isDirectCliInvocation } from './lib/cli-entrypoint';
 
 // ─── Config ────────────────────────────────────────────────────────────────────
 
@@ -446,9 +447,10 @@ async function run() {
   }
 }
 
-// Entry point guard (esbuild-safe — see memory: esbuild isMain guard)
-const scriptName = 'backfill-all-david-conversations';
-if (process.argv[1]?.includes(scriptName)) {
+// Entry point guard — exact basename match, not a substring, so importing
+// this module (e.g. from a test file) never re-runs main(). See
+// server/scripts/lib/cli-entrypoint.ts.
+if (isDirectCliInvocation('backfill-all-david-conversations.ts')) {
   run().catch(err => {
     console.error('\nFATAL:', err);
     process.exit(1);

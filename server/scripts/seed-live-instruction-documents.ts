@@ -22,6 +22,7 @@ import { resolve } from "node:path";
 import { closeDbConnections, getSharedDb } from "../db";
 import { SharedSpecCore, hashSharedSpecMarkdown, type SharedSpecReview } from "../services/shared-spec-core";
 import { PostgresSharedSpecRepository } from "../services/shared-spec-postgres-repository";
+import { isDirectCliInvocation } from "./lib/cli-entrypoint";
 
 // Must match SHARED_SPEC_GITHUB_REPOSITORY: GitWorkingTreeLiveSyncProvider
 // cross-checks a live-instruction document's stored repository against that
@@ -113,7 +114,7 @@ async function main(): Promise<void> {
 // falling off the end without an explicit process.exit() would hold this
 // one-shot process alive for up to two minutes after the real work is done.
 // See .agents/memory/pg-pool-idle-timeout-ci-hang.md.
-if (process.argv[1]?.includes("seed-live-instruction-documents")) {
+if (isDirectCliInvocation("seed-live-instruction-documents.ts")) {
   main()
     .then(async () => {
       await closeDbConnections();

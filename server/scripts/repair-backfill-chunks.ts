@@ -18,6 +18,7 @@
 
 import { neon } from '@neondatabase/serverless';
 import { reembedConversationMemory } from './reembed-memory';
+import { isDirectCliInvocation } from './lib/cli-entrypoint';
 
 const DRY_RUN    = process.argv.includes('--dry-run');
 const BATCH_SIZE = 5;      // rows in parallel per batch
@@ -99,9 +100,9 @@ async function main() {
   console.log(G(`\n  ✓ All ${done} rows repaired.\n`));
 }
 
-// Entry point guard
-const scriptName = 'repair-backfill-chunks';
-if (process.argv[1]?.includes(scriptName)) {
+// Entry point guard — exact basename match, not a substring. See
+// server/scripts/lib/cli-entrypoint.ts.
+if (isDirectCliInvocation('repair-backfill-chunks.ts')) {
   main().catch((err: any) => {
     console.error(R('FATAL: ' + (err?.message ?? err)));
     process.exit(1);

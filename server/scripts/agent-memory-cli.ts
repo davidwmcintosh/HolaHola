@@ -17,6 +17,7 @@ import { readFile } from "node:fs/promises";
 import { eq } from "drizzle-orm";
 import { agentMemoryTopics } from "@shared/schema";
 import { closeDbConnections, getSharedDb } from "../db";
+import { isDirectCliInvocation } from "./lib/cli-entrypoint";
 import {
   AgentMemoryError,
   addBlock,
@@ -226,7 +227,7 @@ export async function runAgentMemoryCli(argv: string[] = process.argv.slice(2)):
 // falling off the end without an explicit process.exit() would hold this
 // one-shot process alive for up to two minutes after the real work is done.
 // See .agents/memory/pg-pool-idle-timeout-ci-hang.md.
-if (process.argv[1]?.includes("agent-memory-cli")) {
+if (isDirectCliInvocation("agent-memory-cli.ts")) {
   runAgentMemoryCli()
     .then(async (exitCode) => {
       await closeDbConnections();

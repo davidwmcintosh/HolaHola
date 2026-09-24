@@ -23,6 +23,7 @@
 import { db } from '../db';
 import { curriculumLessons, curriculumUnits, curriculumPaths, classCurriculumLessons, classCurriculumUnits, teacherClasses } from '@shared/schema';
 import { eq, and, inArray, isNotNull } from 'drizzle-orm';
+import { isDirectCliInvocation } from './lib/cli-entrypoint';
 
 // Types
 type RequirementTier = 'required' | 'recommended' | 'optional_premium';
@@ -490,7 +491,7 @@ Tier values: required, recommended, optional_premium
   process.exit(0);
 }
 
-if (process.argv[1]?.includes('bundle-management')) {
+if (isDirectCliInvocation('bundle-management.ts')) {
   main().catch(console.error);
 }
 

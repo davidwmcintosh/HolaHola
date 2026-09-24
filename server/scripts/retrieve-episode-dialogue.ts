@@ -50,6 +50,7 @@
  */
 
 import { neon } from '@neondatabase/serverless';
+import { isDirectCliInvocation } from './lib/cli-entrypoint';
 
 // ---------------------------------------------------------------------------
 // DB connection (HTTP driver — one-shot queries, no persistent pool)
@@ -452,7 +453,7 @@ export { parseArgs, toMs, shiftIso };
 // triggering a real DB query or process.exit() call.
 // ---------------------------------------------------------------------------
 
-if (process.argv[1]?.includes('retrieve-episode-dialogue')) {
+if (isDirectCliInvocation('retrieve-episode-dialogue.ts')) {
   main().catch(err => {
     process.stderr.write(`[retrieve-episode-dialogue] FATAL: ${(err as Error).message ?? err}\n`);
     process.exit(1);

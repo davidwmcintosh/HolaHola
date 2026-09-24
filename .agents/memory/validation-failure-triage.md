@@ -33,3 +33,8 @@ cleanly with zero code changes. Treat this exactly like the other
 server-dependent failures in point 1 — restart the workflow and re-run the
 specific check — rather than investigating it as real content loss.
 
+
+**Update (Sep 24 2026, task 1583):** confirmed a triage subtlety for file-existence-based checks specifically (not just connection-refused ones).
+
+8. **A missing target file can self-heal when the app server starts, not just connection-based checks.** The live episode dialogue-loss detector flagged `docs/episode-N.md` as `LOSS DETECTED (git (file missing))` — a real "whole file deleted" case by the tool's own design — while the `Start application` workflow was not running. After starting the workflow (for the unrelated `ECONNREFUSED`-style failures in the same run), the file reappeared on disk with no manual action, and re-running the detector passed clean. Point 1 above already says to check server state for connection-based failures; this extends that check to any failure whose evidence is "a file/row is missing," since some startup path restores episode content from the DB. Before treating a missing-file finding as a real regression, restart the app workflow and re-run the specific check, the same as for `ECONNREFUSED` failures.
+

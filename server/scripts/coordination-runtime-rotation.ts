@@ -6,6 +6,7 @@ import {
   rollbackCoordinationRuntimeReplacement,
   stageCoordinationRuntimeReplacement,
 } from '../services/coordination-credential-broker';
+import { isDirectCliInvocation } from './lib/cli-entrypoint';
 
 function option(name: string): string | undefined {
   const index = process.argv.indexOf(`--${name}`);
@@ -143,7 +144,7 @@ async function main(): Promise<void> {
   usage();
 }
 
-if (process.argv[1]?.includes('coordination-runtime-rotation')) {
+if (isDirectCliInvocation('coordination-runtime-rotation.ts')) {
   main()
     .catch((error) => {
       console.error(error instanceof Error ? error.message : error);

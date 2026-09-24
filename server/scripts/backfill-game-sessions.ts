@@ -19,6 +19,7 @@
 import { neon } from '@neondatabase/serverless';
 import { drizzle } from 'drizzle-orm/neon-http';
 import { conversationMemories } from '../../shared/schema';
+import { isDirectCliInvocation } from './lib/cli-entrypoint';
 
 const DAVID_USER_ID = '49847136';
 
@@ -306,6 +307,6 @@ async function run() {
 }
 
 // Only run when invoked directly
-if (process.argv[1]?.includes('backfill-game-sessions')) {
+if (isDirectCliInvocation('backfill-game-sessions.ts')) {
   run().catch(err => { console.error(err); process.exit(1); });
 }

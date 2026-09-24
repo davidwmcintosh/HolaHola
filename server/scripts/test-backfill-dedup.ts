@@ -48,6 +48,7 @@
  */
 
 import { neon } from '@neondatabase/serverless';
+import { isDirectCliInvocation } from './lib/cli-entrypoint';
 import {
   loadAlreadySavedIds,
   makeBackfillTag,
@@ -476,8 +477,7 @@ async function main(): Promise<void> {
 }
 
 // ── Entry point ───────────────────────────────────────────────────────────────
-const scriptName = 'test-backfill-dedup';
-if (process.argv[1]?.includes(scriptName)) {
+if (isDirectCliInvocation('test-backfill-dedup.ts')) {
   if (SELF_CHECK) {
     runSelfCheck().catch((err: any) => {
       console.error(R('FATAL: ' + (err?.message ?? err)));

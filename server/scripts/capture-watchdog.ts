@@ -22,6 +22,7 @@ import { neon } from '@neondatabase/serverless';
 import * as crypto from 'crypto';
 import * as fs from 'fs';
 import * as path from 'path';
+import { isDirectCliInvocation } from './lib/cli-entrypoint';
 import {
   parseChatCaptureFromOffset,
   chatCaptureTurnFingerprint,
@@ -945,9 +946,10 @@ export async function drainInnerLife(): Promise<void> {
 
 // ─── Entrypoint ───────────────────────────────────────────────────────────────
 
-// Guard against esbuild bundling executing this as a side-effect at server boot
-const isMain = process.argv[1]?.includes('capture-watchdog');
-if (isMain) {
+// Exact basename match, not a substring — see server/scripts/lib/cli-entrypoint.ts.
+// A substring check here would also fire when a test file that imports this
+// module (e.g. test-watchdog-inner-life-driver.ts) is the actual entry point.
+if (isDirectCliInvocation('capture-watchdog.ts')) {
   console.log(`[watchdog] started (pid=${process.pid}) — polling every ${POLL_MS / 1000}s`);
   // Serialize the two drains: the chat drain must finish its DB-first episode
   // append before the inner-life drain derives the .md again, so they can

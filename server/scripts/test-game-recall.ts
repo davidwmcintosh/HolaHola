@@ -57,6 +57,7 @@ import { readFileSync, existsSync } from 'fs';
 import { join } from 'path';
 import { Pool } from 'pg';
 import { reembedConversationMemory } from './reembed-memory';
+import { isDirectCliInvocation } from './lib/cli-entrypoint';
 
 const G = (s: string) => `\x1b[32m${s}\x1b[0m`;
 const R = (s: string) => `\x1b[31m${s}\x1b[0m`;
@@ -589,6 +590,6 @@ async function main() {
 }
 
 // Only run when invoked directly
-if (process.argv[1]?.includes('test-game-recall')) {
+if (isDirectCliInvocation('test-game-recall.ts')) {
   main().catch(err => { console.error(err); process.exit(1); });
 }

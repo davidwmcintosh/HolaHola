@@ -5,6 +5,7 @@ import {
   repairActiveCoordinationInbox,
   verifyCoordinationInboxIntegrity,
 } from '../services/coordination-inbox-service';
+import { isDirectCliInvocation } from './lib/cli-entrypoint';
 
 type Command = 'status' | 'backfill' | 'verify' | 'activate' | 'repair';
 
@@ -61,7 +62,7 @@ export async function runCoordinationInboxAdmin(argv = process.argv.slice(2)) {
   return activateCoordinationInbox(migrationRunId!);
 }
 
-if (process.argv[1]?.includes('coordination-inbox-admin')) {
+if (isDirectCliInvocation('coordination-inbox-admin.ts')) {
   runCoordinationInboxAdmin()
     .then((result) => {
       process.stdout.write(`${JSON.stringify(result, null, 2)}\n`, () => {
