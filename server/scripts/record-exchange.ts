@@ -83,7 +83,8 @@
  */
 
 import { readFileSync, existsSync, statSync, writeFileSync, renameSync, mkdirSync, unlinkSync } from 'fs';
-import { basename, dirname, join } from 'path';
+import { dirname, join } from 'path';
+import { isDirectCliInvocation } from './lib/cli-entrypoint';
 import {
   appendChatCaptureTurn,
   CHAT_CAPTURE_ACK_DIR,
@@ -640,7 +641,7 @@ async function runClaudeCodeRemoteCli(
 // ---------------------------------------------------------------------------
 // Main
 // ---------------------------------------------------------------------------
-const isMain = basename(process.argv[1] ?? '') === 'record-exchange.ts';
+const isMain = isDirectCliInvocation('record-exchange.ts');
 const args = isMain ? process.argv.slice(2) : [];
 
 if (!isMain) {

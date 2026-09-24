@@ -16,6 +16,7 @@
  * content hash hasn't changed, and orphaned chunk embeddings (from a memory
  * that got shorter) are cleaned up automatically.
  */
+import { isDirectCliInvocation } from './lib/cli-entrypoint';
 import { getMonitoringDb, getUserDb } from '../db';
 import { conversationMemories, memoryEmbeddings } from '@shared/schema';
 import { generateAndStoreEmbedding } from '../services/semantic-memory-service';
@@ -247,8 +248,7 @@ async function main() {
 }
 
 // Only run main() when this file is the entry point (not when imported as a module).
-const isEntryPoint = process.argv[1]?.endsWith('reembed-memory.ts') ||
-  process.argv[1]?.endsWith('reembed-memory.js');
+const isEntryPoint = isDirectCliInvocation('reembed-memory.ts');
 if (isEntryPoint) {
   main().catch((err) => {
     console.error(err);

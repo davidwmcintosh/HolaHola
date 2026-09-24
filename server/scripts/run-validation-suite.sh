@@ -52,6 +52,7 @@ run_check "Cross-tool-promote push-auth guard" bash -c 'npx tsx server/scripts/t
 run_check "Cross-tool-promote episode content-loss guard" bash -c 'npx tsx server/scripts/test-cross-tool-promote-content-loss-guard.ts && npx tsx server/scripts/test-cross-tool-promote-content-loss-guard.ts --self-check'
 run_check "Cross-tool-promote stale-main guard" bash -c 'npx tsx server/scripts/test-cross-tool-promote-stale-main-guard.ts && npx tsx server/scripts/test-cross-tool-promote-stale-main-guard.ts --self-check'
 run_check "Agent skills cross-hat symlink guard" bash -c 'npx tsx server/scripts/test-agent-skills-symlink.ts && npx tsx server/scripts/test-agent-skills-symlink.ts --self-check'
+run_check "CLI entrypoint guard regression scan" bash -c 'npx tsx server/scripts/test-cli-entrypoint-guard-pattern.ts && npx tsx server/scripts/test-cli-entrypoint-guard-pattern.ts --self-check'
 run_check "Antigravity Windows DPAPI source boundary" npx tsx --test server/scripts/test-antigravity-windows-dpapi.test.ts
 run_check "Coordinator V2 first-host bootstrap boundary" npx tsx --test server/scripts/test-coordination-v2-first-host-bootstrap.test.ts
 run_check "Coordinator V2 lifecycle diagnostics cleanup fault fallback and evidence suites" npx tsx --test \
