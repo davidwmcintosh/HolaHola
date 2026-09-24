@@ -30,7 +30,7 @@ These specific 7 are known-bad until someone fixes the token-format fixtures and
 null-contract assertions.
 
 
-## Correction: also breaks the standard validation gate
+## Correction: the token-format bug also breaks the standard validation gate
 
 The `test-coordination-actor-clients.test.ts` failures above are not confined to the
 optional `test:coordination-ledger` harness. The same root cause (a bootstrap-token
@@ -55,15 +55,17 @@ Sep 24 2026.
 **Why:** `run-validation-suite.sh` failing is otherwise indistinguishable from a real
 regression in `markTaskComplete`'s automatic validation; the next agent whose
 unrelated task trips this same failure needs to know it's this known, already-tracked
-bug and cite `skip_validation_reason` with proof, not chase a phantom regression in
-their own diff.
+bug (see follow-up task fixing the actor-client token-length guard against short
+test fixtures) and cite `skip_validation_reason` with proof, not chase a phantom
+regression in their own diff.
 
 **How to apply:** if `run-validation-suite.sh` fails at `[ci:test N/157] ... npx tsx
 --test server/scripts/test-coordination-cli-credential-persistence-e2e.test.ts` with
-a "must be exactly 46 characters" error, this could be this same known bug — but
-verify on your own checkout first (see the later correction below: this has already
-been reported as both reproducing and non-reproducing depending on exact commit).
-
+a "must be exactly 46 characters" error, this is the same known bug — verify
+non-coupling to your own diff (grep your changed files for any import from
+`coordination-actor-client.ts`'s token validation, or just worktree-compare at your
+own parent commit) and proceed via `skip_validation_reason` rather than trying to fix
+it under an unrelated task.
 
 ## Correction: does not reproduce on main as of commit cbec01c
 
@@ -119,4 +121,3 @@ on your own current `HEAD` first. If it passes, this bug has been fixed upstream
 not apply to you — don't cite it. If it still fails, quote your own exact commit SHA and error
 text rather than relying on any commit named in this file, since those may already be stale by
 the time you read this.
-
