@@ -28,7 +28,9 @@ try {
         enumerable: desc.enumerable ?? true,
         configurable: true,
       });
-      console.log('[DB] Applied ws ErrorEvent.message compatibility patch');
+      // Diagnostic banner, not program output -- stderr so any CLI's stdout
+      // (e.g. a --json contract) stays limited to its actual data.
+      console.error('[DB] Applied ws ErrorEvent.message compatibility patch');
     }
   }
 } catch (patchErr) {
@@ -50,7 +52,9 @@ const usesCiDatabase = Boolean(CI_DATABASE_URL);
 if (!DATABASE_URL) {
   throw new Error("[DB] FATAL: NEON_SHARED_DATABASE_URL is required");
 }
-console.log(usesCiDatabase ? "[DB] ✓ isolated CI PostgreSQL database configured" : "[DB] ✓ Neon database configured");
+// Diagnostic banner, not program output -- stderr so any CLI's stdout (e.g.
+// a --json contract) stays limited to its actual data.
+console.error(usesCiDatabase ? "[DB] ✓ isolated CI PostgreSQL database configured" : "[DB] ✓ Neon database configured");
 
 type ApplicationDb = ReturnType<typeof drizzle>;
 let pool: NeonPool | PostgresPool | null = null;
@@ -75,7 +79,9 @@ function getDb() {
       pool = neonPool;
       _db = drizzle({ client: neonPool, schema });
     }
-    console.log("[DB] Database pool initialized (max: 25, idle: 2min, timeout: 20s)");
+    // Diagnostic banner, not program output -- stderr so any CLI's stdout
+    // (e.g. a --json contract) stays limited to its actual data.
+    console.error("[DB] Database pool initialized (max: 25, idle: 2min, timeout: 20s)");
 
     // Prevent "Connection terminated unexpectedly" from propagating as an uncaught
     // exception and crashing the server (which kills all active GL voice sessions).
@@ -155,7 +161,9 @@ export async function closeDbConnections(): Promise<void> {
     await pool.end();
     pool = null;
     _db = null;
-    console.log("[DB] Database pool closed");
+    // Diagnostic banner, not program output -- stderr so any CLI's stdout
+    // (e.g. a --json contract) stays limited to its actual data.
+    console.error("[DB] Database pool closed");
   }
 }
 

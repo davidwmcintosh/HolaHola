@@ -163,9 +163,12 @@ different purpose.
   runtime identity continuing, not a new model.
 - Existing registrations keep both columns null. No backfill guess: an unknown
   provider/model stays unknown rather than being inferred.
-- Surfacing these in a dedicated CLI/API view is a natural follow-up, not
-  required for this pass — v1 just needs the columns to exist and be settable
-  at registration/rotation time.
+- `server/scripts/coordination-runtime-status.ts` reads this back out: a
+  read-only CLI (`--actor`, `--runtime-id`, `--all`, `--json`) listing each
+  registration's actor, runtime id, provider, model, status, and rotation
+  lineage. Null provider/model render as the literal `unknown` in text output
+  and stay JSON `null` (present, not omitted) in `--json` output. It never
+  sets, infers, or backfills either column.
 
 ## 4. Data flow
 
@@ -217,7 +220,10 @@ different purpose.
   test the fail-closed path for an unrecognized recipient.
 - **3.5:** a focused test on `coordination-runtime-bootstrap.ts` accepting and
   omitting the new flags, plus `coordination-runtime-rotation.ts stage`
-  carrying them forward.
+  carrying them forward. `server/scripts/test-coordination-runtime-status.test.ts`
+  covers the read side: stored vs. never-set provider/model, actor filtering,
+  rotation-lineage display on both sides of a staged rotation, the
+  disabled/revoked default-exclusion, and a CLI smoke test of `--json` output.
 - Before considering this done: `npm run typecheck`,
   `npx tsx server/scripts/test-coordination-actor-completeness-selfcheck.ts`,
   and the Validation suite workflow — the same regression gate
@@ -235,7 +241,8 @@ different purpose.
   everything else about adding one. Revisit if a hat is ever added without the
   documented endorsement step actually happening.
 - **A dedicated API/CLI view for provider/model** — deferred as a trivial
-  follow-up; not required for the columns to exist and be usable.
+  follow-up in this pass; built subsequently as
+  `server/scripts/coordination-runtime-status.ts` (see 3.5).
 
 ## 8. Implementation order
 

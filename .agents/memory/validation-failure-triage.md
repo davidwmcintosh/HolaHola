@@ -18,3 +18,18 @@
 
 9. `test-all-consolidated-ci.sh` can take longer than a single foreground `ShellExec` timeout (up to 300s) under concurrent load from other active sessions sharing the same Neon dev DB — a foreground run can hit exit 124 having only completed 1-2 of the ~13 groups, which is not a real failure, just a tool timeout. Run it with `run_in_background: true`, redirect to a log file, append `echo "SCRIPT_EXIT_CODE=$?"` after it, and arm a `Monitor` on that exact string instead of polling in a loop — this also survives you being idle between checks. Read the final `SCRIPT_EXIT_CODE=<n>` line and the `FAILED GROUPS:` summary line near the end of the log for the authoritative result, not just scattered `✗` characters mid-log — many of those belong to intentional self-check/mutation-test output (e.g. lines prefixed `[broken]` or "Self-check ... guard-removed") proving a guard *would* catch a regression, and coexist with an overall `✓ GROUP PASSED` a few lines later.
 
+
+11. `detect-episode-dialogue-loss.ts` (part of `run-validation-suite.sh`'s
+`test:ci` chain) can report a `docs/episode-*.md` file as
+"NO .md file on disk right now" / "LOSS DETECTED (git (file missing))" purely
+because the `Start application` workflow was stopped when validation ran —
+not because the file was actually deleted or content was actually lost. These
+episode files are DB-canonical and appear to be restored to disk by a
+server-startup sync path; while the server is down, a file that would
+normally exist can be transiently absent. Confirmed Sep 24 2026: the exact
+file the check flagged as missing existed on disk with normal content once
+the workflow was restarted, and re-running the check standalone then passed
+cleanly with zero code changes. Treat this exactly like the other
+server-dependent failures in point 1 — restart the workflow and re-run the
+specific check — rather than investigating it as real content loss.
+
