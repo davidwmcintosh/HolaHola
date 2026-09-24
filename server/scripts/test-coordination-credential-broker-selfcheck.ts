@@ -58,7 +58,10 @@ function runRaceTest(): Promise<{ code: number | null; output: string }> {
   ]);
 }
 
-function runReissueTest(testNamePattern: string): () => Promise<{ code: number | null; output: string }> {
+// Generic despite the name of its one remaining caller family below: any
+// scenario targeting a behavioral test in rotationTestPath (reissue guards,
+// disable guards, ...) runs through this by name pattern.
+function runRotationTest(testNamePattern: string): () => Promise<{ code: number | null; output: string }> {
   return () => runTsxChild([
     '--test',
     `--test-name-pattern=${testNamePattern}`,
@@ -211,7 +214,7 @@ const runtimeNotFoundGuard = `    if (!registration) {
 await proveMutationFails({
   label: 'reissue runtime-not-found guard removal',
   expectedFailure: /fails closed for unknown or revoked runtimes[\s\S]*?Cannot read propert(?:y|ies) of undefined \(reading 'enabled'\)/,
-  runTest: runReissueTest('fails closed for unknown or revoked runtimes'),
+  runTest: runRotationTest('fails closed for unknown or revoked runtimes'),
   mutate(source) {
     assert.equal(
       source.split(runtimeNotFoundGuard).length - 1,
@@ -246,7 +249,7 @@ const disabledOrRevokedGuard = `    if (!registration.enabled || registration.re
 await proveMutationFails({
   label: 'reissue disabled/revoked early-check removal (guard 2 alone)',
   expectedFailure: /not ok \d+ - bootstrap reissue refuses a revoked registration[\s\S]*?'update_where_clause'[\s\S]*?'pre_update_check'/,
-  runTest: runReissueTest('bootstrap reissue refuses a revoked registration'),
+  runTest: runRotationTest('bootstrap reissue refuses a revoked registration'),
   mutate(source) {
     assert.equal(
       source.split(disabledOrRevokedGuard).length - 1,
@@ -270,7 +273,7 @@ const bootstrapUpdateUnguardedWhere = `}).where(
 await proveMutationFails({
   label: 'reissue disabled/revoked guard and UPDATE WHERE clause removal (guards 2+3 together)',
   expectedFailure: /not ok \d+ - bootstrap reissue refuses a revoked registration[\s\S]*?runtime_disabled_or_revoked/,
-  runTest: runReissueTest('bootstrap reissue refuses a revoked registration'),
+  runTest: runRotationTest('bootstrap reissue refuses a revoked registration'),
   mutate(source) {
     assert.equal(
       source.split(disabledOrRevokedGuard).length - 1,
@@ -288,6 +291,126 @@ await proveMutationFails({
   },
 });
 
+// ── disableCoordinationRuntimeRegistration's fail-closed guards (added for
+//    Task 1575) ─────────────────────────────────────────────────────────
+//
+// Unlike the reissue guards above, all four of this function's checks are
+// independently isolable: each removal scenario below leaves a DIFFERENT
+// guard's behavioral test as the only one whose real-world outcome changes,
+// because none of the four conditions is implied by any of the others on
+// the fixture data its own test constructs (e.g. the active-rotation
+// fixture deliberately has no credential row at all, so removing the
+// active-rotation guard alone is not silently masked by the credential
+// guard). No combined scenario is needed here.
+const runtimeNotFoundDisableGuard = `    if (!registration) {
+      await audit({
+        eventType: 'runtime_disable_failed',
+        success: false,
+        runtimeId,
+        reason: 'runtime_not_found',
+        sourceIp,
+      }, executor);
+      return { ok: false, reason: 'runtime_not_found' };
+    }
+`;
+
+await proveMutationFails({
+  label: 'disable runtime-not-found guard removal',
+  expectedFailure: /disabling an already-disabled registration is refused, and an unknown runtime ID is refused[\s\S]*?Cannot read propert(?:y|ies) of undefined \(reading 'enabled'\)/,
+  runTest: runRotationTest('disabling an already-disabled registration is refused, and an unknown runtime ID is refused'),
+  mutate(source) {
+    assert.equal(
+      source.split(runtimeNotFoundDisableGuard).length - 1,
+      1,
+      'disable runtime-not-found mutation must match exactly one guard block',
+    );
+    return source.replace(runtimeNotFoundDisableGuard, '');
+  },
+});
+
+const alreadyDisabledGuard = `    if (!registration.enabled || registration.revokedAt) {
+      await audit({
+        eventType: 'runtime_disable_failed',
+        success: false,
+        runtimeId,
+        actor: registration.actor,
+        reason: 'runtime_already_disabled',
+        sourceIp,
+      }, executor);
+      return { ok: false, reason: 'runtime_already_disabled' };
+    }
+`;
+
+await proveMutationFails({
+  label: 'disable already-disabled guard removal',
+  expectedFailure: /not ok \d+ - disabling an already-disabled registration is refused, and an unknown runtime ID is refused[\s\S]*?runtime_already_disabled/,
+  runTest: runRotationTest('disabling an already-disabled registration is refused, and an unknown runtime ID is refused'),
+  mutate(source) {
+    assert.equal(
+      source.split(alreadyDisabledGuard).length - 1,
+      1,
+      'disable already-disabled mutation must match exactly one guard block',
+    );
+    return source.replace(alreadyDisabledGuard, '');
+  },
+});
+
+const activeRotationGuard = `    if (activeRotation) {
+      await audit({
+        eventType: 'runtime_disable_failed',
+        success: false,
+        runtimeId,
+        actor: registration.actor,
+        reason: 'runtime_has_active_rotation',
+        sourceIp,
+        metadata: { conflictingRotationId: activeRotation.id },
+      }, executor);
+      return { ok: false, reason: 'runtime_has_active_rotation' };
+    }
+`;
+
+await proveMutationFails({
+  label: 'disable active-staged-rotation guard removal',
+  expectedFailure: /not ok \d+ - disabling either side of an active staged rotation is refused, including a replacement with no credential yet[\s\S]*?runtime_has_active_rotation/,
+  runTest: runRotationTest('disabling either side of an active staged rotation is refused, including a replacement with no credential yet'),
+  mutate(source) {
+    assert.equal(
+      source.split(activeRotationGuard).length - 1,
+      1,
+      'disable active-rotation mutation must match exactly one guard block',
+    );
+    return source.replace(activeRotationGuard, '');
+  },
+});
+
+const liveOrUsedCredentialGuard = `    if (blockingCredential) {
+      await audit({
+        eventType: 'runtime_disable_failed',
+        success: false,
+        runtimeId,
+        actor: registration.actor,
+        credentialId: blockingCredential.id,
+        reason: 'runtime_has_live_or_used_credential',
+        sourceIp,
+      }, executor);
+      return { ok: false, reason: 'runtime_has_live_or_used_credential' };
+    }
+`;
+
+await proveMutationFails({
+  label: 'disable live/unexpired/ever-used credential guard removal',
+  expectedFailure: /not ok \d+ - disabling a registration with a live unexpired credential is refused[\s\S]*?runtime_has_live_or_used_credential/,
+  runTest: runRotationTest('disabling a registration with a live unexpired credential is refused'),
+  mutate(source) {
+    assert.equal(
+      source.split(liveOrUsedCredentialGuard).length - 1,
+      1,
+      'disable live/used-credential mutation must match exactly one guard block',
+    );
+    return source.replace(liveOrUsedCredentialGuard, '');
+  },
+});
+
 console.log(
-  '[credential-broker-self-check] PASS: the race test independently rejects removal of the exchange registration lock or active-registration resolution check, and the rotation tests independently reject removal of the reissue runtime-not-found guard, the reissue disabled/revoked early check on its own, and the combined disabled/revoked reissue protection',
+  '[credential-broker-self-check] PASS: the race test independently rejects removal of the exchange registration lock or active-registration resolution check, the rotation tests independently reject removal of the reissue runtime-not-found guard, the reissue disabled/revoked early check on its own, and the combined disabled/revoked reissue protection, and the rotation tests also independently reject removal of each of the four disableCoordinationRuntimeRegistration guards (runtime-not-found, already-disabled, active-staged-rotation, and live/unexpired/ever-used credential)',
 );
