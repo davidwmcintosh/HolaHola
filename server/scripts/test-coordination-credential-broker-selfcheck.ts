@@ -411,15 +411,15 @@ await proveMutationFails({
   },
 });
 
-// disableCoordinationRuntimeRegistration's advisory-lock + FOR UPDATE pair
-// (added for Task 1575, scenario added for Task 1579) is a different kind
-// of protection from the four conditional guards above: a concurrency-
-// control primitive, not an early-return `if`. It serializes disable
-// against a concurrent resolveBrokerCredential() call for the same
-// runtime, closing the exact race the long comment above that lock in
+// disableCoordinationRuntimeRegistration's pg_advisory_xact_lock (added for
+// Task 1575, scenario added for Task 1579) is a different kind of
+// protection from the four conditional guards above: a concurrency-control
+// primitive, not an early-return `if`. It serializes disable against a
+// concurrent resolveBrokerCredential() call for the same runtime, closing
+// the exact race the long comment above that lock in
 // disableCoordinationRuntimeRegistration describes -- without it, the
-// live/used-credential guard just above is a plain SELECT that can race
-// an uncommitted lastUsedAt UPDATE from a credential finishing its first
+// live/used-credential guard just above is a plain SELECT that can race an
+// uncommitted lastUsedAt UPDATE from a credential finishing its first
 // authenticated use. This is the same class of concern as the "exchange
 // registration lock removal" scenario at the top of this file. The
 // behavioral test that actually exercises the race (rather than just the
@@ -427,13 +427,21 @@ await proveMutationFails({
 // completing its first authenticated use' in
 // test-coordination-credential-rotation.test.ts, which forces the
 // interleaving with a concurrency test hook.
-const disableAdvisoryLockBlock = `    await tx.execute(sql\`
+//
+// This mutation removes only the pg_advisory_xact_lock statement and
+// deliberately leaves the FOR UPDATE that follows it untouched, to isolate
+// the advisory lock as the one actually closing this race: confirmed
+// against a real disposable Postgres that removing the advisory lock alone
+// reproduces the identical failure produced by removing both, because
+// resolveBrokerCredential() never takes a row lock on
+// coordination_runtime_registrations -- only the shared advisory lock (same
+// hashtextextended(runtimeId, 0) key, taken first by both functions) can
+// serialize against it. FOR UPDATE alone protects disable against other
+// concurrent registration-row writers (e.g. a second disable, reissue, or
+// rotation call), not against this credential-resolution race.
+const disableStart = 'export async function disableCoordinationRuntimeRegistration(';
+const disableAdvisoryLockOnlyBlock = `    await tx.execute(sql\`
       SELECT pg_advisory_xact_lock(hashtextextended(\${runtimeId}, 0))
-    \`);
-    await tx.execute(sql\`
-      SELECT id FROM coordination_runtime_registrations
-      WHERE id = \${runtimeId}
-      FOR UPDATE
     \`);
 `;
 
@@ -442,12 +450,15 @@ await proveMutationFails({
   expectedFailure: /not ok \d+ - disable cannot succeed while a credential is completing its first authenticated use[\s\S]*?disable must wait while a concurrent credential resolution holds the runtime advisory lock/,
   runTest: runRotationTest('disable cannot succeed while a credential is completing its first authenticated use'),
   mutate(source) {
+    const start = source.indexOf(disableStart);
+    assert.ok(start >= 0, 'could not locate disableCoordinationRuntimeRegistration');
+    const disableSource = source.slice(start);
     assert.equal(
-      source.split(disableAdvisoryLockBlock).length - 1,
+      disableSource.split(disableAdvisoryLockOnlyBlock).length - 1,
       1,
-      'disable advisory-lock mutation must match exactly one lock block',
+      'disable advisory-lock mutation must match exactly one lock statement',
     );
-    return source.replace(disableAdvisoryLockBlock, '');
+    return source.slice(0, start) + disableSource.replace(disableAdvisoryLockOnlyBlock, '');
   },
 });
 
