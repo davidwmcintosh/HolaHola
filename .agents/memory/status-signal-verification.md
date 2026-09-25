@@ -113,3 +113,34 @@ A stopping point may be complete as a checkpoint while the project itself remain
 
 **How to apply:** At session wrap, document the verified state and explicit open boundary. Treat proposed follow-on tasks as the continuation path, not as evidence that the underlying work is complete.
 
+
+## A follow-up task can already be resolved by a sibling commit
+
+A narrow follow-up task (e.g. "route X's diagnostic banners to stderr") can already be fully
+implemented by the time it's assigned, if whoever built the feature that motivated it (a sibling
+task) fixed it proactively in the same commit. Symptom: the target file already matches the
+task's "done looks like" description, `git status` is clean, and MEMORY.md already has a dated
+entry for the exact fix. This is the inverse failure mode of the rest of this topic: instead of a
+false-positive "looks done" signal, it's a true-positive "looks not-yet-done" task that is
+actually already resolved.
+
+**Why:** this project generates many small, narrow follow-up tasks (e.g. "Confirm X still
+works", "Make Y safe to pipe") off of larger implementation tasks. An agent implementing the
+larger task sometimes does the right thing proactively and folds the follow-up's fix into the
+same commit, before the follow-up task is even dispatched to an agent. Confirmed Sep 24 2026 on
+task 1585 ("route server/db.ts's stdout banners to stderr"): already fixed in the same commit
+that added the coordination-runtime-status CLI (task 1582).
+
+**How to apply:**
+1. Before implementing, read the target file(s) directly — if they already match "done looks
+   like," don't assume the task description is stale noise; verify properly rather than skipping
+   the task.
+2. `git log --oneline` / `git show <commit> -- <file>` to confirm the exact change is already on
+   HEAD (not a leftover uncommitted edit from someone else's working tree) and check whether the
+   commit message or Replit-Task-Id references a sibling task.
+3. Prove the behavior directly (e.g. run the affected CLI/script and inspect real output) rather
+   than trusting the diff alone.
+4. If confirmed, call markTaskComplete with `drift_reason` explaining no code change was needed
+   and citing the sibling commit — do not reimplement or force a redundant diff just to have
+   something to commit.
+

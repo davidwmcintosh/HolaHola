@@ -12,9 +12,13 @@ import express from 'express';
 import { createServer, type Server } from 'node:http';
 import type { AddressInfo } from 'node:net';
 import { eq } from 'drizzle-orm';
-import { coordinationThreads } from '@shared/schema';
+import { coordinationEvents, coordinationThreads } from '@shared/schema';
 import { closeDbConnections, getSharedDb } from '../db';
 import { getVerifiedCiDatabaseUrl } from '../ci-database';
+import {
+  exchangeBootstrapCredential,
+  registerCoordinationRuntime,
+} from '../services/coordination-credential-broker';
 import { registerMcpCoordinationRoutes } from '../routes/mcp-coordination-route';
 
 const TOKENS = {
@@ -222,4 +226,105 @@ databaseTest('a self-addressed create is rejected as a tool-level error, not a t
   }, { token: TOKENS['luca-holahola'] });
   assert.equal(result.status, 200);
   assert.equal(result.body.result.isError, true);
+});
+
+databaseTest('a read-only broker credential is blocked from writes but can still read over MCP', async () => {
+  // Registered for 'daniela' (not luca-holahola/alden, both of which get an
+  // assertParticipant() steward bypass in coordination-ledger-service.ts) so
+  // the read-tool assertions below prove genuine participant-gated reads,
+  // not a bypass path that would work even without a real credential.
+  const readOnlyRuntimeId = `${runId}-readonly`;
+  const { bootstrapToken } = await registerCoordinationRuntime({
+    runtimeId: readOnlyRuntimeId,
+    actor: 'daniela',
+    displayName: 'MCP route read-only broker credential (CI)',
+    capabilities: ['coordination:read'],
+    tokenTtlSeconds: 60,
+  });
+  const exchanged = await exchangeBootstrapCredential(readOnlyRuntimeId, bootstrapToken);
+  assert.equal(exchanged.ok, true);
+  if (!exchanged.ok) return;
+  const readOnlyToken = exchanged.accessToken;
+
+  // Seed a real thread addressed to the read-only actor, created with a
+  // full-capability legacy credential, so the read tools below have
+  // something genuine to see.
+  const title = `MCP route read-only ${runId}`;
+  const seeded = await rpc('tools/call', {
+    name: 'create_coordination_thread',
+    arguments: {
+      recipient: 'daniela',
+      title,
+      description: 'Seed thread for the read-only credential capability proof.',
+      model: 'test-harness',
+    },
+  }, { token: TOKENS['luca-holahola'] });
+  assert.equal(seeded.status, 200);
+  assert.equal(seeded.body.result.isError, undefined, JSON.stringify(seeded.body.result));
+  const threadId: string = JSON.parse(seeded.body.result.content[0].text).threadId;
+  threadIds.push(threadId);
+
+  const attemptedCreateTitle = `Must not be created by a read-only credential ${runId}`;
+  const attemptedCreate = await rpc('tools/call', {
+    name: 'create_coordination_thread',
+    arguments: {
+      recipient: 'alden',
+      title: attemptedCreateTitle,
+      description: 'A read-only broker credential must not be able to originate threads over MCP.',
+      model: 'test-harness',
+    },
+  }, { token: readOnlyToken });
+  assert.equal(attemptedCreate.status, 200);
+  assert.equal(attemptedCreate.body.result.isError, true);
+  assert.match(
+    JSON.parse(attemptedCreate.body.result.content[0].text).error,
+    /coordination:write/,
+  );
+
+  const attemptedReply = await rpc('tools/call', {
+    name: 'reply_to_coordination_thread',
+    arguments: {
+      thread_id: threadId,
+      recipient: 'luca-holahola',
+      content: 'A read-only credential must not be able to post this.',
+      model: 'test-harness',
+    },
+  }, { token: readOnlyToken });
+  assert.equal(attemptedReply.status, 200);
+  assert.equal(attemptedReply.body.result.isError, true);
+  assert.match(
+    JSON.parse(attemptedReply.body.result.content[0].text).error,
+    /coordination:write/,
+  );
+
+  // The two rejections above must be pure denials, not partial writes: no
+  // stray thread and no extra event beyond the seed thread's own creation.
+  const db = getSharedDb();
+  const strayThreads = await db.select({ id: coordinationThreads.id })
+    .from(coordinationThreads)
+    .where(eq(coordinationThreads.title, attemptedCreateTitle));
+  assert.deepEqual(strayThreads, []);
+  const seedThreadEvents = await db.select({ id: coordinationEvents.id })
+    .from(coordinationEvents)
+    .where(eq(coordinationEvents.threadId, threadId));
+  assert.equal(seedThreadEvents.length, 1, 'the seed thread must still contain only its creation event');
+
+  const inbox = await rpc('tools/call', {
+    name: 'list_coordination_inbox',
+    arguments: { limit: 50 },
+  }, { token: readOnlyToken });
+  assert.equal(inbox.status, 200);
+  assert.equal(inbox.body.result.isError, undefined, JSON.stringify(inbox.body.result));
+  const inboxPayload = JSON.parse(inbox.body.result.content[0].text);
+  assert.ok(inboxPayload.items.some((item: any) => item.threadId === threadId));
+
+  const fetched = await rpc('tools/call', {
+    name: 'get_coordination_thread',
+    arguments: { thread_id: threadId },
+  }, { token: readOnlyToken });
+  assert.equal(fetched.status, 200);
+  assert.equal(fetched.body.result.isError, undefined, JSON.stringify(fetched.body.result));
+  const fetchedPayload = JSON.parse(fetched.body.result.content[0].text);
+  assert.equal(fetchedPayload.threadId, threadId);
+  assert.equal(fetchedPayload.title, title);
 });

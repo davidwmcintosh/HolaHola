@@ -11,3 +11,72 @@ The automated "MEMORY.md is past 80% of its line/byte cap" nudge can fire repeat
 
 **How to apply:** if a genuine measurement confirms over-cap and a good-faith search (duplicates, per-topic-file spot-check, obsolescence keywords, title clustering) turns up no safe candidate, it's acceptable to leave the index alone and note the search was done rather than force a destructive edit. Revisit once either a real duplicate emerges naturally or the margin narrows enough that visibility loss (not just the risk of it) is imminent.
 
+
+## MEMORY.md rebase conflicts are concurrent appends, not real edit collisions
+
+`.agents/memory/MEMORY.md` and every topic file are projections regenerated
+from the `agent_memory_*` database tables (see the preamble at the top of
+MEMORY.md itself). Multiple hats write to that DB concurrently and each
+write regenerates the file from current DB state.
+
+When a git rebase surfaces a conflict in MEMORY.md, the "ours" and "theirs"
+sides are typically two regenerated snapshots taken at different points in
+time on the same underlying append-only index — not two people editing the
+same line. In practice this means the conflict is usually just one side
+having zero or more extra trailing bullet lines that the other side lacks,
+with every other line byte-identical.
+
+**Why:** confirmed on task #1527's rebase: a line-by-line diff of the "ours"
+block against the "theirs" block showed exactly one line of difference out
+of 156+ shared lines — a single extra bullet on "ours" that "theirs" didn't
+have yet. No line was actually edited on both sides.
+
+**How to apply:** before hand-resolving a MEMORY.md (or topic file) conflict,
+extract the "ours" and "theirs" blocks to separate files and run a real
+`diff`, not an eyeball scan of a 300+ line list. If the diff shows only
+added/missing lines (the common case), the correct resolution is the union
+of both sides in stable order, not a semantic rewrite. Only fall back to
+manual reasoning about intent if `diff` shows an actual line-level edit
+collision, which would indicate two hats tried to change the same bullet's
+wording — rare for an append-only index. After resolving, use the normal
+`server/scripts/agent-memory-cli.ts regenerate --all` path (or a fresh CLI
+write) if you need the file to reflect the live DB again; a hand-resolved
+file is a one-time rebase artifact, not a replacement for the DB being the
+source of truth.
+
+
+## Task 1592 addendum: 3 more merges executed, others deliberately rejected
+
+Task 1592 (Sep 25 2026), after the "zero candidates" finding above: found and executed 3 further
+content-preserving merges anyway, none of them duplicates or obsolete content — each was a set of
+short, thematically-adjacent-but-distinct entries folded under one umbrella topic, the same
+pattern `replit-sandbox-process-quirks.md` already used successfully (that file's own heading says
+"Consolidates 4 topics").
+
+Executed: `coordination-ledger-preexisting-failures` → `consolidated-ci-preexisting-failures`
+(same lesson — verify a pre-existing-failure claim against current HEAD — applied to a different
+suite; also folded in a fresh finding from this task about a stale actor-enumeration test
+fixture); `already-resolved-followup-task` → `status-signal-verification` (inverse-direction case
+of the same "verify actual state, don't trust appearances" family already collected there); three
+small git command-line gotchas (pathspec-scoped commit staging, committer-vs-author recency date,
+SSH host-key/LFS-hook hangs) → new topic `git-operational-gotchas`; `memory-index-rebase-conflicts`
+folded into this topic (both are meta-lessons about MEMORY.md's own DB-projection mechanics).
+Net effect: roughly 164 → 159 index lines.
+
+**Why this doesn't contradict the finding above:** that search's methodology (duplicate-title
+scan, obsolescence keywords, title-similarity clustering) correctly found no *duplicate or dead*
+entries — these merges weren't that; they were live, distinct, non-redundant lessons regrouped
+under fewer umbrella topics without deleting any content.
+
+**Candidates examined and deliberately rejected as too dissimilar to force together:**
+`bootstrap-mismatch-diagnosis` / `runtime-rotation-pairing-verification` /
+`credential-rotation-recovery-authority` (three distinct points in the credential-rotation
+lifecycle); `disposable-database-gate-design` / `postgres-hermetic-testing-gotchas` (both already
+large, well-organized, non-overlapping); `coordination-actor-completeness-tiers` /
+`coordination-credential-cache-coexistence` (different specific concerns that merely touch
+adjacent files); the three Luca-identity entries (`luca-hat-naming-convention`,
+`luca-roles-not-bifurcation`, `luca-provider-neutral-execution` — each carries distinct policy
+content despite thematic adjacency).
+
+**How to apply:** don't re-attempt merging the "rejected" list above without new information —
+they were read in full and judged genuinely distinct, not skipped for lack of time.
