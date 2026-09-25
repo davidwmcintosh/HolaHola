@@ -43,3 +43,7 @@ nohup.out
 # server/services/episode-content-loss-guard.ts — keep both in sync.
 docs/episode-99[0-9][0-9].md
 docs/episode-9[0-9][0-9][0-9][0-9].md
+# Legacy bare-numbered fixture predating the range above — test-rolling-sync-
+# guard.ts's real-repo fixture. Matches LEGACY_RESERVED_FIXTURE_EPISODE_NUMBERS
+# in the same guard module — keep both in sync.
+docs/episode-99.md

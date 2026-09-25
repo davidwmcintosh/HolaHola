@@ -52,6 +52,7 @@ import {
   findContentLossViolations,
   isProtectedEpisodeFile,
   isRegularFileEntry,
+  LEGACY_RESERVED_FIXTURE_EPISODE_NUMBERS,
   RESERVED_FIXTURE_EPISODE_MIN,
   type GitRunner,
   type TreeEntry,
@@ -336,6 +337,23 @@ async function runSelfCheck(): Promise<void> {
     isProtectedEpisodeFile('docs/episode-27.md') && isProtectedEpisodeFile('docs/episode-34.md'),
   );
 
+  // Legacy bare-numbered fixture (2026-09-25 fix): docs/episode-99.md is
+  // test-rolling-sync-guard.ts's real-repo fixture, predating the 9900+
+  // convention above. Blocked two consecutive, otherwise-unrelated task
+  // merges before this exclusion existed.
+  assert(
+    'LEGACY_RESERVED_FIXTURE_EPISODE_NUMBERS contains exactly the confirmed legacy fixture (99)',
+    LEGACY_RESERVED_FIXTURE_EPISODE_NUMBERS.has(99) && LEGACY_RESERVED_FIXTURE_EPISODE_NUMBERS.size === 1,
+  );
+  assert(
+    'isProtectedEpisodeFile excludes the legacy episode-99 fixture (test-rolling-sync-guard.ts)',
+    !isProtectedEpisodeFile('docs/episode-99.md'),
+  );
+  assert(
+    'isProtectedEpisodeFile still protects the real neighbors of the legacy fixture (98, 100)',
+    isProtectedEpisodeFile('docs/episode-98.md') && isProtectedEpisodeFile('docs/episode-100.md'),
+  );
+
   // ── Hermetic git-backed end-to-end assertions ─────────────────────────────
   console.log('');
   console.log(B('— End-to-end (real temp git repo, real commits) —'));
@@ -352,36 +370,36 @@ async function runSelfCheck(): Promise<void> {
     const runGit = makeGitRunner(repoDir);
 
     // Scenario A: full truncation (Aug 31 shape)
-    const epPath = join(docsDir, 'episode-99.md');
+    const epPath = join(docsDir, 'episode-55.md');
     const realContent = [
-      '# Episode 99',
+      '# Episode 55',
       '',
       '**DAVID:** this is real dialogue line one',
       '**LUCA [Replit]:** this is real dialogue line two',
       '**DAVID:** this is real dialogue line three',
     ].join('\n');
     writeFileSync(epPath, realContent);
-    git(repoDir, ['add', 'docs/episode-99.md']);
+    git(repoDir, ['add', 'docs/episode-55.md']);
     git(repoDir, ['commit', '-qm', 'seed: real episode content']);
     const shaBefore = git(repoDir, ['rev-parse', 'HEAD']);
 
     writeFileSync(epPath, '');
-    git(repoDir, ['add', 'docs/episode-99.md']);
+    git(repoDir, ['add', 'docs/episode-55.md']);
     git(repoDir, ['commit', '-qm', 'Update agent memory logs (unrelated, wipes episode)']);
     const shaTruncated = git(repoDir, ['rev-parse', 'HEAD']);
 
     const truncatedResult = await checkEpisodeContentLoss(runGit, shaBefore, shaTruncated);
     assert(
       'Full truncation to 0 bytes is blocked',
-      // All 4 non-trivial lines (the "# Episode 99" header plus 3 dialogue
+      // All 4 non-trivial lines (the "# Episode 55" header plus 3 dialogue
       // lines) are expected to be reported — the header is real content too.
-      truncatedResult.blocked && truncatedResult.violations['docs/episode-99.md']?.length === 4,
+      truncatedResult.blocked && truncatedResult.violations['docs/episode-55.md']?.length === 4,
       `Got: blocked=${truncatedResult.blocked} violations=${JSON.stringify(truncatedResult.violations)}`,
     );
 
     // Scenario B: grow-but-lose-content (Sep 21 shape), from the same base
     writeFileSync(epPath, [
-      '# Episode 99',
+      '# Episode 55',
       '',
       '**LUCA [Replit]:** this is real dialogue line two',
       '**DAVID:** this is real dialogue line three',
@@ -390,16 +408,16 @@ async function runSelfCheck(): Promise<void> {
       '**LUCA [Replit]:** making the file bigger overall',
       '**LUCA [Replit]:** even though real content is missing',
     ].join('\n'));
-    git(repoDir, ['add', 'docs/episode-99.md']);
+    git(repoDir, ['add', 'docs/episode-55.md']);
     git(repoDir, ['commit', '-qm', 'Update authentication logic (unrelated, drops a line, file grows)']);
     const shaGrowLose = git(repoDir, ['rev-parse', 'HEAD']);
 
     const growLoseResult = await checkEpisodeContentLoss(runGit, shaBefore, shaGrowLose);
     assert(
-      'Grow-but-lose-content end-to-end: blocked even though episode-99.md is now larger',
+      'Grow-but-lose-content end-to-end: blocked even though episode-55.md is now larger',
       growLoseResult.blocked
-        && growLoseResult.violations['docs/episode-99.md']?.length === 1
-        && growLoseResult.violations['docs/episode-99.md'][0].includes('dialogue line one'),
+        && growLoseResult.violations['docs/episode-55.md']?.length === 1
+        && growLoseResult.violations['docs/episode-55.md'][0].includes('dialogue line one'),
       `Got: blocked=${growLoseResult.blocked} violations=${JSON.stringify(growLoseResult.violations)}`,
     );
 
@@ -412,7 +430,7 @@ async function runSelfCheck(): Promise<void> {
     const overrideResult = await checkEpisodeContentLoss(runGit, shaBefore, shaWithOverride);
     assert(
       'Override doc present in range: NOT blocked, but violation is still reported (logged)',
-      !overrideResult.blocked && (overrideResult.violations['docs/episode-99.md']?.length ?? 0) > 0,
+      !overrideResult.blocked && (overrideResult.violations['docs/episode-55.md']?.length ?? 0) > 0,
       `Got: blocked=${overrideResult.blocked} violations=${JSON.stringify(overrideResult.violations)}`,
     );
 
@@ -431,13 +449,13 @@ async function runSelfCheck(): Promise<void> {
     );
 
     // Scenario E: lookalike files are out of scope
-    writeFileSync(join(docsDir, 'episode-99-gap-analysis.md'), '# regenerated analysis\n');
-    git(repoDir, ['add', 'docs/episode-99-gap-analysis.md']);
+    writeFileSync(join(docsDir, 'episode-55-gap-analysis.md'), '# regenerated analysis\n');
+    git(repoDir, ['add', 'docs/episode-55-gap-analysis.md']);
     git(repoDir, ['commit', '-qm', 'add gap-analysis doc']);
     const shaLookalike = git(repoDir, ['rev-parse', 'HEAD']);
     const lookalikeResult = await checkEpisodeContentLoss(runGit, git(repoDir, ['rev-parse', 'HEAD~1']), shaLookalike);
     assert(
-      'A non-numeric lookalike file (episode-99-gap-analysis.md) is out of scope',
+      'A non-numeric lookalike file (episode-55-gap-analysis.md) is out of scope',
       lookalikeResult.changedEpisodeFiles.length === 0,
       `Got: ${JSON.stringify(lookalikeResult.changedEpisodeFiles)}`,
     );
@@ -449,7 +467,7 @@ async function runSelfCheck(): Promise<void> {
     // content was empty, so nothing was lost".
     const failingShowRunner = withInjectedFailure(
       runGit,
-      (args) => args[0] === 'show' && args[1] === `${shaBefore}:docs/episode-99.md`,
+      (args) => args[0] === 'show' && args[1] === `${shaBefore}:docs/episode-55.md`,
     );
     let threwOnUnreadableBlob = false;
     let threwMessage = '';
@@ -461,7 +479,7 @@ async function runSelfCheck(): Promise<void> {
     }
     assert(
       'A git-show failure on a blob that ls-tree confirms exists throws (fails closed), not "0 violations"',
-      threwOnUnreadableBlob && threwMessage.includes('episode-99.md'),
+      threwOnUnreadableBlob && threwMessage.includes('episode-55.md'),
       `threw=${threwOnUnreadableBlob} message=${JSON.stringify(threwMessage)}`,
     );
 

@@ -67,6 +67,23 @@ export const EPISODE_FILE_PATTERN = /^docs\/episode-(\d+)\.md$/;
  */
 export const RESERVED_FIXTURE_EPISODE_MIN = 9900;
 
+/**
+ * A small number of CI fixtures predate the 9900+ range convention above and
+ * use a bare low episode number instead. Confirmed member:
+ * server/scripts/test-rolling-sync-guard.ts writes real content directly to
+ * `docs/episode-99.md` in the actual repo checkout (not a temp dir; DB
+ * fixture id `99000000-0000-4000-8000-000000000099`) as part of exercising
+ * rolling-episode DB-vs-file sync. Same false-positive mechanics as the
+ * 9900+ class: its normal create/delete lifecycle can be swept into an
+ * unrelated commit by that commit's own `git add -A` while the fixture is
+ * mid-lifecycle on disk. Confirmed 2026-09-25: exactly this blocked two
+ * consecutive, otherwise-unrelated task merges on this file/content
+ * (`# Episode 99` + the fixture's literal `B`-repeat body). Kept as an
+ * explicit allowlist (not folded into the range) because there is no open
+ * convention here — just this one legacy fixture number.
+ */
+export const LEGACY_RESERVED_FIXTURE_EPISODE_NUMBERS: ReadonlySet<number> = new Set([99]);
+
 /** Presence (not content) of a matching file in the same change authorizes
  *  removal of real content — mirrors the exact convention already
  *  established by scripts/gemini-gate-check.sh's docs/gemini-audit-*.md
@@ -127,7 +144,9 @@ export function findContentLossViolations(oldContent: string, newContent: string
 export function isProtectedEpisodeFile(path: string): boolean {
   const match = EPISODE_FILE_PATTERN.exec(path);
   if (!match) return false;
-  return Number(match[1]) < RESERVED_FIXTURE_EPISODE_MIN;
+  const episodeNumber = Number(match[1]);
+  if (LEGACY_RESERVED_FIXTURE_EPISODE_NUMBERS.has(episodeNumber)) return false;
+  return episodeNumber < RESERVED_FIXTURE_EPISODE_MIN;
 }
 
 export function isOverrideDoc(path: string): boolean {
