@@ -865,28 +865,33 @@ async function main(): Promise<void> {
   // actually reacts to a real violation from episode-content-loss-guard.ts,
   // not merely that unrelated fixtures still pass against an always-empty
   // diff stub (see the 2026-08-31/2026-09-21 incidents in task #1529).
+  // Uses episode-55 as an arbitrary protected-file stand-in (not episode-99):
+  // episode-99 is a legacy CI fixture number now deliberately excluded from
+  // the guard (see LEGACY_RESERVED_FIXTURE_EPISODE_NUMBERS in
+  // episode-content-loss-guard.ts), so this scenario would silently no-op
+  // against it. Same reasoning as check-episode-content-loss.ts's self-check.
   const episodeContentLossOld = [
-    '# Episode 99',
+    '# Episode 55',
     '',
     "**DAVID:** approved, I'm off for the day",
     '**LUCA [Replit]:** Good session, enjoy the rest of your day',
   ].join('\n');
   const episodeContentLossNew = [
-    '# Episode 99',
+    '# Episode 55',
     '',
     "**DAVID:** approved, I'm off for the day",
     '**LUCA [Replit]:** a different, later exchange entirely',
   ].join('\n');
   const episodeLossBlocked = await withFixture('local-ahead', {
     episodeDiff: {
-      changedPath: 'docs/episode-99.md',
+      changedPath: 'docs/episode-55.md',
       oldContent: episodeContentLossOld,
       newContent: episodeContentLossNew,
     },
   });
   assert.equal(episodeLossBlocked.result.state, 'failed');
   assert.match(episodeLossBlocked.result.error || '', /EPISODE_CONTENT_LOSS_BLOCKED/);
-  assert.match(episodeLossBlocked.result.error || '', /docs\/episode-99\.md/);
+  assert.match(episodeLossBlocked.result.error || '', /docs\/episode-55\.md/);
   assert.ok(
     !episodeLossBlocked.calls.some((call) => call.startsWith('git push ')),
     'a blocked episode content-loss violation must never reach git push',
@@ -899,7 +904,7 @@ async function main(): Promise<void> {
   // than blocking on the mere presence of an episode-file diff.
   const episodeAppendSafe = await withFixture('local-ahead', {
     episodeDiff: {
-      changedPath: 'docs/episode-99.md',
+      changedPath: 'docs/episode-55.md',
       oldContent: episodeContentLossOld,
       newContent: `${episodeContentLossOld}\n**DAVID:** one more thing\n**LUCA [Replit]:** sure, go ahead`,
     },
