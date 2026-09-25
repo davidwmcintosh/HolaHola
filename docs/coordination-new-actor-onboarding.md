@@ -2,9 +2,9 @@
 
 Luca is one persona. A "hat" is an attribution surface for a specific IDE or
 LLM runtime (`luca-replit`, `luca-claude-code`, `luca-gemini`,
-`luca-holahola`, and any future one) — never a separate identity. This doc is
-the procedure for adding a genuinely **new** hat to the coordination system
-(a new entry in `CoordinationActorId`).
+`luca-antigravity`, `luca-holahola`, and any future one) — never a separate
+identity. This doc is the procedure for adding a genuinely **new** hat to the
+coordination system (a new entry in `CoordinationActorId`).
 
 If you're instead adding a new runtime/device/IDE for an **existing** hat
 (e.g. a second machine running as `luca-claude-code`), you don't need any of

@@ -50,6 +50,7 @@ databaseTest('Alden can message Luca through his own tools and observe the reply
     recipient: 'luca-replit',
     title,
     description,
+    model: 'claude-opus-4.6',
   });
   assert.equal(created.data.error, undefined, `create_coordination_thread failed: ${created.data.error}`);
   assert.equal(typeof created.data.threadId, 'string');
@@ -88,6 +89,7 @@ databaseTest('Alden can message Luca through his own tools and observe the reply
     thread_id: threadId,
     recipient: 'luca-replit',
     content: 'Got it — proceeding.',
+    model: 'claude-opus-4.6',
   });
   assert.equal(reply.data.error, undefined, `reply_to_coordination_thread failed: ${reply.data.error}`);
   assert.ok(
@@ -104,6 +106,7 @@ databaseTest('list_coordination_inbox token continuation advances past a full pa
     recipient: 'luca-replit',
     title,
     description,
+    model: 'claude-opus-4.6',
   });
   assert.equal(created.data.error, undefined, `create_coordination_thread failed: ${created.data.error}`);
   const pagingThreadId = created.data.threadId;

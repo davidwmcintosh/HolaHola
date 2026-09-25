@@ -20,6 +20,7 @@ const TOKEN_ENV_BY_ACTOR: Record<string, string> = {
   'luca-replit': 'COORDINATION_LUCA_REPLIT_TOKEN',
   'luca-claude-code': 'COORDINATION_LUCA_CLAUDE_CODE_TOKEN',
   'luca-gemini': 'COORDINATION_LUCA_GEMINI_CODE_TOKEN',
+  'luca-antigravity': 'COORDINATION_LUCA_ANTIGRAVITY_TOKEN',
   'luca-holahola': 'COORDINATION_LUCA_HOLAHOLA_TOKEN',
 };
 

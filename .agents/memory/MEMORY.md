@@ -158,3 +158,5 @@
 - [Follow-up task already resolved by a sibling commit](already-resolved-followup-task.md) — a narrow follow-up task's fix can already be bundled into a related task's commit -- verify via git log/show and live behavior before redoing the work
 - [Lazy regex + multiline dollar truncates a match](regex-lazy-multiline-dollar.md) — m makes $ match every line-end; a lazy [\s\S]*?(?=X|$) then stops after the first line, not the whole block
 - [Luca hat naming: platform, not persona or model](luca-hat-naming-convention.md) — hat = the platform/IDE Luca runs through, not a persona or the model name; one model can back several different hats
+- [Required tool field via existing payload field](tool-required-field-via-payload.md) — add a new required tool arg without a DB migration -- validate it at dispatch, store it in an existing optional payload field instead.
+- [Live server keeps running pre-edit code until restarted](dev-server-stale-code-until-restart.md) — a fresh tsx/CLI process reflects a backend edit immediately; the running dev server doesn't until restarted -- verify via restart, not a live check.

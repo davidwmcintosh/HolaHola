@@ -623,12 +623,13 @@ export const ALDEN_TOOLS: AldenTool[] = [
     input_schema: {
       type: "object" as const,
       properties: {
-        recipient: { type: "string" as const, enum: ["luca-replit", "luca-claude-code", "luca-holahola", "luca-gemini", "daniela", "david"], description: "Who this thread is addressed to." },
+        recipient: { type: "string" as const, enum: ["luca-replit", "luca-claude-code", "luca-holahola", "luca-gemini", "luca-antigravity", "daniela", "david"], description: "Who this thread is addressed to." },
         title: { type: "string" as const, description: "Short thread title (what this is about)." },
         description: { type: "string" as const, description: "Full description of the work, finding, or question — the body the recipient reads first." },
         priority: { type: "string" as const, enum: ["low", "normal", "high", "urgent"], description: "Optional. Defaults to normal." },
+        model: { type: "string" as const, description: "The model or engine you are currently running as when you open this thread (e.g. 'claude-opus-4.6', 'gemini-3-flash-preview'). Required so the coordination record shows which model produced it." },
       },
-      required: ["recipient", "title", "description"],
+      required: ["recipient", "title", "description", "model"],
     },
   },
   {
@@ -652,10 +653,11 @@ export const ALDEN_TOOLS: AldenTool[] = [
       type: "object" as const,
       properties: {
         thread_id: { type: "string" as const, description: "The coordination thread ID to reply on." },
-        recipient: { type: "string" as const, enum: ["luca-replit", "luca-claude-code", "luca-holahola", "luca-gemini", "daniela", "david"], description: "Who this specific reply is addressed to (usually the thread's other participant)." },
+        recipient: { type: "string" as const, enum: ["luca-replit", "luca-claude-code", "luca-holahola", "luca-gemini", "luca-antigravity", "daniela", "david"], description: "Who this specific reply is addressed to (usually the thread's other participant)." },
         content: { type: "string" as const, description: "The reply text." },
+        model: { type: "string" as const, description: "The model or engine you are currently running as when you post this reply (e.g. 'claude-opus-4.6', 'gemini-3-flash-preview'). Required so the coordination record shows which model produced it." },
       },
-      required: ["thread_id", "recipient", "content"],
+      required: ["thread_id", "recipient", "content", "model"],
     },
   },
   {
@@ -666,7 +668,7 @@ export const ALDEN_TOOLS: AldenTool[] = [
       type: "object" as const,
       properties: {
         thread_id: { type: "string" as const, description: "The coordination thread ID to interject on." },
-        recipient: { type: "string" as const, enum: ["luca-replit", "luca-claude-code", "luca-holahola", "luca-gemini", "daniela", "david"], description: "Who this interjection is addressed to — usually the thread's current owner or origin actor." },
+        recipient: { type: "string" as const, enum: ["luca-replit", "luca-claude-code", "luca-holahola", "luca-gemini", "luca-antigravity", "daniela", "david"], description: "Who this interjection is addressed to — usually the thread's current owner or origin actor." },
         content: { type: "string" as const, description: "The interjection text." },
       },
       required: ["thread_id", "recipient", "content"],
@@ -679,7 +681,7 @@ export const ALDEN_TOOLS: AldenTool[] = [
     input_schema: {
       type: "object" as const,
       properties: {
-        recipient: { type: "string" as const, enum: ["luca-replit", "luca-claude-code", "luca-holahola", "luca-gemini", "daniela", "david"], description: "The actor to brief on its own access." },
+        recipient: { type: "string" as const, enum: ["luca-replit", "luca-claude-code", "luca-holahola", "luca-gemini", "luca-antigravity", "daniela", "david"], description: "The actor to brief on its own access." },
       },
       required: ["recipient"],
     },
@@ -2592,9 +2594,11 @@ export async function executeAldenTool(
         const title = String(args.title || '').trim();
         const description = String(args.description || '').trim();
         const priority = args.priority as 'low' | 'normal' | 'high' | 'urgent' | undefined;
+        const model = String(args.model || '').trim();
         if (!recipient) return { data: { error: 'recipient is required' } };
         if (recipient === 'alden') return { data: { error: 'recipient cannot be alden — you cannot address a coordination thread to yourself' } };
         if (!title || !description) return { data: { error: 'title and description are required' } };
+        if (!model) return { data: { error: 'model is required' } };
 
         try {
           const result = await createCoordinationThread({
@@ -2603,6 +2607,7 @@ export async function executeAldenTool(
             title,
             description,
             priority,
+            payload: { model },
             idempotencyKey: randomUUID(),
           });
           console.log(`[Alden Tool] create_coordination_thread: "${title}" → ${recipient} (thread ${result.thread.id})`);
@@ -2651,9 +2656,11 @@ export async function executeAldenTool(
         const threadId = args.thread_id as string;
         const content = String(args.content || '').trim();
         const recipient = args.recipient as CoordinationActorId;
+        const model = String(args.model || '').trim();
         if (!threadId || !recipient) return { data: { error: 'thread_id and recipient are required' } };
         if (recipient === 'alden') return { data: { error: 'recipient cannot be alden — you cannot address a reply to yourself' } };
         if (!content) return { data: { error: 'content is required' } };
+        if (!model) return { data: { error: 'model is required' } };
 
         const attempt = async () => {
           const { thread } = await getCoordinationThread(threadId, 'alden');
@@ -2663,6 +2670,7 @@ export async function executeAldenTool(
             eventType: 'comment',
             content,
             recipientActor: recipient,
+            payload: { model },
             idempotencyKey: randomUUID(),
             expectedSequence: thread.latestSequence,
           });

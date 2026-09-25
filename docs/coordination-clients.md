@@ -477,10 +477,19 @@ live credential depends on continuity.
 - **Claude Code:** use a different service account/vault and runtime ID such as
   `luca-claude-code-primary`; inject through the process launcher, not a checked
   in `.env`.
-- **Antigravity/Gemini Gate 3 on Windows:** register actor `luca-gemini` with a
-  runtime ID such as `luca-gemini-antigravity-primary`. Use the documented
-  DPAPI launcher under the approved Windows user; never reuse Replit or Claude
-  Code's registration or bootstrap.
+- **Antigravity/Gemini Gate 3 on Windows (historical/retired):** the task-1448
+  Gate 3 proof registered under actor `luca-gemini` with runtime IDs such as
+  `luca-gemini-antigravity-primary`. Current path is Coordinator V2 — see
+  `docs/antigravity-gate3-runbook.md`. Those `luca-gemini-antigravity-*`
+  registrations, credentials, and profiles remain live provenance rows in the
+  database; never repoint or rename them, and never derive a new one — they
+  are immutable history for that specific proof, not a template for the hat
+  below.
+- **Antigravity (IDE hat):** register the standalone actor `luca-antigravity`
+  with its own runtime ID (e.g. `luca-antigravity-primary`) and dedicated
+  service account/vault, same pattern as Claude Code. This is the live,
+  ongoing attribution surface for the Antigravity IDE — unrelated to the
+  historical Gate 3 bullet above, which is bound to `luca-gemini` for good.
 - **Future runtimes:** if this is another runtime for an *existing* hat
   (another machine running as `luca-claude-code`, say), just create a new
   registration and service account as above. If it's a genuinely *new* hat
@@ -510,7 +519,8 @@ no longer needed. Never copy a legacy actor token into the new bootstrap field.
 | --- | --- | --- | --- |
 | Luca [Replit] | Replit Agent runtime | `COORDINATION_LUCA_REPLIT_TOKEN` | Read his inbox and coordination feed; create and manage participating work; send actor-derived linked replies; atomically close agent-note-origin work with a verified outcome. |
 | Luca [Claude Code] | Claude Code runtime | `COORDINATION_LUCA_CLAUDE_CODE_TOKEN` | Read his inbox and coordination feed; create and manage participating work; send actor-derived linked replies; atomically close agent-note-origin work with a verified outcome. |
-| Luca [Gemini] | Antigravity/Gemini execution runtime | broker registration (`luca-gemini`) or migration-only `COORDINATION_LUCA_GEMINI_TOKEN` | Read its canonical inbox/feed; create and manage participating work under dedicated attribution. Legacy `agent_notes` linked replies remain Replit/Claude-specific. |
+| Luca [Gemini] | Gemini API/CLI runtime | broker registration (`luca-gemini`) or migration-only `COORDINATION_LUCA_GEMINI_TOKEN` | Read its canonical inbox/feed; create and manage participating work under dedicated attribution. Legacy `agent_notes` linked replies remain Replit/Claude-specific. Also the actor bound to the historical/retired task-1448 Gate 3 Antigravity-on-Windows proof — see the Runtime-specific setup section above. |
+| Luca [Antigravity] | Antigravity IDE runtime | `COORDINATION_LUCA_ANTIGRAVITY_TOKEN` | Read its canonical inbox/feed; create and manage participating work under dedicated attribution. Independent of Luca [Gemini] despite both ultimately running a Gemini model — the hat names the IDE, not the model. |
 | Luca [HolaHola] | HolaHola server/live-observation runtime | `COORDINATION_LUCA_HOLAHOLA_TOKEN` | Poll and read the full coordination feed; create handoffs; comment; delegate or reassign. He observes and coordinates but does not accept or complete another actor's work. |
 | Alden | Alden service/runtime | `COORDINATION_ALDEN_TOKEN` | Poll and read the full coordination feed system-wide; accept, report progress, attach evidence, block, or complete threads he owns; comment on participating threads; interject with a steward_comment on any thread system-wide, even ones he doesn't participate in; reassign work he owns; acknowledge outcomes for threads he originated; brief a new actor on the access it already has. |
 | Daniela | Daniela service/runtime | `COORDINATION_DANIELA_TOKEN` | Poll and read participating threads; accept; report progress; attach evidence; block or complete owned work; comment. She cannot originate or reassign operational work. |

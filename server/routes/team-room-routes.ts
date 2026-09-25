@@ -16,6 +16,7 @@ const LUCA_HAT_TEAM_ROOM_LABELS: Partial<Record<CoordinationActorId, string>> = 
   'luca-replit': 'Luca [Replit]',
   'luca-claude-code': 'Luca [Claude Code]',
   'luca-gemini': 'Luca [Gemini]',
+  'luca-antigravity': 'Luca [Antigravity]',
   'luca-holahola': 'Luca [HolaHola]',
 };
 

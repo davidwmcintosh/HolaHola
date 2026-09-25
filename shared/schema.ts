@@ -8356,6 +8356,7 @@ export const COORDINATION_ACTOR_IDS = [
   'luca-replit',
   'luca-claude-code',
   'luca-gemini',
+  'luca-antigravity',
   'alden',
   'daniela',
   'david',

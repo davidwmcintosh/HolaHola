@@ -30,3 +30,18 @@ itself was still modeled as a runtime under the existing luca-gemini actor
 rather than as its own hat -- the first concrete gap this policy needs
 reconciled against.
 
+
+## Resolved: Antigravity promoted to its own hat
+
+**Resolved (2026-09-24):** Antigravity was promoted from a runtime under
+`luca-gemini` to its own hat, `luca-antigravity`, closing the gap this policy
+had flagged. The historical task-1448 Gate 3 Antigravity-on-Windows proof
+stayed bound to `luca-gemini` on purpose -- promoting a hat is additive (a
+new actor id plus its own Tier 1-3 registry entries), never a rename or
+repoint of prior provenance.
+
+Before touching any actor's historical runtime rows during a promotion like
+this, confirm via a direct DB read whether they are still live/non-revoked,
+not just from a doc's "historical/retired" label -- the label describes the
+*path* as retired, not necessarily the underlying rows as safe to touch.
+
