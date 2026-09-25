@@ -105,6 +105,7 @@ import { readFileSync, existsSync, readdirSync, mkdtempSync, mkdirSync, writeFil
 import { join } from 'path';
 import { tmpdir } from 'os';
 import { neon } from '@neondatabase/serverless';
+import { LEGACY_RESERVED_FIXTURE_EPISODE_NUMBERS } from '../services/episode-content-loss-guard';
 
 const G = (s: string) => `\x1b[32m${s}\x1b[0m`;
 const R = (s: string) => `\x1b[31m${s}\x1b[0m`;
@@ -413,13 +414,24 @@ export interface TargetFile {
  * a naive "any episode-N.md ever seen in git history" scan would wrongly
  * treat as a permanently-deleted real target. Any git-history candidate at
  * or above this threshold is a test/CI fixture, never a real episode.
+ *
+ * One legacy fixture predates this range convention and uses a bare low
+ * number instead: docs/episode-99.md is test-rolling-sync-guard.ts's
+ * real-repo fixture (see LEGACY_RESERVED_FIXTURE_EPISODE_NUMBERS in
+ * episode-content-loss-guard.ts — shared here rather than re-declared, so
+ * the two guards can never drift apart on which legacy numbers are
+ * excluded). Confirmed 2026-09-25: this detector flagged that fixture's
+ * routine create/delete lifecycle as permanent content loss the same way
+ * episode-content-loss-guard.ts once did, before the legacy set existed.
  */
 const MAX_PLAUSIBLE_REAL_EPISODE_NUMBER = 1000;
 
 function isTestFixtureEpisodePath(relPath: string): boolean {
   const m = /^docs\/episode-(\d+)\.md$/.exec(relPath);
   if (!m) return false;
-  return parseInt(m[1], 10) >= MAX_PLAUSIBLE_REAL_EPISODE_NUMBER;
+  const episodeNumber = parseInt(m[1], 10);
+  return episodeNumber >= MAX_PLAUSIBLE_REAL_EPISODE_NUMBER
+    || LEGACY_RESERVED_FIXTURE_EPISODE_NUMBERS.has(episodeNumber);
 }
 
 /**
