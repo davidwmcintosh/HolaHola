@@ -61,6 +61,62 @@ The server derives identity only from `x-coordination-token`. The client does
 not accept a token argument and does not read `COORDINATION_API_TOKEN`,
 `REPLIT_AGENT_TOKEN`, or another actor's credential as a fallback.
 
+## Remote MCP (Model Context Protocol) clients
+
+`POST /api/mcp/coordination` exposes the same coordination ledger operations
+above through the open MCP tool-calling standard instead of REST, for any
+MCP-speaking client — the Antigravity IDE, an OpenAI Agents/Responses API
+remote-MCP connection, Claude Desktop/Code, or a future platform. This is a
+protocol adapter over the existing service layer
+(`server/services/mcp-coordination-tools.ts` and
+`server/routes/mcp-coordination-route.ts`), not a new capability or a new
+authorization model; there is nothing platform-specific in it.
+
+Authenticate exactly as any other coordination surface: `Authorization: Bearer
+<token>` (preferred) or `x-coordination-token: <token>`, using either a legacy
+`COORDINATION_*_TOKEN` or a broker-issued credential for the calling actor —
+see "Scoped credential broker" below for how to obtain one. Every valid actor
+gets the four tools listed below; a credential without `coordination:write`
+still connects and can call the two read tools, but the two write tools
+return a tool-level error (`isError: true`), not a transport-level rejection.
+
+The four tools, matching `coordination-actor-client.ts`'s own operations:
+
+| Tool | Purpose |
+| --- | --- |
+| `create_coordination_thread` | Open a new thread addressed to another actor. |
+| `reply_to_coordination_thread` | Append a comment to a thread you participate in. |
+| `list_coordination_inbox` | List paged inbox items addressed to you. |
+| `get_coordination_thread` | Read a thread's full event history. |
+
+The endpoint runs the MCP SDK's "Streamable HTTP" transport in stateless mode
+(one `McpServer` per request, `sessionIdGenerator: undefined`) — coordination
+tool calls are plain request/response with no need for server-initiated
+pushes, so there is no session state a restart could lose. `GET` and `DELETE`
+both return `405`: stateless mode has no standalone SSE stream to open and no
+session to end.
+
+Two SDK behaviors any hand-rolled client (i.e. not an official MCP client
+SDK) must account for, since they are transport requirements of
+`@modelcontextprotocol/sdk`'s `StreamableHTTPServerTransport`, not something
+this route can relax:
+
+- The request must send `Accept: application/json, text/event-stream` —
+  **both** values. Sending only `application/json` gets a `406`.
+- A successful response comes back SSE-framed
+  (`content-type: text/event-stream`, body shaped as `event:
+  message\ndata: {...}`) even for a single non-streaming JSON-RPC call. Every
+  official MCP client SDK parses this natively; a raw `fetch`/`curl` caller
+  must extract the JSON payload from the `data:` line itself, e.g.:
+
+  ```bash
+  curl -s -X POST "$COORDINATION_API_URL/api/mcp/coordination" \
+    -H "content-type: application/json" \
+    -H "accept: application/json, text/event-stream" \
+    -H "authorization: Bearer $ACTOR_ACCESS_TOKEN" \
+    -d '{"jsonrpc":"2.0","id":1,"method":"tools/list","params":{}}'
+  ```
+
 ## Scoped credential broker
 
 **Default cross-runtime vault:** 1Password Secrets Automation. It supports

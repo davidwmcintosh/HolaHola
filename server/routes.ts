@@ -12,6 +12,7 @@ import { stripeService } from "./stripeService";
 import { aiLimiter, voiceLimiter, authLimiter, mutationLimiter, hiveExternalLimiter, generalLimiter } from "./middleware/rate-limiter";
 import { requireRole, allowRoles, loadAuthenticatedUser, requireFounder, requireAgentToken, requireFounderOrAgent, logAgentAction, getAgentAuditLog, isAgentTokenConfigured, isReplitAgentRequest } from "./middleware/rbac";
 import { registerCoordinationRoutes } from "./routes/coordination-routes";
+import { registerMcpCoordinationRoutes } from "./routes/mcp-coordination-route";
 import { registerCoordinationCredentialRoutes } from "./routes/coordination-credential-routes";
 import { registerCoordinationRuntimeRoutes } from "./routes/coordination-runtime-routes";
 import { registerCoordinationRuntimeStatusRoutes } from "./routes/coordination-runtime-status-routes";
@@ -650,6 +651,7 @@ export async function registerRoutes(app: Application): Promise<void> {
   registerCoordinationRuntimeRoutes(app);
   registerCoordinationRuntimeStatusRoutes(app);
   registerCoordinationRoutes(app);
+  registerMcpCoordinationRoutes(app);
   registerHolaHolaSharedSpecApi(app);
   registerObservationBenchCoordinationRoutes(app);
   // Set up Replit Auth with rate limiting
