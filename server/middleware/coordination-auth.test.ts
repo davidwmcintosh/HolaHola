@@ -1,5 +1,6 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
+import { COORDINATION_ACTOR_IDS } from '@shared/schema';
 import {
   COORDINATION_LEGACY_CAPABILITIES_BY_ACTOR,
   requireFounderOrCoordinationCapability,
@@ -59,16 +60,18 @@ test('fixed non-Luca actors cannot read Luca observation', async () => {
 });
 
 test('actor names cannot self-authorize by using a luca prefix', () => {
-  assert.deepEqual(Object.keys(COORDINATION_LEGACY_CAPABILITIES_BY_ACTOR).sort(), [
-    'alden',
-    'coordination-system',
-    'daniela',
-    'david',
-    'luca-claude-code',
-    'luca-gemini',
-    'luca-holahola',
-    'luca-replit',
-  ].sort());
+  // Derived from CoordinationActorId's own canonical list (shared/schema.ts)
+  // rather than a second hardcoded array: COORDINATION_LEGACY_CAPABILITIES_BY_ACTOR
+  // is typed as Record<CoordinationActorId, ...>, so TypeScript already forces
+  // its keys to match COORDINATION_ACTOR_IDS exactly. A hardcoded expected list
+  // here would silently drift out of sync every time a new actor is onboarded
+  // (as happened with 'luca-antigravity'), hiding a real future regression --
+  // e.g. a 9th actor added to the enum but never wired into the legacy-
+  // capabilities map -- behind an already-red test.
+  assert.deepEqual(
+    Object.keys(COORDINATION_LEGACY_CAPABILITIES_BY_ACTOR).sort(),
+    [...COORDINATION_ACTOR_IDS].sort(),
+  );
 });
 
 test('luca-gemini recognizes the Gemini Code token alias', () => {
