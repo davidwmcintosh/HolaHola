@@ -157,3 +157,4 @@
 - [CLI stdout/stderr diagnostic separation](cli-stdout-stderr-diagnostics.md) — shared modules (e.g. server/db.ts) imported by --json CLIs must route diagnostics to stderr; never mask a broken stdout contract with test-side filtering
 - [Follow-up task already resolved by a sibling commit](already-resolved-followup-task.md) — a narrow follow-up task's fix can already be bundled into a related task's commit -- verify via git log/show and live behavior before redoing the work
 - [Lazy regex + multiline dollar truncates a match](regex-lazy-multiline-dollar.md) — m makes $ match every line-end; a lazy [\s\S]*?(?=X|$) then stops after the first line, not the whole block
+- [Luca hat naming: platform, not persona or model](luca-hat-naming-convention.md) — hat = the platform/IDE Luca runs through, not a persona or the model name; one model can back several different hats
