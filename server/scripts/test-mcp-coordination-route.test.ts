@@ -328,3 +328,71 @@ databaseTest('a read-only broker credential is blocked from writes but can still
   assert.equal(fetchedPayload.threadId, threadId);
   assert.equal(fetchedPayload.title, title);
 });
+
+databaseTest('a write-capable broker credential can create and reply to threads over MCP', async () => {
+  // Registered for 'david' rather than luca-holahola/alden (which get an
+  // assertParticipant() steward bypass — see the read-only test above) or
+  // 'daniela' (whom assertCoordinationActorCanCreate() blocks from
+  // originating threads at all). 'david' is a plain, fully participant-gated
+  // actor, so a successful create+reply below proves the broker credential's
+  // own coordination:write capability is doing the work — not a bypass and
+  // not an actor-specific carve-out standing in for it. Every prior
+  // successful-write test in this file authenticates with the legacy
+  // TOKENS['luca-holahola'] token, so this is the first proof that a
+  // broker-issued credential's write path works end to end over MCP.
+  const writerRuntimeId = `${runId}-writer`;
+  const { bootstrapToken } = await registerCoordinationRuntime({
+    runtimeId: writerRuntimeId,
+    actor: 'david',
+    displayName: 'MCP route write-capable broker credential (CI)',
+    capabilities: ['coordination:read', 'coordination:write'],
+    tokenTtlSeconds: 60,
+  });
+  const exchanged = await exchangeBootstrapCredential(writerRuntimeId, bootstrapToken);
+  assert.equal(exchanged.ok, true);
+  if (!exchanged.ok) return;
+  const writerToken = exchanged.accessToken;
+
+  const title = `MCP route broker-write ${runId}`;
+  const created = await rpc('tools/call', {
+    name: 'create_coordination_thread',
+    arguments: {
+      recipient: 'alden',
+      title,
+      description: 'Proof that a broker-issued coordination:write credential can originate threads over MCP.',
+      model: 'test-harness',
+    },
+  }, { token: writerToken });
+  assert.equal(created.status, 200);
+  assert.equal(created.body.result.isError, undefined, JSON.stringify(created.body.result));
+  const threadId: string = JSON.parse(created.body.result.content[0].text).threadId;
+  assert.equal(typeof threadId, 'string');
+  threadIds.push(threadId);
+
+  const replyContent = `Broker write-credential reply ${runId}.`;
+  const replied = await rpc('tools/call', {
+    name: 'reply_to_coordination_thread',
+    arguments: {
+      thread_id: threadId,
+      recipient: 'alden',
+      content: replyContent,
+      model: 'test-harness',
+    },
+  }, { token: writerToken });
+  assert.equal(replied.status, 200);
+  assert.equal(replied.body.result.isError, undefined, JSON.stringify(replied.body.result));
+
+  // Confirm the reply actually landed as a real ledger comment event, not
+  // merely a success envelope, by reading the thread back with the same
+  // broker credential.
+  const fetched = await rpc('tools/call', {
+    name: 'get_coordination_thread',
+    arguments: { thread_id: threadId },
+  }, { token: writerToken });
+  assert.equal(fetched.status, 200);
+  assert.equal(fetched.body.result.isError, undefined, JSON.stringify(fetched.body.result));
+  const fetchedPayload = JSON.parse(fetched.body.result.content[0].text);
+  const commentEvent = fetchedPayload.events.find((event: any) => event.eventType === 'comment');
+  assert.ok(commentEvent, `expected a comment event, got: ${JSON.stringify(fetchedPayload.events)}`);
+  assert.equal(commentEvent.content, replyContent);
+});
