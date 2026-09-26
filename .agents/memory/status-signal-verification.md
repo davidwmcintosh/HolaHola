@@ -144,3 +144,12 @@ that added the coordination-runtime-status CLI (task 1582).
    and citing the sibling commit — do not reimplement or force a redundant diff just to have
    something to commit.
 
+
+## Bare IN_PROGRESS vs MAIN_IN_PROGRESS reveals task-agent/main-agent collisions
+
+A project task's `displayState` always has any `MAIN_` prefix stripped, so `MAIN_IN_PROGRESS` and `IN_PROGRESS` display identically and cannot be told apart from `displayState` alone. The raw `state` field (from `getProjectTask`) is the only place the distinction survives: a bare `IN_PROGRESS` means the task is owned by an isolated task agent, not by direct work in this session, even if a compacted summary or the current session's own narrative says "building this directly."
+
+**Why:** a follow-up task (`followUpCategory: incomplete_scope`) was approved by the user and routed to a task agent, while the same session (per its own compacted summary) also implemented the identical feature directly on main and got it fully tested, committed, and live. `markTaskComplete` correctly refused with "not an in-progress main task," which was the first real signal something was off — checking `getProjectTask`'s raw `state` confirmed it was bare `IN_PROGRESS`, and the user then confirmed a task agent really was active in their sidebar. Had the rejection been treated as a transient/retry-able error instead of a real signal, the task agent's eventual merge could have landed on top of already-committed, overlapping changes to the same tool-dispatch code.
+
+**How to apply:** if `markTaskComplete` is ever rejected with a message implying the task isn't a main-agent task, don't retry it blindly — call `getProjectTask` and read the raw `state` string directly (not `displayState`). A bare `IN_PROGRESS`/`IMPLEMENTED`/`PENDING` (no `MAIN_` prefix) means a task agent owns it in its own isolated environment. Surface the task to the user (`surfaceProjectTasks`) and tell them plainly that duplicate work may exist, so they can stop the task agent before its merge collides with what's already on main.
+
