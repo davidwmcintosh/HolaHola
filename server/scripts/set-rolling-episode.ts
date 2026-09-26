@@ -165,6 +165,7 @@ async function runSelfCheck(): Promise<void> {
 
   console.log('[self-check] PASS (2/2): Transaction rollback correctly preserved the rolling tag — no partial state');
   console.log('\n[set-rolling-episode --self-check] All checks passed. ✅');
+  process.exit(0);
 }
 
 // ---------------------------------------------------------------------------
@@ -192,6 +193,7 @@ async function main(): Promise<void> {
   console.log(`  New rolling: ${result.target.title}`);
   console.log('');
   console.log('The autosave watcher and --rolling flag will pick up the new target on their next cycle.');
+  process.exit(0);
 }
 
 // ---------------------------------------------------------------------------

@@ -46,3 +46,19 @@ disposable Postgres (see local-disposable-postgres-sandbox.md), run the file
 with `time npx tsx --test <file>` before and after the fix, and confirm wall
 time drops to roughly the sum of per-test durations. This is how task #1490
 confirmed a ~122s file dropped to <1s.
+
+## Same root cause, different shape: plain CLI/self-check scripts
+
+A plain top-level dispatch script (no node:test runner) — e.g.
+`(selfCheckMode ? runSelfCheck() : main()).catch(...)` with no `.then()` on
+the success path — hangs for the identical open-DB-pool reason once it calls
+`getSharedDb()`, even though every assertion already passed and printed.
+`closeDbConnections()` in an `after()` hook doesn't apply here; there is no
+test-runner lifecycle to hook into. The established fix in this repo's CLI
+scripts is an explicit `process.exit(0)` at the end of *every* success
+branch, matching the script's own failure branches (which already call
+`process.exit(1)`) — never rely on the event loop draining naturally once a
+DB pool has been opened. Verify by timing the command directly
+(`time npx tsx <script>`); a script that "looks done" in its own output can
+still hold the process open for minutes.
+
