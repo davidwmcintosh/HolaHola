@@ -115,6 +115,7 @@ run_check "Canonical capture worker readiness" npx tsx server/scripts/test-canon
 # keep it out of run-ci-test-steps.mjs.
 run_check "Live canonical capture health route" npx tsx server/scripts/test-canonical-capture-health-route.ts
 run_check "Chat capture episode mirror outbox" npx tsx server/scripts/test-chat-capture-episode-outbox.ts
+run_check "Episode lifecycle createEpisode() reuse-not-duplicate guard" npx tsx server/scripts/test-episode-lifecycle-create-dedup.ts
 run_check "Legacy watchdog source-identity repair fixtures" npx tsx --test server/scripts/repair-preincident-watchdog-source-identity.test.ts
 run_check "Claude Code/Replit agent inbox lifecycle" npx tsx server/scripts/test-agent-notes-inbox.ts
 run_check "Alden provider tool and consult-auth contract" npx tsx server/scripts/test-alden-provider-tool-projection.ts
