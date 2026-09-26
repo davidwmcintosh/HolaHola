@@ -7,15 +7,21 @@ Format: `[date found] — location — description — severity`
 
 ## Active
 
-**2026-09-26 — Episode Dedup partial unique index still inactive; one exact-duplicate Episode 28 row is the cause — OPEN**
+---
 
-Discovered incidentally while verifying new episode-lifecycle tools (unrelated to that change — `server/routes.ts` was not touched this session). Startup always logs `[Episode Dedup] Partial unique index creation skipped: Failed query: ...` with no further reason, because `console.warn('[Episode Dedup] Partial unique index creation skipped:', err.message)` only prints Drizzle's generic query-failed wrapper, not the underlying Postgres cause (which lives on `err.cause.message`, not `err.message`).
+## Resolved
 
-The comment directly above that code claims "Existing duplicates were pruned (Task #955); the index is now active" — that is currently false. A direct query found exactly one duplicate pair: `conversation_memories` has two `entry_type='episode'` rows with `arc_name='HolaHola Episodes'` and `title='Episode 28'` — canonical id `28000000-0000-4000-8000-000000000028` (tagged `rolling-protected`, the one every other system treats as Episode 28) and an orphan `c2f5882b-b25b-4b84-a94d-67fdbe9c6113` (tagged only `episode, auto-synced`, created 13 seconds earlier on 2026-08-10). Verified byte-identical: same `length(content)` (342689) and same `md5(content)` hash, so the orphan carries zero unique narrative content. Verified nothing references the orphan via `extends_memory_id` (0 rows). Deleting the orphan would be a lossless dedup and would let `CREATE UNIQUE INDEX idx_episode_title_arc_unique` finally succeed, closing a real gap: without that DB-level constraint, episode creation (both `set-rolling-episode.ts`'s callers and the new `createEpisode()` in `server/services/episode-lifecycle-service.ts`) relies solely on an app-level SELECT-before-INSERT check, which is not race-safe against two near-simultaneous creates.
+**2026-09-26 — Episode Dedup partial unique index was inactive; one exact-duplicate Episode 28 row was the cause — FIXED same day**
 
-**Not fixed here** — deleting a production row, even a proven exact duplicate, needs explicit user sign-off before doing it; flagged to the user directly in the same session this was found rather than acted on unilaterally.
+Discovered incidentally while verifying new episode-lifecycle tools (unrelated to that change — `server/routes.ts` was not touched to introduce it). Startup was logging `[Episode Dedup] Partial unique index creation skipped: Failed query: ...` with no further reason, because `console.warn('[Episode Dedup] Partial unique index creation skipped:', err.message)` only printed Drizzle's generic query-failed wrapper, not the underlying Postgres cause (which lives on `err.cause.message`, not `err.message`).
 
-Location: `server/routes.ts` (~line 694, "Episode dedup: partial unique index" block) — the swallowed-cause logging and the stale comment both live there; the duplicate row itself is data, not code. Severity: LOW-MEDIUM (no content loss risk today since the duplicate is identical, but the missing DB-level constraint is a real latent race-condition gap for any future concurrent episode-creation path).
+The comment directly above that code claimed "Existing duplicates were pruned (Task #955); the index is now active" — that was false at the time. A direct query found exactly one duplicate pair: `conversation_memories` had two `entry_type='episode'` rows with `arc_name='HolaHola Episodes'` and `title='Episode 28'` — canonical id `28000000-0000-4000-8000-000000000028` (tagged `rolling-protected`, the one every other system treats as Episode 28) and an orphan `c2f5882b-b25b-4b84-a94d-67fdbe9c6113` (tagged only `episode, auto-synced`, created 13 seconds earlier on 2026-08-10).
+
+**Verification before deleting:** byte-identical content (same `length(content)` 342689, same `md5(content)` hash — zero unique narrative content on the orphan); zero rows referenced the orphan via `extends_memory_id`, `shared_insights.source_memory_id`, or `compass_principles.source_conversation_id`; `brain_events.memory_ids` had zero historical references either. User explicitly approved deletion after being shown this evidence.
+
+**Fix:** deleted the orphan `conversation_memories` row and its 2 associated `memory_embeddings` rows (`conversation_memory` + `conversation_summary` arms) in one transaction, guarded by a re-checked id+hash predicate immediately before the delete. Corrected the stale comment in `server/routes.ts` (removed the false "Task #955" attribution). Restarted the app and confirmed via startup log: `[Episode Dedup] Partial unique index idx_episode_title_arc_unique is active.` — the DB now enforces one row per `(arc_name, title)` for episodes, closing the concurrent-insert race gap. The swallowed-cause logging (`err.message` vs `err.cause.message`) was left as-is — it only matters if a new duplicate appears in the future, tracked separately under project task #1604.
+
+Location: `server/routes.ts` (~line 694, "Episode dedup: partial unique index" block). Severity was LOW-MEDIUM; now resolved.
 
 ---
 

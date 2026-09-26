@@ -697,8 +697,12 @@ export async function registerRoutes(app: Application): Promise<void> {
   // the constraint is active before registerRoutes() resolves and the server
   // begins accepting requests.  Best-effort: if existing duplicate rows prevent
   // creation, we log a warning and fall back to the application-level pre-check.
-  // Existing duplicates were pruned (Task #955); the index is now active and
-  // DB-level concurrency safety is fully enforced.
+  // The one pre-existing duplicate pair (two "Episode 28" rows, verified
+  // byte-identical, zero references to the orphan) was pruned 2026-09-26;
+  // the index is now active and DB-level concurrency safety is fully
+  // enforced. If this warning reappears, a new duplicate was inserted
+  // through a path that bypasses the application-level guard below —
+  // investigate the insertion path before re-pruning.
   try {
     const { sql: rawSql } = await import('drizzle-orm');
     await getUserDb().execute(rawSql`
