@@ -3,6 +3,7 @@ import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { spawn, spawnSync } from 'node:child_process';
 import { createServer } from 'node:net';
+import { randomBytes } from 'node:crypto';
 import { Pool } from 'pg';
 
 const LOCAL_HOSTS = new Set(['127.0.0.1', 'localhost', '::1']);
@@ -129,6 +130,15 @@ try {
     CI_DATABASE_URL: testUrl.toString(),
     NEON_SHARED_DATABASE_URL: testUrl.toString(),
     COORDINATION_INBOX_DISPOSABLE_BRANCH_ID: `local-${testDatabaseName}`,
+    // coordination-inbox-service.ts signs pagination tokens with
+    // COORDINATION_INBOX_TOKEN_SECRET (falling back to SESSION_SECRET) and
+    // refuses to run below 32 characters. Both are ambient secrets on the
+    // Replit dev sandbox, so this never failed locally -- but GitHub Actions
+    // starts this disposable test run with neither set, and the real
+    // SESSION_SECRET must never be exposed to CI just to satisfy a
+    // throwaway database's token signing. Generate a run-scoped secret here,
+    // the same way the database and branch ID above are disposable.
+    COORDINATION_INBOX_TOKEN_SECRET: randomBytes(32).toString('hex'),
   };
 
   console.log('[coordination-local] applying migrations to a disposable local database');
