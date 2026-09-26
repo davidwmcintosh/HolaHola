@@ -865,11 +865,15 @@ async function main(): Promise<void> {
   // actually reacts to a real violation from episode-content-loss-guard.ts,
   // not merely that unrelated fixtures still pass against an always-empty
   // diff stub (see the 2026-08-31/2026-09-21 incidents in task #1529).
-  // Uses episode-55 as an arbitrary protected-file stand-in (not episode-99):
-  // episode-99 is a legacy CI fixture number now deliberately excluded from
-  // the guard (see LEGACY_RESERVED_FIXTURE_EPISODE_NUMBERS in
-  // episode-content-loss-guard.ts), so this scenario would silently no-op
-  // against it. Same reasoning as check-episode-content-loss.ts's self-check.
+  //
+  // Uses episode 55, not 99: episode-content-loss-guard.ts's own
+  // LEGACY_RESERVED_FIXTURE_EPISODE_NUMBERS now excludes 99 globally from
+  // content-loss protection (it's test-rolling-sync-guard.ts's real-repo
+  // scratch fixture), so isProtectedEpisodeFile('docs/episode-99.md') is
+  // FALSE and this scenario would silently no-op (sync succeeds instead of
+  // being blocked) if it stayed on 99. episode-55 is the same substitute
+  // check-episode-content-loss.ts's own self-check already moved to for the
+  // identical reason — kept consistent with that precedent.
   const episodeContentLossOld = [
     '# Episode 55',
     '',

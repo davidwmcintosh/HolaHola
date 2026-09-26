@@ -443,15 +443,26 @@ function isTestFixtureEpisodePath(relPath: string): boolean {
  * .md had been deleted entirely simply never became a target, so nothing
  * downstream ever ran against it and the scan reported clean.
  *
+ * DOES apply isTestFixtureEpisodePath(): test-rolling-sync-guard.ts inserts
+ * a real 'rolling'-tagged conversation_memories row titled "Episode 99" for
+ * the exact duration of its own test run — the same discoverTargetFiles()
+ * DB query this function feeds can observe that row mid-test (a real,
+ * confirmed race when this detector's CI step overlaps that test's suite).
+ * Without this filter, the fixture-path exclusion applied to git-history
+ * candidates in gitHistoryCandidateTargets() would not protect the
+ * identical path when it arrives via the DB instead.
+ *
  * Exported so --self-check can prove target discovery does not silently
- * drop a deleted episode.
+ * drop a deleted episode, and does not pick up a known fixture row.
  */
 export function dbRowsToTargets(rows: Array<{ id: string; title: string }>): TargetFile[] {
   const files: TargetFile[] = [];
   for (const row of rows) {
     const m = /^Episode\s+(\d+)/i.exec(String(row.title));
     if (!m) continue;
-    files.push({ relPath: `docs/episode-${parseInt(m[1], 10)}.md`, episodeDbId: row.id });
+    const relPath = `docs/episode-${parseInt(m[1], 10)}.md`;
+    if (isTestFixtureEpisodePath(relPath)) continue;
+    files.push({ relPath, episodeDbId: row.id });
   }
   return files;
 }
@@ -1121,19 +1132,24 @@ async function runSelfCheck(): Promise<void> {
 
   // ── Assertion 12: dbRowsToTargets() includes a target even when its .md
   //    does not exist on disk — the pure-function core of the target-
-  //    discovery half of the whole-file-deletion fix. ───────────────────────
-  const fakeRows = [{ id: 'fake-id-does-not-matter', title: 'Episode 999999 — a title for a file that must not exist on disk' }];
+  //    discovery half of the whole-file-deletion fix. Uses episode 500: a
+  //    plausible-but-unused low number, deliberately NOT >= 1000 and NOT in
+  //    LEGACY_RESERVED_FIXTURE_EPISODE_NUMBERS, so this assertion keeps
+  //    exercising the real "target survives even without a file" behavior
+  //    instead of accidentally hitting the fixture-exclusion path that
+  //    Assertion 20 (below) tests on purpose. ─────────────────────────────
+  const fakeRows = [{ id: 'fake-id-does-not-matter', title: 'Episode 500 — a title for a file that must not exist on disk' }];
   const fakeTargets = dbRowsToTargets(fakeRows);
-  const fakeTarget = fakeTargets.find(t => t.relPath === 'docs/episode-999999.md');
+  const fakeTarget = fakeTargets.find(t => t.relPath === 'docs/episode-500.md');
   if (!fakeTarget) {
     console.error(R('SELF-CHECK FAIL: dbRowsToTargets() did not produce a target for a DB row (target discovery must never depend on file existence).'));
     process.exit(1);
   }
   if (existsSync(join(REPO_ROOT, fakeTarget.relPath))) {
-    console.error(R('SELF-CHECK SETUP ERROR: fixture file docs/episode-999999.md unexpectedly exists on disk — pick a different fake episode number.'));
+    console.error(R('SELF-CHECK SETUP ERROR: fixture file docs/episode-500.md unexpectedly exists on disk — pick a different fake episode number.'));
     process.exit(1);
   }
-  console.log(G('  ✓ dbRowsToTargets() includes a target even though docs/episode-999999.md does not exist on disk (discovery never gates on existence)'));
+  console.log(G('  ✓ dbRowsToTargets() includes a target even though docs/episode-500.md does not exist on disk (discovery never gates on existence)'));
 
   // ── Assertion 13: comment-normalization symmetry — a metadata HTML
   //    comment wedged INSIDE an otherwise word-for-word-unchanged paragraph
@@ -1213,6 +1229,39 @@ async function runSelfCheck(): Promise<void> {
   // ── Assertion 19: hermetic committer-date regression — see
   //    runHermeticCommitterDateRegressionCheck() for what this proves. ──────
   runHermeticCommitterDateRegressionCheck();
+
+  // ── Assertion 20: the legacy bare-numbered fixture (docs/episode-99.md,
+  //    test-rolling-sync-guard.ts) must be excluded the same way the
+  //    9900+/1000+ convention is — via BOTH git-history candidates AND
+  //    DB-row-derived targets, since that test's temporary 'rolling'-tagged
+  //    DB row (title "Episode 99") is exactly what discoverTargetFiles()'s
+  //    DB query can observe mid-run. Real neighbors (98, 100) must remain
+  //    protected on both paths. ────────────────────────────────────────────
+  const legacyFixtureCandidates = gitHistoryCandidateTargets(
+    ['docs/episode-98.md'],
+    ['docs/episode-98.md', 'docs/episode-99.md', 'docs/episode-100.md'],
+  );
+  if (legacyFixtureCandidates.some(t => t.relPath === 'docs/episode-99.md')) {
+    console.error(R('SELF-CHECK FAIL: gitHistoryCandidateTargets() included the legacy docs/episode-99.md fixture (test-rolling-sync-guard.ts) as a real target.'));
+    process.exit(1);
+  }
+  if (!legacyFixtureCandidates.some(t => t.relPath === 'docs/episode-100.md')) {
+    console.error(R('SELF-CHECK FAIL: gitHistoryCandidateTargets() dropped a real neighbor (docs/episode-100.md) of the excluded legacy fixture.'));
+    process.exit(1);
+  }
+  const legacyFixtureDbRows = dbRowsToTargets([
+    { id: '99000000-0000-4000-8000-000000000099', title: 'Episode 99' },
+    { id: 'db-row-100', title: 'Episode 100' },
+  ]);
+  if (legacyFixtureDbRows.some(t => t.relPath === 'docs/episode-99.md')) {
+    console.error(R('SELF-CHECK FAIL: dbRowsToTargets() included the legacy docs/episode-99.md fixture row. This is the exact live-race gap: test-rolling-sync-guard.ts inserts a real \'rolling\'-tagged row titled "Episode 99" for the duration of its own run, which discoverTargetFiles() can observe mid-test.'));
+    process.exit(1);
+  }
+  if (!legacyFixtureDbRows.some(t => t.relPath === 'docs/episode-100.md')) {
+    console.error(R('SELF-CHECK FAIL: dbRowsToTargets() dropped a real neighboring DB row (Episode 100) alongside the excluded legacy fixture.'));
+    process.exit(1);
+  }
+  console.log(G('  ✓ the legacy docs/episode-99.md fixture (test-rolling-sync-guard.ts) is excluded from BOTH git-history and DB-row target discovery, while real neighbors (98, 100) remain protected'));
 
   sep();
   console.log(G('\n  ✓ SELF-CHECK PASSED — detector proven against the real Sep 21 2026 episode-34 incident, a known-safe dedup regression case, a hermetic whole-file-deletion integration case, target-discovery union/fixture-exclusion rules, and committer-date recency filtering.\n'));

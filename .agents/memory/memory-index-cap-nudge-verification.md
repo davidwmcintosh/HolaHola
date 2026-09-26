@@ -80,3 +80,4 @@ content despite thematic adjacency).
 
 **How to apply:** don't re-attempt merging the "rejected" list above without new information —
 they were read in full and judged genuinely distinct, not skipped for lack of time.
+
