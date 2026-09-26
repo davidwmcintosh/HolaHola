@@ -90,31 +90,3 @@ they were read in full and judged genuinely distinct, not skipped for lack of ti
 
 **How to apply:** if you suspect concurrent activity on this shared file (recent timestamps on entries/blocks you didn't touch, a task list showing another actor active), query the DB directly for the entries/blocks in question before planning an edit, and run `npx tsx server/scripts/agent-memory-cli.ts regenerate --all` to sync your local files to current DB truth before deciding what, if anything, still needs doing.
 
-
-## Sep 26 2026 re-check: still no safe trim, margin not narrowing
-
-Re-measured during task #1605 (episode-lifecycle promote-success test): 161/200 lines,
-35446/100000 bytes (35%). Line count is 2 above the 159 the Sep 25 pass left behind, still
-comfortably short of where visibility loss becomes imminent.
-
-Did a fresh read of the full index plus a targeted scan for exact/near-duplicate titles
-across thematically-adjacent clusters (the multiple `luca-*` identity entries, the several
-`coordination-*`/`Coordination V2 *` entries, and the `validation-*`/`verification-*`
-entries) and found no new duplicate or obsolete candidate beyond what the Sep 25 audit
-already covered. Did not re-run the full 8+ topic-file spot-read against current code --
-relied on that already being done one day prior with nothing else in the interim likely to
-have invalidated it.
-
-**Why this matters:** confirms the pattern this topic already documents -- an over-80%-lines
-measurement recurs naturally in an actively-written shared index even one day after a
-thorough trim, without it meaning a new trim opportunity exists. Repeating the full
-exhaustive search on every single over-80% nudge, a day apart, with no new content to
-account for the delta, is not a good use of a task's time.
-
-**How to apply:** when the measured line count is close to (within a few lines of) a
-recently-completed thorough audit's post-trim count, a lighter re-check (fresh read +
-duplicate/obsolescence scan, skipping the full per-topic-file spot-read against code) is
-sufficient before concluding "no safe trim, leave it." Reserve the full exhaustive pass for
-when the count has grown substantially since the last one, or enough time/entries have
-passed that new duplicates are plausible.
-
