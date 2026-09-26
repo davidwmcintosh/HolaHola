@@ -5,6 +5,8 @@ dist
 # Coordinator V2 host-installed runtime generations and retry staging
 /runtime/
 /.coordination-v2-runtime-manifest.json
+/.coordination-v2-execution-journal/
+/.coordination-v2-interactive-session/
 /.runtime-bootstrap-staging-*/
 /.runtime-bootstrap-old-*
 

@@ -19,3 +19,34 @@ description: Two non-obvious constraints on server/services/episode-lifecycle-se
 
 **How to apply:** This generalizes beyond episodes to any "exactly one row/record is the live one" singleton pointer backed by a shared production DB with its own live writers. Verify such a swap's atomicity/rollback behavior with a forced-failure unit test and/or a disposable never-promoted fixture, not by actually flipping the real pointer during verification — even transiently, even with a planned restore.
 
+
+## One sanctioned exception: the automated promote-success regression test
+
+`server/scripts/test-episode-lifecycle-promote-success.ts` (added for task #1605) is a
+deliberate, narrow exception to the "never, even briefly" rule above. It exists precisely
+because nothing else exercises `promoteRollingEpisode()`'s actual committed success path
+(target gains `rolling`+`rolling-protected`, previous row(s) demoted correctly) against a
+real database -- the pre-existing bad-name test and `--self-check` only cover the
+not-found lookup and a forced-rollback simulation that never commits.
+
+**Why this is still safe enough to run automatically and repeatedly:** it follows the
+"disposable target, forced-failure-safe, minimal window" recipe this file's own "How to
+apply" line calls for -- adapted to a case where a live target is momentarily unavoidable:
+promote a uniquely-titled disposable row, immediately restore the original in the very
+next statement (only one intervening tag-state read, no logging/extra queries inside that
+window), guarantee an emergency restore attempt via try/finally if anything between the two
+calls throws, verify restoration via an independent ground-truth read
+(`getCurrentRollingEpisode()`, not a trusted return value) before declaring success, and
+always delete the disposable row afterward (including a pre-run sweep for any orphan left
+by a prior crashed run, so a killed process can't leave a stale non-rolling row for
+`detectRollingTagMisroute()` to misread as a real misroute on the next server restart).
+
+**How to apply:** this specific test is the sanctioned exception -- it does not relax the
+original rule for anything else. Manual/ad hoc verification of this function, or of any
+other "exactly one row is the live one" singleton swap, should still avoid a live flip per
+the original guidance above. If a similar singleton-swap function ever needs its own
+committed-success regression test, copy this test's three-part safety recipe (minimal
+back-to-back window with zero other work inside it, try/finally forced restore with a
+loud manual-recovery command on failure, and independent post-hoc ground-truth
+verification) rather than re-deriving it or skipping the safety work under time pressure.
+

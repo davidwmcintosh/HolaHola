@@ -78,7 +78,6 @@
 - [Blobless partial-clone commits](blobless-partial-clone-commits.md) — when promised parent blobs are unavailable, commit a verified staged tree locally without forcing a remote fetch.
 - [Inbox DB fallback](inbox-db-fallback.md) — the platform inbox callback may be disabled while project-backed agent_notes remain readable through the Neon HTTP path.
 - [Autoscale startup schema gates](autoscale-startup-schema-gates.md) — never issue database DDL before opening the HTTP port; use reviewed migrations plus read-only fail-closed startup assertions.
-- [PowerShell pipe corrupts SSH file transfers](powershell-ssh-env-file-corruption.md) — `Get-Content | gh codespace ssh` injects a UTF-8 BOM + CRLF, silently blanking every var Node's --env-file parses; route file transfers through Bash instead. Sep 2 2026.
 - [Always-on honest record](always-on-honest-record.md) — source recording is the invariant; downstream failures trigger repair, never silence; attributed opinion and uncertainty belong.
 - [Agent monitor interrupt proof](replit-agent-monitor-interrupt-proof.md) — a monitored watcher line reached an active Agent session twice without polling; this does not prove waking an ended session.
 - [Neon destructive postconditions](neon-destructive-postconditions.md) — verify exact allowlist absence and unrelated-row preservation; do not trust a data-modifying CTE counter alone.
@@ -100,7 +99,6 @@
 - [Render redeploys on every push to main](render-autodeploy-moving-target.md) — even a memory-only edit reached production via auto-deploy within an hour; "verified release" is a moving target mid-development.
 - [.replit env vars are git-tracked](replit-env-var-tracked-file.md) — setEnvVars(shared) writes into the tracked .replit file; set/commit/push config before, never during, a tree-cleanliness-sensitive git workflow.
 - [Source-control promotion path](source-control-promotion-path.md) — direct git push is disabled; use the in-process scheduler's wake file; any unrelated dirty tracked file silently blocks promotion.
-- [Windows console child-process lifetime](windows-console-child-lifetime.md) — closing/reusing the launcher console sends CTRL_CLOSE_EVENT to inherited children; fix is CreateNoWindow=true, not output redirection.
 - [Git reconciliation procedure](reconciliation-git-procedure.md) — divergence detection, GitHub App auth, preflight→candidate→sync, plus manual hand-merge steps for ordinary/unclassified conflicts candidate() refuses.
 - [Reconciliation hermetic env import coupling](reconciliation-hermetic-env-import-coupling.md) — any eager value-import of a DB-touching module breaks the self-check under its deliberately stripped validation env; use type-only + lazy import.
 - [Triaging markTaskComplete validation failures](validation-failure-triage.md) — check the live server/workflow first, and prove pre-existing-vs-caused-by-me with a git worktree at the parent commit before treating a failure as a regression.
@@ -145,7 +143,6 @@
 - [Luca hat naming: platform, not persona or model](luca-hat-naming-convention.md) — hat = the platform/IDE Luca runs through, not a persona or the model name; one model can back several different hats
 - [Required tool field via existing payload field](tool-required-field-via-payload.md) — add a new required tool arg without a DB migration -- validate it at dispatch, store it in an existing optional payload field instead.
 - [Live server keeps running pre-edit code until restarted](dev-server-stale-code-until-restart.md) — a fresh tsx/CLI process reflects a backend edit immediately; the running dev server doesn't until restarted -- verify via restart, not a live check.
-- [Windows PowerShell random token generation without openssl](windows-powershell-random-token-generation.md) — openssl is absent by default; RNGCryptoServiceProvider.GetBytes(byte[]) fills a pre-sized array in place, it doesn't return one -- New-Object byte[] N first, or use two concatenated GUIDs as a fallback.
 - [MCP SSE response framing](mcp-sse-response-framing.md) — SDK 406s without both Accept values; success responses are always SSE-framed, even for one-shot calls -- parse the data: line.
 - [Git operational gotchas](git-operational-gotchas.md) — Three sharp edges: pathspec-scoped commit needs git add first on a brand-new path, recency filters must use committer not author date, and SSH host-key/LFS-hook prompts can hang a push forever even over HTTPS.
 - [Long validation runs can hit the poll-budget limit](validation-run-poll-budget.md) — startValidationRun can time out (POLL_BUDGET_EXCEEDED, STOPPED exitCode -1) on a 10+ minute suite -- not a real failure; use backgrounded ShellExec + Monitor instead.
@@ -159,3 +156,4 @@
 - [Episode-lifecycle service guards](episode-lifecycle-service-guards.md) — new episode-insertion call sites must mirror createEpisode's fire-and-forget indexing side effects; never flip the live 'rolling' tag against shared prod DB during testing.
 - [Hat onboarding sequencing](hat-onboarding-sequencing.md) — Antigravity onboarding must fully close before OpenAI's starts; decision + per-hat gap detail in docs/batch-doc-updates.md.
 - [Synthetic fixture ID collision](synthetic-fixture-id-collision.md) — a hardcoded "surely never real" fixture value (e.g. Episode 99) can collide with real content as the system grows -- not a race, a deterministic expiry
+- [Windows PowerShell/console quirks](windows-environment-quirks.md) — Consolidates 3 topics: SSH-transfer BOM corruption, openssl-free token generation, console child-process lifetime.
