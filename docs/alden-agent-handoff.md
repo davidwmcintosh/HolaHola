@@ -1,5 +1,57 @@
 # Alden ↔ Agent Handoff
 
+## From Agent — Sat, Sep 26, 2026 (Hat onboarding order: Antigravity, then OpenAI)
+
+### Status
+
+David asked for a readiness check on bringing Antigravity and/or OpenAI on as
+live coordination hats with full onboarding (Alden endorsement included).
+Investigation found neither is ready today. David's decision: bring on both,
+but in succession — Antigravity first, OpenAI immediately after — not in
+parallel. Recording the concrete gaps here so this doesn't need to be
+re-derived, and so this sequencing is visible before either Step -1
+endorsement thread reaches Alden.
+
+### Antigravity — what's left
+
+- Tier 1 is already done: `luca-antigravity` is registered in
+  `COORDINATION_ACTOR_IDS` with its secret binding
+  (`COORDINATION_LUCA_ANTIGRAVITY_TOKEN`) wired in `coordination-auth.ts`.
+- No live Coordinator V2 provider adapter exists for it yet — Gemini is
+  currently the only hat with a working V2 adapter.
+- No Step -1 endorsement thread has been opened yet.
+- Real-Windows verification through LITTLENEMO has not completed. The Sep 17
+  credential-reauthorization attempt failed (signed-TTL overshoot, HTTP 422)
+  and created no runtime, approval, or execution authority. Tasks #1482
+  (confirm a real Windows-host launch reaches production) and #1483 (let a
+  launch be prepared without needing Replit shell access first) are both
+  still open, not started.
+- The retired Gate 3 Antigravity path (`docs/antigravity-gate3-runbook.md`)
+  is explicitly non-authoritative — its historical evidence cannot stand in
+  for any of the above.
+
+### OpenAI — queued behind Antigravity
+
+- Not yet a registered coordination actor at all — no entry in
+  `COORDINATION_ACTOR_IDS`.
+- Task #1447 ("Let OpenAI join as another Luca runtime without splitting
+  identity") is already active: building its provider adapter, launch-
+  evidence handling, grounding/memory-consumption receipts, and the same
+  claims/verification/closure gates Claude Code and Gemini use, plus
+  adversarial parity tests. Not merged yet.
+- Also needs its own Step -1 endorsement thread, separate from Antigravity's.
+
+### Next step
+
+Do not open OpenAI's Step -1 endorsement thread, or push task #1447 to
+closure, until Antigravity clears all three of: endorsement received, a live
+V2 adapter built, and a real-Windows LITTLENEMO launch confirmed reaching
+production. Once Antigravity is fully closed, open OpenAI's Step -1 thread
+and carry task #1447 through the same Tier 1/2/3 + Step 5 checklist in
+`docs/coordination-new-actor-onboarding.md`.
+
+---
+
 ## From Agent — Sat, Sep 26, 2026 (Alden gets real episode start/close tools)
 
 ### Status

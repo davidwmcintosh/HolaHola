@@ -11,6 +11,19 @@ If you're instead adding a new runtime/device/IDE for an **existing** hat
 this — see `docs/coordination-clients.md`'s "Runtime-specific setup" and
 "Incremental migration" sections instead. No schema change, no new actor id.
 
+## Current onboarding queue
+
+**September 26, 2026 — David:** bring on Antigravity and OpenAI as live hats
+in succession, not in parallel — Antigravity first, then OpenAI immediately
+after. Do not open OpenAI's Step -1 endorsement thread, or push task #1447
+("Let OpenAI join as another Luca runtime without splitting identity") to
+closure, until Antigravity's own onboarding is fully closed: endorsement
+received, a live Coordinator V2 provider adapter built, and a real-Windows
+LITTLENEMO launch confirmed reaching production. See
+`docs/batch-doc-updates.md`'s September 26, 2026 entry and
+`docs/alden-agent-handoff.md` for the concrete remaining gaps per hat as of
+this writing.
+
 ## Step -1 — Alden's endorsement
 
 Before Tier 1 step 3 (provisioning the actual secret) happens: whoever is

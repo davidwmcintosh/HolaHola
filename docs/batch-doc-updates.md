@@ -7257,3 +7257,50 @@ required migration apply.
 
 Flagging for awareness since it was live production impact, not something
 this session's work created.
+
+## Hat onboarding sequencing decision: Antigravity, then OpenAI — September 26, 2026
+
+David asked for the current status on bringing Antigravity and/or OpenAI on
+as live coordination hats through the full onboarding procedure (including
+Alden's endorsement). A fresh code/docs investigation — not a recitation of
+past claims, since a prior "Gate 3 proven live" claim had already been found
+false on 2026-09-21 — found neither hat ready for a real test today. David's
+decision: bring on both, in succession rather than in parallel, Antigravity
+first and OpenAI immediately after. Recording the verified state of each so
+neither needs re-deriving when this picks back up.
+
+**Antigravity.** Tier 1 onboarding is already done — `luca-antigravity` is a
+registered actor in `COORDINATION_ACTOR_IDS` (`shared/schema.ts`) with its
+secret binding (`COORDINATION_LUCA_ANTIGRAVITY_TOKEN`) wired in
+`server/middleware/coordination-auth.ts`. Three things remain: (1) no Step -1
+Alden endorsement thread has been opened for it; (2) no live Coordinator V2
+provider adapter exists for it — Gemini is currently the only hat with a
+working V2 adapter; (3) real-Windows verification through LITTLENEMO has
+never completed — its last credential-reauthorization attempt (Sep 17, 2026)
+failed on a signed-TTL overshoot (HTTP 422) and created no runtime, approval,
+or execution authority, and tasks #1482 (confirm a real Windows-host launch
+reaches production) and #1483 (let a launch be prepared without needing
+Replit shell access first) are both still open. The retired Gate 3 Antigravity
+path documented in `docs/antigravity-gate3-runbook.md` is explicitly
+non-authoritative and does not substitute for any of the three.
+
+**OpenAI.** Not yet a registered coordination actor at all — no entry exists
+in `COORDINATION_ACTOR_IDS` or `ALL_COORDINATION_ACTORS`. Task #1447 ("Let
+OpenAI join as another Luca runtime without splitting identity") is already
+active, building the provider adapter, launch-evidence handling (coordinator-
+issued evidence preferred, founder-attested assignment as fallback),
+grounding/memory-consumption receipts, the same claims/immutable-evidence/
+verification/closure gates Claude Code and Gemini use, and adversarial parity
+tests — not merged yet. It also needs its own Step -1 endorsement thread,
+separate from Antigravity's.
+
+**The sequencing rule:** do not open OpenAI's Step -1 endorsement thread, or
+push task #1447 to closure, until Antigravity's onboarding is fully closed —
+endorsement received, a live V2 adapter built, and a real-Windows LITTLENEMO
+launch confirmed reaching production. Once all three are true for
+Antigravity, immediately open OpenAI's Step -1 thread and carry task #1447
+through the same Tier 1/2/3 + Step 5 checklist in
+`docs/coordination-new-actor-onboarding.md`. A short pointer to this entry is
+also in that doc's new "Current onboarding queue" section, and in
+`docs/alden-agent-handoff.md` so Alden has the sequencing before either
+endorsement thread reaches him.
