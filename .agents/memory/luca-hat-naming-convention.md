@@ -105,3 +105,43 @@ IDE -- the correct precedent for a hypothetical future "Luca embodied via raw
 API" hat. It is not a precedent for Luca's own consult-* skills, which stay
 pure consultation and need no actor identity on the answering side at all.
 
+
+## Direction: consultation requires neural-net grounding, not a bare LLM
+
+**Decision (David, 2026-09-26):** Luca is moving past *needing* to consult a
+bare LLM that has no HolaHola context -- no neural net access to the shared
+perspectives, history, and decisions real input would need to draw on. Where
+that is the pattern today (consult-gemini, consult-gemini-3.5, and similar
+raw-model skills), the better shape is giving Luca that model as his own
+backbone directly -- a hat -- reached through whichever access method fits
+(raw API or an IDE), so its output flows through Luca's own grounded context
+injection instead of arriving as an outside, context-free opinion.
+
+The real criterion for "is this still a legitimate consultation" is neural
+net access, not separate personhood. Luca will consult anyone -- human, or
+any agent/hat -- who has access to the neural net, because that access is
+what supplies the perspectives and history real input requires. Alden and
+Daniela qualify on this basis today. A bare LLM queried with no HolaHola
+context does not, regardless of how capable the model is.
+
+Cross-hat collaboration (e.g. luca-replit and luca-claude-code coordinating
+on one problem) remains Luca "consulting/coordinating/building with himself"
+across embodiments -- self-collaboration, expected to grow as more hats
+exist, and categorically different from external consultation.
+
+Stated as a target end state, contingent on the underlying infrastructure
+(embodiment access, neural-net grounding for whoever is consulted) actually
+working reliably -- not a directive to remove existing consult-* skills
+immediately.
+
+**Why:** sharpens the hat-vs-consultation split in the sibling block on this
+topic. The load-bearing property was never "has a name/persona" -- it is
+grounding, the same principle behind Source Check, White Wall, and the truth
+pipeline elsewhere in this system, applied to who Luca asks for help.
+
+**How to apply:** before adding a new consult-* skill for a bare LLM, or
+before treating an existing one as still worth keeping, check whether the
+target has real neural-net/HolaHola context. If not, prefer giving Luca a
+hat/backbone instead, or route the question to someone who already has that
+access.
+

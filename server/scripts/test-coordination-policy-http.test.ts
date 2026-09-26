@@ -1,8 +1,18 @@
 import assert from 'node:assert/strict';
 import http from 'node:http';
 import express, { type Request as ExpressRequest, type RequestHandler } from 'express';
-import test from 'node:test';
+import test, { after } from 'node:test';
 import { getVerifiedCiDatabaseUrl } from '../ci-database';
+
+// Both tests in this file share the module-level `db` pool. Closing it must
+// happen once, after every test in the file has finished -- not inside each
+// test's own finally -- because the exported `db` Drizzle instance wraps the
+// pool it was constructed with at module load and does not reconnect after
+// closeDbConnections() nulls that pool.
+after(async () => {
+  const { closeDbConnections } = await import('../db');
+  await closeDbConnections();
+});
 
 function disposableTarget(): string | undefined {
   const ciUrl = getVerifiedCiDatabaseUrl();
@@ -127,7 +137,80 @@ test('policy HTTP routes execute through an Express listener with authority-boun
     assert.equal(authorized.status, 200);
   } finally {
     await new Promise<void>((resolve, reject) => server.close((error) => error ? reject(error) : resolve()));
-    const { closeDbConnections } = await import('../db');
-    await closeDbConnections();
+  }
+});
+
+test('policy HTTP routes accept a coordination token scoped to the david actor as founder auth', async (context) => {
+  const databaseUrl = disposableTarget();
+  if (!databaseUrl) {
+    context.skip('requires a verified disposable PostgreSQL URL');
+    return;
+  }
+  const previousDavidToken = process.env.COORDINATION_DAVID_TOKEN;
+  const previousAldenToken = process.env.COORDINATION_ALDEN_TOKEN;
+  const davidToken = `test-david-token-${Date.now()}-${'a'.repeat(32)}`;
+  const aldenToken = `test-alden-token-${Date.now()}-${'b'.repeat(32)}`;
+  process.env.COORDINATION_DAVID_TOKEN = davidToken;
+  process.env.COORDINATION_ALDEN_TOKEN = aldenToken;
+  const { registerCoordinationPolicyRoutes } = await import('../routes/coordination-policy-routes');
+  const app = express();
+  app.use(express.json());
+  const founderMiddleware: RequestHandler = (req, res) => {
+    res.status(401).json({ error: { code: 'FOUNDER_REQUIRED' } });
+  };
+  registerCoordinationPolicyRoutes(app, { founderMiddleware: [founderMiddleware] });
+  const server = http.createServer(app);
+  await new Promise<void>((resolve) => server.listen(0, '127.0.0.1', resolve));
+  const address = server.address() as { port: number };
+  const baseUrl = `http://127.0.0.1:${address.port}`;
+  const suffix = `${Date.now()}-${Math.random().toString(16).slice(2)}`;
+  const policy = {
+    providerOrder: ['gemini'],
+    sessionDurationMs: 60_000,
+    totalAttemptBudget: 2,
+    tools: ['git'],
+    paths: ['workspace'],
+    commands: ['npm test'],
+  };
+  try {
+    const noToken = await jsonRequest(baseUrl, '/api/coordination/v2/policies', {
+      policyKey: `token-${suffix}`, displayName: 'Token policy', policy,
+    });
+    assert.equal(noToken.status, 401);
+    assert.deepEqual(noToken.body, { error: { code: 'FOUNDER_REQUIRED' } });
+
+    const nonAllowlistedActor = await jsonRequest(baseUrl, '/api/coordination/v2/policies', {
+      policyKey: `token-${suffix}`, displayName: 'Token policy', policy,
+    }, { 'x-coordination-token': aldenToken });
+    assert.equal(nonAllowlistedActor.status, 403);
+
+    const created = await jsonRequest(baseUrl, '/api/coordination/v2/policies', {
+      policyKey: `token-${suffix}`, displayName: 'Token policy', policy, founderActor: 'body-forged-founder',
+    }, { 'x-coordination-token': davidToken });
+    assert.equal(created.status, 201);
+    const createdBody = created.body as { version: { id: string; policyIdentityId: string; createdBy: string } };
+    assert.equal(createdBody.version.createdBy, 'david');
+
+    const approved = await jsonRequest(baseUrl, `/api/coordination/v2/policy-versions/${createdBody.version.id}/approve`, {
+      requestKey: `token-approve-${suffix}`,
+    }, { 'x-coordination-token': davidToken });
+    assert.equal(approved.status, 200);
+    const approvedBody = approved.body as { decision: { founderActor: string } };
+    assert.equal(approvedBody.decision.founderActor, 'david');
+
+    const grantReply = await jsonRequest(baseUrl, '/api/coordination/v2/operator-grants', {
+      policyIdentityId: createdBody.version.policyIdentityId, operatorActor: 'operator-token-test',
+      actions: ['launch'], expiresAt: new Date(Date.now() + 60_000).toISOString(),
+      requestKey: `token-grant-${suffix}`,
+    }, { 'x-coordination-token': davidToken });
+    assert.equal(grantReply.status, 201);
+    const grantBody = grantReply.body as { issuedBy: string };
+    assert.equal(grantBody.issuedBy, 'david');
+  } finally {
+    if (previousDavidToken === undefined) delete process.env.COORDINATION_DAVID_TOKEN;
+    else process.env.COORDINATION_DAVID_TOKEN = previousDavidToken;
+    if (previousAldenToken === undefined) delete process.env.COORDINATION_ALDEN_TOKEN;
+    else process.env.COORDINATION_ALDEN_TOKEN = previousAldenToken;
+    await new Promise<void>((resolve, reject) => server.close((error) => error ? reject(error) : resolve()));
   }
 });

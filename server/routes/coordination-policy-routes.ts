@@ -8,6 +8,7 @@ import { isAuthenticated } from '../replitAuth';
 import { storage } from '../storage';
 import {
   requireCoordinationAuth,
+  requireFounderOrCoordinationCapability,
   type CoordinationAuthenticatedRequest,
 } from '../middleware/coordination-auth';
 import {
@@ -32,6 +33,7 @@ type CoordinationRequest = CoordinationAuthenticatedRequest & {
 export type CoordinationPolicyRouteDependencies = {
   founderMiddleware?: readonly RequestHandler[];
   coordinationAuthMiddleware?: RequestHandler;
+  founderOrCoordinationTokenMiddleware?: RequestHandler;
   services?: Partial<{
     approvePolicyVersion: typeof approvePolicyVersion;
     authorizeOperatorAction: typeof authorizeOperatorAction;
@@ -78,13 +80,30 @@ function replyError(res: Response, error: unknown): void {
   });
 }
 
+function chainMiddleware(handlers: readonly RequestHandler[]): RequestHandler {
+  return (req, res, next) => {
+    const run = (index: number, error?: unknown): void => {
+      if (error) {
+        next(error);
+        return;
+      }
+      const handler = handlers[index];
+      if (!handler) {
+        next();
+        return;
+      }
+      handler(req, res, (nextError?: unknown) => run(index + 1, nextError));
+    };
+    run(0);
+  };
+}
+
 function founderActor(req: FounderRequest): string {
-  const actor = (req as AuthenticatedRequest).authenticatedUser?.id;
-  if (!actor) {
-    const error = new CoordinationPolicyError('FOUNDER_REQUIRED');
-    throw error;
-  }
-  return actor;
+  const authedReq = req as AuthenticatedRequest & CoordinationAuthenticatedRequest;
+  const sessionActor = authedReq.authenticatedUser?.id;
+  if (sessionActor) return sessionActor;
+  if (authedReq.coordinationActor === 'david') return authedReq.coordinationActor;
+  throw new CoordinationPolicyError('FOUNDER_REQUIRED');
 }
 
 function stringBody(body: Record<string, unknown>, key: string): string | undefined {
@@ -99,6 +118,12 @@ export function registerCoordinationPolicyRoutes(
     ? [...dependencies.founderMiddleware]
     : [isAuthenticated, loadAuthenticatedUser(storage), requireFounder];
   const coordinationAuth = dependencies.coordinationAuthMiddleware ?? requireCoordinationAuth;
+  // Founder policy actions accept either the web session above or a dedicated
+  // coordination token scoped to the 'david' actor only -- the same
+  // fixed-actor-token mechanism every other coordination CLI in this system
+  // uses. No other coordination actor's token can pass this gate.
+  const founderGate = dependencies.founderOrCoordinationTokenMiddleware
+    ?? requireFounderOrCoordinationCapability(chainMiddleware(founderSession), 'coordination:write', ['david']);
   const policyServices = {
     approvePolicyVersion,
     authorizeOperatorAction,
@@ -112,7 +137,7 @@ export function registerCoordinationPolicyRoutes(
     ...dependencies.services,
   };
 
-  app.post('/api/coordination/v2/policies', ...founderSession, async (req: FounderRequest, res: Response) => {
+  app.post('/api/coordination/v2/policies', founderGate, async (req: FounderRequest, res: Response) => {
     try {
       const actor = founderActor(req);
       const result = await policyServices.createPolicyDraft({
@@ -128,7 +153,7 @@ export function registerCoordinationPolicyRoutes(
     }
   });
 
-  app.post('/api/coordination/v2/policy-versions/:id/approve', ...founderSession, async (req: FounderRequest, res: Response) => {
+  app.post('/api/coordination/v2/policy-versions/:id/approve', founderGate, async (req: FounderRequest, res: Response) => {
     try {
       const result = await policyServices.approvePolicyVersion({
         versionId: req.params.id,
@@ -142,7 +167,7 @@ export function registerCoordinationPolicyRoutes(
     }
   });
 
-  app.post('/api/coordination/v2/policy-versions/:id/reject', ...founderSession, async (req: FounderRequest, res: Response) => {
+  app.post('/api/coordination/v2/policy-versions/:id/reject', founderGate, async (req: FounderRequest, res: Response) => {
     try {
       const result = await policyServices.rejectPolicyVersion({
         versionId: req.params.id,
@@ -156,7 +181,7 @@ export function registerCoordinationPolicyRoutes(
     }
   });
 
-  app.post('/api/coordination/v2/policy-versions/:id/revoke', ...founderSession, async (req: FounderRequest, res: Response) => {
+  app.post('/api/coordination/v2/policy-versions/:id/revoke', founderGate, async (req: FounderRequest, res: Response) => {
     try {
       const result = await policyServices.revokePolicyVersion({
         versionId: req.params.id,
@@ -170,7 +195,7 @@ export function registerCoordinationPolicyRoutes(
     }
   });
 
-  app.post('/api/coordination/v2/operator-grants', ...founderSession, async (req: FounderRequest, res: Response) => {
+  app.post('/api/coordination/v2/operator-grants', founderGate, async (req: FounderRequest, res: Response) => {
     try {
       const body = req.body;
       const result = await policyServices.issueOperatorGrant({
@@ -208,7 +233,7 @@ export function registerCoordinationPolicyRoutes(
     }
   });
 
-  app.post('/api/coordination/v2/operator-grants/:id/revoke', ...founderSession, async (req: FounderRequest, res: Response) => {
+  app.post('/api/coordination/v2/operator-grants/:id/revoke', founderGate, async (req: FounderRequest, res: Response) => {
     try {
       const result = await policyServices.revokeOperatorGrant({
         grantId: req.params.id,

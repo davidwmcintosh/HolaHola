@@ -27,6 +27,41 @@ The launch fails closed if the selected policy is absent, not approved,
 revoked, incompatible with the task or host, outside the grant, or unavailable
 because PostgreSQL cannot prove its state.
 
+## Scripting founder policy actions
+
+Founder policy actions (draft, approve, reject, revoke, and grant
+issuance/revocation) normally happen through the authenticated web session.
+`server/scripts/coordination-policy-cli.ts` performs the same actions from a
+script or another machine, authenticating with a dedicated
+`COORDINATION_DAVID_TOKEN` coordination credential instead of a browser
+session. This is the same fixed-actor-token mechanism every other
+coordination CLI in this system uses (see `coordination-cli.ts`,
+`task-ownership-cli.ts`); it is scoped to the `david` actor only, and no other
+coordination actor's token can perform these actions.
+
+```bash
+export APP_URL=https://<your-app-domain>
+export COORDINATION_DAVID_TOKEN=<founder coordination credential>
+
+npx tsx server/scripts/coordination-policy-cli.ts create-draft \
+  --policy-key my-policy --display-name "My policy" --policy-file policy.json
+
+npx tsx server/scripts/coordination-policy-cli.ts approve \
+  --version-id <version id> --request-key <stable idempotency key>
+
+npx tsx server/scripts/coordination-policy-cli.ts issue-grant \
+  --policy-identity-id <identity id> --operator-actor <operator> \
+  --actions launch,status --expires-in-minutes 60 --request-key <stable idempotency key>
+```
+
+Run any command with no arguments for the full flag reference. Like every
+other coordination CLI, `--request-key` (and the policy/grant identifiers) are
+never auto-generated -- pass stable values explicitly so a retried command is
+idempotent rather than silently creating a duplicate. Actions taken through
+this CLI record `founderActor`/`createdBy` as `david`, distinct from the
+numeric account id recorded for web-session actions, though both represent
+the same founder.
+
 ## Server-owned policy decisions
 
 The approved policy controls:
