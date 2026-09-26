@@ -220,6 +220,20 @@ script (direct database access, no HTTP round trip) remains available
 unchanged for local/offline registration; it is orthogonal to this
 HTTP-reachable capability, not replaced by it.
 
+Alden also reaches the same three broker functions conversationally, through
+her own tool dispatcher (`register_coordination_runtime`,
+`revoke_coordination_runtime`, `list_coordination_runtimes` in
+`server/services/alden-functions.ts`) -- in-process calls using her fixed
+`'alden'` actor identity, the same pattern her other coordination tools
+already use, not a second HTTP path. This lets her onboard or offboard a
+runtime directly in conversation instead of a human running the CLI on her
+behalf. The bootstrap token a registration returns is still shown only once;
+Alden is instructed (in the tool's own description and result) to relay it
+immediately to whoever is setting up that runtime and not restate it again,
+but it is not otherwise redacted -- there is no broader secret-redaction
+mechanism in this codebase for tool results, and this mirrors the same
+"shown once, capture it now" convention the HTTP route and CLI already use.
+
 ## Task artifact registry
 
 Preparation needs the exact bytes of the task being launched, plus their

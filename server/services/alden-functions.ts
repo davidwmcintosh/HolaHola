@@ -14,7 +14,14 @@ import {
   agentNorthStar,
   conversationMemories,
 } from "@shared/schema";
-import type { CoordinationActorId } from "@shared/schema";
+import type { CoordinationActorId, CoordinationCredentialCapability } from "@shared/schema";
+import { COORDINATION_ACTOR_IDS, COORDINATION_CREDENTIAL_CAPABILITIES } from "@shared/schema";
+import { COORDINATION_LEGACY_CAPABILITIES_BY_ACTOR } from "../middleware/coordination-auth";
+import {
+  registerCoordinationRuntime,
+  adminRevokeRuntimeCredentials,
+  listCoordinationRuntimeRegistrations,
+} from "./coordination-credential-broker";
 import { sql, desc, eq, and, gte, isNull, inArray } from "drizzle-orm";
 import { computeHealthStatus } from "./voice-health-monitor";
 import { founderCollabService } from "./founder-collaboration-service";
@@ -684,6 +691,49 @@ export const ALDEN_TOOLS: AldenTool[] = [
         recipient: { type: "string" as const, enum: ["luca-replit", "luca-claude-code", "luca-holahola", "luca-gemini", "luca-antigravity", "daniela", "david"], description: "The actor to brief on its own access." },
       },
       required: ["recipient"],
+    },
+  },
+  {
+    name: "register_coordination_runtime",
+    description: "Register a new coordination runtime for an actor and issue its one-time bootstrap credential — onboarding, using your own standing coordination:runtime:admin authority (see docs/coordination-v2-architecture.md, \"Runtime onboarding delegation\"). This is delegated onboarding authority, never policy-version approval, which stays founder-only. The common case is a new Luca-hat runtime (e.g. a second luca-claude-code machine): omit capabilities and it defaults to the same standard capability set every existing Luca hat already holds. Any non-Luca actor requires an explicit capabilities list — there is no default to fall back to. The returned bootstrapToken is shown ONLY this once and cannot be recovered later: relay it right away to whoever is setting up that runtime so they can store it in that runtime's own credential store, and do not restate it again after this reply.",
+    gemini_description: "Register a new coordination runtime for an actor and issue its one-time bootstrap credential, using my own standing coordination:runtime:admin authority. A luca-* actor defaults to the standard Luca capability set unless I give an explicit list; any other actor needs an explicit list. The bootstrapToken is shown once only — relay it immediately, don't repeat it again afterward.",
+    input_schema: {
+      type: "object" as const,
+      properties: {
+        runtime_id: { type: "string" as const, description: "Unique id for this runtime registration (e.g. 'luca-antigravity-2' for a second seat)." },
+        actor: { type: "string" as const, enum: ["luca-replit", "luca-claude-code", "luca-holahola", "luca-gemini", "luca-antigravity", "alden", "daniela", "david"], description: "Which coordination actor this runtime belongs to." },
+        display_name: { type: "string" as const, description: "Human-readable label for this runtime (e.g. 'Luca (Antigravity, second seat)')." },
+        capabilities: {
+          type: "array" as const,
+          items: { type: "string" as const, enum: ["coordination:read", "coordination:write", "coordination:inbox:ack", "coordination:credential:renew", "coordination:credential:revoke", "observation:read", "coordination:runtime:admin"] },
+          description: "Optional explicit capability list. Omit for a luca-* actor to get the standard Luca capability set automatically. Required for any non-Luca actor.",
+        },
+        token_ttl_seconds: { type: "number" as const, description: "Optional bootstrap token lifetime in seconds (60-3600). Defaults to the broker's standard TTL if omitted." },
+        provider: { type: "string" as const, description: "Optional: the model provider this runtime runs on (e.g. 'anthropic', 'google')." },
+        model: { type: "string" as const, description: "Optional: the specific model this runtime runs." },
+      },
+      required: ["runtime_id", "actor", "display_name"],
+    },
+  },
+  {
+    name: "revoke_coordination_runtime",
+    description: "Revoke a coordination runtime's registration and credentials — offboarding — regardless of which actor owns it, using your own standing coordination:runtime:admin authority. This is the admin counterpart to a runtime revoking itself: unlike your other coordination tools, which only ever act as yourself, this can revoke a runtime belonging to any actor.",
+    gemini_description: "Revoke a coordination runtime's registration and credentials (offboarding), for any actor, using my own standing coordination:runtime:admin authority.",
+    input_schema: {
+      type: "object" as const,
+      properties: {
+        runtime_id: { type: "string" as const, description: "The runtime id to revoke." },
+      },
+      required: ["runtime_id"],
+    },
+  },
+  {
+    name: "list_coordination_runtimes",
+    description: "List every registered coordination runtime — id, actor, display name, capabilities, provider/model, and enabled/revoked state. Non-secret: never includes a bootstrap hash or live credential. Use this before registering or revoking a runtime, to check what already exists.",
+    gemini_description: "List every registered coordination runtime (id, actor, display name, capabilities, provider/model, enabled/revoked state). Non-secret — never includes credentials.",
+    input_schema: {
+      type: "object" as const,
+      properties: {},
     },
   },
 ];
@@ -2797,6 +2847,80 @@ export async function executeAldenTool(
         }
       }
 
+      case "register_coordination_runtime": {
+        const runtimeId = String(args.runtime_id || '').trim();
+        const actorInput = String(args.actor || '');
+        const displayName = String(args.display_name || '').trim();
+        const explicitCapabilities = Array.isArray(args.capabilities)
+          ? args.capabilities.filter((value: unknown): value is string => typeof value === 'string')
+          : undefined;
+        const tokenTtlSeconds = typeof args.token_ttl_seconds === 'number' ? args.token_ttl_seconds : undefined;
+        const provider = typeof args.provider === 'string' ? args.provider : undefined;
+        const model = typeof args.model === 'string' ? args.model : undefined;
+
+        if (!runtimeId || !displayName) return { data: { error: 'runtime_id and display_name are required' } };
+        if (!(COORDINATION_ACTOR_IDS as readonly string[]).includes(actorInput) || actorInput === 'coordination-system') {
+          return { data: { error: 'actor must be a valid, non-system coordination actor id' } };
+        }
+        const actor = actorInput as CoordinationActorId;
+
+        // Mirrors POST /api/coordination/credentials/register-runtime's own
+        // defaulting: a new Luca-hat runtime gets the same standard capability
+        // set every existing Luca hat already holds (always luca-replit's set,
+        // the canonical reference — see that route for why), never new
+        // per-actor policy authoring. An explicit list still overrides this.
+        let capabilities: CoordinationCredentialCapability[];
+        if (explicitCapabilities && explicitCapabilities.length > 0) {
+          if (!explicitCapabilities.every((value: string) => (COORDINATION_CREDENTIAL_CAPABILITIES as readonly string[]).includes(value))) {
+            return { data: { error: 'capabilities contains an unknown value' } };
+          }
+          capabilities = explicitCapabilities as CoordinationCredentialCapability[];
+        } else if (actor.startsWith('luca-')) {
+          capabilities = [...COORDINATION_LEGACY_CAPABILITIES_BY_ACTOR['luca-replit']];
+        } else {
+          return { data: { error: 'capabilities is required for non-Luca-hat actors' } };
+        }
+
+        try {
+          const result = await registerCoordinationRuntime({
+            runtimeId, actor, displayName, capabilities, tokenTtlSeconds, provider, model,
+          });
+          console.log(`[Alden Tool] register_coordination_runtime: ${runtimeId} (${actor})`);
+          return {
+            data: {
+              runtimeId, actor, displayName, capabilities,
+              bootstrapToken: result.bootstrapToken,
+              note: 'This bootstrap token is shown only this once and cannot be recovered later. Relay it right now to whoever is setting up that runtime so they can store it in that runtime\'s own credential store — do not restate it again after this reply.',
+            },
+          };
+        } catch (e: any) {
+          return { data: { error: e.message } };
+        }
+      }
+
+      case "revoke_coordination_runtime": {
+        const runtimeId = String(args.runtime_id || '').trim();
+        if (!runtimeId) return { data: { error: 'runtime_id is required' } };
+
+        try {
+          const revoked = await adminRevokeRuntimeCredentials(runtimeId, 'alden');
+          if (!revoked) return { data: { error: 'Runtime registration not found' } };
+          console.log(`[Alden Tool] revoke_coordination_runtime: ${runtimeId}`);
+          return { data: { runtimeId, revoked: true } };
+        } catch (e: any) {
+          return { data: { error: e.message } };
+        }
+      }
+
+      case "list_coordination_runtimes": {
+        try {
+          const runtimes = await listCoordinationRuntimeRegistrations();
+          return { data: { runtimes } };
+        } catch (e: any) {
+          return { data: { error: e.message } };
+        }
+      }
+
       default:
         return { data: { error: `Unknown tool: ${toolName}` } };
     }
@@ -2806,7 +2930,7 @@ export async function executeAldenTool(
   }
 }
 
-console.log('[Alden Functions] Loaded — 38 tools ready (monitoring + code + shell + memory + notifications + browser + web-fetch + briefing + express-lane-search + agent-notes + ai-cost-report + build-queue + self-tune + engine-switch + coordination)');
+console.log('[Alden Functions] Loaded — 49 tools ready (monitoring + code + shell + memory + notifications + browser + web-fetch + briefing + express-lane-search + agent-notes + ai-cost-report + build-queue + self-tune + engine-switch + coordination + runtime-admin)');
 
 interface FallbackSearchOptions {
   glob?: string;
