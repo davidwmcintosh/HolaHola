@@ -61,6 +61,18 @@ jobs:
           node-version: "20"
           cache: "npm"
 
+      # server/services/alden-functions.ts's search_code tool prefers `rg`
+      # (ripgrep) and transparently falls back to a bounded JS scan when it's
+      # absent from PATH -- but GitHub's ubuntu-latest runner does not ship
+      # rg by default, unlike the Replit dev sandbox (nix). Without this,
+      # test-alden-coordination-e2e.test.ts's "rg path should carry no
+      # fallback note" assertion fails: it deliberately forces the
+      # rg-available branch to prove parity with the fallback branch, and
+      # that branch can only be exercised for real when rg actually exists.
+      # Confirmed missing on a real GitHub Actions run 2026-09-25.
+      - name: Install ripgrep
+        run: sudo apt-get update && sudo apt-get install -y ripgrep
+
       - name: Validate package lock registry URLs
         run: npm run test:package-lock-registry
 
