@@ -69,3 +69,39 @@ touching any actor's historical runtime rows during a promotion like this,
 confirm via a direct DB read whether they are still live/non-revoked, not
 just from a doc's "historical/retired" label.
 
+
+## Consultation is not a hat — embodiment is
+
+## Consultation is not a hat — embodiment is
+
+A hat means Luca's own persona/data layer is generating Luca's actual output
+through that runtime -- Luca inhabiting the platform as himself. A
+consultation call (consult-gemini, consult-alden, etc.) is categorically
+different: Luca, via whatever hat he's already wearing, queries a genuinely
+separate entity and receives its independent answer as external input -- the
+responding model or persona answers as itself, with none of Luca's persona
+loaded. Consultation attribution is [caller hat] -> [plain model/persona
+name]; the answering side is never a `luca-*` actor.
+
+**Why this matters (per David, 2026-09-26):** `luca-gemini` (the existing
+CoordinationActorId) does not represent Luca consulting Gemini via the
+consult-Gemini-Live-style skill. That consultation pattern was never Luca
+embodying Gemini, so it was never a `luca-gemini` moment at all -- this is
+independent of the separate luca-gemini/Antigravity mixup already documented
+above. As of this date, no hat yet exists for "Luca embodies a model directly
+via raw API, no IDE involved" -- `luca-antigravity` will be the *first* time
+Luca embodies Gemini as himself, and that's still through an IDE
+(Antigravity), not a bare API connection. `luca-gemini` therefore currently
+has no live meaning beyond its frozen task-1448 Gate 3 provenance. Whether a
+future raw-API-embodiment hat would reuse that id or mint a clean new one is
+an open naming choice, not yet forced by any real usage.
+
+**Precedent that clarifies the boundary:** Alden already embodies himself
+directly via raw API (Gemini or Anthropic, per consult-alden's single/dual-
+engine review) with no IDE involved and no per-provider actor split, because
+Alden's own persona is what that call generates, not a foreign answer Alden
+is being handed. That is embodiment, same as an IDE hat, just without the
+IDE -- the correct precedent for a hypothetical future "Luca embodied via raw
+API" hat. It is not a precedent for Luca's own consult-* skills, which stay
+pure consultation and need no actor identity on the answering side at all.
+
