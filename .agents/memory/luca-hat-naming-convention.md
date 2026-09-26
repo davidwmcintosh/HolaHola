@@ -33,15 +33,39 @@ reconciled against.
 
 ## Resolved: Antigravity promoted to its own hat
 
-**Resolved (2026-09-24):** Antigravity was promoted from a runtime under
-`luca-gemini` to its own hat, `luca-antigravity`, closing the gap this policy
-had flagged. The historical task-1448 Gate 3 Antigravity-on-Windows proof
-stayed bound to `luca-gemini` on purpose -- promoting a hat is additive (a
-new actor id plus its own Tier 1-3 registry entries), never a rename or
-repoint of prior provenance.
+## Resolved: Antigravity has its own hat; the earlier "promoted from luca-gemini" framing was a coding-time mistake, not real history
 
-Before touching any actor's historical runtime rows during a promotion like
-this, confirm via a direct DB read whether they are still live/non-revoked,
-not just from a doc's "historical/retired" label -- the label describes the
-*path* as retired, not necessarily the underlying rows as safe to touch.
+**Resolved (2026-09-24):** Antigravity now has its own hat, `luca-antigravity`,
+separate from `luca-gemini`.
+
+**Correction (2026-09-26, per David):** this section originally said
+Antigravity was "promoted from a runtime under luca-gemini," implying the two
+were once genuinely paired in practice. That's backwards. Antigravity (the
+IDE) and `luca-gemini` were never actually paired historically. The task-1448
+Gate 3 code (`server/scripts/coordination-runtime-antigravity.ts`) hardcodes
+its ownership proof to actor `luca-gemini` while being named and structured
+entirely around Antigravity -- that pairing is confusion baked into how the
+coordination system was coded, not a record of what actually happened.
+
+What actually happened, historically (months, not weeks): Luca Replit called
+the Google/Gemini API directly via the consult-Gemini-Live skill. That is
+unrelated to Antigravity the IDE and unrelated to any separate "luca-gemini"
+identity doing the calling. Antigravity is the IDE; a direct API call is a
+different kind of connection entirely; `luca-antigravity` is correctly the
+hat for the former. A hat for the latter (Luca calling a model API directly,
+no IDE involved) does not exist yet as a registered CoordinationActorId.
+
+**Why this matters:** trusting a system's own internal actor/tool pairing as
+proof of historical truth -- instead of checking it against what actually
+happened -- is exactly the mistake this correction fixes. A future agent
+reading only the code (or this file's earlier wording) would reach the same
+wrong conclusion.
+
+**Still true and unaffected by this correction:** promoting or creating a hat
+is additive (a new actor id plus its own Tier 1-3 registry entries), never a
+rename or repoint of prior provenance -- so task-1448's historical proof stays
+bound to `luca-gemini` in the database regardless of how it was named. Before
+touching any actor's historical runtime rows during a promotion like this,
+confirm via a direct DB read whether they are still live/non-revoked, not
+just from a doc's "historical/retired" label.
 
