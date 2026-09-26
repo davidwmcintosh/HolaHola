@@ -1304,6 +1304,110 @@ export async function revokeRuntimeCredentials(runtimeId: string, actor: Coordin
   });
 }
 
+/**
+ * Revokes a runtime's registration and credentials regardless of which actor
+ * owns it. Unlike revokeRuntimeCredentials (self-service only -- it matches
+ * the caller's own actor), this is reachable only through the
+ * coordination:runtime:admin capability: the founder-granted standing
+ * authority to onboard/offboard OTHER actors' runtimes (see
+ * docs/coordination-v2-architecture.md, "Runtime onboarding delegation").
+ * `revokedByActor` is the admin caller, recorded in audit metadata distinctly
+ * from the registration's own actor so the audit trail shows who acted on
+ * whose behalf.
+ */
+export async function adminRevokeRuntimeCredentials(
+  runtimeId: string,
+  revokedByActor: CoordinationActorId,
+  sourceIp?: string,
+): Promise<boolean> {
+  return getSharedDb().transaction(async (tx) => {
+    await tx.execute(sql`
+      SELECT id FROM coordination_runtime_registrations
+      WHERE id = ${runtimeId}
+      FOR UPDATE
+    `);
+    const [registration] = await tx.select().from(coordinationRuntimeRegistrations)
+      .where(eq(coordinationRuntimeRegistrations.id, runtimeId));
+    if (!registration) {
+      await audit({
+        eventType: 'admin_revocation_failed',
+        success: false,
+        runtimeId,
+        actor: revokedByActor,
+        reason: 'unknown_runtime',
+        sourceIp,
+        metadata: { revokedBy: revokedByActor },
+      }, tx as unknown as ReturnType<typeof getSharedDb>);
+      return false;
+    }
+    await tx.update(coordinationRuntimeRegistrations)
+      .set({ enabled: false, revokedAt: new Date(), updatedAt: new Date() })
+      .where(eq(coordinationRuntimeRegistrations.id, runtimeId));
+    await tx.update(coordinationRuntimeCredentials)
+      .set({ revokedAt: new Date() })
+      .where(and(
+        eq(coordinationRuntimeCredentials.runtimeId, runtimeId),
+        isNull(coordinationRuntimeCredentials.revokedAt),
+      ));
+    await audit(
+      {
+        eventType: 'runtime_revoked',
+        success: true,
+        runtimeId,
+        actor: registration.actor as CoordinationActorId,
+        sourceIp,
+        metadata: { revokedBy: revokedByActor, adminAction: true },
+      },
+      tx as unknown as ReturnType<typeof getSharedDb>,
+    );
+    return true;
+  });
+}
+
+export type CoordinationRuntimeRegistrationSummary = {
+  runtimeId: string;
+  actor: CoordinationActorId;
+  displayName: string;
+  capabilities: CoordinationCredentialCapability[];
+  provider: string | null;
+  model: string | null;
+  enabled: boolean;
+  revokedAt: string | null;
+  standingVerifier: boolean;
+};
+
+/**
+ * Non-secret operational listing of every registered runtime: no
+ * bootstrapHash, no live credentials. Gated on plain coordination:read (every
+ * actor already holds it) so any coordination participant can see what's
+ * onboarded; the admin actions above remain separately gated on
+ * coordination:runtime:admin.
+ */
+export async function listCoordinationRuntimeRegistrations(): Promise<CoordinationRuntimeRegistrationSummary[]> {
+  const rows = await getSharedDb().select({
+    id: coordinationRuntimeRegistrations.id,
+    actor: coordinationRuntimeRegistrations.actor,
+    displayName: coordinationRuntimeRegistrations.displayName,
+    capabilities: coordinationRuntimeRegistrations.capabilities,
+    provider: coordinationRuntimeRegistrations.provider,
+    model: coordinationRuntimeRegistrations.model,
+    enabled: coordinationRuntimeRegistrations.enabled,
+    revokedAt: coordinationRuntimeRegistrations.revokedAt,
+    standingVerifier: coordinationRuntimeRegistrations.standingVerifier,
+  }).from(coordinationRuntimeRegistrations);
+  return rows.map((row) => ({
+    runtimeId: row.id,
+    actor: row.actor as CoordinationActorId,
+    displayName: row.displayName,
+    capabilities: row.capabilities as CoordinationCredentialCapability[],
+    provider: row.provider,
+    model: row.model,
+    enabled: row.enabled,
+    revokedAt: row.revokedAt ? row.revokedAt.toISOString() : null,
+    standingVerifier: row.standingVerifier,
+  }));
+}
+
 const STANDING_VERIFIER_ACTORS = new Set<CoordinationActorId>(['luca-replit', 'luca-claude-code']);
 
 /**

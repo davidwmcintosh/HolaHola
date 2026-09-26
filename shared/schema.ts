@@ -8371,6 +8371,11 @@ export const COORDINATION_CREDENTIAL_CAPABILITIES = [
   'coordination:credential:renew',
   'coordination:credential:revoke',
   'observation:read',
+  // Standing delegated authority to register a new coordination actor's
+  // runtime and to revoke ANY actor's runtime/credentials (not just the
+  // caller's own, unlike coordination:credential:revoke). Founder-granted
+  // once; see COORDINATION_LEGACY_CAPABILITIES_BY_ACTOR for who holds it.
+  'coordination:runtime:admin',
 ] as const;
 export type CoordinationCredentialCapability = typeof COORDINATION_CREDENTIAL_CAPABILITIES[number];
 

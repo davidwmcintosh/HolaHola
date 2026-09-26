@@ -1,6 +1,15 @@
-import type { Application, Response } from 'express';
+import type { Application, RequestHandler, Response } from 'express';
+import {
+  requireFounder,
+  loadAuthenticatedUser,
+} from '../middleware/rbac';
+import { isAuthenticated } from '../replitAuth';
+import { storage } from '../storage';
 import {
   requireCoordinationAuth,
+  requireFounderOrCoordinationCapability,
+  chainMiddleware,
+  COORDINATION_LEGACY_CAPABILITIES_BY_ACTOR,
   type CoordinationAuthenticatedRequest,
 } from '../middleware/coordination-auth';
 import {
@@ -10,11 +19,29 @@ import {
   renewBrokerCredential,
   revokeBrokerCredential,
   revokeRuntimeCredentials,
+  registerCoordinationRuntime,
+  adminRevokeRuntimeCredentials,
+  listCoordinationRuntimeRegistrations,
 } from '../services/coordination-credential-broker';
 import { strictLimiter } from '../middleware/rate-limiter';
+import {
+  COORDINATION_ACTOR_IDS,
+  COORDINATION_CREDENTIAL_CAPABILITIES,
+  type CoordinationActorId,
+  type CoordinationCredentialCapability,
+} from '@shared/schema';
+
+const LUCA_ACTOR_PREFIX = 'luca-';
 
 function sourceIp(req: CoordinationAuthenticatedRequest): string | undefined {
   return req.ip || req.socket.remoteAddress;
+}
+
+// A founder web session reaching the runtime-admin gate (no coordination
+// token presented) is always David -- requireFounder already restricted the
+// session to founder access before this route body runs.
+function runtimeAdminActor(req: CoordinationAuthenticatedRequest): CoordinationActorId {
+  return req.coordinationActor ?? 'david';
 }
 
 function credentialRouteError(res: Response, error: unknown): void {
@@ -24,7 +51,40 @@ function credentialRouteError(res: Response, error: unknown): void {
   }
 }
 
-export function registerCoordinationCredentialRoutes(app: Application): void {
+export type CoordinationCredentialRouteDependencies = {
+  // Overrides the founder web-session check chained into the runtime-admin
+  // gate's fallback path (isAuthenticated -> loadAuthenticatedUser ->
+  // requireFounder by default). Mirrors founderMiddleware in
+  // coordination-policy-routes.ts's CoordinationPolicyRouteDependencies, so
+  // tests can inject a fake founder session without a real database or
+  // Replit auth setup.
+  founderMiddleware?: readonly RequestHandler[];
+  // Overrides requireCoordinationAuth for GET /runtimes only.
+  coordinationAuthMiddleware?: RequestHandler;
+  // Overrides the entire runtime-admin gate (founder-session-or-token) used
+  // by register-runtime and admin-revoke-runtime, for tests that want to
+  // stub both paths at once instead of composing founderMiddleware.
+  runtimeAdminMiddleware?: RequestHandler;
+};
+
+export function registerCoordinationCredentialRoutes(
+  app: Application,
+  dependencies: CoordinationCredentialRouteDependencies = {},
+): void {
+  const coordinationAuth = dependencies.coordinationAuthMiddleware ?? requireCoordinationAuth;
+
+  // Standing founder-granted authority to onboard/offboard OTHER actors'
+  // runtimes (coordination:runtime:admin). Accepts either a founder web
+  // session or a coordination token scoped to alden/david -- the same
+  // dual-path pattern used for policy routes in coordination-policy-routes.ts.
+  const runtimeAdminGate = dependencies.runtimeAdminMiddleware ?? requireFounderOrCoordinationCapability(
+    chainMiddleware(
+      dependencies.founderMiddleware ?? [isAuthenticated, loadAuthenticatedUser(storage), requireFounder],
+    ),
+    'coordination:runtime:admin',
+    ['alden', 'david'],
+  );
+
   app.post('/api/coordination/credentials/exchange', strictLimiter, async (req: CoordinationAuthenticatedRequest, res: Response) => {
     try {
       const runtimeId = typeof req.body?.runtimeId === 'string' ? req.body.runtimeId.trim() : '';
@@ -123,6 +183,98 @@ export function registerCoordinationCredentialRoutes(app: Application): void {
         return;
       }
       res.status(204).end();
+    } catch (error) {
+      credentialRouteError(res, error);
+    }
+  });
+
+  app.post('/api/coordination/credentials/register-runtime', strictLimiter, runtimeAdminGate, async (req: CoordinationAuthenticatedRequest, res: Response) => {
+    try {
+      const runtimeId = typeof req.body?.runtimeId === 'string' ? req.body.runtimeId.trim() : '';
+      const actorInput = typeof req.body?.actor === 'string' ? req.body.actor : '';
+      const displayName = typeof req.body?.displayName === 'string' ? req.body.displayName.trim() : '';
+      const explicitCapabilities = Array.isArray(req.body?.capabilities)
+        ? req.body.capabilities.filter((value: unknown): value is string => typeof value === 'string')
+        : undefined;
+      const tokenTtlSeconds = typeof req.body?.tokenTtlSeconds === 'number' ? req.body.tokenTtlSeconds : undefined;
+      const provider = typeof req.body?.provider === 'string' ? req.body.provider : undefined;
+      const model = typeof req.body?.model === 'string' ? req.body.model : undefined;
+
+      if (!runtimeId || !displayName) {
+        res.status(400).json({ error: 'runtimeId and displayName are required' });
+        return;
+      }
+      if (!(COORDINATION_ACTOR_IDS as readonly string[]).includes(actorInput) || actorInput === 'coordination-system') {
+        res.status(400).json({ error: 'actor must be a valid, non-system coordination actor id' });
+        return;
+      }
+      const actor = actorInput as CoordinationActorId;
+
+      // Default a new Luca-hat runtime to the same standard capability set
+      // every other Luca hat already holds: onboarding a peer perspective on
+      // the one HolaHola project, not authoring a new policy (the "two
+      // surgeons, one brain" model -- every LLM hat operates at the same
+      // level on the same repo). An explicit capabilities list still
+      // overrides this for the rare non-default case.
+      let capabilities: CoordinationCredentialCapability[];
+      if (explicitCapabilities && explicitCapabilities.length > 0) {
+        if (!explicitCapabilities.every((value: string) => (COORDINATION_CREDENTIAL_CAPABILITIES as readonly string[]).includes(value))) {
+          res.status(400).json({ error: 'capabilities contains an unknown value' });
+          return;
+        }
+        capabilities = explicitCapabilities as CoordinationCredentialCapability[];
+      } else if (actor.startsWith(LUCA_ACTOR_PREFIX)) {
+        capabilities = [...COORDINATION_LEGACY_CAPABILITIES_BY_ACTOR['luca-replit']];
+      } else {
+        res.status(400).json({ error: 'capabilities is required for non-Luca-hat actors' });
+        return;
+      }
+
+      const result = await registerCoordinationRuntime({
+        runtimeId, actor, displayName, capabilities, tokenTtlSeconds, provider, model,
+      });
+      res.status(201).json({
+        runtimeId,
+        actor,
+        displayName,
+        capabilities,
+        bootstrapToken: result.bootstrapToken,
+        note: 'Store this bootstrap token now in that runtime\'s credential store -- it is shown once and cannot be recovered later.',
+      });
+    } catch (error) {
+      // registerCoordinationRuntime throws plain Errors for validation and
+      // duplicate-runtime-id conflicts (both client-correctable); anything
+      // else (e.g. a genuine database outage) falls through to the generic
+      // 503 handler below.
+      if (error instanceof Error) {
+        res.status(400).json({ error: error.message });
+        return;
+      }
+      credentialRouteError(res, error);
+    }
+  });
+
+  app.post('/api/coordination/credentials/admin-revoke-runtime', strictLimiter, runtimeAdminGate, async (req: CoordinationAuthenticatedRequest, res: Response) => {
+    try {
+      const runtimeId = typeof req.body?.runtimeId === 'string' ? req.body.runtimeId.trim() : '';
+      if (!runtimeId) {
+        res.status(400).json({ error: 'runtimeId is required' });
+        return;
+      }
+      if (!await adminRevokeRuntimeCredentials(runtimeId, runtimeAdminActor(req), sourceIp(req))) {
+        res.status(404).json({ error: 'Runtime registration not found' });
+        return;
+      }
+      res.status(204).end();
+    } catch (error) {
+      credentialRouteError(res, error);
+    }
+  });
+
+  app.get('/api/coordination/credentials/runtimes', coordinationAuth, async (_req: CoordinationAuthenticatedRequest, res: Response) => {
+    try {
+      const runtimes = await listCoordinationRuntimeRegistrations();
+      res.json({ runtimes });
     } catch (error) {
       credentialRouteError(res, error);
     }

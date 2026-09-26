@@ -132,6 +132,54 @@ test('Gemini Code alias preserves duplicate-token ambiguity protection', () => {
   });
 });
 
+test('alden and david hold coordination:runtime:admin; no other actor does', async () => {
+  assert.ok(COORDINATION_LEGACY_CAPABILITIES_BY_ACTOR.alden.includes('coordination:runtime:admin'));
+  assert.ok(COORDINATION_LEGACY_CAPABILITIES_BY_ACTOR.david.includes('coordination:runtime:admin'));
+
+  const alden = await resolveCoordinationCapability(
+    environment.COORDINATION_ALDEN_TOKEN, 'coordination:runtime:admin', undefined, undefined, environment,
+  );
+  assert.equal(alden.ok, true);
+  if (alden.ok) assert.equal(alden.actor, 'alden');
+
+  const david = await resolveCoordinationCapability(
+    environment.COORDINATION_DAVID_TOKEN, 'coordination:runtime:admin', undefined, undefined, environment,
+  );
+  assert.equal(david.ok, true);
+  if (david.ok) assert.equal(david.actor, 'david');
+
+  const tokenByOtherActor = { ...tokenByLucaActor, daniela: environment.COORDINATION_DANIELA_TOKEN };
+  for (const actor of [...lucaActors, 'daniela'] as const) {
+    assert.equal(
+      COORDINATION_LEGACY_CAPABILITIES_BY_ACTOR[actor].includes('coordination:runtime:admin'),
+      false,
+      `${actor} should not hold coordination:runtime:admin`,
+    );
+    const result = await resolveCoordinationCapability(
+      tokenByOtherActor[actor], 'coordination:runtime:admin', undefined, undefined, environment,
+    );
+    assert.deepEqual(result, {
+      ok: false,
+      status: 403,
+      error: 'Credential lacks required capability: coordination:runtime:admin',
+    });
+  }
+});
+
+test('the runtime-admin route allowlist excludes every actor except alden and david', async () => {
+  const tokenByOtherActor = { ...tokenByLucaActor, daniela: environment.COORDINATION_DANIELA_TOKEN };
+  for (const actor of [...lucaActors, 'daniela'] as const) {
+    const result = await resolveCoordinationCapability(
+      tokenByOtherActor[actor], 'coordination:runtime:admin', ['alden', 'david'], undefined, environment,
+    );
+    assert.deepEqual(result, {
+      ok: false,
+      status: 403,
+      error: 'Coordination actor is not authorized for this endpoint',
+    });
+  }
+});
+
 test('founder fallback runs only when no coordination credential is presented', async () => {
   const previous = process.env.COORDINATION_LUCA_REPLIT_TOKEN;
   process.env.COORDINATION_LUCA_REPLIT_TOKEN = environment.COORDINATION_LUCA_REPLIT_TOKEN;

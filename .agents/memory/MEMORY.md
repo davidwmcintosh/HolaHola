@@ -155,3 +155,4 @@
 - [Replit sandbox vs CI ambient environment gaps](ci-sandbox-parity-gaps.md) — ambient tools/secrets (rg, SESSION_SECRET) exist on Replit's sandbox but not CI; reliance on them fails only in CI
 - [JS/TS/Drizzle runtime gotchas](js-ts-drizzle-runtime-gotchas.md) — 6 sharp edges: esbuild isMain bundle collapse, ESM await-in-callback, Drizzle sql-tag dynamic-import + array binding, SQL CASE param/column mixing, lazy-regex multiline $ -- see topic file
 - [Coordination token secret propagation scope](coordination-token-secret-scope.md) — trace real runtime consumers before syncing a new COORDINATION_*_TOKEN to GitHub/CI; HTTP tests usually fabricate their own value.
+- [Coordination route DI wiring gaps](coordination-route-di-wiring-gaps.md) — a computed middleware override can go unused by one route; garbage tokens prove real wiring without session setup

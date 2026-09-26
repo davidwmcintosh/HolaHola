@@ -28,6 +28,8 @@ import {
   resolveBrokerCredential,
   revokeBrokerCredential,
   revokeRuntimeCredentials,
+  adminRevokeRuntimeCredentials,
+  listCoordinationRuntimeRegistrations,
   stageCoordinationRuntimeReplacement,
 } from '../services/coordination-credential-broker';
 import {
@@ -1341,3 +1343,54 @@ verifiedDisposableDatabaseTest(
     );
   },
 );
+
+databaseTest('adminRevokeRuntimeCredentials revokes across actors; listCoordinationRuntimeRegistrations exposes no secrets', async () => {
+  const adminRuntimeId = `${runtimeId}-admin-revoke`;
+  await registerCoordinationRuntime({
+    runtimeId: adminRuntimeId,
+    actor: 'luca-antigravity',
+    displayName: 'Admin-revoke CI runtime',
+    capabilities: ['coordination:read', 'coordination:write'],
+    provider: 'test-provider',
+    model: 'test-model',
+  });
+
+  // Self-service revocation must refuse an actor that does not own the
+  // runtime -- this is the exact restriction adminRevokeRuntimeCredentials
+  // is meant to bypass under the founder-granted coordination:runtime:admin
+  // capability (alden/david onboarding or offboarding a DIFFERENT actor's
+  // runtime, e.g. a Luca hat).
+  assert.equal(await revokeRuntimeCredentials(adminRuntimeId, 'alden'), false);
+
+  const listedBeforeRevoke = await listCoordinationRuntimeRegistrations();
+  const beforeEntry = listedBeforeRevoke.find((entry) => entry.runtimeId === adminRuntimeId);
+  assert.ok(beforeEntry, 'the new registration must appear in the listing');
+  assert.equal(beforeEntry?.actor, 'luca-antigravity');
+  assert.equal(beforeEntry?.enabled, true);
+  assert.equal(beforeEntry?.revokedAt, null);
+  assert.equal(beforeEntry?.provider, 'test-provider');
+  assert.equal(beforeEntry?.model, 'test-model');
+  // Non-secret listing: no bootstrap hash, credential id, or access token
+  // material of any kind.
+  assert.equal('bootstrapHash' in (beforeEntry as object), false);
+  assert.equal(JSON.stringify(listedBeforeRevoke).match(/bootstrapHash|accessToken|credentialId/i), null);
+
+  assert.equal(await adminRevokeRuntimeCredentials('unknown-runtime-id-that-does-not-exist', 'alden'), false);
+
+  assert.equal(await adminRevokeRuntimeCredentials(adminRuntimeId, 'alden'), true);
+
+  const listedAfterRevoke = await listCoordinationRuntimeRegistrations();
+  const afterEntry = listedAfterRevoke.find((entry) => entry.runtimeId === adminRuntimeId);
+  assert.ok(afterEntry);
+  assert.equal(afterEntry?.enabled, false);
+  assert.ok(afterEntry?.revokedAt);
+
+  const auditEvents = await getSharedDb().select().from(coordinationCredentialAuditEvents)
+    .where(eq(coordinationCredentialAuditEvents.runtimeId, adminRuntimeId));
+  const adminRevocationEvent = auditEvents.find((event) => (
+    event.eventType === 'runtime_revoked' && event.success
+  ));
+  assert.ok(adminRevocationEvent, 'the admin revocation must be audited as runtime_revoked');
+  assert.equal(adminRevocationEvent?.actor, 'luca-antigravity');
+  assert.equal((adminRevocationEvent?.metadata as Record<string, unknown> | null)?.revokedBy, 'alden');
+});

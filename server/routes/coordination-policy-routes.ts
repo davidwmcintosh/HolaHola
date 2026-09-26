@@ -9,6 +9,7 @@ import { storage } from '../storage';
 import {
   requireCoordinationAuth,
   requireFounderOrCoordinationCapability,
+  chainMiddleware,
   type CoordinationAuthenticatedRequest,
 } from '../middleware/coordination-auth';
 import {
@@ -78,24 +79,6 @@ function replyError(res: Response, error: unknown): void {
       ...(error instanceof CoordinationPolicyError && error.details ? { details: error.details } : {}),
     },
   });
-}
-
-function chainMiddleware(handlers: readonly RequestHandler[]): RequestHandler {
-  return (req, res, next) => {
-    const run = (index: number, error?: unknown): void => {
-      if (error) {
-        next(error);
-        return;
-      }
-      const handler = handlers[index];
-      if (!handler) {
-        next();
-        return;
-      }
-      handler(req, res, (nextError?: unknown) => run(index + 1, nextError));
-    };
-    run(0);
-  };
 }
 
 function founderActor(req: FounderRequest): string {

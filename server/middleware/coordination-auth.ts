@@ -1,5 +1,5 @@
 import crypto from 'node:crypto';
-import type { NextFunction, Request, Response } from 'express';
+import type { NextFunction, Request, RequestHandler, Response } from 'express';
 import {
   type CoordinationCredentialCapability,
   type CoordinationActorId,
@@ -54,9 +54,14 @@ export const COORDINATION_LEGACY_CAPABILITIES_BY_ACTOR: Readonly<
   'luca-gemini': ['coordination:read', 'coordination:write', 'coordination:inbox:ack', 'coordination:credential:renew', 'coordination:credential:revoke', 'observation:read'],
   'luca-antigravity': ['coordination:read', 'coordination:write', 'coordination:inbox:ack', 'coordination:credential:renew', 'coordination:credential:revoke', 'observation:read'],
   'luca-holahola': ['coordination:read', 'coordination:write', 'coordination:inbox:ack', 'coordination:credential:renew', 'coordination:credential:revoke', 'observation:read'],
-  alden: ['coordination:read', 'coordination:write', 'coordination:inbox:ack', 'coordination:credential:renew', 'coordination:credential:revoke'],
+  // alden and david hold coordination:runtime:admin: standing founder-granted
+  // authority to onboard/revoke OTHER actors' runtimes (e.g. bringing on a
+  // new Luca-hat LLM), distinct from coordination:credential:revoke above
+  // which only ever lets an actor manage its own runtime. See
+  // docs/coordination-v2-architecture.md, "Runtime onboarding delegation".
+  alden: ['coordination:read', 'coordination:write', 'coordination:inbox:ack', 'coordination:credential:renew', 'coordination:credential:revoke', 'coordination:runtime:admin'],
   daniela: ['coordination:read', 'coordination:write', 'coordination:inbox:ack', 'coordination:credential:renew', 'coordination:credential:revoke'],
-  david: ['coordination:read', 'coordination:write', 'coordination:inbox:ack', 'coordination:credential:renew', 'coordination:credential:revoke'],
+  david: ['coordination:read', 'coordination:write', 'coordination:inbox:ack', 'coordination:credential:renew', 'coordination:credential:revoke', 'coordination:runtime:admin'],
   'coordination-system': [],
 };
 
@@ -160,6 +165,30 @@ export async function resolveCoordinationCapability(
     console.error('[CoordinationAuth] Broker credential resolution failed:', error);
     return { ok: false, status: 503, error: 'Coordination credential broker is unavailable' };
   }
+}
+
+/**
+ * Runs a fixed sequence of Express middleware as one handler, short-circuiting
+ * on the first response or error. Used to compose a founder web-session check
+ * (isAuthenticated -> loadAuthenticatedUser -> requireFounder) into the single
+ * middleware requireFounderOrCoordinationCapability expects as its fallback.
+ */
+export function chainMiddleware(handlers: readonly RequestHandler[]): RequestHandler {
+  return (req, res, next) => {
+    const run = (index: number, error?: unknown): void => {
+      if (error) {
+        next(error);
+        return;
+      }
+      const handler = handlers[index];
+      if (!handler) {
+        next();
+        return;
+      }
+      handler(req, res, (nextError?: unknown) => run(index + 1, nextError));
+    };
+    run(0);
+  };
 }
 
 export function requireFounderOrCoordinationCapability(

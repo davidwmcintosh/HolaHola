@@ -153,6 +153,73 @@ the enrollment, descendant session credentials, leases, and claims; ordinary
 terminal cleanup revokes session credentials while leaving the renewable host
 identity available.
 
+## Runtime onboarding delegation
+
+Onboarding a coordination actor's runtime (registering it and issuing its
+bootstrap credential) and offboarding one (revoking a runtime/credential that
+is not the caller's own) are founder-granted standing authority, distinct from
+policy-version approval. Approving what an actor's task sessions may actually
+do -- drafting, approving, rejecting, or revoking a policy version, and
+issuing or revoking an operator grant (see "Operator path" above) -- stays
+founder-only and is never delegated.
+
+`alden` and `david` hold the `coordination:runtime:admin` capability (see
+`COORDINATION_LEGACY_CAPABILITIES_BY_ACTOR` in
+`server/middleware/coordination-auth.ts`). No other actor holds it -- not
+`daniela`, not any `luca-*` hat. It covers three routes in
+`server/routes/coordination-credential-routes.ts`:
+
+- `POST /api/coordination/credentials/register-runtime` -- register a new
+  runtime for any actor and issue its bootstrap token (shown once).
+- `POST /api/coordination/credentials/admin-revoke-runtime` -- revoke any
+  actor's runtime and credentials, regardless of who registered it. This is
+  the admin counterpart to the existing self-service
+  `POST /api/coordination/credentials/revoke`, which only ever lets a runtime
+  revoke itself.
+- `GET /api/coordination/credentials/runtimes` -- non-secret listing of every
+  registration (id, actor, display name, capabilities, provider/model,
+  enabled/revoked state). Gated on plain `coordination:read`, which every
+  actor already holds, since it exposes no bootstrap hash or live credential.
+
+Each route accepts either a founder web session or a coordination token
+scoped to `alden`/`david`, the same dual-path pattern
+`requireFounderOrCoordinationCapability` already provides for the policy
+routes above.
+
+This system is single-repo, single-project (HolaHola only): every Luca hat
+(`luca-replit`, `luca-claude-code`, `luca-gemini`, `luca-antigravity`,
+`luca-holahola`) is the same Luca working through a different runtime, at the
+same level as every other hat -- not a distinct identity requiring its own
+authored policy. Onboarding a new Luca hat is therefore a peer addition, not a
+policy-authoring exercise: `register-runtime` defaults a `luca-*` actor's
+capabilities to the standard set every existing Luca hat already holds
+whenever the caller omits an explicit `capabilities` list. An explicit list
+still overrides this default for the rare non-default case, and any non-Luca
+actor (e.g. a hypothetical future non-Luca runtime) must supply `capabilities`
+explicitly -- there is no default to fall back to.
+
+Scripted usage mirrors `coordination-policy-cli.ts`:
+
+```bash
+export APP_URL=https://<your-app-domain>
+export COORDINATION_ALDEN_TOKEN=<alden coordination credential>
+
+npx tsx server/scripts/coordination-credential-cli.ts register-runtime \
+  --runtime-id luca-antigravity-2 --actor luca-antigravity \
+  --display-name "Luca (Antigravity, second seat)"
+
+npx tsx server/scripts/coordination-credential-cli.ts list-runtimes
+
+npx tsx server/scripts/coordination-credential-cli.ts revoke-runtime \
+  --runtime-id luca-antigravity-2
+```
+
+`--as-actor alden|david` selects which token the CLI authenticates with
+(default `alden`). The pre-existing `server/scripts/coordination-runtime-bootstrap.ts`
+script (direct database access, no HTTP round trip) remains available
+unchanged for local/offline registration; it is orthogonal to this
+HTTP-reachable capability, not replaced by it.
+
 ## Task artifact registry
 
 Preparation needs the exact bytes of the task being launched, plus their
