@@ -32,10 +32,19 @@
  * The autosave watcher (checkEpisodeAppend) and `append-to-episode.ts --rolling`
  * both look up the most-recently-created row tagged 'rolling', so after this
  * script runs they automatically target the new episode on their next cycle.
+ *
+ * The atomic promote transaction itself lives in
+ * ../services/episode-lifecycle-service.ts (promoteRollingEpisode) so this
+ * CLI and Alden's start_next_episode tool share one implementation instead
+ * of two copies of safety-critical episode logic. This file is now a thin
+ * CLI wrapper: parse args, call the service, print the exact same output
+ * strings as before (server/scripts/test-set-rolling-episode-bad-name.ts
+ * spawns this script and asserts on them verbatim).
  */
 
 import { getSharedDb } from '../db';
 import { sql } from 'drizzle-orm';
+import { promoteRollingEpisode } from '../services/episode-lifecycle-service';
 
 // ---------------------------------------------------------------------------
 // Parse CLI args
@@ -58,21 +67,6 @@ if (!selfCheckMode && !episodeArg) {
   console.error('Usage: npx tsx server/scripts/set-rolling-episode.ts --episode episode-28');
   console.error('       npx tsx server/scripts/set-rolling-episode.ts --self-check');
   process.exit(1);
-}
-
-// ---------------------------------------------------------------------------
-// Normalise the supplied episode name into a DB title pattern
-//
-// Accepts: "episode-28", "episode28", "Episode 28", "Episode-28"
-// Resolves to the canonical title form stored in the DB ("Episode 28").
-// ---------------------------------------------------------------------------
-
-function normaliseToTitle(input: string): string {
-  const s = input.trim();
-  const slugMatch = /^episode[-\s]?(\d+)$/i.exec(s);
-  if (slugMatch) return `Episode ${parseInt(slugMatch[1], 10)}`;
-  // Already looks like a human title — return as-is
-  return s;
 }
 
 // ---------------------------------------------------------------------------
@@ -178,95 +172,24 @@ async function runSelfCheck(): Promise<void> {
 // ---------------------------------------------------------------------------
 
 async function main(): Promise<void> {
-  const db = getSharedDb();
-  const newTitle = normaliseToTitle(episodeArg);
+  const result = await promoteRollingEpisode(episodeArg);
 
-  // ── 1. Find the target episode row ────────────────────────────────────────
-  const targetRows = await db.execute(sql`
-    SELECT id, title, tags
-    FROM conversation_memories
-    WHERE arc_name = 'HolaHola Episodes'
-      AND lower(title) = lower(${newTitle})
-    ORDER BY created_at DESC
-    LIMIT 1
-  `);
-
-  if (targetRows.rows.length === 0) {
-    console.error(`[set-rolling-episode] ERROR: No episode found with title matching "${newTitle}" in HolaHola Episodes arc.`);
+  if (!result.ok) {
+    console.error(`[set-rolling-episode] ERROR: No episode found with title matching "${result.searchedTitle}" in HolaHola Episodes arc.`);
     console.error("Tip: SELECT id, title FROM conversation_memories WHERE arc_name = 'HolaHola Episodes' ORDER BY created_at DESC;");
     process.exit(1);
   }
 
-  const target = targetRows.rows[0] as { id: string; title: string; tags: string[] };
-
-  if (Array.isArray(target.tags) && target.tags.includes('rolling')) {
-    console.log(`[set-rolling-episode] "${target.title}" is already the rolling episode. No change needed.`);
+  if (result.alreadyRolling) {
+    console.log(`[set-rolling-episode] "${result.target.title}" is already the rolling episode. No change needed.`);
     process.exit(0);
   }
 
-  // ── 2. Read the current rolling set (for the audit log) ──────────────────
-  const currentRows = await db.execute(sql`
-    SELECT title
-    FROM conversation_memories
-    WHERE arc_name = 'HolaHola Episodes'
-      AND 'rolling' = ANY(tags)
-    ORDER BY created_at DESC
-  `);
-  const currentTitles = (currentRows.rows as Array<{ title: string }>).map(r => r.title);
-
-  // ── 3. Atomic swap inside a single transaction ───────────────────────────
-  //       Step A0: stamp 'rolling-protected' on ALL currently-rolling rows
-  //                BEFORE removing 'rolling' from them, so that demoted
-  //                episodes are still discoverable by the startup restore
-  //                script (which queries for rolling OR rolling-protected).
-  //       Step A:  clear 'rolling' from ALL arc rows (not just the newest)
-  //       Step B:  add 'rolling' + 'rolling-protected' to the target
-  //    If step B throws (e.g. DB error), steps A0/A are rolled back automatically.
-  await db.transaction(async (tx) => {
-    // Step A0: permanently protect every episode that is currently rolling
-    // before we strip the 'rolling' tag.  This is idempotent — if
-    // 'rolling-protected' is already present the CASE expression leaves tags
-    // unchanged, so re-running the script never creates duplicate tags.
-    await tx.execute(sql`
-      UPDATE conversation_memories
-      SET tags = CASE WHEN 'rolling-protected' = ANY(tags)
-                      THEN tags
-                      ELSE array_append(tags, 'rolling-protected')
-                 END
-      WHERE arc_name = 'HolaHola Episodes'
-        AND 'rolling' = ANY(tags)
-    `);
-
-    // Step A: clear rolling from every HolaHola episode that currently has it
-    await tx.execute(sql`
-      UPDATE conversation_memories
-      SET tags = array_remove(tags, 'rolling')
-      WHERE arc_name = 'HolaHola Episodes'
-        AND 'rolling' = ANY(tags)
-    `);
-
-    // Step B: add rolling + rolling-protected to the verified target.
-    // 'rolling-protected' is a permanent tag that is NEVER removed — it marks
-    // every episode that has ever been the rolling episode so the startup
-    // shrinkage guard can find and protect them even after they are superseded.
-    await tx.execute(sql`
-      UPDATE conversation_memories
-      SET tags = array_append(
-                   CASE WHEN 'rolling-protected' = ANY(tags)
-                        THEN tags
-                        ELSE array_append(tags, 'rolling-protected')
-                   END,
-                   'rolling'
-                 )
-      WHERE id = ${target.id}
-    `);
-  });
-
-  // ── 4. Auditable summary ──────────────────────────────────────────────────
-  const oldLabel = currentTitles.length > 0 ? currentTitles.join(', ') : '(none)';
+  // ── Auditable summary ──────────────────────────────────────────────────
+  const oldLabel = result.previousRolling.length > 0 ? result.previousRolling.join(', ') : '(none)';
   console.log('[set-rolling-episode] Done.');
   console.log(`  Old rolling: ${oldLabel}`);
-  console.log(`  New rolling: ${target.title}`);
+  console.log(`  New rolling: ${result.target.title}`);
   console.log('');
   console.log('The autosave watcher and --rolling flag will pick up the new target on their next cycle.');
 }

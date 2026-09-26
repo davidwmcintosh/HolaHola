@@ -22,6 +22,10 @@ import {
   adminRevokeRuntimeCredentials,
   listCoordinationRuntimeRegistrations,
 } from "./coordination-credential-broker";
+import {
+  startNextEpisode,
+  getCurrentRollingEpisode,
+} from "./episode-lifecycle-service";
 import { sql, desc, eq, and, gte, isNull, inArray } from "drizzle-orm";
 import { computeHealthStatus } from "./voice-health-monitor";
 import { founderCollabService } from "./founder-collaboration-service";
@@ -167,6 +171,32 @@ export const ALDEN_TOOLS: AldenTool[] = [
       type: "object" as const,
       properties: {},
       required: [],
+    },
+  },
+  {
+    name: "get_current_episode",
+    description: "Get the episode currently marked 'rolling' (the live, active episode that ongoing conversations are captured into) in the HolaHola Episodes arc. Use this before start_next_episode to confirm what you are about to retire, or to check whether a transition has already happened.",
+    gemini_description: "Get the episode currently marked 'rolling' (the live, active episode) in the HolaHola Episodes arc.",
+    input_schema: {
+      type: "object" as const,
+      properties: {},
+      required: [],
+    },
+  },
+  {
+    name: "start_next_episode",
+    description: "Start the next HolaHola episode and retire the current one in a single action — there is no separate 'close' tool because this arc only ever has one row tagged 'rolling' at a time, and starting the next episode is exactly what retires the previous one (it loses the 'rolling' tag but keeps all its content, permanently marked 'rolling-protected' so it is never mistaken for disposable). If an episode row with this exact title already exists, it is reused rather than duplicated or overwritten — only its rolling status changes. Use get_current_episode first if you need to confirm what is about to be retired.",
+    gemini_description: "Start the next HolaHola episode, which atomically retires whichever episode is currently 'rolling'. Reuses an existing row with the same title instead of duplicating it.",
+    input_schema: {
+      type: "object" as const,
+      properties: {
+        title: { type: "string" as const, description: "The new episode's title, e.g. 'Episode 35' or 'Episode 35: <subtitle>'." },
+        summary: { type: "string" as const, description: "A short summary of what this episode is / what it's expected to cover — key themes and context." },
+        content: { type: "string" as const, description: "The initial content for the episode record — an opening note, seed narrative, or context for how it begins. This grows over time as the live capture pipeline appends to it; it does not need to be the complete episode." },
+        importance: { type: "number" as const, description: "1-10, defaults to 10 (episodes are high-importance by convention)." },
+        tags: { type: "array" as const, items: { type: "string" as const }, description: "Optional extra tags. A slug tag (e.g. 'episode-35') is always added automatically." },
+      },
+      required: ["title", "summary", "content"],
     },
   },
   {
@@ -1320,6 +1350,55 @@ export async function executeAldenTool(
             note: 'Use read_conversation_memories with arc parameter to read all entries in a thread.',
           },
         };
+      }
+
+      case "get_current_episode": {
+        try {
+          const current = await getCurrentRollingEpisode();
+          return { data: { current } };
+        } catch (e: any) {
+          return { data: { error: e.message } };
+        }
+      }
+
+      case "start_next_episode": {
+        const title = String(args.title || '').trim();
+        const summary = String(args.summary || '').trim();
+        const content = String(args.content || '').trim();
+        const importance = typeof args.importance === 'number' ? args.importance : undefined;
+        const tags = Array.isArray(args.tags)
+          ? args.tags.filter((value: unknown): value is string => typeof value === 'string')
+          : undefined;
+
+        if (!title || !summary || !content) {
+          return { data: { error: 'title, summary, and content are required' } };
+        }
+
+        try {
+          const result = await startNextEpisode({ title, summary, content, importance, tags });
+          if (!result.ok) {
+            return { data: { error: result.reason === 'invalid' ? JSON.stringify(result.details) : result.reason } };
+          }
+          console.log(
+            `[Alden Tool] start_next_episode: "${result.episode.title}" (created: ${result.episodeCreated}, previously rolling: ${result.previousRolling.join(', ') || 'none'})`
+          );
+          return {
+            data: {
+              episode: result.episode,
+              episodeCreated: result.episodeCreated,
+              alreadyRolling: result.alreadyRolling,
+              retiredEpisodes: result.previousRolling,
+              note: result.alreadyRolling
+                ? `"${result.episode.title}" was already the rolling episode — no change made.`
+                : `"${result.episode.title}" is now the rolling episode.` +
+                  (result.previousRolling.length > 0
+                    ? ` Retired: ${result.previousRolling.join(', ')} (content kept, tagged rolling-protected, no longer live).`
+                    : ' No previous episode was rolling.'),
+            },
+          };
+        } catch (e: any) {
+          return { data: { error: e.message } };
+        }
       }
 
       case "steward_pause": {
@@ -2930,7 +3009,7 @@ export async function executeAldenTool(
   }
 }
 
-console.log('[Alden Functions] Loaded — 49 tools ready (monitoring + code + shell + memory + notifications + browser + web-fetch + briefing + express-lane-search + agent-notes + ai-cost-report + build-queue + self-tune + engine-switch + coordination + runtime-admin)');
+console.log('[Alden Functions] Loaded — 51 tools ready (monitoring + code + shell + memory + notifications + browser + web-fetch + briefing + express-lane-search + agent-notes + ai-cost-report + build-queue + self-tune + engine-switch + coordination + runtime-admin + episode-lifecycle)');
 
 interface FallbackSearchOptions {
   glob?: string;

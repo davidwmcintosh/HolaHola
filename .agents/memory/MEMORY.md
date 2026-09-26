@@ -157,3 +157,5 @@
 - [Coordination token secret propagation scope](coordination-token-secret-scope.md) — trace real runtime consumers before syncing a new COORDINATION_*_TOKEN to GitHub/CI; HTTP tests usually fabricate their own value.
 - [Coordination route DI wiring gaps](coordination-route-di-wiring-gaps.md) — a computed middleware override can go unused by one route; garbage tokens prove real wiring without session setup
 - [Alden tool-result persistence boundary](alden-tool-result-persistence.md) — raw tool-result JSON is never persisted; secret-bearing tools need instruction, not redaction
+- [CLI-to-service extraction exit semantics](cli-to-service-exit-semantics.md) — extracting a CLI script's logic for an in-process tool/service must drop every process.exit() — it would kill the whole server, not a one-shot subprocess.
+- [Episode-lifecycle service guards](episode-lifecycle-service-guards.md) — new episode-insertion call sites must mirror createEpisode's fire-and-forget indexing side effects; never flip the live 'rolling' tag against shared prod DB during testing.

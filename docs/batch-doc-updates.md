@@ -1,3 +1,40 @@
+## 2026-09-26 — Alden gets real episode start/close tools
+
+- Alden had no way to formally end the current episode or start the next one
+  himself — the only mechanism was `server/scripts/set-rolling-episode.ts`, a
+  human-operated CLI script that moves the `rolling` tag between two
+  already-existing episode rows.
+- The atomic promote transaction is now extracted into a shared service,
+  `server/services/episode-lifecycle-service.ts`
+  (`promoteRollingEpisode`, `createEpisode`, `startNextEpisode`,
+  `getCurrentRollingEpisode`), so the CLI and Alden's new tools share one
+  implementation instead of two copies of safety-critical logic.
+  `set-rolling-episode.ts` is now a thin wrapper that preserves its exact
+  original stdout/stderr strings and exit codes.
+- Two new tools on Alden's own surface: `get_current_episode` (read-only) and
+  `start_next_episode` (creates the next episode, or reuses an existing row
+  with the same title, then promotes it to `rolling`). There is no separate
+  "close" tool — this arc only ever has one rolling episode at a time, so
+  starting the next one is exactly what retires the previous one (content
+  kept, permanently tagged `rolling-protected`). `createEpisode` never
+  deletes or overwrites an existing row, unlike the HTTP route's
+  `allowDuplicate:true` path — an LLM-driven tool must not have a
+  destructive replace option over narrative content.
+- Verified: typecheck clean; the existing bad-name regression test for
+  `set-rolling-episode.ts` still passes unchanged; a throwaway script (not
+  committed) confirmed `createEpisode`'s insert/reuse/cleanup path,
+  `promoteRollingEpisode`'s not-found path, and both tools' dispatcher wiring
+  against the real database. Deliberately did not exercise the live
+  promotion path against production — even a millisecond-scale flip of the
+  real `rolling` tag off Episode 34 and back risks a concurrent live
+  conversation write landing on a disposable test row and being lost when
+  deleted. The transaction logic itself is unchanged, copy-pasted from the
+  already-proven script. Dev server restarted cleanly, 51 tools loaded,
+  startup rolling-restore check confirmed Episode 34 still correctly rolling.
+- A CI self-check for `createEpisode`'s reuse-not-duplicate guard was
+  identified as a gap and proposed as a follow-up task rather than bundled
+  in, matching how this project tracks that category of test elsewhere.
+
 ## 2026-09-23 — Alden can search code without ripgrep and message Luca through his own tools
 
 - Alden's production `search_code`/`search_multi` failed outright when ripgrep

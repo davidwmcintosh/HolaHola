@@ -7,6 +7,18 @@ Format: `[date found] — location — description — severity`
 
 ## Active
 
+**2026-09-26 — Episode Dedup partial unique index still inactive; one exact-duplicate Episode 28 row is the cause — OPEN**
+
+Discovered incidentally while verifying new episode-lifecycle tools (unrelated to that change — `server/routes.ts` was not touched this session). Startup always logs `[Episode Dedup] Partial unique index creation skipped: Failed query: ...` with no further reason, because `console.warn('[Episode Dedup] Partial unique index creation skipped:', err.message)` only prints Drizzle's generic query-failed wrapper, not the underlying Postgres cause (which lives on `err.cause.message`, not `err.message`).
+
+The comment directly above that code claims "Existing duplicates were pruned (Task #955); the index is now active" — that is currently false. A direct query found exactly one duplicate pair: `conversation_memories` has two `entry_type='episode'` rows with `arc_name='HolaHola Episodes'` and `title='Episode 28'` — canonical id `28000000-0000-4000-8000-000000000028` (tagged `rolling-protected`, the one every other system treats as Episode 28) and an orphan `c2f5882b-b25b-4b84-a94d-67fdbe9c6113` (tagged only `episode, auto-synced`, created 13 seconds earlier on 2026-08-10). Verified byte-identical: same `length(content)` (342689) and same `md5(content)` hash, so the orphan carries zero unique narrative content. Verified nothing references the orphan via `extends_memory_id` (0 rows). Deleting the orphan would be a lossless dedup and would let `CREATE UNIQUE INDEX idx_episode_title_arc_unique` finally succeed, closing a real gap: without that DB-level constraint, episode creation (both `set-rolling-episode.ts`'s callers and the new `createEpisode()` in `server/services/episode-lifecycle-service.ts`) relies solely on an app-level SELECT-before-INSERT check, which is not race-safe against two near-simultaneous creates.
+
+**Not fixed here** — deleting a production row, even a proven exact duplicate, needs explicit user sign-off before doing it; flagged to the user directly in the same session this was found rather than acted on unilaterally.
+
+Location: `server/routes.ts` (~line 694, "Episode dedup: partial unique index" block) — the swallowed-cause logging and the stale comment both live there; the duplicate row itself is data, not code. Severity: LOW-MEDIUM (no content loss risk today since the duplicate is identical, but the missing DB-level constraint is a real latent race-condition gap for any future concurrent episode-creation path).
+
+---
+
 **2026-09-22 — `syncEpisodeFile()` restores `.md` from DB instead of pushing a longer local `.md` into a shorter DB row — OPEN**
 
 `server/scripts/test-chat-episode-hook-e2e.ts` fails deterministically at STEP 5 ("Verify DB row contains sentinel text"): STEP 3 appends a sentinel to the isolated `episode-9993.md` fixture (116 → 214 bytes) while the DB baseline is force-set to the original 116 bytes, then STEP 4 calls `syncEpisodeFile()` expecting it to push the fixture's now-longer `.md` content into the DB — a legitimate growth, not a shrink. Instead the log shows `[AgentAutosave] Rolling episode Markdown replica restored from canonical DB: Episode 9993`: the sync ran DB→`.md` instead of `.md`→DB, so the DB row stays at 116 bytes and the sentinel never lands (2 of 12 assertions fail).

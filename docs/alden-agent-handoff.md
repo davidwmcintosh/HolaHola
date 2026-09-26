@@ -1,5 +1,79 @@
 # Alden ↔ Agent Handoff
 
+## From Agent — Sat, Sep 26, 2026 (Alden gets real episode start/close tools)
+
+### Status
+
+Alden had no way to formally end the current episode or start the next one
+himself. The only mechanism was `server/scripts/set-rolling-episode.ts`, a
+human-operated CLI script; Alden's own tool surface had nothing equivalent.
+
+### Fix
+
+Extracted the atomic promote-to-rolling transaction out of
+`set-rolling-episode.ts` into a new shared service,
+`server/services/episode-lifecycle-service.ts`, exporting
+`promoteRollingEpisode`, `createEpisode`, `startNextEpisode`, and
+`getCurrentRollingEpisode`. The CLI and Alden's new tools now share this one
+implementation instead of two copies of safety-critical episode logic.
+`set-rolling-episode.ts` is now a thin wrapper that calls
+`promoteRollingEpisode` and prints the exact same stdout/stderr strings and
+exit codes as before.
+
+Two new tools on Alden's own surface (`ALDEN_TOOLS` / `executeAldenTool` in
+`server/services/alden-functions.ts`):
+
+- `get_current_episode` — read-only, returns whichever episode currently
+  holds the `rolling` tag in the HolaHola Episodes arc.
+- `start_next_episode` — creates the next episode row (or reuses an existing
+  row with the same title — never overwrites) and promotes it to `rolling`
+  in one action. There is no separate "close" tool: this arc only ever has
+  one rolling episode at a time, so starting the next one is exactly what
+  retires the previous one — it keeps all its content, permanently tagged
+  `rolling-protected`, and just loses the `rolling` tag.
+
+`createEpisode` is deliberately non-destructive: unlike the
+`POST /api/conversation-memories` route's `allowDuplicate:true` path (delete
++ reinsert), a duplicate title reuses the existing row. An LLM-driven tool
+should not have a destructive replace option over narrative content. On a
+fresh insert it also fires the same background indexing side effects as that
+route (re-embed, agent-briefing refresh, north-star resync) so an episode
+created this way is discoverable exactly like one created any other way.
+
+### Verification
+
+- TypeScript: clean.
+- The existing `server/scripts/test-set-rolling-episode-bad-name.ts`
+  regression test still passes unchanged against the refactored script.
+- A throwaway verification script (written and deleted within this session,
+  not committed) confirmed against the real database: `createEpisode`'s
+  insert + idempotent-reuse + cleanup path; `promoteRollingEpisode`'s
+  not-found path; and both new tools' dispatcher wiring, including that
+  `start_next_episode` rejects a call missing `title`/`summary`/`content`
+  before ever touching the database.
+- Deliberately did **not** exercise the live promotion path
+  (`promoteRollingEpisode`/`startNextEpisode` with a real target) against
+  the shared production database, even briefly — flipping the real
+  `rolling` tag off Episode 34 (confirmed as the current rolling episode)
+  and back, even for milliseconds, risks a concurrent live conversation
+  write landing on a disposable test row and being lost when that row is
+  deleted. The promote transaction itself is unchanged logic, copy-pasted
+  from the already-proven script, not rewritten.
+- Dev server restarted cleanly, now loading 51 tools including the 2 new
+  episode-lifecycle tools; the startup rolling-restore check confirmed
+  Episode 34 was still correctly the rolling episode after the restart.
+
+### Next step
+
+The equivalent production/published runtime refresh — so Alden's live tool
+declarations pick up the 2 new tools — is still pending the next publish
+(same caveat as the Sep 23 entry below). A CI self-check for
+`createEpisode`'s reuse-not-duplicate guard was identified as a gap and
+proposed as a follow-up task rather than bundled into this session, matching
+how this project tracks that category of test elsewhere.
+
+---
+
 ## From Agent — Wed, Sep 23, 2026 (Alden gets a bounded code-search fallback and his own coordination tools)
 
 ### Status
