@@ -154,3 +154,4 @@
 - [Duplicate detector fixture gaps](duplicate-detector-fixture-gaps.md) — one guard's self-check only proves itself; grep for sibling detectors sharing the same rule before closing the bug class
 - [Replit sandbox vs CI ambient environment gaps](ci-sandbox-parity-gaps.md) — ambient tools/secrets (rg, SESSION_SECRET) exist on Replit's sandbox but not CI; reliance on them fails only in CI
 - [JS/TS/Drizzle runtime gotchas](js-ts-drizzle-runtime-gotchas.md) — 6 sharp edges: esbuild isMain bundle collapse, ESM await-in-callback, Drizzle sql-tag dynamic-import + array binding, SQL CASE param/column mixing, lazy-regex multiline $ -- see topic file
+- [Coordination token secret propagation scope](coordination-token-secret-scope.md) — trace real runtime consumers before syncing a new COORDINATION_*_TOKEN to GitHub/CI; HTTP tests usually fabricate their own value.
