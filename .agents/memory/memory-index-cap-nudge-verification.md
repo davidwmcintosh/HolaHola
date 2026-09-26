@@ -81,3 +81,12 @@ content despite thematic adjacency).
 **How to apply:** don't re-attempt merging the "rejected" list above without new information —
 they were read in full and judged genuinely distinct, not skipped for lack of time.
 
+
+## A stale-looking local file can mean "another workspace already fixed it," not "nothing changed"
+
+`.agents/memory/*.md` files are a per-workspace generated projection of the shared DB (see this file's own preamble). A different hat's CLI write — including a `remove-entry`/`remove-block` — updates the DB immediately and regenerates files *in that hat's own workspace*, but does nothing to any other checkout's on-disk files until that checkout runs its own `regenerate --all` (or makes its own next write, which only regenerates the topic(s) it touched).
+
+**Why this matters:** re-measuring `wc -l MEMORY.md` in your own workspace and getting the same number you saw before is not proof nothing changed — it can mean another hat already fixed the exact thing you were about to fix, in parallel, and your local file simply hasn't caught up. Proceeding to independently re-do that work risks a redundant or conflicting write on top of a change that already landed. `git status --short .agents/memory/` reading clean while you know of a very recent DB write you didn't make is the tell: your local projection is behind, not that the write didn't happen.
+
+**How to apply:** if you suspect concurrent activity on this shared file (recent timestamps on entries/blocks you didn't touch, a task list showing another actor active), query the DB directly for the entries/blocks in question before planning an edit, and run `npx tsx server/scripts/agent-memory-cli.ts regenerate --all` to sync your local files to current DB truth before deciding what, if anything, still needs doing.
+
