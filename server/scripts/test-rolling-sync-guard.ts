@@ -22,7 +22,20 @@ import { join } from 'path';
 
 const DOCS_DIR  = join(process.cwd(), 'docs');
 // Filename must match EPISODE_RE (/^episode-(\d+)\.md$/) so episodeTitleFromFilename
-// returns the correct title ("Episode 99") used in the DB lookup.
+// returns the correct title ("Episode 99") used in the DB lookup. This has to be a real
+// docs/ path rather than a temp dir because syncEpisodeFile() always reads/writes
+// DOCS_DIR, a hardcoded module constant in agent-session-autosave.ts with no per-test
+// override seam.
+//
+// "docs/episode-99.md" is listed verbatim in .gitignore AND deliberately untracked from
+// the git index (`git rm --cached`) — not merely gitignored while still tracked, which
+// has no effect on a path git already knows about. That combination is what makes this
+// fixture safe: if a failure path below ever calls process.exit() before reaching its
+// wrapping try/finally and skips cleanup() (see cleanup() just below), the leftover file
+// is invisible to `git status` instead of being swept into an unrelated commit's `git add
+// -A`. That exact false positive (a routine create/delete of this fixture being read as
+// permanent content loss by detect-episode-dialogue-loss.ts) happened at least twice.
+// Never `git add -f` or otherwise force-track this path back in.
 const TEST_FILE  = 'episode-99.md';
 const TEST_PATH  = join(DOCS_DIR, TEST_FILE);
 const TEST_ID    = '99000000-0000-4000-8000-000000000099';
