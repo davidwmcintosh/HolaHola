@@ -199,3 +199,38 @@ modes in this file rather than debugging the embedding backfill code itself. Do 
 row under an unrelated task without the user's consent; it lives in the same shared dev/prod
 Neon database as real content.
 
+
+An 8th failure mode: `test-set-rolling-episode-selfcheck-hang.ts --self-check` flakiness (Sep 27 2026)
+
+`run-validation-suite.sh`'s "Application test suite" step can fail at
+`npx tsx server/scripts/test-set-rolling-episode-selfcheck-hang.ts --self-check` — a meta-self-check
+that mutates a sandboxed copy of `set-rolling-episode.ts` (removing its `process.exit(0)` calls) and
+asserts the hang-guard would catch the resulting regression. The specific assertion that fails is
+"the hang is silent -- mutated copy still printed success before it hung", which checks whether
+`"All checks passed"` or `"SKIP (2/2): No rolling episode in DB"` appear in the mutated copy's
+stdout, even on a run where a sibling assertion in the same self-check correctly detects the
+mutated copy's non-zero exit as a regression.
+
+Confirmed pre-existing and unrelated to task 1616's diff (CI-wiring/shared-spec files only, zero
+overlap with `set-rolling-episode.ts` or this test file) via `git worktree add --detach <path>
+a961180` (the commit immediately before task 1616's change): the identical self-check fails there
+too, reproducibly. Exact pass/fail counts and timings differed slightly between the two runs (2
+passed/2 failed at the parent commit with the control run at ~890ms/status 1, vs 3 passed/1 failed
+at task 1616's HEAD with the control run at ~1288ms/status 0) -- the control run's own status code
+is not stable across runs, which points to timing/subprocess-lifecycle sensitivity in the
+self-check's own design rather than a real defect in `set-rolling-episode.ts` itself.
+
+**Why:** this is a meta-test (a self-check that verifies another test's own regression-catching
+power by mutating a sandboxed copy of the script under test) layered on subprocess timing; it joins
+`test-set-rolling-episode-selfcheck-hang.ts` (no `--self-check` flag) and the other rolling-episode
+CI scripts as tests that spawn and time child processes, a category already prone to
+environment-sensitive flakiness elsewhere in this repo (see `replit-sandbox-process-quirks.md`).
+
+**How to apply:** if `run-validation-suite.sh`'s "Application test suite" step fails specifically at
+`test-set-rolling-episode-selfcheck-hang.ts --self-check` citing "the hang is silent" or a
+differing pass/fail count between runs, treat it the same as the other pre-existing failure modes
+in this file: grep your diff for any overlap with `set-rolling-episode.ts` or this test file, and if
+none exists, a quick parent-commit or standalone re-run will likely confirm pre-existing status
+without needing a full worktree. The underlying self-check flakiness itself was not root-caused or
+fixed here -- left for a future task, since fixing it was out of scope for the task that found it.
+

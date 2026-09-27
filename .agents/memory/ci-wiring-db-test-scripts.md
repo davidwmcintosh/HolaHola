@@ -129,3 +129,35 @@ test file as lacking CI coverage, grep `package.json`'s *entire* `scripts` block
 the file name (not just the `test`/`test:ci:*` entries), and trace any subsystem
 `test:*` script it turns up back to `.github/workflows/ci.yml` to confirm reachability.
 
+
+## A fifth pattern: migrating a gate-only DB test to dual CI+gate coverage
+
+When a DB-backed test file already has the dedicated-env-var pattern (its own
+`disposableTarget()`-style helper gated on `<PREFIX>_REQUIRE_DATABASE_TESTS=1` /
+`<PREFIX>_TEST_DATABASE_URL` / `<PREFIX>_TEST_DATABASE_DISPOSABLE=1`) and is only
+reachable through `scripts/neon-branch.ts`'s migration-gate allowlist, the proven
+way to also give it real GitHub Actions coverage is: check
+`getVerifiedCiDatabaseUrl()` first inside that same helper, returning its result
+immediately if truthy, and falling through to the existing dedicated-var checks
+only when it's undefined. Then splice the file into
+`scripts/run-ci-test-steps.mjs`'s command list as normal. This gives the file two
+independent real-database code paths -- GitHub Actions' job-local
+`CI_DATABASE_URL` via the splice list, and the Neon-branch gate's dedicated var
+via `cmdGate()` -- without needing two copies of the test file or two separate
+helper functions. `server/services/release-cutover-attestation-service.test.ts`
+is the first file to establish this pattern; confirmed as a working template on
+`server/scripts/test-shared-spec-live-instruction-document-postgres.test.ts`
+(2026-09-27) by running it directly against a real disposable local Postgres 16
+with `CI=true`/`CI_DATABASE_URL`/`NEON_SHARED_DATABASE_URL` all set to the same
+loopback URL: every test -- including the drift-regression tests -- engaged the
+real database and passed, proving the `getVerifiedCiDatabaseUrl()`-first branch
+is genuinely live, not just present in source.
+
+Once the splice covers a file this way, remove `cmdGate()`'s own standalone
+`runCommand()` call for that file if it had one -- `branchEnv` already deletes
+`CI` before running `npm run test:ci:unit`, so leaving the standalone call in
+place would silently run the same file against the same branch twice. Keep the
+file's dedicated-var `branchEnv` entries, though -- the dedicated-var fallback
+path still needs them for the gate's own coverage once `CI` is gone from the
+child env.
+

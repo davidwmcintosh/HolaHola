@@ -70,7 +70,6 @@
 - [Legacy CI encodes old contracts](legacy-ci-contract-flip.md) — when a data-flow direction flips (Markdown→DB became DB-canonical), old CI passes assert the outdated contract; rewrite assertions to the new invariant, never weaken the guard.
 - [Rolling replica cache coherence](rolling-replica-cache-coherence.md) — a warm DB ID without rolling status must fail closed; cache state can never reverse DB→Markdown authority.
 - [Raw-window evidence](raw-window-evidence.md) — CLI attachments need the DB-first path; keep evidence separate from attributed dialogue; origin data stays even when unclassified.
-- [Test OIDC override recovery](test-oidc-override-recovery.md) — browser-test mock OIDC can persist into dev; restart the app workflow before manual sign-in checks.
 - [Source bridge operations](source-bridge-ops.md) — grouped validation checks preserve a dedicated workflow slot; supervisor heartbeat distinguishes a live retry from a dead child.
 - [GitHub Actions/App auth pitfalls](github-actions-auth-pitfalls.md) — 9 sharp edges across credential migration, branch protection, App permissions, Actions secrets API, CI aggregation, and token handling — see topic file for each.
 - [Owner-managed OpenAI credential](owner-managed-openai.md) — use USER_OPENAI_API_KEY directly; never add Replit proxy or legacy-key fallbacks.
@@ -105,7 +104,6 @@
 - [Coordinator V2 status](coordinator-v2-status.md) — Task Ownership tab authorizes legacy Gate3, not V2; host enrollment, digest-circularity, and task-artifact bugs are fixed, policy authoring remains.
 - [Verification suite parallel fixture race](verification-suite-parallel-fixture-race.md) — validation-suite.sh + consolidated-ci.sh can race on shared docs/ fixtures if run concurrently.
 - [Coordination V2 standalone-CLI testing](coordination-v2-standalone-cli-testing.md) — strip NEON_SHARED_DATABASE_URL/CI_DATABASE_URL/CI to prove no live-DB import; canonicalization treats an absent key differently from an empty object.
-- [process.exit() bypasses finally](process-exit-bypasses-finally.md) — a test's process.exit(1) inside try skips its own fixture cleanup, silently poisoning the next run's fixture state.
 - [Antigravity MCP integration surface](antigravity-mcp-integration.md) — bearer-token-only remote MCP (no OAuth); needs a real protocol adapter, not a raw REST pointer; verify antigravity/coordinator-v2 status via code not doc-count.
 - [Wiring new DB-backed tests into CI](ci-wiring-db-test-scripts.md) — use run-ci-test-steps.mjs's splice list, not test-all-consolidated-ci.sh; neon-branch.ts is a separate migration-gate allowlist.
 - [Coordination V2 cross-host verification lessons](coordination-v2-cross-host-verification.md) — 10 cross-host verification gotchas (canonical bytes, idempotency, projection races, provenance vs authority, and more) — see topic file.
@@ -115,11 +113,8 @@
 - [tsx path alias resolution depends on spawn cwd](tsx-path-alias-resolution-cwd.md) — a spawned `npx tsx` driver with cwd outside the checkout fails to resolve `@shared/*`; keep cwd at repo root, pass overrides via env instead.
 - [Gate 3 coding runtime — proven live, verification claim corrected](gate3-coding-runtime-proof.md) — real DB rows but co-provisioned credential, not the real agent; Goodhart's law on a separation-of-duties check — confirmed false 2026-09-21.
 - [Isolation-scope diff baseline](isolation-scope-diff-baseline.md) — repo has legitimate background-worker doc churn; scope checks need a start-of-run baseline diff, not a clean-tree assumption.
-- [Node test runner nested-subtest reentrancy](node-test-runner-nested-context-reentrancy.md) — calling the outer context.test() from inside one of its own pending subtests looks like a DB hang but isn't; use that callback's own context param.
 - [Idempotency key scope granularity](idempotency-key-scope-granularity.md) — dedupe scope is (operation, actor, key) only; a loop reusing one literal key across distinct requests collides on the second call
 - [Agent-memory round-trip isolation](agent-memory-round-trip-isolation.md) — a global snapshot-diff test must run alone; per-file scratch dirs don't stop a shared-DB race.
-- [Mutation-guard sandbox isolation](mutation-guard-sandbox-isolation.md) — CI scripts that flip real source to prove a test catches a regression must mutate a private copy, never the shared file.
-- [Scope-aware AST variable resolution](scope-aware-ast-variable-resolution.md) — static-analysis scripts must walk real lexical scope, not whole-file name search, or same-named vars in other scopes silently mis-resolve
 - [Coordination verifier auth is profile-free by design](coordination-verifier-profile-free-auth.md) — Standing verifiers (luca-replit/luca-claude-code) authenticate off the broker credential alone; CodingRuntimeProfile is executor-only and must never gate verifier routes.
 - [tsc --noEmit never type-checks *.test.ts fixtures](tsc-excludes-test-files.md) — tsconfig excludes **/*.test.ts; a clean typecheck proves nothing about test fixtures -- a missing required field only surfaces by actually running that test.
 - [Fail-closed trust lists go stale across concurrent tasks](trust-list-extension-on-rebase.md) — an exact-name trust-list guard fails closed on a rebased-in equally-safe helper under a new name; extend it only after verifying.

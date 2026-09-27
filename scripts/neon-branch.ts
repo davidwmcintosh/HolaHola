@@ -620,16 +620,17 @@ async function cmdGate(flags: Record<string, string | boolean>) {
     }
   }
 
-  if (!failureReason) {
-    console.log('[gate] Running shared-spec live-instruction-document PostgreSQL integration tests against the branch...');
-    const sharedSpecLiveInstructionDocumentTests = await runCommand(
-      'npx tsx --test server/scripts/test-shared-spec-live-instruction-document-postgres.test.ts',
-      branchEnv,
-    );
-    if (sharedSpecLiveInstructionDocumentTests.code !== 0) {
-      failureReason = `shared-spec live-instruction-document PostgreSQL tests exited ${sharedSpecLiveInstructionDocumentTests.code}`;
-    }
-  }
+  // No standalone runCommand() step for the shared-spec live-instruction-
+  // document PostgreSQL tests: that file's disposableTarget() now checks
+  // getVerifiedCiDatabaseUrl() first (see its own header comment), so it is
+  // already exercised above by the `npm run test:ci:unit` loop -- via the
+  // SHARED_SPEC_TEST_DATABASE_URL/_DISPOSABLE/_REQUIRE_DATABASE_TESTS vars
+  // still set in branchEnv above, which its disposableTarget() falls
+  // through to once CI is deleted from branchEnv. A separate standalone
+  // call here would just run the same file against the same branch twice.
+  // Mirrors server/services/release-cutover-attestation-service.test.ts,
+  // which has no standalone runCommand() call here either despite its own
+  // RELEASE_CUTOVER_ATTESTATION_* branchEnv vars being retained above.
 
   if (!flags['keep-on-failure'] || !failureReason) {
     console.log(`[gate] Deleting branch "${branchName}"...`);

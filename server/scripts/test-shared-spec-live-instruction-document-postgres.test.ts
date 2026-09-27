@@ -33,11 +33,22 @@ import { SharedSpecCore } from "../services/shared-spec-core";
 import { PostgresSharedSpecRepository } from "../services/shared-spec-postgres-repository";
 import { GitWorkingTreeLiveSyncProvider } from "../services/shared-spec-live-sync";
 import { createSharedSpecRouter } from "../routes/shared-spec-routes";
+import { getVerifiedCiDatabaseUrl } from "../ci-database";
 import { type Router } from "express";
 
 const execFile = promisify(callbackExecFile);
 
+// Checked first so this file gets real database coverage two independent
+// ways: the ordinary consolidated CI cadence (GitHub Actions' job-local
+// CI_DATABASE_URL, verified by getVerifiedCiDatabaseUrl -- reachable once
+// this file is spliced into scripts/run-ci-test-steps.mjs, no schema
+// migration required) and scripts/neon-branch.ts's migration-gate branch
+// (which deletes CI from its child env and falls through to the
+// SHARED_SPEC_TEST_DATABASE_URL branch below). Mirrors the identical
+// dual-check in server/services/release-cutover-attestation-service.test.ts.
 function disposableTarget(): string | undefined {
+  const ci = getVerifiedCiDatabaseUrl();
+  if (ci) return ci;
   const url = process.env.SHARED_SPEC_TEST_DATABASE_URL;
   if (!url) {
     if (process.env.SHARED_SPEC_REQUIRE_DATABASE_TESTS === "1") {

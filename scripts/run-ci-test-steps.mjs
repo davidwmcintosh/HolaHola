@@ -132,6 +132,17 @@ commands.splice(safetyInsertion, 0,
   'npx tsx server/scripts/test-agent-skills-symlink.ts',
   'npx tsx server/scripts/test-agent-skills-symlink.ts --self-check',
 
+  // Shared-spec live-instruction-document PostgreSQL integration tests,
+  // including the drift-regression tests proving approve/resync refuse to
+  // overwrite a live-instruction document once its git file has drifted out
+  // of shared-spec's recorded history. Previously reachable only through
+  // scripts/neon-branch.ts's migration-gate branch -- meaning this coverage
+  // ran incidentally, whenever a migration happened to be tested, rather
+  // than on every change. Now also reachable here via the file's own
+  // getVerifiedCiDatabaseUrl-first disposableTarget() check, no schema
+  // migration required.
+  'npx tsx --test server/scripts/test-shared-spec-live-instruction-document-postgres.test.ts',
+
   // Coordinator V2 lifecycle diagnostics, cleanup, fault fallback, evidence,
   // and neighboring first-host-bootstrap/contract/reauthorization suites.
   'npx tsx --test server/scripts/test-coordination-v2-first-host-bootstrap.test.ts',
