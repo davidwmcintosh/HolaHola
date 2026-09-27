@@ -79,12 +79,20 @@ const LIVE_SYNC_RELATIVE = "server/services/shared-spec-live-sync.ts";
 const UNIT_TEST_RELATIVE = "server/services/shared-spec-live-sync.test.ts";
 const E2E_TEST_RELATIVE = "server/scripts/test-shared-spec-live-instruction-document-postgres.test.ts";
 
-/** The exact guard condition in syncExclusive(). Must appear exactly once. */
-const GUARD_CONDITION =
-  "existing !== undefined && !target.knownRevisionContentHashes.includes(hashSharedSpecMarkdown(existing))";
+/**
+ * The exact guard condition in syncExclusive(). Must appear exactly once.
+ *
+ * Task 1617 extracted the inline `target.knownRevisionContentHashes.includes(hashSharedSpecMarkdown(existing))`
+ * comparison into a shared `matchesKnownRevision()` helper (also reused by
+ * the proactive live-instruction-document-drift-guard.ts), so the call site
+ * now reads `matchesKnownRevision(existing, target.knownRevisionContentHashes)`
+ * instead of the inline expression. Update this sentinel again if the call
+ * site's exact text ever moves.
+ */
+const GUARD_CONDITION = "existing !== undefined && !matchesKnownRevision(existing, target.knownRevisionContentHashes)";
 
-const MUTATION_B_REPLACEMENT =
-  "existing !== undefined && !([] as readonly string[]).includes(hashSharedSpecMarkdown(existing))";
+/** Scenario B: simulates knownRevisionContentHashes being dropped/hardcoded empty on its way to the comparison. */
+const MUTATION_B_REPLACEMENT = "existing !== undefined && !matchesKnownRevision(existing, [])";
 
 const SELF_CHECK = process.argv.includes("--self-check");
 
@@ -275,7 +283,7 @@ function runSelfCheck(): boolean {
   // like. Both scenarios must refuse to apply against it.
   const staleSource = real.replace(
     GUARD_CONDITION,
-    "existing !== undefined && !target.knownRevisionContentHashesRENAMED.includes(hashSharedSpecMarkdown(existing))",
+    "existing !== undefined && !matchesKnownRevisionRENAMED(existing, target.knownRevisionContentHashes)",
   );
   ok = assertOk(staleSource !== real, "constructed a stale-sentinel fixture by renaming the guard condition") && ok;
   ok =
@@ -303,7 +311,7 @@ function runSelfCheck(): boolean {
   const mutatedB = applyMutation(real, SCENARIO_B.replacement);
   ok =
     assertOk(
-      mutatedB !== null && mutatedB !== real && mutatedB.includes("([] as readonly string[])"),
+      mutatedB !== null && mutatedB !== real && mutatedB.includes("matchesKnownRevision(existing, [])"),
       "Scenario B mutation actually changes the real source's comparison to an always-empty array",
     ) && ok;
 

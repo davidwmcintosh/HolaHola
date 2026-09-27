@@ -56,6 +56,19 @@ const isSafeRelativeGitPath = (gitPath: string): boolean =>
   gitPath.length > 0 && !gitPath.startsWith("/") && !gitPath.includes("\0")
   && !gitPath.split("/").some(segment => segment === "" || segment === "." || segment === "..");
 
+/**
+ * True when `content`'s hash matches SOME revision shared-spec has ever
+ * recorded for a document -- not necessarily its current one. Extracted so
+ * the reactive check below (run only when someone actually attempts an
+ * approve/resync) and the proactive drift guard in
+ * live-instruction-document-drift-guard.ts (run periodically/in CI, before
+ * anyone hits a blocked review) can never silently define "drift"
+ * differently from each other.
+ */
+export function matchesKnownRevision(content: string, knownRevisionContentHashes: readonly string[]): boolean {
+  return knownRevisionContentHashes.includes(hashSharedSpecMarkdown(content));
+}
+
 export interface GitWorkingTreeLiveSyncOptions {
   /** Defaults to process.cwd(), matching source-control-service.ts's convention -- correct as long as the server's cwd is the repo root (true under scripts/start-application.sh). */
   readonly rootDir?: string;
@@ -115,7 +128,7 @@ export class GitWorkingTreeLiveSyncProvider implements LiveInstructionDocumentSy
       if (error?.code === "ENOENT") return undefined;
       throw error;
     });
-    if (existing !== undefined && !target.knownRevisionContentHashes.includes(hashSharedSpecMarkdown(existing))) {
+    if (existing !== undefined && !matchesKnownRevision(existing, target.knownRevisionContentHashes)) {
       // The working tree is clean (no uncommitted change, checked above) yet
       // its committed content matches none of this document's own recorded
       // revisions. That can only mean an ordinary git commit landed on this

@@ -153,6 +153,16 @@ run_check "Agent-memory drift guard self-check" npx tsx server/scripts/test-agen
 # trivially report zero findings there and add nothing but runtime. Keep
 # it out of run-ci-test-steps.mjs.
 run_check "Agent-memory drift guard (live, working-tree scoped)" npx tsx server/scripts/test-agent-memory-drift-guard.ts
+run_check "Live-instruction-document drift guard self-check" npx tsx server/scripts/check-live-instruction-document-drift.ts --self-check
+# Replit-only: normal mode queries the real shared-spec database for every
+# liveInstructionDocument: true document and reads this checkout's real
+# git-tracked files for each. GitHub Actions' disposable, job-local database
+# is schema-only -- it never has docs/shared-agent-instructions.md or
+# docs/coordination-clients.md seeded (see seed-live-instruction-
+# documents.ts) -- so this could never observe a real drift there, only ever
+# report "no liveInstructionDocument: true documents are recorded yet" and
+# add nothing but runtime. Keep it out of run-ci-test-steps.mjs.
+run_check "Live-instruction-document drift guard (live)" npx tsx server/scripts/check-live-instruction-document-drift.ts
 run_check "GL reconnected client recovery" npx tsx server/scripts/test-gl-reconnected-client-recovery.ts
 run_check "GL game-session detector" bash -c 'npx tsx server/scripts/test-gl-game-session-detector.ts && npx tsx server/scripts/test-gl-game-session-detector.ts --self-check'
 run_check "Raw-window capture alignment" npx tsx server/scripts/test-raw-window-capture.ts --self-check

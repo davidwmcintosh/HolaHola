@@ -118,12 +118,23 @@ const HARNESS_PATH = 'scripts/run-ci-test-steps.mjs';
 //     report zero findings there. (Its --self-check variant IS reachable
 //     from CI -- see run-ci-test-steps.mjs -- since that mode is
 //     hermetic and git-free for the core comparison logic.)
+//   - check-live-instruction-document-drift.ts (plain/live mode, no flags)
+//     queries the real shared-spec database for every liveInstructionDocument:
+//     true document and reads this checkout's real git-tracked files.
+//     GitHub Actions' disposable, job-local database is schema-only and
+//     never has docs/shared-agent-instructions.md or
+//     docs/coordination-clients.md seeded (see seed-live-instruction-
+//     documents.ts), so it could never observe a real drift there. (Its
+//     --self-check variant IS reachable from CI -- wired into
+//     test:shared-spec:guards -- since that mode is hermetic and touches
+//     neither the database nor real git.)
 // Adding an entry here requires editing this file directly -- there is no
 // external config file or env var this allowlist reads from.
 const REPLIT_ONLY_ALLOWLIST = new Set<string>([
   'server/scripts/restore-episode-28-from-db.ts --self-check',
   'server/scripts/test-canonical-capture-health-route.ts',
   'server/scripts/test-agent-memory-drift-guard.ts',
+  'server/scripts/check-live-instruction-document-drift.ts',
 ]);
 
 // Matches a repo-relative script path (one or more "segment/" directory
