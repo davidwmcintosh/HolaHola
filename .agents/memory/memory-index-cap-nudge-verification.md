@@ -90,3 +90,11 @@ they were read in full and judged genuinely distinct, not skipped for lack of ti
 
 **How to apply:** if you suspect concurrent activity on this shared file (recent timestamps on entries/blocks you didn't touch, a task list showing another actor active), query the DB directly for the entries/blocks in question before planning an edit, and run `npx tsx server/scripts/agent-memory-cli.ts regenerate --all` to sync your local files to current DB truth before deciding what, if anything, still needs doing.
 
+
+## edit-entry/edit-block's "Stale version" message can mean "deleted", not "version changed"
+
+editEntry() and editBlock() in server/services/agent-memory-core.ts fail the same way (zero rows matched) whether the target row's version genuinely moved or the row was soft-deleted by a concurrent actor (deletedAt no longer null, version unchanged). The CLI's error text -- "Stale version: entry ... is now at version N (yours was based on an older version)" -- prints in both cases, so if N is exactly the --base-version you already passed, the message is actively misleading: nothing about "version" actually changed.
+
+**Why this matters:** confirmed directly on task 1615 (Sep 27 2026). A concurrent Replit Agent session (different task, same shared DB, self-reporting the same "luca-replit" actor string) deleted a handful of entries -- including one this session had just queried and was about to edit -- moments before the edit-entry call ran. The resulting message reported the exact version this session had already based its edit on, which looked like a CLI bug rather than a concurrent deletion, and took a direct deleted_at query to actually diagnose.
+
+**How to apply:** if edit-entry/edit-block reports "Stale version" but the printed version number matches what you passed, don't assume a CLI bug or a genuine version race -- query `select deleted_at from agent_memory_entries/agent_memory_topic_blocks where id = '<id>'` directly. If deleted_at is set, another hat already removed it; don't fight that removal without understanding why (it may be a considered cleanup, not an error) -- either let it stand, or create a fresh entry/block for any content still worth keeping, the way you would for any other confirmed-stale plan.

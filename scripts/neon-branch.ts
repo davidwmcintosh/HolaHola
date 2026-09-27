@@ -632,6 +632,21 @@ async function cmdGate(flags: Record<string, string | boolean>) {
   // which has no standalone runCommand() call here either despite its own
   // RELEASE_CUTOVER_ATTESTATION_* branchEnv vars being retained above.
 
+  if (!failureReason) {
+    // Gives the Postgres-backed half of the drift-guard mutation proof (Scenario
+    // A's end-to-end coverage; see the script's own header) a real database --
+    // without this, it can only ever run its in-process unit-test half and would
+    // silently skip the end-to-end proof on every gate run.
+    console.log('[gate] Running shared-spec live-instruction-document drift-guard mutation proof against the branch...');
+    const sharedSpecDriftGuardMutation = await runCommand(
+      'npx tsx server/scripts/test-shared-spec-live-sync-drift-guard-mutation.ts',
+      branchEnv,
+    );
+    if (sharedSpecDriftGuardMutation.code !== 0) {
+      failureReason = `shared-spec live-instruction-document drift-guard mutation proof exited ${sharedSpecDriftGuardMutation.code}`;
+    }
+  }
+
   if (!flags['keep-on-failure'] || !failureReason) {
     console.log(`[gate] Deleting branch "${branchName}"...`);
     await deleteBranch(branch.id, false).catch((err) =>
