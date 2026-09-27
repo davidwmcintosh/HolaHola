@@ -44,6 +44,122 @@ Canonical references:
 - [Stable diagnostics](coordination-v2-error-codes.md)
 - [Recovery](coordination-v2-recovery-runbook.md)
 
+## Antigravity: headless vs. interactive Coordinator V2 onboarding
+
+An intelligent host agent — Antigravity today, potentially another hat later —
+can drive the Coordinator V2 lifecycle two different ways. Both dispatch onto
+the exact same protocol methods; they differ only in whether the agent's own
+reasoning has to run *between* lifecycle steps, and that difference is also
+what makes one of them lower-risk.
+
+### Headless (unattended, lower-risk)
+
+The headless path is the same one-shot command the operator path above
+already uses. No new wrapper needs to be built for Antigravity:
+
+```powershell
+Invoke-HolaCoordinator -TaskRef <task reference>
+```
+
+or, directly:
+
+```bash
+npx tsx server/scripts/coordination-v2-cli.ts --task-ref <task reference> --format json
+```
+
+Either form runs the entire lifecycle — reserve/prepare/acknowledge, acquire
+lease, the poll → claim → execute → submit-result loop, and cleanup — inside
+one OS process's single call to `runCoordinationWindowsHost`
+(`server/scripts/coordination-windows-host.ts`), then exits with a bounded
+status/exit code. `Invoke-HolaCoordinator` (`scripts/hola-coordinator.ps1`) is
+already host/actor-generic: `Assert-ExecutionHost` only validates the enrolled
+Windows host's approved node/tsx/manifest/signature/git-HEAD before shelling
+out to that same command, then forwards safe stdout and a bounded exit code.
+None of it is Antigravity-specific, or specific to any other actor — whichever
+actor's DPAPI-protected credential is bootstrapped on that host is who the
+command acts as.
+
+To trigger this unattended from Antigravity's own headless mode, use `agy -p`
+(alias `--print`) or the equivalent SDK call as the *trigger*, not as a
+substitute for the command above:
+
+```powershell
+agy --print-timeout 120s --output-format json -p "Run exactly this command and report its stdout and exit code verbatim, taking no other action: Invoke-HolaCoordinator -TaskRef <task reference>"
+```
+
+Two things matter about that framing:
+
+- **Give it a fixed instruction, not an open-ended one.** A non-interactive
+  `agy -p`/`--print` run auto-approves every tool call the model decides to
+  make; there is currently no read-only/plan-mode equivalent for it. Prompting
+  it to "handle the coordination task" itself would let its own improvised
+  tool calls run unattended with no approval gate at all — a far larger write
+  surface than the lifecycle's own operation adapter, which is fixed to
+  `git_status`, `git_diff`, `run_test`, `read_file`, and `replace_once` against
+  one target file (`WindowsHostOperationAdapter` / `Gate3Executor` in
+  `server/scripts/coordination-runtime-antigravity.ts`). An instruction to run
+  exactly one named command keeps Antigravity's own auto-approved reasoning
+  out of the loop entirely; the bounded adapter is the only thing that ever
+  touches files.
+- **Read the invoked command's own stdout as the result, not `agy`'s free-text
+  response.** `--output-format json` wraps the model's answer in its own
+  envelope (`status`, `response`, `usage`, …) — the coordination outcome is
+  whatever JSON `Invoke-HolaCoordinator` itself printed, which the model is
+  only relaying. Verify against Antigravity's current CLI changelog that
+  `--print` output reaches a non-TTY consumer (piped or redirected) on the
+  installed build before relying on this in production; older builds have
+  shipped with that path silently returning empty stdout and exit `0`, which
+  is indistinguishable from a real empty success unless the response is also
+  checked for non-emptiness.
+
+### Interactive (`coordination-v2-interactive-cli.ts`)
+
+`server/scripts/coordination-v2-interactive-cli.ts` gives the agent's own
+reasoning a subcommand per lifecycle step — `start`, `poll`, `claim`, `renew`,
+`submit-result`, `cleanup`, `status` — so it can act between an interactive
+session's separate turns instead of inside one unattended process. Every
+subcommand dispatches onto the exact same `CoordinationWindowsHostDependencies`
+methods the headless path calls; it adds no new protocol authority, only local
+state persistence between the separate OS processes each subcommand runs as.
+
+That persistence is the concrete cost of the interactive shape. Because each
+step is its own process invocation, the lifecycle's bound state — including
+the live `sessionToken`, `cleanupSessionToken`, and `cleanupCredentialId` —
+has to survive between them. It is written after `start`/`poll`/`claim`/
+`renew`/`submit-result` to
+`.coordination-v2-interactive-session/<sha-256 of the task reference>.json`
+with owner-only (`0600`) permissions, and removed once `cleanup` is
+acknowledged (an unacknowledged cleanup rewrites the file with whatever state
+came back instead). Only non-secret fields (`sessionId`, `attemptId`,
+`leaseId`, `leaseEpoch`) ever reach stdout, from `status` or any other
+subcommand — the session file is the only place the real credentials exist
+outside server memory, and only for the window between the agent's own
+reasoning steps.
+
+### Choosing between them
+
+Headless needs no on-disk session state at all: the whole lifecycle runs
+inside one process's memory, and `coordination-windows-host.ts` makes no
+filesystem calls, so there is nothing to persist between steps that never
+become separate processes. That is the lower-risk default — use it whenever
+the work fits the operation adapter's fixed, narrow surface and needs no
+judgment call about whether to claim an offered operation or how to satisfy
+it.
+
+Reach for the interactive CLI only when the agent's own reasoning genuinely
+has to run between steps — deciding whether an offered operation is worth
+claiming, or doing work the fixed adapter can't express before
+`submit-result`. That need is exactly what forces credentials onto disk
+between processes; it is the deliberate cost of letting reasoning happen
+between lifecycle steps, not an oversight.
+
+Both paths currently require the Windows launcher's DPAPI-protected credential
+(`process.platform === 'win32'` in both CLIs' own entrypoints) and act as
+whichever actor is bootstrapped on that enrolled host. See
+`docs/coordination-new-actor-onboarding.md` for Antigravity's own broader
+onboarding status — a live Coordinator V2 provider adapter and a confirmed
+real-Windows launch are tracked separately from what this section documents.
+
 ## Direct coordination ledger clients
 
 The canonical coordination ledger is available to Alden, Daniela, and Luca
