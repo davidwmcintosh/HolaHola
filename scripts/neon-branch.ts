@@ -647,6 +647,22 @@ async function cmdGate(flags: Record<string, string | boolean>) {
     }
   }
 
+  if (!failureReason) {
+    // Same reasoning as the drift-guard mutation proof above, for the
+    // separate POST-COMMIT verification guard (Scenario B's end-to-end
+    // coverage; see the script's own header) -- without this, it can only
+    // ever run its in-process unit-test half and would silently skip the
+    // end-to-end proof on every gate run.
+    console.log('[gate] Running shared-spec live-instruction-document post-commit-guard mutation proof against the branch...');
+    const sharedSpecPostCommitGuardMutation = await runCommand(
+      'npx tsx server/scripts/test-shared-spec-live-sync-post-commit-guard-mutation.ts',
+      branchEnv,
+    );
+    if (sharedSpecPostCommitGuardMutation.code !== 0) {
+      failureReason = `shared-spec live-instruction-document post-commit-guard mutation proof exited ${sharedSpecPostCommitGuardMutation.code}`;
+    }
+  }
+
   if (!flags['keep-on-failure'] || !failureReason) {
     console.log(`[gate] Deleting branch "${branchName}"...`);
     await deleteBranch(branch.id, false).catch((err) =>

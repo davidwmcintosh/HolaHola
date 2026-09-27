@@ -161,3 +161,34 @@ file's dedicated-var `branchEnv` entries, though -- the dedicated-var fallback
 path still needs them for the gate's own coverage once `CI` is gone from the
 child env.
 
+
+## A sixth pattern: a mutation-guard wrapper script has its own separate e2e gate
+
+A mutation-guard wrapper script (e.g. `test-shared-spec-live-sync-drift-guard-mutation.ts`,
+`test-shared-spec-live-sync-post-commit-guard-mutation.ts`) that spawns a target
+`*.test.ts` file as a subprocess to prove a mutation breaks it does NOT inherit that
+target file's own database-gating logic. It has its own separate, textually-identical
+`disposableDatabaseUrl()`-style gate checking only the dedicated
+`<PREFIX>_TEST_DATABASE_URL`/`_DISPOSABLE` vars -- even after the target file itself
+is upgraded to the "fifth pattern" above (checking `getVerifiedCiDatabaseUrl()` first
+for dual CI+gate coverage), the wrapper script's own gate is a distinct code path that
+does not automatically pick up that upgrade.
+
+Confirmed concretely (2026-09-27): GitHub Actions' `test-guards` job sets
+`CI_DATABASE_URL`/`NEON_SHARED_DATABASE_URL` (satisfying `getVerifiedCiDatabaseUrl()`,
+so `test-shared-spec-live-instruction-document-postgres.test.ts` itself gets real DB
+coverage there) but never sets `SHARED_SPEC_TEST_DATABASE_URL`. So in ordinary GitHub
+Actions CI, both shared-spec mutation-guard wrapper scripts run their in-process
+unit-test half for real but silently skip their end-to-end Postgres half every time --
+only `scripts/neon-branch.ts`'s migration gate (which sets `SHARED_SPEC_TEST_DATABASE_URL`
+in `branchEnv` and has its own explicit `runCommand()` step per wrapper script) actually
+exercises that half.
+
+**How to apply:** when adding a new mutation-guard wrapper script whose target test file
+already has dual CI+gate coverage, do not assume the wrapper inherits it. Either give the
+wrapper's own gate the same `getVerifiedCiDatabaseUrl()`-first upgrade, or accept
+(and document in the wrapper's header comment, like both shared-spec wrapper scripts do)
+that its e2e half is Neon-gate-only -- and add an explicit `runCommand()` step for it in
+`scripts/neon-branch.ts`'s `cmdGate()` either way, or it never runs anywhere with a real
+database.
+
