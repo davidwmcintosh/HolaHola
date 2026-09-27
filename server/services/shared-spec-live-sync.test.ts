@@ -39,7 +39,7 @@ const target = (overrides: Partial<LiveInstructionSyncTarget> = {}): LiveInstruc
   return {
     documentId: "doc-1", title: "Test Doc", repository: "hola/hola",
     gitPath: "docs/superpowers/specs/live.md", markdown, contentHash: hashSharedSpecMarkdown(markdown),
-    revisionOrdinal: 1, ...overrides,
+    revisionOrdinal: 1, knownRevisionContentHashes: [hashSharedSpecMarkdown(markdown)], ...overrides,
   };
 };
 
@@ -107,13 +107,54 @@ test("reports staleness rather than false success when the caller's contentHash 
 test("two concurrent syncs to the same path are serialized, not interleaved", async () => {
   const repo = await makeRepo();
   const provider = new GitWorkingTreeLiveSyncProvider({ rootDir: repo });
+  // Both revisions belong to the same document's history, so a realistic caller
+  // (shared-spec-routes.ts) would supply both their hashes in every call --
+  // whichever one lands on disk first must not make the other look like an
+  // unrecorded, out-of-band edit.
+  const knownRevisionContentHashes = [hashSharedSpecMarkdown("# First\n"), hashSharedSpecMarkdown("# Second\n")];
   const [first, second] = await Promise.all([
-    provider.sync(target({ markdown: "# First\n" })),
-    provider.sync(target({ markdown: "# Second\n" })),
+    provider.sync(target({ markdown: "# First\n", knownRevisionContentHashes })),
+    provider.sync(target({ markdown: "# Second\n", knownRevisionContentHashes })),
   ]);
   assert.equal(first.state, "synced");
   assert.equal(second.state, "synced");
   assert.equal(await commitCount(repo), 3);
   const finalContent = await readFile(join(repo, "docs/superpowers/specs/live.md"), "utf8");
   assert.ok(finalContent === "# First\n" || finalContent === "# Second\n");
+});
+
+test("refuses to overwrite a path whose committed content is not a revision shared-spec has ever recorded for this document", async () => {
+  const repo = await makeRepo();
+  await mkdir(join(repo, "docs/superpowers/specs"), { recursive: true });
+  await writeFile(join(repo, "docs/superpowers/specs/live.md"), "# Out of band\n", "utf8");
+  await execFile("git", ["add", "docs/superpowers/specs/live.md"], { cwd: repo });
+  await execFile("git", ["commit", "-q", "-m", "ordinary edit, never went through shared-spec"], { cwd: repo });
+  const provider = new GitWorkingTreeLiveSyncProvider({ rootDir: repo });
+  const commitsBefore = await commitCount(repo);
+
+  const result = await provider.sync(target({ markdown: "# Approved rev 2\n" }));
+
+  assert.equal(result.state, "stale");
+  assert.match(result.state === "stale" ? result.reason : "", /does not match any revision shared-spec has recorded/);
+  assert.equal(await commitCount(repo), commitsBefore, "refusing must not create a commit");
+  assert.equal(await readFile(join(repo, "docs/superpowers/specs/live.md"), "utf8"), "# Out of band\n", "the out-of-band content must survive untouched");
+});
+
+test("allows syncing when the on-disk content matches an older revision this document already has on record", async () => {
+  const repo = await makeRepo();
+  const oldMarkdown = "# Revision one\n";
+  await mkdir(join(repo, "docs/superpowers/specs"), { recursive: true });
+  await writeFile(join(repo, "docs/superpowers/specs/live.md"), oldMarkdown, "utf8");
+  await execFile("git", ["add", "docs/superpowers/specs/live.md"], { cwd: repo });
+  await execFile("git", ["commit", "-q", "-m", "an older approved revision, or a manual revert to it"], { cwd: repo });
+  const provider = new GitWorkingTreeLiveSyncProvider({ rootDir: repo });
+
+  const newMarkdown = "# Revision two\n";
+  const result = await provider.sync(target({
+    markdown: newMarkdown,
+    knownRevisionContentHashes: [hashSharedSpecMarkdown(oldMarkdown), hashSharedSpecMarkdown(newMarkdown)],
+  }));
+
+  assert.equal(result.state, "synced");
+  assert.equal(await readFile(join(repo, "docs/superpowers/specs/live.md"), "utf8"), newMarkdown);
 });

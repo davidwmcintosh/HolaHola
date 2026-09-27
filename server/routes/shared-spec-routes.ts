@@ -73,6 +73,7 @@ export function createSharedSpecRouter({ core, authenticator, publications, noti
     const result = await liveSync.sync({
       documentId: document.id, title: document.title, repository: document.repository, gitPath: document.gitPath,
       markdown: revision.markdown, contentHash: revision.contentHash, revisionOrdinal,
+      knownRevisionContentHashes: revisions.map(item => item.contentHash),
     });
     if (result.state === "stale") console.error(`shared-spec live-sync: ${document.gitPath} is stale -- ${result.reason}`);
     return result;
@@ -212,6 +213,7 @@ export function createSharedSpecRouter({ core, authenticator, publications, noti
       const result = await liveSync.sync({
         documentId: document.id, title: document.title, repository: document.repository, gitPath: document.gitPath,
         markdown: approved.bytes.toString("utf8"), contentHash: approved.revision.contentHash, revisionOrdinal,
+        knownRevisionContentHashes: revisions.map(item => item.contentHash),
       });
       if (result.state === "stale") console.error(`shared-spec live-sync resync: ${document.gitPath} is stale -- ${result.reason}`);
       response.json({ document, revision: approved.revision, liveSync: result });

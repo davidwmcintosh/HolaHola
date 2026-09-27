@@ -173,3 +173,161 @@ test("approving a flagged live-instruction document, through the real route hand
     await pool.end();
   }
 });
+
+// Regression coverage for task 1612: docs/coordination-clients.md and
+// docs/shared-agent-instructions.md kept receiving ordinary git commits after
+// their Sep 21 2026 seeding, without ever going through markRevisionReady ->
+// claimReview -> approveReview. Nothing in the domain layer notices this --
+// approveReview() only checks that the *revision* it is deciding is still the
+// document's current one, never that the git working tree still matches the
+// revision the new one was based on. Before the drift check in
+// GitWorkingTreeLiveSyncProvider, finishing the review ceremony on a stale
+// base silently discarded every intervening ordinary commit with no conflict
+// and no warning. This test reproduces exactly that sequence end to end.
+test("approving a revision built on a stale base reports staleness instead of silently discarding ordinary git commits made in between", async (context) => {
+  const url = disposableTarget();
+  if (!url) {
+    context.skip("set SHARED_SPEC_TEST_DATABASE_URL and SHARED_SPEC_TEST_DATABASE_DISPOSABLE=1");
+    return;
+  }
+
+  const pool = new Pool({ connectionString: url });
+  try {
+    const db = drizzle(pool, { schema });
+    const core = new SharedSpecCore(new PostgresSharedSpecRepository(db));
+    const repoDir = await makeRepo();
+    const liveSync = new GitWorkingTreeLiveSyncProvider({ rootDir: repoDir });
+    const router = createSharedSpecRouter({ core, authenticator: { authenticate: async () => ({ actorId: "reviewer" }) }, liveSync });
+
+    const suffix = `stale-base-${Date.now()}-${Math.floor(Math.random() * 100000)}`;
+    await core.setReviewerPolicy({ actorId: "admin", capabilities: ["policy_admin"] }, {
+      actorId: "reviewer", capability: "reviewer", active: true, idempotencyKey: `reviewer-on-${suffix}`,
+    });
+
+    const gitPath = `docs/superpowers/specs/stale-base-test-${suffix}.md`;
+    const revision1Markdown = `# Stale Base Test ${suffix}\n\nRevision 1.\n`;
+    const created = await core.createDocument({ actorId: "author" }, {
+      title: "Stale Base Test", kind: "architecture", repository: "hola/hola", gitPath, markdown: revision1Markdown,
+      liveInstructionDocument: true, idempotencyKey: `create-${suffix}`,
+    });
+    const review1 = await core.markRevisionReady({ actorId: "author" }, {
+      documentId: created.document.id, revisionId: created.revision.id, idempotencyKey: `ready-1-${suffix}`,
+    });
+    await core.claimReview({ actorId: "reviewer" }, review1.id, `claim-1-${suffix}`);
+    const { response: response1, state: state1 } = fakeResponse();
+    await findHandler(router, "post", "/reviews/:reviewId/approve")(
+      fakeRequest({ reviewId: review1.id }, { idempotencyKey: `approve-1-${suffix}` }), response1,
+    );
+    assert.equal((state1.body as any).liveSync.state, "synced", JSON.stringify(state1.body));
+    assert.equal(await readFile(join(repoDir, gitPath), "utf8"), revision1Markdown);
+
+    // An ordinary commit lands on the same path, exactly as it has 15 times
+    // over for the real coordination-clients.md -- never through shared-spec.
+    const outOfBandMarkdown = `${revision1Markdown}\nAn ordinary edit that never went through shared-spec.\n`;
+    await writeFile(join(repoDir, gitPath), outOfBandMarkdown, "utf8");
+    await execFile("git", ["add", "--", gitPath], { cwd: repoDir });
+    await execFile("git", ["commit", "-q", "-m", "ordinary edit, bypassing shared-spec"], { cwd: repoDir });
+    const commitsAfterDrift = await commitCount(repoDir);
+
+    // A second revision is proposed and reviewed built on revision 1 -- its
+    // author has no way to know the working tree already moved past it.
+    const revision2Markdown = `# Stale Base Test ${suffix}\n\nRevision 2, unaware of the drift.\n`;
+    const revision2 = await core.appendRevision({ actorId: "author" }, {
+      documentId: created.document.id, baseRevisionId: created.revision.id, markdown: revision2Markdown, idempotencyKey: `append-2-${suffix}`,
+    });
+    const review2 = await core.markRevisionReady({ actorId: "author" }, {
+      documentId: created.document.id, revisionId: revision2.id, idempotencyKey: `ready-2-${suffix}`,
+    });
+    await core.claimReview({ actorId: "reviewer" }, review2.id, `claim-2-${suffix}`);
+    const { response: response2, state: state2 } = fakeResponse();
+    await findHandler(router, "post", "/reviews/:reviewId/approve")(
+      fakeRequest({ reviewId: review2.id }, { idempotencyKey: `approve-2-${suffix}` }), response2,
+    );
+
+    assert.equal(state2.statusCode, 200, JSON.stringify(state2.body));
+    // The shared-spec-level approval itself still succeeds -- the DB is not
+    // blocked by a filesystem problem, matching the documented error-handling
+    // contract for a stale working tree.
+    assert.equal((state2.body as any).state, "approved");
+    const { document: documentAfterApproval2 } = await core.showDocument(created.document.id);
+    assert.equal(documentAfterApproval2.currentRevisionId, revision2.id);
+    // But the working tree must not have been touched: no new commit, and the
+    // out-of-band content must survive byte-for-byte.
+    assert.equal((state2.body as any).liveSync.state, "stale", JSON.stringify(state2.body));
+    assert.match((state2.body as any).liveSync.reason, /does not match any revision shared-spec has recorded/);
+    assert.equal(await commitCount(repoDir), commitsAfterDrift, "a stale-base approval must create no commit");
+    assert.equal(
+      await readFile(join(repoDir, gitPath), "utf8"), outOfBandMarkdown,
+      "the ordinary, out-of-band edit must survive untouched instead of being silently overwritten by revision 2",
+    );
+  } finally {
+    await pool.end();
+  }
+});
+
+// /resync shares the exact same underlying GitWorkingTreeLiveSyncProvider.sync()
+// call as approve, so it inherits the identical danger: it force-writes
+// whatever shared-spec currently considers "the approved revision" over the
+// working tree with no check that the working tree hasn't moved on since.
+// Before the drift check, a resync call on a live-instruction document whose
+// path had received ordinary commits since its last approval -- true of both
+// real documents today -- would have silently erased them the moment anyone
+// ran it, with no dirty-tree warning, because the committed drift looks
+// identical to a clean checkout from resync's point of view.
+test("resync refuses to overwrite ordinary git commits made since the last approved revision", async (context) => {
+  const url = disposableTarget();
+  if (!url) {
+    context.skip("set SHARED_SPEC_TEST_DATABASE_URL and SHARED_SPEC_TEST_DATABASE_DISPOSABLE=1");
+    return;
+  }
+
+  const pool = new Pool({ connectionString: url });
+  try {
+    const db = drizzle(pool, { schema });
+    const core = new SharedSpecCore(new PostgresSharedSpecRepository(db));
+    const repoDir = await makeRepo();
+    const liveSync = new GitWorkingTreeLiveSyncProvider({ rootDir: repoDir });
+    const router = createSharedSpecRouter({ core, authenticator: { authenticate: async () => ({ actorId: "reviewer" }) }, liveSync });
+
+    const suffix = `resync-drift-${Date.now()}-${Math.floor(Math.random() * 100000)}`;
+    await core.setReviewerPolicy({ actorId: "admin", capabilities: ["policy_admin"] }, {
+      actorId: "reviewer", capability: "reviewer", active: true, idempotencyKey: `reviewer-on-${suffix}`,
+    });
+
+    const gitPath = `docs/superpowers/specs/resync-drift-test-${suffix}.md`;
+    const revision1Markdown = `# Resync Drift Test ${suffix}\n\nRevision 1.\n`;
+    const created = await core.createDocument({ actorId: "author" }, {
+      title: "Resync Drift Test", kind: "architecture", repository: "hola/hola", gitPath, markdown: revision1Markdown,
+      liveInstructionDocument: true, idempotencyKey: `create-${suffix}`,
+    });
+    const review1 = await core.markRevisionReady({ actorId: "author" }, {
+      documentId: created.document.id, revisionId: created.revision.id, idempotencyKey: `ready-1-${suffix}`,
+    });
+    await core.claimReview({ actorId: "reviewer" }, review1.id, `claim-1-${suffix}`);
+    const { response: approveResponse, state: approveState } = fakeResponse();
+    await findHandler(router, "post", "/reviews/:reviewId/approve")(
+      fakeRequest({ reviewId: review1.id }, { idempotencyKey: `approve-1-${suffix}` }), approveResponse,
+    );
+    assert.equal((approveState.body as any).liveSync.state, "synced", JSON.stringify(approveState.body));
+
+    const outOfBandMarkdown = `${revision1Markdown}\nAn ordinary edit made after approval, never through shared-spec.\n`;
+    await writeFile(join(repoDir, gitPath), outOfBandMarkdown, "utf8");
+    await execFile("git", ["add", "--", gitPath], { cwd: repoDir });
+    await execFile("git", ["commit", "-q", "-m", "ordinary edit after approval, bypassing shared-spec"], { cwd: repoDir });
+    const commitsAfterDrift = await commitCount(repoDir);
+
+    const { response: resyncResponse, state: resyncState } = fakeResponse();
+    await findHandler(router, "post", "/documents/:documentId/resync")(fakeRequest({ documentId: created.document.id }), resyncResponse);
+
+    assert.equal(resyncState.statusCode, 200, JSON.stringify(resyncState.body));
+    assert.equal((resyncState.body as any).liveSync.state, "stale", JSON.stringify(resyncState.body));
+    assert.match((resyncState.body as any).liveSync.reason, /does not match any revision shared-spec has recorded/);
+    assert.equal(await commitCount(repoDir), commitsAfterDrift, "a stale resync must create no commit");
+    assert.equal(
+      await readFile(join(repoDir, gitPath), "utf8"), outOfBandMarkdown,
+      "the ordinary, out-of-band edit must survive untouched instead of being silently overwritten by resync",
+    );
+  } finally {
+    await pool.end();
+  }
+});

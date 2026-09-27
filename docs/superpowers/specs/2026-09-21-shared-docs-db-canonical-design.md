@@ -282,6 +282,13 @@ already would for any other referenced file.
   to the approved revision rather than silently claiming success. A
   `resync` operation forces the working-tree file back to the current
   approved revision on demand.
+- **Out-of-band drift on a live-instruction document's path** (ordinary git
+  commits landed on `gitPath` without going through the review ceremony,
+  so the working tree no longer matches any revision shared-spec has
+  recorded): `approve` and `resync` both refuse and report staleness
+  instead of silently overwriting the drifted content — see the
+  "Live-instruction-document drift" addendum below for the full incident,
+  the guard's exact rule, and the recovery procedure.
 
 ## Testing
 
@@ -299,6 +306,11 @@ already would for any other referenced file.
   flagged `liveInstructionDocument: true` updates the tracked working-tree
   file and creates no PR; approving an ordinary (unflagged) document behaves
   exactly as today (PR, no direct working-tree write).
+- Live-instruction-document drift check: approve rev1, commit an out-of-band
+  git change to the same path outside shared-spec entirely, then approve
+  rev2 (built on rev1) — assert the sync reports `state: "stale"` and the
+  drifted content on disk is untouched; same assertion for `resync`. See the
+  "Live-instruction-document drift" addendum below.
 - All DB-writing tests run against a disposable Neon branch
   (`npm run db:branch`), never the shared dev/prod database, per this
   project's existing disposable-database testing convention. Wire new test
@@ -318,3 +330,86 @@ new agent can skip — to the concrete mechanism that satisfies it:
 | Reminder must be explicit and hard to miss | Fixed preamble at the top of the two guaranteed-read files (`shared-agent-instructions.md`, generated `MEMORY.md`) |
 | Reminder must reflect real, current coordination state, not generic caution | Every write prints concrete, live evidence — which other actors, how many, how recently — not static text alone |
 | The non-obvious required step (never hand-edit) must be stated where it will be read | Stated in the preamble itself and in `shared-agent-instructions.md`, the file every hat already reads first |
+
+## Live-instruction-document drift (addendum, 2026-09-27)
+
+Task 1612 found that the Day-One assumption in "Migration / seeding" step 4 —
+"the review ceremony first applies starting with the next real edit" — did
+not hold in practice for either live-instruction document. Recording what
+happened, what changed, and what is and isn't guaranteed going forward.
+
+**What happened.** Between the Sep 21 2026 seeding and Sep 27 2026, both
+`docs/shared-agent-instructions.md` and `docs/coordination-clients.md`
+continued to receive ordinary git commits — the same way any other file in
+this repo changes — without ever going through
+`shared-spec-cli.ts`'s `revision` / `ready` / `claim` / `approve` sequence.
+`coordination-clients.md` alone took 11 such commits between Sep 21 and Sep
+25. Because `approve` and `resync` only knew how to compare "the working-tree
+file" against "the revision being approved," and had no way to notice that
+the working tree had already moved past every revision shared-spec had ever
+recorded, shared-spec's own idea of each document's "current" (approved)
+revision fell arbitrarily far behind the real file. Nothing in the system
+detected this: the two files kept working normally for every hat reading
+them directly off disk, and the drift was only visible by directly querying
+`shared_spec_documents` / `shared_spec_revisions` and diffing against git.
+
+**Why this was dangerous.** Had anyone completed a legitimate
+revision→ready→claim→approve cycle on either document — proposing a real,
+independently-reviewed edit built on that stale approved base — approving it
+would have committed that revision's content directly over the current file
+(`GitWorkingTreeLiveSyncProvider`, per "Live-instruction-document direct
+sync" above), silently discarding every ordinary commit made since the Sep
+21 seed. No conflict, no warning: from shared-spec's point of view those
+intervening commits never happened.
+
+**Fix, part 1 — a standing safeguard.** `GitWorkingTreeLiveSyncProvider`
+(`server/services/shared-spec-live-sync.ts`) now takes a
+`knownRevisionContentHashes` list (every content hash shared-spec has ever
+recorded for the document, from `core.listRevisions()`) alongside the
+revision it's asked to sync. Before writing, it hashes whatever is currently
+on disk at `gitPath`; if that hash isn't a member of the known set (and the
+path isn't simply absent), it refuses with `{ state: "stale", reason: "..." }`
+instead of overwriting — the same result shape already used for a dirty
+working tree. Both call sites that can write a live-instruction document —
+`approve` and the `/resync` route handler, in
+`server/routes/shared-spec-routes.ts` — pass this list, so both are covered.
+This is a standing, permanent guard: it runs on every future approve/resync,
+not just once.
+
+**Fix, part 2 — reconciling the actual drift.** A standing safeguard alone
+would have left both documents permanently blocked: their recorded revisions
+would never again match the real file, so every future legitimate approve or
+resync would refuse forever. `server/scripts/reconcile-live-instruction-document-drift.ts`
+closes that gap using the same status-quo-capture bypass
+`seed-live-instruction-documents.ts` used on Day One — append a revision
+holding the file's actual current content, then write an already-`approved`
+review and flip the document to `approved` directly in one repository
+transaction, never through a general "auto-approve" CLI/HTTP capability. It
+is idempotent (a document whose current revision already matches its git
+file is left untouched) and refuses to touch a document mid-review
+(`ready_for_review` state). It was run against the real shared database on
+2026-09-27: both documents' current revisions now match their git files
+byte-for-byte, and both are in the `approved` state. **This is the recovery
+procedure** if the safeguard above ever reports drift again on either
+document: re-run this script (or a new one following the same pattern) to
+re-capture current reality as a fresh approved revision before retrying the
+review that was refused.
+
+**Decision — the ceremony is not a hard gate on these two files.** Given
+actual practice since Sep 21 has been plain git commits, not the
+review ceremony, this design's implicit assumption that the ceremony would
+be the normal way these files change is corrected here rather than left as a
+silent inconsistency: the shared-spec review ceremony for
+`shared-agent-instructions.md` and `coordination-clients.md` is available and
+is the right tool when someone wants a deliberate, standalone documentation
+change that specifically wants independent review — but it is not a
+mandatory gate on every edit. Most edits to these files land as an incidental part of unrelated
+application work (a task that changes coordination behavior and updates the
+reference doc in the same commit), and requiring a separate cross-hat review
+cycle for each of those would not match how this project's single-session
+task-agent workflow actually operates. What *is* now guaranteed, regardless
+of which path an edit takes, is invariant 3's spirit for these two files
+specifically: an edit proposed through shared-spec can never silently
+discard a plain git commit it didn't know about, because the safeguard above
+refuses instead. Plain git commits remain free to keep happening exactly as
+they have.

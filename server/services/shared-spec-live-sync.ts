@@ -25,6 +25,22 @@ export interface LiveInstructionSyncTarget {
   readonly contentHash: string;
   /** 1-based position of this revision in the document's history; used only for the commit message. */
   readonly revisionOrdinal: number;
+  /**
+   * Content hash of every revision shared-spec has ever recorded for this
+   * document, including the one now being synced (i.e. exactly
+   * `core.listRevisions(documentId).map(r => r.contentHash)`). Guards
+   * against the scenario a stale-approved-base review missed entirely:
+   * ordinary git commits can (and, in practice, routinely do) land on a
+   * live-instruction document's path without ever going through shared-spec
+   * -- ready/claim/approve only gates revisions that are proposed through
+   * it, never the file itself. If the working tree's current content isn't
+   * explainable by this document's own revision history, some out-of-band
+   * edit happened since shared-spec last touched this path, and overwriting
+   * it would silently discard that edit. See
+   * .agents/memory/... and the "Live-instruction-document drift" addendum
+   * in docs/superpowers/specs/2026-09-21-shared-docs-db-canonical-design.md.
+   */
+  readonly knownRevisionContentHashes: readonly string[];
 }
 
 export type LiveInstructionSyncResult =
@@ -95,6 +111,23 @@ export class GitWorkingTreeLiveSyncProvider implements LiveInstructionDocumentSy
     }
 
     const absolutePath = resolve(this.rootDir, target.gitPath);
+    const existing = await readFile(absolutePath, "utf8").catch(error => {
+      if (error?.code === "ENOENT") return undefined;
+      throw error;
+    });
+    if (existing !== undefined && !target.knownRevisionContentHashes.includes(hashSharedSpecMarkdown(existing))) {
+      // The working tree is clean (no uncommitted change, checked above) yet
+      // its committed content matches none of this document's own recorded
+      // revisions. That can only mean an ordinary git commit landed on this
+      // path outside the review ceremony -- shared-spec has no record of it
+      // at all, so proceeding would silently discard it with no conflict and
+      // no warning. Reconcile with server/scripts/reconcile-live-instruction-document-drift.ts
+      // (captures the current file as a new approved revision) before retrying.
+      return {
+        state: "stale",
+        reason: `${target.gitPath}'s current committed content does not match any revision shared-spec has recorded for this document -- ordinary edits appear to have landed on this path outside the review ceremony. Refusing to overwrite them; run reconcile-live-instruction-document-drift.ts to capture the current content as a new revision first.`,
+      };
+    }
     await mkdir(dirname(absolutePath), { recursive: true });
     await writeFile(absolutePath, target.markdown, "utf8");
 
