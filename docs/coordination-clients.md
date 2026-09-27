@@ -43,6 +43,26 @@ Canonical references:
 - [Provider adapters](coordination-v2-provider-adapters.md)
 - [Stable diagnostics](coordination-v2-error-codes.md)
 - [Recovery](coordination-v2-recovery-runbook.md)
+- [Interactive host CLI guide](coordination-v2-interactive-cli-guide.md)
+
+
+## Coordinator V2 interactive host path
+
+An intelligent host agent that must reason between lifecycle steps instead of
+running inside the unattended PowerShell loop — for example Antigravity —
+drives the same host lifecycle directly through one subcommand per process:
+
+```
+npx tsx server/scripts/coordination-v2-interactive-cli.ts <start|poll|claim|renew|submit-result|cleanup|status> --task-ref <task reference>
+```
+
+It calls the exact same `CoordinationWindowsHostDependencies` methods as the
+automated path above and adds no new authority — only local state between
+invocations and secret redaction on stdout. See the
+[interactive host CLI guide](coordination-v2-interactive-cli-guide.md) for the
+full start → poll → claim → submit-result → cleanup sequence, the JSON output
+contract, how to feed a result on stdin, and how to react to each
+`terminalState`.
 
 ## Antigravity: headless vs. interactive Coordinator V2 onboarding
 

@@ -172,3 +172,30 @@ Root cause: a `conversation_memories` row with `title='Episode 99'`, `arc_name='
 **Why:** the app's real auto-sync pathway and this test's synthetic fixture share the exact same disposable-looking title ("Episode 99") that `synthetic-fixture-id-collision.md` already warned about — the collision here isn't a race, it's a standing landmine: once any real auto-synced row exists under that title with a non-canonical id, the test is permanently broken for every future run/session until that specific row is removed, independent of any task's own diff.
 
 **How to apply:** if `test-rolling-sync-guard.ts` crashes (not just fails an assertion) with a `23505`/`idx_episode_title_arc_unique` conflict on `(HolaHola Episodes, Episode 99)`, query `conversation_memories` for that exact `(arc_name, title)` pair to confirm a non-canonical-id row is the cause (same shape as this note). The actual fix — deleting that specific verified-synthetic row, or making the test's insert also handle a same-title conflict rather than just same-id — was intentionally left for a future task: task 1610 was documentation-only, and direct writes to the shared Neon DB (dev+prod share one instance) are out of scope for a docs task. `skip_validation_reason` was used instead of a workaround.
+
+
+## A 7th failure mode: an orphaned synthetic CI-fixture row in `backfill-integrity`
+
+`test-backfill-embeddings-complete.ts` (the `backfill-integrity` group) can report exactly one
+row out of hundreds missing an embedding arm (e.g. "missing: Arm B") for a reason that has
+nothing to do with the real three-arm embedding backfill pipeline: a leftover disposable test
+row from some other CI script's fixture, still sitting in `conversation_memories` with a
+title that announces itself as synthetic (e.g. prefixed `[CI short]`), that never got a full
+embedding pass because it was created directly rather than through a normal content-creation
+path.
+
+**Why:** disposable-looking test fixtures across this suite are not always cleaned up
+reliably (see the sibling `episode-sync`/"Episode 99" leftover-row failure modes in this same
+file) — a failed or interrupted run can leave one behind, and the completeness check has no
+way to distinguish "one real row's embedding lagged" from "a stray test fixture nobody
+finished with."
+
+**How to apply:** if `backfill-integrity` fails on a small number of rows, query
+`conversation_memories` for the flagged id(s) and read the `title` before assuming a real
+embedding-pipeline regression. A title that is obviously synthetic/disposable (test-run
+naming conventions, timestamps embedded in the title, etc.) confirms a leftover fixture, not
+a real content-loss or pipeline bug — cite it the same way as the other pre-existing failure
+modes in this file rather than debugging the embedding backfill code itself. Do not delete the
+row under an unrelated task without the user's consent; it lives in the same shared dev/prod
+Neon database as real content.
+

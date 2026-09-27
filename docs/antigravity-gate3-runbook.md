@@ -32,11 +32,18 @@ Exit `0` requires `succeeded` plus acknowledged cleanup. Retry and recovery use
 the classifications `resume_transport`, `fresh_attempt_same_provider`,
 `fresh_attempt_next_provider`, `terminal_failure`, and `cleanup_repair`.
 
+When Antigravity itself needs to reason between lifecycle steps — rather than
+letting the single unattended `Invoke-HolaCoordinator` command run start to
+finish — it drives the same host lifecycle one subcommand at a time through
+`server/scripts/coordination-v2-interactive-cli.ts`. See the
+[interactive host CLI guide](coordination-v2-interactive-cli-guide.md).
+
 See:
 
 - [Coordinator V2 architecture](coordination-v2-architecture.md)
 - [Host protocol](coordination-v2-host-protocol.md)
 - [Recovery runbook](coordination-v2-recovery-runbook.md)
+- [Interactive host CLI guide](coordination-v2-interactive-cli-guide.md)
 
 ## Windows custody boundary
 

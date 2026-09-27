@@ -159,3 +159,4 @@
 - [Windows PowerShell/console quirks](windows-environment-quirks.md) — Three Windows-only gotchas: PowerShell pipes corrupt piped files, openssl is missing (pre-size RNGCryptoServiceProvider's byte array), and closing the console kills undetached child processes.
 - [Shared-spec live-instruction-document drift](shared-spec-live-instruction-doc-drift.md) — docs/coordination-clients.md is DB-governed; a raw git edit silently diverges until synced via appendRevision.
 - [Coordinator V2 live-session verification gating](coordination-v2-live-verification-gating.md) — live start/poll/claim needs win32 AND an active operator grant -- query both DB tables before assuming a sandbox test run can substitute
+- [DB-generated memory files still get real rebase conflicts](db-file-rebase-conflict-resolution.md) — MEMORY.md/topic files are DB projections; resolve rebase conflicts on them via agent-memory-cli regenerate, never hand-merged text.

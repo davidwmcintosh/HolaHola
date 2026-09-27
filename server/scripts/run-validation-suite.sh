@@ -116,7 +116,18 @@ run_check "Canonical capture worker readiness" npx tsx server/scripts/test-canon
 run_check "Live canonical capture health route" npx tsx server/scripts/test-canonical-capture-health-route.ts
 run_check "Chat capture episode mirror outbox" npx tsx server/scripts/test-chat-capture-episode-outbox.ts
 run_check "Episode lifecycle createEpisode() reuse-not-duplicate guard" npx tsx server/scripts/test-episode-lifecycle-create-dedup.ts
-run_check "Episode lifecycle promoteRollingEpisode() success-path guard" npx tsx server/scripts/test-episode-lifecycle-promote-success.ts
+# NOT run automatically here or from scripts/run-ci-test-steps.mjs: this test
+# briefly flips the shared DB's live 'rolling' tag to a disposable row. The
+# Team Room/chat hook's 60s rolling-name cache (server/services/team-room-episode-hook.ts)
+# means a real chat write can keep resolving to the disposable filename for up
+# to a minute after the flip, well past the test's own back-to-back promote/
+# restore window and its own tag-based restoration check -- so a real
+# conversation turn can land on the disposable row and be permanently deleted
+# with it even when the test reports full success. Run it manually and
+# deliberately (during a quiet period, watching for concurrent activity)
+# before changing promoteRollingEpisode() itself. See
+# .agents/memory/episode-lifecycle-service-guards.md.
+# run_check "Episode lifecycle promoteRollingEpisode() success-path guard" npx tsx server/scripts/test-episode-lifecycle-promote-success.ts
 run_check "set-rolling-episode bad-name exit-code guard" npx tsx server/scripts/test-set-rolling-episode-bad-name.ts
 run_check "set-rolling-episode self-check (not-found lookup + transaction rollback atomicity)" npx tsx server/scripts/set-rolling-episode.ts --self-check
 run_check "set-rolling-episode --self-check hang guard (fails fast instead of silently hanging on an open DB pool)" bash -c 'npx tsx server/scripts/test-set-rolling-episode-selfcheck-hang.ts && npx tsx server/scripts/test-set-rolling-episode-selfcheck-hang.ts --self-check'

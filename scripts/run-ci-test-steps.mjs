@@ -174,7 +174,19 @@ commands.splice(safetyInsertion, 0,
   'npx tsx server/scripts/test-canonical-capture-worker-readiness.ts',
   'npx tsx server/scripts/test-chat-capture-episode-outbox.ts',
   'npx tsx server/scripts/test-episode-lifecycle-create-dedup.ts',
-  'npx tsx server/scripts/test-episode-lifecycle-promote-success.ts',
+  // NOT run automatically here or from run-validation-suite.sh: this test
+  // briefly flips the shared DB's live 'rolling' tag to a disposable row. The
+  // Team Room/chat hook's 60s rolling-name cache
+  // (server/services/team-room-episode-hook.ts) means a real chat write can
+  // keep resolving to the disposable filename for up to a minute after the
+  // flip, well past the test's own back-to-back promote/restore window and
+  // its own tag-based restoration check -- so a real conversation turn can
+  // land on the disposable row and be permanently deleted with it even when
+  // the test reports full success. Run it manually and deliberately (during a
+  // quiet period, watching for concurrent activity) before changing
+  // promoteRollingEpisode() itself. See
+  // .agents/memory/episode-lifecycle-service-guards.md.
+  // 'npx tsx server/scripts/test-episode-lifecycle-promote-success.ts',
   'npx tsx server/scripts/test-set-rolling-episode-bad-name.ts',
   'npx tsx server/scripts/set-rolling-episode.ts --self-check',
   'npx tsx server/scripts/test-set-rolling-episode-selfcheck-hang.ts',
