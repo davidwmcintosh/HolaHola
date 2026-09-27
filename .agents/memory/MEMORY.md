@@ -156,4 +156,6 @@
 - [Episode-lifecycle service guards](episode-lifecycle-service-guards.md) — new episode-insertion call sites must mirror createEpisode's fire-and-forget indexing side effects; never flip the live 'rolling' tag against shared prod DB during testing.
 - [Hat onboarding sequencing](hat-onboarding-sequencing.md) — Antigravity onboarding must fully close before OpenAI's starts; decision + per-hat gap detail in docs/batch-doc-updates.md.
 - [Synthetic fixture ID collision](synthetic-fixture-id-collision.md) — a hardcoded "surely never real" fixture value (e.g. Episode 99) can collide with real content as the system grows -- not a race, a deterministic expiry
-- [Windows PowerShell/console quirks](windows-environment-quirks.md) — Consolidates 3 topics: SSH-transfer BOM corruption, openssl-free token generation, console child-process lifetime.
+- [Windows PowerShell/console quirks](windows-environment-quirks.md) — Three Windows-only gotchas: PowerShell pipes corrupt piped files, openssl is missing (pre-size RNGCryptoServiceProvider's byte array), and closing the console kills undetached child processes.
+- [Shared-spec live-instruction-document drift](shared-spec-live-instruction-doc-drift.md) — docs/coordination-clients.md is DB-governed; a raw git edit silently diverges until synced via appendRevision.
+- [Coordinator V2 live-session verification gating](coordination-v2-live-verification-gating.md) — live start/poll/claim needs win32 AND an active operator grant -- query both DB tables before assuming a sandbox test run can substitute

@@ -20,6 +20,39 @@ description: Two non-obvious constraints on server/services/episode-lifecycle-se
 **How to apply:** This generalizes beyond episodes to any "exactly one row/record is the live one" singleton pointer backed by a shared production DB with its own live writers. Verify such a swap's atomicity/rollback behavior with a forced-failure unit test and/or a disposable never-promoted fixture, not by actually flipping the real pointer during verification — even transiently, even with a planned restore.
 
 
+## Correction: the promote-success regression test is not a safe automatic exception
+
+`server/scripts/test-episode-lifecycle-promote-success.ts` was written to close a real gap —
+nothing else exercises `promoteRollingEpisode()`'s actual committed success path (target
+gains `rolling`+`rolling-protected`, previous row(s) demoted correctly) against a real
+database. It follows a careful recipe: promote a uniquely-titled disposable row, restore the
+original in the very next statement with nothing else inside that window, try/finally
+emergency restore, and independent ground-truth re-reads before ever deleting the disposable
+fixture. That recipe was previously judged here as "safe enough to run automatically and
+repeatedly" against the shared database. That judgment was wrong and has been reversed.
+
+**Why:** the recipe only protects the *tag pointer* — it proves the original row is tagged
+'rolling' again and the disposable row is not, before deleting the disposable row. It does
+not protect the disposable row's *content* from a real write landing on it during the flip.
+At least one real consumer of "the current rolling episode" does not perform a fresh per-write
+DB lookup: it caches the rolling episode name in process memory for a fixed TTL measured in
+tens of seconds. If that cache happens to refresh during the test's brief flip, real writes
+keep targeting the disposable row's filename for the rest of that TTL — long after the test's
+own tag-based restoration check has already passed and the disposable row has been deleted. A
+confirmed-successful test run and a silently lost real conversation turn are not mutually
+exclusive.
+
+**How to apply:** a "promote disposable, restore immediately, verify by re-reading" recipe is
+still the right shape for proving a singleton-tag swap's transaction logic — but it only
+closes the risk window its own statements span. Before treating any such test as safe for
+unattended, repeated execution against a shared production database, check every real
+consumer of the value being swapped for its own caching/TTL behavior, not just the row being
+flipped — a consumer whose cache outlives the flip turns a sub-second risk window into one as
+long as that cache's TTL. This test is now disabled from automatic validation/CI (see the
+run_check comment in run-validation-suite.sh and the matching entry in
+scripts/run-ci-test-steps.mjs) and is manual-only: run it deliberately, during a quiet period,
+when verifying changes to promoteRollingEpisode() itself.
+
 ## One sanctioned exception: the automated promote-success regression test
 
 `server/scripts/test-episode-lifecycle-promote-success.ts` is a deliberate, narrow
@@ -55,4 +88,3 @@ window with zero other work inside it, try/finally forced restore with a loud
 manual-recovery command on failure, independent post-hoc ground-truth verification on both
 the restored original AND the fixture itself, and deletion gated strictly behind that
 confirmation -- rather than re-deriving it or skipping the safety work under time pressure.
-

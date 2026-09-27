@@ -91,3 +91,26 @@ only that the fixture collided with an earlier row.
 host fingerprints, requests, releases, manifests, and successful child pairs
 distinct across cases. Assert the exact SQLSTATE only after those preempting
 constraints are isolated.
+
+## getSharedDb() silently targets Neon's WebSocket endpoint without CI_DATABASE_URL
+
+## getSharedDb() silently targets Neon's WebSocket endpoint without CI_DATABASE_URL
+
+Setting only `NEON_SHARED_DATABASE_URL` to point at a disposable local
+Postgres is not enough for a script that calls `getSharedDb()`
+(`server/db.ts`) — it still picks the Neon serverless WebSocket driver unless
+`CI=true` and `CI_DATABASE_URL` are also set to that same loopback URL (see
+`server/ci-database.ts`'s `getVerifiedCiDatabaseUrl`).
+
+**Why:** The failure doesn't look like a missing-env-var error. It surfaces
+as a WebSocket `ErrorEvent` wrapping `connect ECONNREFUSED 127.0.0.1:443` —
+`getSharedDb()` silently fell back to `NEON_SHARED_DATABASE_URL` alone and
+tried to speak Neon's WSS protocol to a plain local Postgres, rather than
+reporting that the CI override didn't apply.
+
+**How to apply:** Any one-off script under `server/scripts/` that imports
+`getSharedDb()` and needs to run against a disposable local Postgres must
+set all three of `CI=true`, `CI_DATABASE_URL`, and `NEON_SHARED_DATABASE_URL`
+(the latter two identical, loopback host) in the same invocation — not just
+`NEON_SHARED_DATABASE_URL`.
+

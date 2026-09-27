@@ -33,3 +33,12 @@ Related facts from the same investigation, evidence-checked Sep 18 2026:
 - **Remaining real step:** the Postgres task-metadata table only has rows for tasks explicitly published into it, via the existing `coordination-v2-publish-task-artifact.ts` CLI (unchanged) run from a workspace with the real `.local/tasks/task-<ref>.md` file and a clean, matching git tree. This is a real per-task, one-time, post-merge operator action, not something a code change can automate away — the artifact's authenticity is tied to an authorized workspace producing it under clean git provenance.
 
 **How to apply:** the digest field and task-metadata resolution are both safe to use in a real policy/run now. Calling the founder-session-gated HTTP routes to actually create/approve/grant the policy, and publishing the task artifact via the CLI, are the remaining real steps — the supporting infrastructure was already built, it just needed these two blocking bugs fixed and the correct payload values.
+
+## 3. Host completion vs. session completion are different states
+
+The host-transport lifecycle used by both `runCoordinationWindowsHost` and the interactive CLI (`server/scripts/coordination-v2-interactive-cli.ts`) can carry a task through claim -> execute -> submit-result, but `submit-result` only ever moves the *attempt* to `result_ready`. It never moves the *session* itself to `succeeded`. Reaching `succeeded` requires two separate session-level transitions in `coordination-session-state.ts` -- `begin_verification` then `accept_completion` -- and as of Sep 27 2026, nothing in the codebase calls either one; grepping for real callers (not just the type definitions in session-state/cleanup-service/session-routes) turns up none.
+
+**Why:** the host protocol is deliberately "thin ... not a state-machine authority" (docs/coordination-v2-architecture.md) -- verification/completion is meant to be server- or provider-side reconciliation, out of host scope by design. This is architecture, not a bug to silently patch from a host script.
+
+**How to apply:** never assume a host reaching `submit-result`, or a task going quiet after it, means the session concluded successfully. Check the session's actual `state`, or wait for an explicit terminal signal (a clean `terminalState`, or a `LEASE_SESSION_TERMINAL`-class error on the next host call). Before building anything that treats "result submitted" as "done," grep for real callers of `begin_verification`/`accept_completion` rather than trusting this note's age -- the wiring gap may have been closed since.
+

@@ -119,6 +119,7 @@ run_check "Episode lifecycle createEpisode() reuse-not-duplicate guard" npx tsx 
 run_check "Episode lifecycle promoteRollingEpisode() success-path guard" npx tsx server/scripts/test-episode-lifecycle-promote-success.ts
 run_check "set-rolling-episode bad-name exit-code guard" npx tsx server/scripts/test-set-rolling-episode-bad-name.ts
 run_check "set-rolling-episode self-check (not-found lookup + transaction rollback atomicity)" npx tsx server/scripts/set-rolling-episode.ts --self-check
+run_check "set-rolling-episode --self-check hang guard (fails fast instead of silently hanging on an open DB pool)" bash -c 'npx tsx server/scripts/test-set-rolling-episode-selfcheck-hang.ts && npx tsx server/scripts/test-set-rolling-episode-selfcheck-hang.ts --self-check'
 run_check "Legacy watchdog source-identity repair fixtures" npx tsx --test server/scripts/repair-preincident-watchdog-source-identity.test.ts
 run_check "Claude Code/Replit agent inbox lifecycle" npx tsx server/scripts/test-agent-notes-inbox.ts
 run_check "Alden provider tool and consult-auth contract" npx tsx server/scripts/test-alden-provider-tool-projection.ts
