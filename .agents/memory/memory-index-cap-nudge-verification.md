@@ -124,7 +124,7 @@ has been folded into this topic as a result (mirroring the earlier `memory-index
 this-topic fold from the Sep 25 addendum above); its file remains on disk but nothing in MEMORY.md's
 index points to it anymore.
 
-**Self-referential trap confirmed on task #1625's rebase:** do not write out the actual grep pattern
+**Self-referential trap confirmed during a later rebase:** do not write out the actual grep pattern
 for detecting those marker lines (seven `<`/`=`/`>` characters back to back, wrapped in quotes as a
 literal shell example) inside a memory entry. A prior version of this exact block did that, and because
 `continueMergeResolution`'s own conflict-marker scan does a plain substring search rather than an
@@ -135,12 +135,12 @@ shape in words (as this paragraph and the one above it now do) instead of spelli
 character run, in this file or any other.
 
 
-## Task 1625 addendum: the cycle repeats — trimmed 161→159 again via the same umbrella
+## Addendum: the cycle repeats — trimmed 161→159 again via the same umbrella
 
-Sep 28 2026: the index had drifted back up to 161 (from 159 right after task 1592) via
+Sep 28 2026: the index had drifted back up to 161 (from 159 right after an earlier round) via
 ordinary entry growth from other work. Found 2 more standalone entries that genuinely fit
 the git-command-sharp-edge pattern (`git-lfs-range-rewrite-safety`, `blobless-partial-clone-commits`)
-and merged them into the SAME `git-operational-gotchas.md` umbrella task 1592 created,
+and merged them into the same `git-operational-gotchas.md` umbrella created during that earlier round,
 landing back at 159 (verified via `wc -l`, not recollection).
 
 **Why this matters:** this is the second time this exact umbrella has absorbed unrelated-session
