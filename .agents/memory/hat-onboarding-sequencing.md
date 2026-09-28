@@ -6,6 +6,8 @@ description: David's decision to bring on Antigravity and OpenAI as live coordin
 
 ## The decision and where the detail lives
 
+## The decision and where the detail lives
+
 David decided (Sep 26, 2026) to bring on Antigravity and OpenAI as live
 Coordinator V2 hats in succession rather than in parallel: Antigravity first,
 OpenAI immediately after. Neither was ready as of that date — a fresh
@@ -22,11 +24,13 @@ which hat a given failure belongs to, and Antigravity's work was already
 further along.
 
 **How to apply:** don't start OpenAI's Step-1 endorsement thread or push its
-onboarding to completion until Antigravity's is fully closed (endorsement
-received, live V2 adapter built, real-Windows LITTLENEMO launch confirmed
-reaching production). The concrete, per-hat gap checklist — kept current
-there, not duplicated here — lives in `docs/batch-doc-updates.md`'s "Hat
-onboarding sequencing decision" entry (Sep 26, 2026),
-`docs/alden-agent-handoff.md`'s matching entry, and the "Current onboarding
-queue" note at the top of `docs/coordination-new-actor-onboarding.md`.
+onboarding to completion until Antigravity's remaining item in that section
+closes. Don't assume "provider adapter" is automatically part of that bar —
+see the coordination-v2-provider-adapter-scope topic file for why Antigravity
+never needed one. The live, current per-hat gap checklist is kept in one
+place and updated in place as gaps close: the "Current onboarding queue"
+section of `docs/coordination-new-actor-onboarding.md` — read that section
+alone. `docs/batch-doc-updates.md` and `docs/alden-agent-handoff.md` keep
+matching entries from Sep 26, 2026 as historical record only; treat them as
+stale by design, not as a second source to reconcile against.
 

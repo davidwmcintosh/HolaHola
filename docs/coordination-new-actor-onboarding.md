@@ -13,16 +13,57 @@ this — see `docs/coordination-clients.md`'s "Runtime-specific setup" and
 
 ## Current onboarding queue
 
-**September 26, 2026 — David:** bring on Antigravity and OpenAI as live hats
-in succession, not in parallel — Antigravity first, then OpenAI immediately
+**Status as of September 28, 2026.** This section is the live state — update
+it in place as items close, rather than adding a new log entry elsewhere.
+`docs/batch-doc-updates.md`'s September 26, 2026 entry and
+`docs/alden-agent-handoff.md`'s matching entry record how the Sep 26
+sequencing decision was reached; treat them as historical record only, not a
+second copy of the status to keep in sync.
+
+**Sequencing rule:** bring on Antigravity and OpenAI as live hats in
+succession, not in parallel — Antigravity first, then OpenAI immediately
 after. Do not open OpenAI's Step -1 endorsement thread, or push task #1447
 ("Let OpenAI join as another Luca runtime without splitting identity") to
-closure, until Antigravity's own onboarding is fully closed: endorsement
-received, a live Coordinator V2 provider adapter built, and a real-Windows
-LITTLENEMO launch confirmed reaching production. See
-`docs/batch-doc-updates.md`'s September 26, 2026 entry and
-`docs/alden-agent-handoff.md` for the concrete remaining gaps per hat as of
-this writing.
+closure, until the Antigravity item below is closed.
+
+**Antigravity — 1 item remaining.** Tier 1 is done: `luca-antigravity` is
+registered in `COORDINATION_ACTOR_IDS` with `COORDINATION_LUCA_ANTIGRAVITY_TOKEN`
+wired in `server/middleware/coordination-auth.ts` — provisioned before Step
+-1 below, out of the documented order; Alden's endorsement acknowledged and
+approved that deviation rather than requiring it be unwound. Step -1
+endorsement was received from Alden on September 28, 2026 (coordination
+thread `4672bbaf-63be-47e5-b9a0-6f26478440b8`). That same review corrected a
+second item that used to be listed here: Antigravity does **not** need a
+Coordinator V2 provider adapter
+(`server/services/coordination-provider-adapters/`) — that registry exists
+only for actors the coordinator drives autonomously through a stateless
+network API (Gemini today), not for a self-driving interactive hat.
+Antigravity instead follows `luca-claude-code`'s pattern: it drives itself
+via the CLI already built for exactly this
+(`server/scripts/coordination-v2-interactive-cli.ts`,
+`docs/coordination-v2-interactive-cli-guide.md`). One item remains:
+1. Real-Windows verification through LITTLENEMO has never completed — the
+   last credential-reauthorization attempt (Sep 17, 2026) failed on a
+   signed-TTL overshoot (HTTP 422) and created no runtime, approval, or
+   execution authority. Tasks #1482 (confirm a real Windows-host launch
+   reaches production) and #1483 (let a launch be prepared without needing
+   Replit shell access first) are both still open. The retired Gate 3
+   Antigravity path (`docs/antigravity-gate3-runbook.md`) is explicitly
+   non-authoritative and does not substitute for this. This is also where
+   the interactive CLI's runtime glue gets its first real proof — a live
+   Antigravity session actually driving the CLI end-to-end, not just the
+   CLI's own isolated tests passing.
+
+**OpenAI — queued behind Antigravity, not yet a registered coordination
+actor** (no entry in `COORDINATION_ACTOR_IDS` or `ALL_COORDINATION_ACTORS`):
+- Task #1447 is already active: provider adapter, launch-evidence handling,
+  grounding/memory-consumption receipts, the same claims/immutable-evidence/
+  verification/closure gates Claude Code and Gemini use, and adversarial
+  parity tests. Not merged yet. Unlike Antigravity, OpenAI's provider adapter
+  is a genuine requirement, not a miscategorized one — OpenAI's API is a
+  stateless network call the coordinator would drive autonomously, the same
+  shape as Gemini's, not a self-driving interactive hat.
+- Needs its own Step -1 endorsement thread, separate from Antigravity's.
 
 ## Step -1 — Alden's endorsement
 

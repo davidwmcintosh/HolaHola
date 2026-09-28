@@ -148,7 +148,7 @@
 - [Alden tool-result persistence boundary](alden-tool-result-persistence.md) — raw tool-result JSON is never persisted; secret-bearing tools need instruction, not redaction
 - [CLI-to-service extraction exit semantics](cli-to-service-exit-semantics.md) — extracting a CLI script's logic for an in-process tool/service must drop every process.exit() — it would kill the whole server, not a one-shot subprocess.
 - [Episode-lifecycle service guards](episode-lifecycle-service-guards.md) — new episode-insertion call sites must mirror createEpisode's fire-and-forget indexing side effects; never flip the live 'rolling' tag against shared prod DB during testing.
-- [Hat onboarding sequencing](hat-onboarding-sequencing.md) — Antigravity onboarding must fully close before OpenAI's starts; decision + per-hat gap detail in docs/batch-doc-updates.md.
+- [Hat onboarding sequencing](hat-onboarding-sequencing.md) — Antigravity onboarding must fully close before OpenAI's starts; live per-hat status kept in coordination-new-actor-onboarding.md's onboarding queue section.
 - [Synthetic fixture ID collision](synthetic-fixture-id-collision.md) — a hardcoded "surely never real" fixture value (e.g. Episode 99) can collide with real content as the system grows -- not a race, a deterministic expiry
 - [Windows PowerShell/console quirks](windows-environment-quirks.md) — Three Windows-only gotchas: PowerShell pipes corrupt piped files, openssl is missing (pre-size RNGCryptoServiceProvider's byte array), and closing the console kills undetached child processes.
 - [Shared-spec live-instruction-document drift](shared-spec-live-instruction-doc-drift.md) — docs/coordination-clients.md is DB-governed; a raw git edit silently diverges until synced via appendRevision.
@@ -156,3 +156,5 @@
 - [DB-generated memory files still get real rebase conflicts](db-file-rebase-conflict-resolution.md) — MEMORY.md/topic files are DB projections; resolve rebase conflicts on them via agent-memory-cli regenerate, never hand-merged text.
 - [Mutation-guard scenario coverage](mutation-guard-scenario-coverage.md) — A guard's failure modes can be asymmetric (never-fires vs always-fires); one mutation only proves one direction -- test each separately.
 - [CAS failure reason: deleted vs version_mismatch](agent-memory-cas-failure-reason.md) — editEntry/editBlock's failure now reports why: deletedAt beats version comparison, so a deletion is never mistaken for a stale version.
+- [Coordinator V2 provider-adapter scope](coordination-v2-provider-adapter-scope.md) — Adapters are for autonomous API-driven actors only; self-driving interactive hats need CLI runtime glue instead.
+- [Opening a coordination thread to Alden](alden-coordination-thread-mechanics.md) — Creating a thread alone doesn't notify Alden promptly; pair it with a consult-alden priority-task nudge.
