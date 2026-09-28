@@ -5,7 +5,7 @@ import { SourceReconciliationService } from '../services/source-reconciliation-s
 const MACHINE_RESULT_PREFIX = 'SOURCE_CONTROL_RESULT_JSON:';
 
 function usage(): never {
-  console.error('Usage: source-control-cli.ts status|sync|prepare|record <sha> | reconcile preflight --local-ref <sha> --remote <name> --remote-branch <name> | reconcile candidate|inspect --packet <path>');
+  console.error('Usage: source-control-cli.ts status|sync|prepare|record <sha>|drift | reconcile preflight --local-ref <sha> --remote <name> --remote-branch <name> | reconcile candidate|inspect --packet <path>');
   process.exit(64);
 }
 
@@ -48,6 +48,17 @@ async function main(): Promise<void> {
       return;
     }
     writeResult(status);
+    return;
+  }
+
+  if (action === 'drift') {
+    // On-demand pre-publish check: is HEAD still the exact commit the last
+    // `prepare` (or auto-promotion) validated? Meant to be run by a human
+    // right before clicking Publish, independent of the scheduler's own
+    // cadence -- see SourceControlService.checkCandidateDrift().
+    const report = await service.checkCandidateDrift();
+    writeResult(report);
+    process.exitCode = report.driftDetected ? 1 : 0;
     return;
   }
 

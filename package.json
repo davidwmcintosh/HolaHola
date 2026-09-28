@@ -34,6 +34,7 @@
     "source-control:sync": "npx tsx server/scripts/source-control-cli.ts sync --actor npm",
     "source-control:prepare": "npx tsx server/scripts/source-control-cli.ts prepare --actor npm",
     "source-control:status": "npx tsx server/scripts/source-control-cli.ts status",
+    "source-control:drift": "npx tsx server/scripts/source-control-cli.ts drift",
     "source-control:reconcile": "npx tsx server/scripts/source-control-cli.ts reconcile",
     "task:ownership": "npx tsx server/scripts/task-ownership-cli.ts",
     "task:ownership:diagnostic": "npx tsx server/scripts/task-agent-environment-diagnostic.ts",

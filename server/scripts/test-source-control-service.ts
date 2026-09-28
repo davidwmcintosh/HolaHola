@@ -20,6 +20,7 @@ import {
   resolveRenderReleaseEvidenceFromHealth,
   resolveSourceControlStallThresholds,
   validateRenderReleaseEvidence,
+  type CandidateSupersededContext,
   type RenderReleaseEvidence,
   type SourceControlStatus,
   type StalledSyncAlertContext,
@@ -106,6 +107,12 @@ interface FixtureRunOptions {
   missingKey?: boolean;
   holdLock?: boolean;
   episodeDiff?: EpisodeDiffFixture;
+  /** Pre-seeds status.json before the fixture's single sync() call, so a
+   * test can prove how syncLocked() reacts to a pre-existing status (e.g.
+   * a still-current, explicitly-prepared ready_to_promote candidate about
+   * to be superseded by this sync's own auto-promotion). */
+  seedStatus?: Record<string, unknown>;
+  notifyCandidateSuperseded?: (context: CandidateSupersededContext) => Promise<void>;
 }
 
 /** Extracted so a multi-call fixture (see withRepeatableFixture, used by the
@@ -227,6 +234,9 @@ async function withFixture(
         expiresAt: '2999-01-01T00:00:00.000Z',
       })}\n`);
     }
+    if (options.seedStatus) {
+      writeFileSync(env.SOURCE_BRIDGE_STATUS_FILE!, `${JSON.stringify(options.seedStatus)}\n`);
+    }
     const service = new SourceControlService({
       rootDir,
       env,
@@ -236,6 +246,7 @@ async function withFixture(
         return () => `fixture-${++value}`;
       })(),
       validateCandidate: async (sha) => manifest(sha),
+      notifyCandidateSuperseded: options.notifyCandidateSuperseded,
       runCommand: buildFixtureRunCommand(scenario, state, calls, options),
     });
     const result = await service.sync('fixture');
@@ -1015,6 +1026,12 @@ async function main(): Promise<void> {
   assert.equal(githubAhead.result.state, 'ready_to_promote');
   assert.ok(githubAhead.calls.includes('git merge --ff-only FETCH_HEAD'));
   assert.equal(githubAhead.status.candidateSha, REMOTE_NEW);
+  assert.equal(
+    githubAhead.status.candidateSource,
+    'auto_sync',
+    'a candidate the sync scheduler auto-validated on its own must be tagged auto_sync, never indistinguishable from an explicit prepare',
+  );
+  assert.equal(githubAhead.result.candidateSource, 'auto_sync');
 
   const dirty = await withFixture('local-ahead', { dirty: true });
   assert.equal(dirty.result.state, 'dirty');
@@ -1981,6 +1998,296 @@ async function main(): Promise<void> {
     } finally {
       fixture.cleanup();
     }
+  }
+
+  // syncLocked()'s auto-merge-and-revalidate branch must alert exactly
+  // once when it silently replaces a still-current, explicitly-prepared
+  // candidate -- the precise gap that let Publish deploy an unvalidated
+  // commit in the 2026-09 e0ffe6c7 incident. It must NOT alert when there
+  // was no prior ready_to_promote candidate, and must NOT re-alert when
+  // the candidate it is replacing was itself already an auto-promoted one
+  // (otherwise a burst of GitHub pushes would spam one alert per push).
+  {
+    const supersededAlerts: CandidateSupersededContext[] = [];
+    const supersedesExplicit = await withFixture('github-ahead', {
+      seedStatus: {
+        schemaVersion: 3,
+        state: 'ready_to_promote',
+        origin: 'fixture',
+        replitSha: LOCAL_OLD,
+        githubSha: LOCAL_OLD,
+        candidateSha: LOCAL_OLD,
+        candidatePreparedAt: '2026-09-15T19:00:00.000Z',
+        candidateExpiresAt: '2026-09-15T22:00:00.000Z',
+        validation: manifest(LOCAL_OLD),
+        consecutiveFailures: 0,
+        lastHeartbeatAt: '2026-09-15T19:00:00.000Z',
+        updatedAt: '2026-09-15T19:00:00.000Z',
+      },
+      notifyCandidateSuperseded: async (context) => { supersededAlerts.push(context); },
+    });
+    assert.equal(supersedesExplicit.result.state, 'ready_to_promote');
+    assert.equal(supersedesExplicit.result.candidateSha, REMOTE_NEW);
+    assert.equal(supersedesExplicit.result.candidateSource, 'auto_sync');
+    assert.equal(supersedesExplicit.status.candidateSource, 'auto_sync');
+    assert.equal(supersededAlerts.length, 1, 'silently replacing an explicitly-prepared candidate must alert exactly once');
+    assert.equal(supersededAlerts[0].supersededCandidateSha, LOCAL_OLD);
+    assert.equal(supersededAlerts[0].newCandidateSha, REMOTE_NEW);
+    assert.equal(supersededAlerts[0].supersededPreparedAt, '2026-09-15T19:00:00.000Z');
+
+    // No prior candidate at all -- nothing was superseded, so no alert.
+    const noAlerts1: CandidateSupersededContext[] = [];
+    const noPriorCandidate = await withFixture('github-ahead', {
+      notifyCandidateSuperseded: async (context) => { noAlerts1.push(context); },
+    });
+    assert.equal(noPriorCandidate.status.candidateSource, 'auto_sync');
+    assert.equal(noAlerts1.length, 0, 'auto-promoting when there was no prior ready_to_promote candidate must not alert');
+
+    // The prior candidate was itself already auto-promoted (nobody had run
+    // `prepare` in a while) -- chaining auto_sync-over-auto_sync must stay
+    // quiet rather than firing one alert per subsequent GitHub push.
+    const noAlerts2: CandidateSupersededContext[] = [];
+    const chainedAutoSync = await withFixture('github-ahead', {
+      seedStatus: {
+        schemaVersion: 3,
+        state: 'ready_to_promote',
+        origin: 'fixture',
+        replitSha: LOCAL_OLD,
+        githubSha: LOCAL_OLD,
+        candidateSha: LOCAL_OLD,
+        candidateSource: 'auto_sync',
+        candidatePreparedAt: '2026-09-15T19:00:00.000Z',
+        candidateExpiresAt: '2026-09-15T22:00:00.000Z',
+        validation: manifest(LOCAL_OLD),
+        consecutiveFailures: 0,
+        lastHeartbeatAt: '2026-09-15T19:00:00.000Z',
+        updatedAt: '2026-09-15T19:00:00.000Z',
+      },
+      notifyCandidateSuperseded: async (context) => { noAlerts2.push(context); },
+    });
+    assert.equal(chainedAutoSync.status.candidateSource, 'auto_sync');
+    assert.equal(noAlerts2.length, 0, 'replacing an already auto-promoted candidate with a newer one must not re-alert');
+  }
+
+  // preparePromotion() must clear any stale 'auto_sync' tag inherited from
+  // a prior candidate window: an explicit, deliberate prepare run always
+  // produces a candidate a human/automation actually reviewed, regardless
+  // of what tag the previous ready_to_promote candidate happened to carry.
+  {
+    const rootDir = mkdtempSync(join(tmpdir(), 'source-control-prepare-clears-auto-sync-test-'));
+    const statusPath = join(rootDir, 'status.json');
+    const calls: string[] = [];
+    const state = { local: LOCAL_NEW, remote: LOCAL_NEW };
+    writeFileSync(statusPath, `${JSON.stringify({
+      schemaVersion: 3,
+      state: 'ready_to_promote',
+      origin: 'fixture',
+      replitSha: LOCAL_OLD,
+      githubSha: LOCAL_OLD,
+      candidateSha: LOCAL_OLD,
+      candidateSource: 'auto_sync',
+      candidatePreparedAt: '2026-09-15T19:00:00.000Z',
+      candidateExpiresAt: '2026-09-15T20:00:00.000Z',
+      validation: manifest(LOCAL_OLD),
+      consecutiveFailures: 0,
+      lastHeartbeatAt: '2026-09-15T19:00:00.000Z',
+      updatedAt: '2026-09-15T19:00:00.000Z',
+    })}\n`);
+    try {
+      const service = new SourceControlService({
+        rootDir,
+        env: {
+          NODE_ENV: 'development',
+          SOURCE_BRIDGE_STATUS_FILE: statusPath,
+          SOURCE_BRIDGE_SUMMARY_FILE: join(rootDir, 'status.md'),
+          SOURCE_CONTROL_LOCK_FILE: join(rootDir, 'control.lock'),
+          SOURCE_CONTROL_OPERATIONS_DIR: join(rootDir, 'operations'),
+        },
+        fetchInstallationToken: async () => ({ token: 'fixture-token' }),
+        uuid: (() => {
+          let value = 0;
+          return () => `prepare-clears-fixture-${++value}`;
+        })(),
+        validateCandidate: async (sha) => manifest(sha),
+        runCommand: buildFixtureRunCommand('equal', state, calls, {}),
+      });
+      const result = await service.preparePromotion('fixture');
+      assert.equal(result.ok, true);
+      assert.equal(result.state, 'ready_to_promote');
+      assert.equal(result.candidateSha, LOCAL_NEW);
+      assert.equal(result.candidateSource, undefined, 'an explicit prepare must never report the candidate it just validated as auto_sync');
+      const status = JSON.parse(readFileSync(statusPath, 'utf8'));
+      assert.equal(status.candidateSource, undefined, 'prepare must clear a stale auto_sync tag on disk, not just omit it from the in-memory result');
+    } finally {
+      rmSync(rootDir, { recursive: true, force: true });
+    }
+  }
+
+  // recordLocked() must refuse an auto-promoted candidate even when it is
+  // otherwise perfectly valid (matching sha, unexpired, well-formed
+  // manifest, well-formed publication reference) -- candidateSource gates
+  // on *how* the candidate was validated, not just *whether* it currently
+  // looks valid.
+  {
+    const rootDir = mkdtempSync(join(tmpdir(), 'source-control-auto-sync-record-test-'));
+    const statusPath = join(rootDir, 'status.json');
+    const calls: string[] = [];
+    const state = { local: LOCAL_NEW, remote: LOCAL_NEW };
+    writeFileSync(statusPath, `${JSON.stringify({
+      schemaVersion: 3,
+      state: 'ready_to_promote',
+      origin: 'fixture',
+      replitSha: LOCAL_NEW,
+      githubSha: LOCAL_NEW,
+      candidateSha: LOCAL_NEW,
+      candidateSource: 'auto_sync',
+      candidatePreparedAt: '2026-09-15T20:00:00.000Z',
+      candidateExpiresAt: '2026-09-15T22:00:00.000Z',
+      validation: manifest(LOCAL_NEW),
+      consecutiveFailures: 0,
+      lastHeartbeatAt: '2026-09-15T20:00:00.000Z',
+      updatedAt: '2026-09-15T20:00:00.000Z',
+    })}\n`);
+    try {
+      const service = new SourceControlService({
+        rootDir,
+        env: {
+          NODE_ENV: 'development',
+          SOURCE_BRIDGE_STATUS_FILE: statusPath,
+          SOURCE_BRIDGE_SUMMARY_FILE: join(rootDir, 'status.md'),
+          SOURCE_CONTROL_LOCK_FILE: join(rootDir, 'control.lock'),
+          SOURCE_CONTROL_OPERATIONS_DIR: join(rootDir, 'operations'),
+        },
+        now: () => new Date('2026-09-15T21:00:00.000Z'),
+        fetchInstallationToken: async () => ({ token: 'fixture-token' }),
+        uuid: (() => {
+          let value = 0;
+          return () => `auto-sync-record-fixture-${++value}`;
+        })(),
+        runCommand: buildFixtureRunCommand('equal', state, calls, {}),
+      });
+      const result = await service.recordPromotion(LOCAL_NEW, 'fixture', undefined, `replit-publish:${LOCAL_NEW}:${LOCAL_NEW}`);
+      assert.equal(result.ok, false);
+      assert.equal(result.state, 'failed');
+      assert.match(result.error || '', /auto-validated by the sync scheduler/);
+      assert.match(result.error || '', /npm run source-control:prepare/);
+      assert.ok(
+        !calls.some((call) => call.startsWith('git push ')),
+        'an auto-promoted candidate must never reach a git push through record',
+      );
+    } finally {
+      rmSync(rootDir, { recursive: true, force: true });
+    }
+  }
+
+  // checkCandidateDrift() must detect and describe every relationship
+  // between HEAD and the last known ready_to_promote candidate without
+  // ever mutating status or taking the shared lock -- it exists purely so
+  // a human can check "is it still safe to click Publish?" independent of
+  // the scheduler's own last sync/prepare/record tick.
+  {
+    const driftRunCommand = (
+      headSha: string,
+      marker?: { sha: string; treeSha: string; parentSha: string; subject: string },
+    ) => async (command: string, args: string[]): Promise<{ exitCode: number; stdout: string; stderr: string }> => {
+      assert.equal(command, 'git', 'checkCandidateDrift() must never route Git through a shell helper');
+      if (args[0] === 'rev-parse' && args[1] === '--verify' && args[2] === 'HEAD^{commit}') {
+        return { exitCode: 0, stdout: `${headSha}\n`, stderr: '' };
+      }
+      if (args[0] === 'show' && marker && args[args.length - 1] === marker.sha) {
+        return { exitCode: 0, stdout: `${marker.sha}\n${marker.treeSha}\n${marker.parentSha}\n${marker.subject}\n`, stderr: '' };
+      }
+      if (args[0] === 'show') {
+        return { exitCode: 1, stdout: '', stderr: 'no such commit' };
+      }
+      return { exitCode: 98, stdout: '', stderr: `unexpected command: ${args.join(' ')}` };
+    };
+    const refuseGit = async (): Promise<{ exitCode: number; stdout: string; stderr: string }> => {
+      throw new Error('checkCandidateDrift() must not touch git when the status already answers the question');
+    };
+    const failingGit = async (): Promise<{ exitCode: number; stdout: string; stderr: string }> => (
+      { exitCode: 1, stdout: '', stderr: 'boom' }
+    );
+    const withDriftService = async (
+      seedStatus: Record<string, unknown> | undefined,
+      runCommand: (command: string, args: string[]) => Promise<{ exitCode: number; stdout: string; stderr: string }>,
+    ) => {
+      const rootDir = mkdtempSync(join(tmpdir(), 'source-control-drift-test-'));
+      const statusPath = join(rootDir, 'status.json');
+      if (seedStatus) writeFileSync(statusPath, `${JSON.stringify(seedStatus)}\n`);
+      try {
+        const service = new SourceControlService({
+          rootDir,
+          env: {
+            NODE_ENV: 'development',
+            SOURCE_BRIDGE_STATUS_FILE: statusPath,
+            SOURCE_CONTROL_LOCK_FILE: join(rootDir, 'control.lock'),
+            SOURCE_CONTROL_OPERATIONS_DIR: join(rootDir, 'operations'),
+          },
+          fetchInstallationToken: async () => ({ token: 'fixture-token' }),
+          runCommand,
+        });
+        return await service.checkCandidateDrift();
+      } finally {
+        rmSync(rootDir, { recursive: true, force: true });
+      }
+    };
+
+    const noCandidate = await withDriftService(undefined, refuseGit);
+    assert.equal(noCandidate.driftDetected, false);
+    assert.equal(noCandidate.reason, 'no_candidate');
+
+    const notReady = await withDriftService({ state: 'synced', updatedAt: '2026-09-15T19:00:00.000Z' }, refuseGit);
+    assert.equal(notReady.driftDetected, false);
+    assert.equal(notReady.reason, 'no_candidate', 'a status that is not currently ready_to_promote must read the same as no candidate at all');
+
+    const autoPromoted = await withDriftService({
+      state: 'ready_to_promote',
+      candidateSha: LOCAL_NEW,
+      candidateSource: 'auto_sync',
+      candidatePreparedAt: '2026-09-15T19:00:00.000Z',
+    }, refuseGit);
+    assert.equal(autoPromoted.driftDetected, true);
+    assert.equal(autoPromoted.reason, 'auto_promoted_candidate');
+    assert.equal(autoPromoted.candidateSha, LOCAL_NEW);
+    assert.match(autoPromoted.message, /prepare/);
+
+    const matching = await withDriftService(
+      { state: 'ready_to_promote', candidateSha: LOCAL_NEW, candidatePreparedAt: '2026-09-15T19:00:00.000Z' },
+      driftRunCommand(LOCAL_NEW),
+    );
+    assert.equal(matching.driftDetected, false);
+    assert.equal(matching.reason, 'match');
+    assert.equal(matching.currentHeadSha, LOCAL_NEW);
+
+    const moved = await withDriftService(
+      { state: 'ready_to_promote', candidateSha: LOCAL_OLD, candidatePreparedAt: '2026-09-15T19:00:00.000Z' },
+      driftRunCommand(LOCAL_NEW),
+    );
+    assert.equal(moved.driftDetected, true);
+    assert.equal(moved.reason, 'head_moved_past_candidate');
+    assert.equal(moved.candidateSha, LOCAL_OLD);
+    assert.equal(moved.currentHeadSha, LOCAL_NEW);
+    assert.match(moved.message, /npm run source-control:prepare/);
+
+    const markerAhead = await withDriftService(
+      { state: 'ready_to_promote', candidateSha: LOCAL_OLD, candidatePreparedAt: '2026-09-15T19:00:00.000Z' },
+      driftRunCommand(PUBLICATION_MARKER, {
+        sha: PUBLICATION_MARKER,
+        treeSha: CANDIDATE_TREE,
+        parentSha: LOCAL_OLD,
+        subject: 'Published your App',
+      }),
+    );
+    assert.equal(markerAhead.driftDetected, false, 'HEAD exactly one legitimate Replit publish marker ahead of the candidate must not read as drift');
+    assert.equal(markerAhead.reason, 'match');
+
+    const gitUnavailable = await withDriftService(
+      { state: 'ready_to_promote', candidateSha: LOCAL_NEW, candidatePreparedAt: '2026-09-15T19:00:00.000Z' },
+      failingGit,
+    );
+    assert.equal(gitUnavailable.driftDetected, false, 'an unreadable HEAD must fail closed to "cannot confirm" rather than a false drift/no-drift claim');
+    assert.equal(gitUnavailable.reason, 'unknown');
   }
 
   console.log('Source-control coordinator fixture checks passed.');

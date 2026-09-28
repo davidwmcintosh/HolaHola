@@ -181,6 +181,20 @@ export interface SourceControlStatus {
   candidateSha?: string;
   candidatePreparedAt?: string;
   candidateExpiresAt?: string;
+  /** Set to 'auto_sync' only when this candidateSha was produced by
+   * syncLocked()'s "GitHub ahead of local" auto-merge-and-revalidate branch
+   * (the scheduler receiving and validating a new commit on its own),
+   * never by an explicit prepareLocked() run. Absent/undefined means the
+   * current candidate was validated by an explicit `prepare` call --
+   * prepareLocked() always clears this back to undefined so a fresh,
+   * explicitly-prepared candidate is never mistaken for the auto-sync
+   * case. An auto-revalidated candidate looks identical to an explicitly
+   * prepared one in every other field (same manifest shape, same
+   * ready_to_promote state), so without this tag a human/API caller
+   * recording the current candidateSha could silently promote code
+   * nobody deliberately reviewed via `prepare`. See recordLocked() and
+   * checkCandidateDrift(). */
+  candidateSource?: 'auto_sync';
   promotedSha?: string;
   promotedBy?: string;
   promotionRequestId?: string;
@@ -288,6 +302,17 @@ export interface StalledSyncAlertDeliveryResult {
   founderInboxDelivered: boolean;
 }
 
+/** Minimal facts a candidate-superseded alert needs: an explicitly
+ * prepared, still-current `ready_to_promote` candidate was just replaced
+ * by a different commit that syncLocked()'s own auto-merge-and-revalidate
+ * branch received from GitHub and validated on its own, with no explicit
+ * `prepare` run against it. */
+export interface CandidateSupersededContext {
+  supersededCandidateSha: string;
+  supersededPreparedAt?: string;
+  newCandidateSha: string;
+  actor: string;
+}
 export interface SourceControlOperation {
   schemaVersion: 1;
   operationId: string;
@@ -307,6 +332,9 @@ export interface SourceControlResult {
   replitSha?: string;
   githubSha?: string;
   candidateSha?: string;
+  /** Mirrors SourceControlStatus.candidateSource -- see there for what
+   * 'auto_sync' means and why it matters. */
+  candidateSource?: 'auto_sync';
   validation?: Record<string, unknown>;
   error?: string;
 }
@@ -362,6 +390,16 @@ export interface SourceControlServiceOptions {
     context: StalledSyncAlertContext,
     alreadyDelivered: StalledSyncAlertDeliveryResult,
   ) => Promise<StalledSyncAlertDeliveryResult>;
+  /** Candidate-superseded alert dispatch hook. Production posts to Team
+   * Room and the founder's aldenNotifications inbox (see
+   * dispatchCandidateSupersededAlert). Fired once, best-effort, exactly
+   * when syncLocked()'s auto-merge-and-revalidate branch silently replaces
+   * a still-current, explicitly-prepared ready_to_promote candidate --
+   * unlike the stalled-sync alert this is a one-shot state transition, not
+   * an ongoing condition, so it carries no cross-tick retry/dedup
+   * bookkeeping. Injectable so tests can assert on firing without
+   * touching Team Room or the database. */
+  notifyCandidateSuperseded?: (context: CandidateSupersededContext) => Promise<void>;
 }
 
 export interface SourcePromotionRecordInput {
@@ -580,6 +618,12 @@ export function hasValidSourceControlManifest(
   return validation.validationId === expectedId;
 }
 
+export type CandidateDriftReason =
+  | 'no_candidate'
+  | 'match'
+  | 'auto_promoted_candidate'
+  | 'head_moved_past_candidate'
+  | 'unknown';
 export class SourceControlService {
   private readonly rootDir: string;
 
@@ -633,6 +677,8 @@ export class SourceControlService {
     context: StalledSyncAlertContext,
     alreadyDelivered: StalledSyncAlertDeliveryResult,
   ) => Promise<StalledSyncAlertDeliveryResult>;
+
+  private readonly notifyCandidateSuperseded: (context: CandidateSupersededContext) => Promise<void>;
 
   /** In-process retry/dedup state for checkStalled()'s standalone timer
    * path only. writeStatus() has its own durable dedup via
@@ -703,6 +749,8 @@ export class SourceControlService {
     });
     this.notifyStalledSync = options.notifyStalledSync
       ?? ((context, alreadyDelivered) => this.dispatchStalledSyncAlert(context, alreadyDelivered));
+    this.notifyCandidateSuperseded = options.notifyCandidateSuperseded
+      ?? ((context) => this.dispatchCandidateSupersededAlert(context));
   }
 
   async getStatus(): Promise<SourceControlStatus | null> {
@@ -785,6 +833,91 @@ export class SourceControlService {
         teamRoomDelivered: already.teamRoomDelivered || delivered.teamRoomDelivered,
         founderInboxDelivered: already.founderInboxDelivered || delivered.founderInboxDelivered,
       },
+    };
+  }
+
+  /**
+   * On-demand, read-only comparison between the exact commit the last
+   * `prepare` (or auto-promotion) validated and whatever Git resolves HEAD
+   * to right now -- independent of whatever the scheduler's own last
+   * sync/prepare/record tick happened to observe. Exists so a human can
+   * check "is it still safe to click Publish?" at any moment, including
+   * inside the window between an auto-promotion silently superseding a
+   * validated candidate and the next scheduled sync tick noticing it (the
+   * exact gap the 2026-09 e0ffe6c7 incident fell through). Never mutates
+   * state and never takes the shared lock: this is a read, not an
+   * operation. Deliberately kept off getStatus() itself, which other
+   * callers rely on staying fast and side-effect-free -- this method's
+   * live currentHead() git call is intentionally opt-in.
+   */
+  async checkCandidateDrift(): Promise<CandidateDriftReport> {
+    const status = await this.getStatus();
+    if (!status || status.state !== 'ready_to_promote' || !status.candidateSha) {
+      return {
+        driftDetected: false,
+        reason: 'no_candidate',
+        state: status?.state,
+        message: 'No candidate is currently ready to promote. Run `prepare` before publishing.',
+      };
+    }
+    if (status.candidateSource === 'auto_sync') {
+      return {
+        driftDetected: true,
+        reason: 'auto_promoted_candidate',
+        state: status.state,
+        candidateSha: status.candidateSha,
+        candidateSource: status.candidateSource,
+        candidatePreparedAt: status.candidatePreparedAt,
+        message: `The ready-to-promote candidate ${status.candidateSha} was auto-validated by the sync scheduler receiving a new commit from GitHub, not by an explicit "prepare" run. Re-run \`npm run source-control:prepare\` before publishing.`,
+      };
+    }
+    let currentHeadSha: string;
+    try {
+      currentHeadSha = await this.currentHead();
+    } catch (error) {
+      return {
+        driftDetected: false,
+        reason: 'unknown',
+        state: status.state,
+        candidateSha: status.candidateSha,
+        message: `Could not read the current HEAD commit to check for drift (${error instanceof Error ? error.message : 'unknown error'}). Treat the last known status with caution.`,
+      };
+    }
+    if (currentHeadSha === status.candidateSha) {
+      return {
+        driftDetected: false,
+        reason: 'match',
+        state: status.state,
+        candidateSha: status.candidateSha,
+        currentHeadSha,
+        message: 'HEAD matches the last commit validated by `prepare`. Safe to publish.',
+      };
+    }
+    let isLegitimateMarker = false;
+    try {
+      const marker = await this.resolveLocalPublicationMarker(currentHeadSha);
+      isLegitimateMarker = marker.parentSha === status.candidateSha && marker.subject === 'Published your App';
+    } catch {
+      isLegitimateMarker = false;
+    }
+    if (isLegitimateMarker) {
+      return {
+        driftDetected: false,
+        reason: 'match',
+        state: status.state,
+        candidateSha: status.candidateSha,
+        currentHeadSha,
+        message: 'HEAD is exactly one Replit publish marker ahead of the last validated candidate. Safe to record.',
+      };
+    }
+    return {
+      driftDetected: true,
+      reason: 'head_moved_past_candidate',
+      state: status.state,
+      candidateSha: status.candidateSha,
+      candidatePreparedAt: status.candidatePreparedAt,
+      currentHeadSha,
+      message: `HEAD (${currentHeadSha}) no longer matches the last validated candidate (${status.candidateSha}). Re-run \`npm run source-control:prepare\` against current HEAD before publishing.`,
     };
   }
 
@@ -995,6 +1128,12 @@ export class SourceControlService {
     }
 
     if (await this.isAncestor(heads.local, heads.github)) {
+      // Captured before the merge/overwrite below so we can tell whether
+      // this auto-promotion is about to silently replace a still-current
+      // candidate a human explicitly validated via `prepare` -- the exact
+      // gap that let an unvalidated commit reach Publish in the 2026-09
+      // e0ffe6c7 incident this guards against.
+      const previousBeforeAutoPromotion = await this.getStatus();
       const merged = await this.runGit(['merge', '--ff-only', 'FETCH_HEAD']);
       if (merged.exitCode !== 0) {
         const error = bounded(merged.stderr || 'Fast-forward receive failed.');
@@ -1017,9 +1156,41 @@ export class SourceControlService {
         verified.github,
         received,
         validation,
-        FRESH_CANDIDATE_STATUS_EXTRA,
+        // Tagged 'auto_sync', never left to inherit: this candidate came
+        // from the scheduler receiving and validating a new commit on its
+        // own, not from an explicit `prepare` run. recordLocked() refuses
+        // to record while this tag is set (see SourceControlStatus.
+        // candidateSource for why that distinction matters).
+        { ...FRESH_CANDIDATE_STATUS_EXTRA, candidateSource: 'auto_sync' },
       );
-      return { ok: true, state: 'ready_to_promote', ...verified, candidateSha: received, validation };
+      // A still-current, explicitly-prepared candidate just got silently
+      // replaced -- surface it now instead of only on the next status
+      // check, a failed `record`, or a wrong deploy. Fire-and-forget: a
+      // notification hiccup must never affect sync()'s own completion
+      // (same contract as notifyDirtyTreeBlock above).
+      if (
+        previousBeforeAutoPromotion?.state === 'ready_to_promote'
+        && previousBeforeAutoPromotion.candidateSha
+        && previousBeforeAutoPromotion.candidateSha !== received
+        && previousBeforeAutoPromotion.candidateSource !== 'auto_sync'
+      ) {
+        void this.notifyCandidateSuperseded({
+          supersededCandidateSha: previousBeforeAutoPromotion.candidateSha,
+          supersededPreparedAt: previousBeforeAutoPromotion.candidatePreparedAt,
+          newCandidateSha: received,
+          actor,
+        }).catch((err: any) => {
+          console.warn('[SourceControl] Candidate-superseded notification failed:', err?.message || err);
+        });
+      }
+      return {
+        ok: true,
+        state: 'ready_to_promote',
+        ...verified,
+        candidateSha: received,
+        candidateSource: 'auto_sync',
+        validation,
+      };
     }
 
     const error = 'Replit and GitHub histories diverged; explicit reconciliation is required.';
@@ -1055,7 +1226,11 @@ export class SourceControlService {
       verified.github,
       verified.local,
       validation,
-      FRESH_CANDIDATE_STATUS_EXTRA,
+      // Explicit prepare always clears any stale 'auto_sync' tag inherited
+      // from a prior candidate window: this candidate WAS just validated
+      // by a deliberate, explicit prepare call, so recordLocked()'s
+      // auto_sync gate must never block it.
+      { ...FRESH_CANDIDATE_STATUS_EXTRA, candidateSource: undefined },
     );
     return { ok: true, state: 'ready_to_promote', ...verified, candidateSha: verified.local, validation };
   }
@@ -1082,7 +1257,18 @@ export class SourceControlService {
       || expiry <= this.now().getTime()
       || !hasValidSourceControlManifest(status.validation, sha)
     ) {
-      const error = 'Promotion recording refused: the matching validated candidate is missing, stale, or no longer current.';
+      const error = 'Promotion recording refused: the matching validated candidate is missing, stale, or no longer current. Re-run `prepare` against the current commit before publishing.';
+      await this.writeStatus('failed', error, actor, heads.local, heads.github);
+      return { ok: false, state: 'failed', ...heads, error };
+    }
+    if (status.candidateSource === 'auto_sync') {
+      // This candidate passed every check above (matching sha, unexpired,
+      // valid manifest) -- it was just never actually reviewed by a
+      // human/automation running `prepare`. It reached ready_to_promote as
+      // a side effect of the sync scheduler receiving and auto-validating
+      // a new commit from GitHub. Recording it here would let Publish
+      // deploy code nobody deliberately validated.
+      const error = `Promotion recording refused: candidate ${sha} was auto-validated by the sync scheduler receiving a new commit from GitHub, not by an explicit "prepare" run. Re-run \`npm run source-control:prepare\` against the current commit before publishing.`;
       await this.writeStatus('failed', error, actor, heads.local, heads.github);
       return { ok: false, state: 'failed', ...heads, error };
     }
@@ -1879,6 +2065,13 @@ export class SourceControlService {
       candidateExpiresAt: ready
         ? new Date(this.now().getTime() + Number(this.env.SOURCE_BRIDGE_PROMOTION_TTL_SECONDS || 3600) * 1000).toISOString()
         : previous?.candidateExpiresAt,
+      // Preserved across incidental writes the same way promotedSha is
+      // (see the block below): only prepareLocked() and syncLocked()'s
+      // auto-merge-and-revalidate branch ever set this explicitly via
+      // `extra`, and both always set it (never leave it to inherit) so a
+      // fresh candidate window is never left holding a stale tag from the
+      // previous one.
+      candidateSource: previous?.candidateSource,
       validation: validation ?? previous?.validation,
       validationManifestVersion: typeof validation?.manifestVersion === 'number'
         ? validation.manifestVersion
@@ -2031,4 +2224,68 @@ export class SourceControlService {
 
     return { teamRoomDelivered, founderInboxDelivered };
   }
+
+  /**
+   * Best-effort dual-channel notice that an explicitly-prepared candidate
+   * was just replaced by an auto-validated one. Unlike
+   * dispatchStalledSyncAlert, this fires once for a one-shot state
+   * transition rather than an ongoing condition, so it carries no
+   * cross-tick retry/dedup bookkeeping -- each channel is simply tried
+   * once and its own failure logged, independent of the other.
+   */
+  private async dispatchCandidateSupersededAlert(context: CandidateSupersededContext): Promise<void> {
+    const content = [
+      '**Source-control candidate superseded by auto-sync**',
+      '',
+      `The explicitly validated candidate ${context.supersededCandidateSha}` +
+        (context.supersededPreparedAt ? ` (prepared at ${context.supersededPreparedAt})` : '') +
+        ' is no longer the ready-to-promote candidate.',
+      `The sync scheduler received a new commit from GitHub, fast-forwarded onto it, and auto-validated ${context.newCandidateSha} as the new candidate.`,
+      '',
+      `Publishing now would build ${context.newCandidateSha}, which nobody explicitly ran \`prepare\` against. Re-run \`npm run source-control:prepare\` if you want to knowingly review and publish this new commit.`,
+      '',
+      `Triggered by: ${context.actor}`,
+    ].join('\n');
+
+    try {
+      const { storage } = await import('../storage');
+      const rooms = await storage.listTeamRooms(1);
+      if (rooms.length) {
+        const message = await storage.createRoomMessage({ roomId: rooms[0].id, speaker: 'Luca', content });
+        const { emitNewMessage } = await import('./team-room-ws-broker');
+        emitNewMessage(rooms[0].id, message);
+      }
+    } catch (err: any) {
+      console.warn('[SourceControl] Candidate-superseded Team Room notification failed:', err?.message || err);
+    }
+
+    try {
+      const { getUserDb } = await import('../db');
+      const { aldenNotifications } = await import('@shared/schema');
+      await getUserDb().insert(aldenNotifications).values({
+        content,
+        triggeredBy: 'source-control',
+        severity: 'alert',
+        read: false,
+        fingerprint: 'source_control_candidate_superseded',
+      });
+    } catch (err: any) {
+      console.warn('[SourceControl] Candidate-superseded founder-inbox notification failed:', err?.message || err);
+    }
+  }
+}
+
+/** Result of an on-demand, read-only comparison between the current exact
+ * HEAD commit and the last commit an explicit `prepare` (or an
+ * auto-promotion) marked `ready_to_promote`. See
+ * SourceControlService.checkCandidateDrift(). */
+export interface CandidateDriftReport {
+  driftDetected: boolean;
+  reason: CandidateDriftReason;
+  state?: SourceControlState;
+  candidateSha?: string;
+  candidateSource?: 'auto_sync';
+  candidatePreparedAt?: string;
+  currentHeadSha?: string;
+  message: string;
 }
