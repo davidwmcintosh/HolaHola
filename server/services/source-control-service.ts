@@ -194,11 +194,22 @@ export interface SourceControlStatus {
   consecutiveFailures: number;
   lastHeartbeatAt: string;
   updatedAt: string;
-  /** Set once a stalled-sync alert has fired for the current failure streak,
-   * so repeated polls don't spam Team Room / the founder inbox. Cleared on
-   * the next successful sync so a future stall can alert again. */
+  /** Set only once a stalled-sync alert's DURABLE (founder-inbox) delivery
+   * has been CONFIRMED for the current failure streak, so repeated polls
+   * don't spam the founder inbox. Deliberately never set optimistically
+   * before delivery succeeds: if it were, a transient outage in the very
+   * channel used to raise the alarm (the database being down the moment
+   * the threshold is first crossed, say) would permanently suppress the
+   * alert for the rest of the episode -- the exact silent failure this
+   * exists to prevent. Cleared on the next successful sync so a future
+   * stall can alert again. */
   stalledSyncAlertActive?: boolean;
   stalledSyncAlertSentAt?: string;
+  /** Same confirmed-delivery contract as stalledSyncAlertActive above, but
+   * tracked separately for Team Room: the two channels can fail
+   * independently, and a retry aimed at the channel still failing must not
+   * re-post to a channel that already succeeded. */
+  stalledSyncAlertTeamRoomDeliveredAt?: string;
 }
 
 /** Thresholds that decide when a run of sync trouble stops being "normal
@@ -251,6 +262,30 @@ export function isSourceControlSyncStalled(
   const lastSuccessMs = new Date(status.lastSuccessfulSyncAt).getTime();
   if (!Number.isFinite(lastSuccessMs)) return false;
   return nowMs - lastSuccessMs >= thresholds.staleSuccessAgeMs;
+}
+
+/** Minimal, stable facts a stalled-sync alert needs to describe the
+ * situation -- deliberately narrower than SourceControlStatus so the
+ * notify hook can be called with the alert-relevant facts *before* the
+ * alert-delivery outcome fields (stalledSyncAlertActive et al) are known.
+ * Those fields are this call's own eventual output, never an input to it --
+ * passing the full status in would recreate the ordering bug this design
+ * fixes (persisting "delivered" before delivery is confirmed). */
+export interface StalledSyncAlertContext {
+  state: SourceControlState;
+  consecutiveFailures: number;
+  lastSuccessfulSyncAt?: string;
+  error?: string;
+}
+
+/** Per-channel confirmation of whether a stalled-sync alert attempt
+ * actually reached each destination. Each field is true only when that
+ * specific post/insert is known to have succeeded -- never optimistically
+ * -- so a caller can safely gate retry/dedup state on the result instead
+ * of on the mere fact that delivery was attempted. */
+export interface StalledSyncAlertDeliveryResult {
+  teamRoomDelivered: boolean;
+  founderInboxDelivered: boolean;
 }
 
 export interface SourceControlOperation {
@@ -316,8 +351,17 @@ export interface SourceControlServiceOptions {
   fetchInstallationToken?: () => Promise<{ token: string }>;
   /** Stalled-sync alert dispatch hook. Production posts to Team Room and the
    * founder's aldenNotifications inbox (see dispatchStalledSyncAlert).
-   * Injectable so tests can assert the alert fired without touching either. */
-  notifyStalledSync?: (status: SourceControlStatus) => Promise<void>;
+   * Receives which channels a prior attempt already confirmed delivered
+   * for this same episode, so a retry only re-attempts channels still
+   * outstanding, and must return which channels this attempt actually
+   * confirmed -- callers rely on that returned result, never on the
+   * attempt merely having been made, to decide whether to stop retrying.
+   * Injectable so tests can assert on firing/retry behavior without
+   * touching Team Room or the database. */
+  notifyStalledSync?: (
+    context: StalledSyncAlertContext,
+    alreadyDelivered: StalledSyncAlertDeliveryResult,
+  ) => Promise<StalledSyncAlertDeliveryResult>;
 }
 
 export interface SourcePromotionRecordInput {
@@ -585,13 +629,24 @@ export class SourceControlService {
 
   private readonly fetchInstallationToken: () => Promise<{ token: string }>;
 
-  private readonly notifyStalledSync: (status: SourceControlStatus) => Promise<void>;
+  private readonly notifyStalledSync: (
+    context: StalledSyncAlertContext,
+    alreadyDelivered: StalledSyncAlertDeliveryResult,
+  ) => Promise<StalledSyncAlertDeliveryResult>;
 
-  /** In-process dedup key for checkStalled()'s standalone timer path only.
-   * writeStatus() has its own durable dedup via stalledSyncAlertActive in
-   * the status file; this one guards the read-only backstop so it never
-   * writes to disk (see checkStalled() for why that matters). */
-  private lastStandaloneStallNotifyKey?: string;
+  /** In-process retry/dedup state for checkStalled()'s standalone timer
+   * path only. writeStatus() has its own durable dedup via
+   * stalledSyncAlertActive/stalledSyncAlertTeamRoomDeliveredAt in the
+   * status file; this one guards the read-only backstop so it never writes
+   * to disk (see checkStalled() for why that matters). Keyed on the
+   * failure snapshot identity so a genuinely new snapshot always gets a
+   * fresh attempt, while a repeat check against the *same* unchanging
+   * snapshot (a wedged sync()) retries only whichever channel's last
+   * attempt did not yet succeed. */
+  private lastStandaloneStallNotify?: {
+    key: string;
+    delivered: StalledSyncAlertDeliveryResult;
+  };
 
   constructor(options: SourceControlServiceOptions = {}) {
     this.rootDir = options.rootDir || process.cwd();
@@ -635,7 +690,8 @@ export class SourceControlService {
       if (!privateKey) throw new Error('HOLAHOLA_GITHUB_APP_PRIVATE_KEY is unavailable.');
       return fetchGithubInstallationToken({ appId, installationId, privateKey, now: this.now });
     });
-    this.notifyStalledSync = options.notifyStalledSync ?? ((status) => this.dispatchStalledSyncAlert(status));
+    this.notifyStalledSync = options.notifyStalledSync
+      ?? ((context, alreadyDelivered) => this.dispatchStalledSyncAlert(context, alreadyDelivered));
   }
 
   async getStatus(): Promise<SourceControlStatus | null> {
@@ -659,11 +715,14 @@ export class SourceControlService {
    * Deliberately never writes to statusPath: it runs on a timer independent
    * of writeStatus's own read-modify-write, so doing a read-modify-write
    * here too could race a concurrent writeStatus() and clobber a fresher
-   * status with a stale copy. Instead it keeps its own in-memory "already
-   * notified this exact snapshot" key -- safe because if sync() is truly
-   * wedged, consecutiveFailures/lastSuccessfulSyncAt aren't changing either,
-   * so there is nothing to keep re-notifying about until something (a real
-   * sync, or a process restart) changes the snapshot.
+   * status with a stale copy. Instead it keeps its own in-memory per-
+   * channel delivery record for this exact snapshot -- safe because if
+   * sync() is truly wedged, consecutiveFailures/lastSuccessfulSyncAt aren't
+   * changing either, so there is nothing new to alert about until
+   * something (a real sync, or a process restart) changes the snapshot. A
+   * channel whose last attempt failed is retried on the next poll rather
+   * than being silently and permanently given up on; a channel already
+   * confirmed delivered is never re-attempted.
    */
   async checkStalled(): Promise<void> {
     const status = await this.getStatus();
@@ -671,9 +730,36 @@ export class SourceControlService {
     const thresholds = resolveSourceControlStallThresholds(this.env);
     if (!isSourceControlSyncStalled(status, thresholds, this.now().getTime())) return;
     const key = `${status.consecutiveFailures}:${status.lastSuccessfulSyncAt || ''}`;
-    if (this.lastStandaloneStallNotifyKey === key) return;
-    this.lastStandaloneStallNotifyKey = key;
-    await this.notifyStalledSync(status);
+    const remembered = this.lastStandaloneStallNotify?.key === key
+      ? this.lastStandaloneStallNotify.delivered
+      : undefined;
+    const already: StalledSyncAlertDeliveryResult = {
+      teamRoomDelivered: Boolean(status.stalledSyncAlertTeamRoomDeliveredAt) || Boolean(remembered?.teamRoomDelivered),
+      // status.stalledSyncAlertActive is already known false here (the
+      // guard above returns early otherwise), so only in-memory state from
+      // a prior checkStalled() attempt this same episode can supply this.
+      founderInboxDelivered: Boolean(remembered?.founderInboxDelivered),
+    };
+    if (already.teamRoomDelivered && already.founderInboxDelivered) return;
+    const delivered = await this.notifyStalledSync(
+      {
+        state: status.state,
+        consecutiveFailures: status.consecutiveFailures,
+        lastSuccessfulSyncAt: status.lastSuccessfulSyncAt,
+        error: status.error,
+      },
+      already,
+    ).catch((err: any): StalledSyncAlertDeliveryResult => {
+      console.warn('[SourceControl] Stalled-sync check failed to notify:', err?.message || err);
+      return already;
+    });
+    this.lastStandaloneStallNotify = {
+      key,
+      delivered: {
+        teamRoomDelivered: already.teamRoomDelivered || delivered.teamRoomDelivered,
+        founderInboxDelivered: already.founderInboxDelivered || delivered.founderInboxDelivered,
+      },
+    };
   }
 
   async sync(actor = 'scheduler', operationId = this.uuid()): Promise<SourceControlResult> {
@@ -1703,22 +1789,47 @@ export class SourceControlService {
     // Stalled-sync alerting: a run of trouble -- dirty tree, lock
     // contention, divergence, a real Git failure, it doesn't matter which,
     // they all increment the same consecutiveFailures counter above -- stops
-    // being normal transient noise once it crosses a threshold. Fire once
-    // per stall *episode* (mirroring the dirty-tree notifier above) via the
-    // stalledSyncAlertActive flag, and clear that flag on the next success
-    // so a future stall can alert again.
+    // being normal transient noise once it crosses a threshold. The flags
+    // below are only ever set from a CONFIRMED delivery result, never
+    // optimistically before the attempt: if they were, a transient outage
+    // in the very channel used to raise the alarm (the database being down
+    // the moment the threshold is first crossed, say) would permanently
+    // suppress the alert for the rest of the episode -- the exact silent
+    // failure this exists to prevent. Both clear on the next success so a
+    // future stall can alert again.
     let stalledSyncAlertActive = successful ? false : (previous?.stalledSyncAlertActive ?? false);
     let stalledSyncAlertSentAt = successful ? undefined : previous?.stalledSyncAlertSentAt;
-    const shouldRaiseStallAlert = !successful
-      && !stalledSyncAlertActive
+    let stalledSyncAlertTeamRoomDeliveredAt = successful ? undefined : previous?.stalledSyncAlertTeamRoomDeliveredAt;
+    const isStalled = !successful
       && isSourceControlSyncStalled(
         { consecutiveFailures, lastSuccessfulSyncAt },
         resolveSourceControlStallThresholds(this.env),
         this.now().getTime(),
       );
-    if (shouldRaiseStallAlert) {
-      stalledSyncAlertActive = true;
-      stalledSyncAlertSentAt = now;
+    // Retry every poll until the founder inbox confirms delivery, not just
+    // once at the moment the threshold is first crossed. Awaited (unlike
+    // the dirty-tree notice above) specifically because its outcome
+    // decides what gets persisted below; it only runs while genuinely
+    // stalled -- an already-degraded path -- so this extra latency never
+    // touches the normal fast path.
+    if (isStalled && !stalledSyncAlertActive) {
+      const delivered = await this.notifyStalledSync(
+        { state, error, consecutiveFailures, lastSuccessfulSyncAt },
+        {
+          teamRoomDelivered: Boolean(stalledSyncAlertTeamRoomDeliveredAt),
+          founderInboxDelivered: stalledSyncAlertActive,
+        },
+      ).catch((err: any): StalledSyncAlertDeliveryResult => {
+        console.warn('[SourceControl] Stalled-sync notification failed:', err?.message || err);
+        return { teamRoomDelivered: false, founderInboxDelivered: false };
+      });
+      if (delivered.founderInboxDelivered) {
+        stalledSyncAlertActive = true;
+        stalledSyncAlertSentAt = now;
+      }
+      if (delivered.teamRoomDelivered && !stalledSyncAlertTeamRoomDeliveredAt) {
+        stalledSyncAlertTeamRoomDeliveredAt = now;
+      }
     }
     const status: SourceControlStatus = {
       schemaVersion: 3,
@@ -1745,6 +1856,7 @@ export class SourceControlService {
       updatedAt: now,
       stalledSyncAlertActive,
       stalledSyncAlertSentAt,
+      stalledSyncAlertTeamRoomDeliveredAt,
       // Promotion-completion evidence must survive incidental writes (a
       // later `dirty`/`failed`/plain `synced` sync) the same way candidate
       // evidence does. Otherwise a completed promotion's `promotedSha` marker
@@ -1763,11 +1875,6 @@ export class SourceControlService {
     const statusTemp = `${this.statusPath}.${process.pid}.${this.uuid()}.tmp`;
     await writeFile(statusTemp, `${JSON.stringify(status, null, 2)}\n`, { mode: 0o600 });
     await rename(statusTemp, this.statusPath);
-    if (shouldRaiseStallAlert) {
-      void this.notifyStalledSync(status).catch((err: any) => {
-        console.warn('[SourceControl] Stalled-sync notification failed:', err?.message || err);
-      });
-    }
     const summary = [
       '# Source-control status',
       '',
@@ -1812,58 +1919,79 @@ export class SourceControlService {
   }
 
   /**
-   * Posts a stalled-sync alert once per stall episode. This pipeline gates
-   * every founder publish (source promotion, runtime release), so a silent
-   * multi-day outage blocks all of them -- exactly what happened when a
-   * 'diverged' state ran for ~2.5 days with only notifyDirtyTreeBlock's
-   * narrower dirty-tree case wired up. Unlike that Team-Room-only notice,
-   * this also writes a durable aldenNotifications row: Team Room is
-   * ephemeral chat that requires the page to be open, while aldenNotifications
-   * persists as an unread sidebar badge until someone actually reads it --
-   * the difference between "visible if you happen to be looking" and
-   * "visible whenever you next look". Both are fire-and-forget from
-   * writeStatus's/checkStalled's side; a notification-path failure must
-   * never affect the status write or staleness check it is reporting on.
+   * Posts a stalled-sync alert, attempting only the channels not yet
+   * confirmed delivered for the current episode (see `already`). This
+   * pipeline gates every founder publish (source promotion, runtime
+   * release), so a silent multi-day outage blocks all of them -- exactly
+   * what happened when a 'diverged' state ran for ~2.5 days with only
+   * notifyDirtyTreeBlock's narrower dirty-tree case wired up. Unlike that
+   * Team-Room-only notice, this also writes a durable aldenNotifications
+   * row: Team Room is ephemeral chat that requires the page to be open,
+   * while aldenNotifications persists as an unread sidebar badge until
+   * someone actually reads it -- the difference between "visible if you
+   * happen to be looking" and "visible whenever you next look".
+   *
+   * Each channel has its own try/catch, so this method itself never
+   * throws; the caller decides what to persist from the returned
+   * per-channel result, never from the mere fact that an attempt was made.
+   * That is what makes retrying safe: a channel already confirmed
+   * delivered is skipped entirely (never re-posted/re-inserted), while a
+   * channel whose last attempt failed stays false so the caller retries it
+   * on the next poll instead of the alert being silently and permanently
+   * dropped.
    */
-  private async dispatchStalledSyncAlert(status: SourceControlStatus): Promise<void> {
-    const ageDescription = status.lastSuccessfulSyncAt
-      ? `${Math.round((this.now().getTime() - new Date(status.lastSuccessfulSyncAt).getTime()) / 60000)} minutes since the last successful sync`
+  private async dispatchStalledSyncAlert(
+    context: StalledSyncAlertContext,
+    already: StalledSyncAlertDeliveryResult,
+  ): Promise<StalledSyncAlertDeliveryResult> {
+    const ageDescription = context.lastSuccessfulSyncAt
+      ? `${Math.round((this.now().getTime() - new Date(context.lastSuccessfulSyncAt).getTime()) / 60000)} minutes since the last successful sync`
       : 'no successful sync has been recorded yet';
     const content = [
       '**Source-control sync is stalled**',
       '',
-      `State: ${status.state}`,
-      `Consecutive failed attempts: ${status.consecutiveFailures}`,
+      `State: ${context.state}`,
+      `Consecutive failed attempts: ${context.consecutiveFailures}`,
       `${ageDescription}.`,
-      status.error ? `Last error: ${status.error}` : undefined,
+      context.error ? `Last error: ${context.error}` : undefined,
       '',
       'This pipeline gates every founder publish (source promotion, runtime release). The scheduler will keep retrying on its own schedule, but it has not been able to resolve this by itself.',
     ].filter((line): line is string => typeof line === 'string').join('\n');
 
-    try {
-      const { storage } = await import('../storage');
-      const rooms = await storage.listTeamRooms(1);
-      if (rooms.length) {
-        const message = await storage.createRoomMessage({ roomId: rooms[0].id, speaker: 'Luca', content });
-        const { emitNewMessage } = await import('./team-room-ws-broker');
-        emitNewMessage(rooms[0].id, message);
+    let teamRoomDelivered = already.teamRoomDelivered;
+    if (!teamRoomDelivered) {
+      try {
+        const { storage } = await import('../storage');
+        const rooms = await storage.listTeamRooms(1);
+        if (rooms.length) {
+          const message = await storage.createRoomMessage({ roomId: rooms[0].id, speaker: 'Luca', content });
+          const { emitNewMessage } = await import('./team-room-ws-broker');
+          emitNewMessage(rooms[0].id, message);
+          teamRoomDelivered = true;
+        }
+      } catch (err: any) {
+        console.warn('[SourceControl] Stalled-sync Team Room notification failed:', err?.message || err);
       }
-    } catch (err: any) {
-      console.warn('[SourceControl] Stalled-sync Team Room notification failed:', err?.message || err);
     }
 
-    try {
-      const { getUserDb } = await import('../db');
-      const { aldenNotifications } = await import('@shared/schema');
-      await getUserDb().insert(aldenNotifications).values({
-        content,
-        triggeredBy: 'source-control',
-        severity: 'alert',
-        read: false,
-        fingerprint: 'source_control_stalled_sync',
-      });
-    } catch (err: any) {
-      console.warn('[SourceControl] Stalled-sync founder-inbox notification failed:', err?.message || err);
+    let founderInboxDelivered = already.founderInboxDelivered;
+    if (!founderInboxDelivered) {
+      try {
+        const { getUserDb } = await import('../db');
+        const { aldenNotifications } = await import('@shared/schema');
+        await getUserDb().insert(aldenNotifications).values({
+          content,
+          triggeredBy: 'source-control',
+          severity: 'alert',
+          read: false,
+          fingerprint: 'source_control_stalled_sync',
+        });
+        founderInboxDelivered = true;
+      } catch (err: any) {
+        console.warn('[SourceControl] Stalled-sync founder-inbox notification failed:', err?.message || err);
+      }
     }
+
+    return { teamRoomDelivered, founderInboxDelivered };
   }
 }

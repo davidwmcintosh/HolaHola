@@ -22,6 +22,8 @@ import {
   validateRenderReleaseEvidence,
   type RenderReleaseEvidence,
   type SourceControlStatus,
+  type StalledSyncAlertContext,
+  type StalledSyncAlertDeliveryResult,
 } from '../services/source-control-service';
 
 const LOCAL_OLD = '1'.repeat(40);
@@ -264,7 +266,10 @@ async function withFixture(
 async function withRepeatableFixture(
   scenario: Scenario,
   options: FixtureRunOptions & {
-    notifyStalledSync?: (status: SourceControlStatus) => Promise<void>;
+    notifyStalledSync?: (
+      context: StalledSyncAlertContext,
+      alreadyDelivered: StalledSyncAlertDeliveryResult,
+    ) => Promise<StalledSyncAlertDeliveryResult>;
     extraEnv?: NodeJS.ProcessEnv;
   } = {},
 ): Promise<{
@@ -1592,10 +1597,13 @@ async function main(): Promise<void> {
   // and not before -- using a low threshold (3) so the fixture does not
   // need dozens of sync() calls to prove it.
   {
-    const alerts: SourceControlStatus[] = [];
+    const alerts: StalledSyncAlertContext[] = [];
     const fixture = await withRepeatableFixture('local-ahead', {
       dirty: true,
-      notifyStalledSync: async (status) => { alerts.push(status); },
+      notifyStalledSync: async (context) => {
+        alerts.push(context);
+        return { teamRoomDelivered: true, founderInboxDelivered: true };
+      },
       extraEnv: { SOURCE_CONTROL_STALL_FAILURE_THRESHOLD: '3' } as NodeJS.ProcessEnv,
     });
     try {
@@ -1609,8 +1617,8 @@ async function main(): Promise<void> {
       assert.equal(third.state, 'dirty');
       assert.equal(alerts.length, 1, 'crossing the threshold on the third consecutive failure must alert exactly once');
       assert.equal(alerts[0].consecutiveFailures, 3);
-      assert.equal(alerts[0].stalledSyncAlertActive, true);
       assert.equal(fixture.readStatus().stalledSyncAlertActive, true);
+      assert.ok(fixture.readStatus().stalledSyncAlertTeamRoomDeliveredAt, 'confirmed Team Room delivery must be persisted too');
 
       // Must not repeat-fire while still stalled.
       const fourth = await fixture.service.sync('fixture');
@@ -1627,6 +1635,7 @@ async function main(): Promise<void> {
       assert.equal(recoveredStatus.consecutiveFailures, 0);
       assert.equal(recoveredStatus.stalledSyncAlertActive, false);
       assert.equal(recoveredStatus.stalledSyncAlertSentAt, undefined);
+      assert.equal(recoveredStatus.stalledSyncAlertTeamRoomDeliveredAt, undefined);
       assert.equal(alerts.length, 1, 'recovering must not itself fire a notification');
 
       // A fresh stall after recovery must be able to alert again.
@@ -1641,6 +1650,118 @@ async function main(): Promise<void> {
     }
   }
 
+  // Reviewer-required regression coverage: a delivery failure at the exact
+  // moment the threshold is first crossed must not permanently suppress
+  // the alert. The old design set stalledSyncAlertActive as soon as an
+  // attempt was *made*, so a DB outage at the crossing moment meant the
+  // founder inbox would never receive the alert for the rest of the
+  // episode, even after the DB recovered. This proves the fix: the flag
+  // is only set from a CONFIRMED result, and an unconfirmed episode keeps
+  // retrying on every subsequent poll until delivery actually succeeds.
+  {
+    const attempts: StalledSyncAlertContext[] = [];
+    let shouldDeliver = false;
+    const fixture = await withRepeatableFixture('local-ahead', {
+      dirty: true,
+      notifyStalledSync: async (context) => {
+        attempts.push(context);
+        return shouldDeliver
+          ? { teamRoomDelivered: true, founderInboxDelivered: true }
+          : { teamRoomDelivered: false, founderInboxDelivered: false };
+      },
+      extraEnv: { SOURCE_CONTROL_STALL_FAILURE_THRESHOLD: '3' } as NodeJS.ProcessEnv,
+    });
+    try {
+      await fixture.service.sync('fixture');
+      await fixture.service.sync('fixture');
+      const third = await fixture.service.sync('fixture');
+      assert.equal(third.state, 'dirty');
+      assert.equal(attempts.length, 1, 'crossing the threshold must attempt delivery even though it will fail');
+      assert.equal(
+        fixture.readStatus().stalledSyncAlertActive,
+        false,
+        'a failed delivery attempt must NOT be persisted as delivered -- this is the exact bug the reviewer flagged',
+      );
+      assert.equal(fixture.readStatus().stalledSyncAlertTeamRoomDeliveredAt, undefined);
+
+      // The stall continues (still dirty) for another poll, still failing.
+      const fourth = await fixture.service.sync('fixture');
+      assert.equal(fourth.state, 'dirty');
+      assert.equal(attempts.length, 2, 'an unconfirmed alert must retry on the next poll rather than being given up on');
+      assert.equal(fixture.readStatus().stalledSyncAlertActive, false);
+
+      // The channel recovers (e.g. the database comes back) while the
+      // stall is still ongoing.
+      shouldDeliver = true;
+      const fifth = await fixture.service.sync('fixture');
+      assert.equal(fifth.state, 'dirty');
+      assert.equal(attempts.length, 3, 'recovery must be retried and observed on the very next poll');
+      const recoveredDeliveryStatus = fixture.readStatus();
+      assert.equal(
+        recoveredDeliveryStatus.stalledSyncAlertActive,
+        true,
+        'once delivery is confirmed, the founder inbox must actually be marked as having received the alert',
+      );
+      assert.ok(recoveredDeliveryStatus.stalledSyncAlertSentAt, 'a confirmed delivery must record when it was confirmed');
+
+      // Now that it is confirmed, continuing to fail must not re-attempt --
+      // flipping shouldDeliver back to false here would have no effect if
+      // a bug caused a spurious re-attempt, so this only passes if the
+      // confirmed flag is truly respected.
+      shouldDeliver = false;
+      const sixth = await fixture.service.sync('fixture');
+      assert.equal(sixth.state, 'dirty');
+      assert.equal(attempts.length, 3, 'once confirmed delivered, further polls must not re-attempt at all');
+    } finally {
+      fixture.cleanup();
+    }
+  }
+
+  // Partial-channel failure: Team Room succeeds immediately but the
+  // founder inbox (database) fails, then later recovers. The
+  // already-confirmed Team Room channel must never be re-attempted while
+  // the outstanding founder-inbox channel keeps retrying -- proving a
+  // lagging channel cannot cause a duplicate post to a channel that
+  // already succeeded.
+  {
+    const calls: Array<{ context: StalledSyncAlertContext; already: StalledSyncAlertDeliveryResult }> = [];
+    let founderInboxUp = false;
+    const fixture = await withRepeatableFixture('local-ahead', {
+      dirty: true,
+      notifyStalledSync: async (context, already) => {
+        calls.push({ context, already });
+        return { teamRoomDelivered: true, founderInboxDelivered: founderInboxUp };
+      },
+      extraEnv: { SOURCE_CONTROL_STALL_FAILURE_THRESHOLD: '3' } as NodeJS.ProcessEnv,
+    });
+    try {
+      await fixture.service.sync('fixture');
+      await fixture.service.sync('fixture');
+      await fixture.service.sync('fixture'); // crosses threshold: Team Room succeeds, founder inbox fails
+      assert.equal(calls.length, 1);
+      assert.deepEqual(calls[0].already, { teamRoomDelivered: false, founderInboxDelivered: false });
+      let status = fixture.readStatus();
+      assert.ok(status.stalledSyncAlertTeamRoomDeliveredAt, 'Team Room success must be persisted even though founder inbox failed');
+      assert.equal(status.stalledSyncAlertActive, false, 'founder inbox must still show undelivered');
+
+      await fixture.service.sync('fixture'); // still failing overall, retry
+      assert.equal(calls.length, 2);
+      assert.deepEqual(
+        calls[1].already,
+        { teamRoomDelivered: true, founderInboxDelivered: false },
+        'a retry must tell the dispatcher Team Room already succeeded so it is never re-attempted',
+      );
+
+      founderInboxUp = true;
+      await fixture.service.sync('fixture'); // founder inbox now recovers
+      assert.equal(calls.length, 3);
+      status = fixture.readStatus();
+      assert.equal(status.stalledSyncAlertActive, true, 'founder inbox delivery must be confirmed once it recovers');
+    } finally {
+      fixture.cleanup();
+    }
+  }
+
   // checkStalled() is the scheduler-driven backstop for a sync() that is
   // wedged (stuck lock, hung Git subprocess) and therefore never calls
   // writeStatus again on its own. It must detect staleness purely from
@@ -1648,9 +1769,12 @@ async function main(): Promise<void> {
   // any further sync() calls, and must dedupe repeated notifications for
   // the same unchanging snapshot in memory (never writing to disk itself).
   {
-    const alerts: SourceControlStatus[] = [];
+    const alerts: StalledSyncAlertContext[] = [];
     const fixture = await withRepeatableFixture('equal', {
-      notifyStalledSync: async (status) => { alerts.push(status); },
+      notifyStalledSync: async (context) => {
+        alerts.push(context);
+        return { teamRoomDelivered: true, founderInboxDelivered: true };
+      },
       // A failure-count threshold far above anything this test reaches
       // isolates the stale-age branch: only elapsed time should trigger it.
       extraEnv: {
@@ -1689,6 +1813,54 @@ async function main(): Promise<void> {
       fixture.advanceMs(1000);
       await fixture.service.checkStalled();
       assert.equal(alerts.length, 1, 'repeated checkStalled() calls against an unchanging snapshot must dedupe in memory');
+    } finally {
+      fixture.cleanup();
+    }
+  }
+
+  // checkStalled()'s standalone backstop must have the same confirmed-
+  // delivery-before-suppression contract as writeStatus() above: a failed
+  // attempt must not permanently prevent a later retry while the sync loop
+  // remains wedged (status file frozen, no new sync() calls at all).
+  {
+    const attempts: StalledSyncAlertContext[] = [];
+    let shouldDeliver = false;
+    const fixture = await withRepeatableFixture('equal', {
+      notifyStalledSync: async (context) => {
+        attempts.push(context);
+        return shouldDeliver
+          ? { teamRoomDelivered: true, founderInboxDelivered: true }
+          : { teamRoomDelivered: false, founderInboxDelivered: false };
+      },
+      extraEnv: {
+        SOURCE_CONTROL_STALL_FAILURE_THRESHOLD: '1000',
+        SOURCE_CONTROL_STALL_AGE_MS: '60000',
+      } as NodeJS.ProcessEnv,
+    });
+    try {
+      await fixture.service.sync('fixture');
+      fixture.advanceMs(61_000);
+
+      await fixture.service.checkStalled();
+      assert.equal(attempts.length, 1, 'first check past the stale-age threshold must attempt delivery');
+      assert.equal(fixture.readStatus().stalledSyncAlertActive, false, 'checkStalled() must never write to the status file');
+
+      // Same unchanging (wedged) snapshot, delivery still failing -- must
+      // retry, not silently give up because "this key was already tried".
+      await fixture.service.checkStalled();
+      assert.equal(attempts.length, 2, 'a snapshot whose previous delivery failed must be retried, not permanently skipped');
+
+      // The channel recovers while the sync loop is still wedged.
+      shouldDeliver = true;
+      await fixture.service.checkStalled();
+      assert.equal(attempts.length, 3, 'recovery must be observed on the very next check');
+
+      // Now that delivery is confirmed for this snapshot, further checks
+      // against the same unchanging snapshot must stop attempting.
+      shouldDeliver = false;
+      fixture.advanceMs(1000);
+      await fixture.service.checkStalled();
+      assert.equal(attempts.length, 3, 'once confirmed delivered for this snapshot, further checks must not re-attempt');
     } finally {
       fixture.cleanup();
     }
