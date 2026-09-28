@@ -1762,6 +1762,72 @@ async function main(): Promise<void> {
     }
   }
 
+  // Mirror of the previous test with the channels swapped: founder inbox
+  // succeeds immediately (stalledSyncAlertActive becomes true) while Team
+  // Room fails, then Team Room later recovers. Reviewer-flagged regression:
+  // the old `if (isStalled && !stalledSyncAlertActive)` guard treated a
+  // confirmed founder-inbox delivery as "this episode is fully handled" and
+  // never attempted Team Room again for the rest of the stall, no matter how
+  // many more polls happened.
+  {
+    const calls: Array<{ context: StalledSyncAlertContext; already: StalledSyncAlertDeliveryResult }> = [];
+    let teamRoomUp = false;
+    const fixture = await withRepeatableFixture('local-ahead', {
+      dirty: true,
+      notifyStalledSync: async (context, already) => {
+        calls.push({ context, already });
+        return { teamRoomDelivered: teamRoomUp, founderInboxDelivered: true };
+      },
+      extraEnv: { SOURCE_CONTROL_STALL_FAILURE_THRESHOLD: '3' } as NodeJS.ProcessEnv,
+    });
+    try {
+      await fixture.service.sync('fixture');
+      await fixture.service.sync('fixture');
+      await fixture.service.sync('fixture'); // crosses threshold: founder inbox succeeds, Team Room fails
+      assert.equal(calls.length, 1);
+      assert.deepEqual(calls[0].already, { teamRoomDelivered: false, founderInboxDelivered: false });
+      let status = fixture.readStatus();
+      assert.equal(status.stalledSyncAlertActive, true, 'founder inbox success must be persisted even though Team Room failed');
+      assert.equal(status.stalledSyncAlertTeamRoomDeliveredAt, undefined, 'Team Room must still show undelivered');
+      const founderInboxSentAt = status.stalledSyncAlertSentAt;
+      assert.ok(founderInboxSentAt, 'founder-inbox confirmation timestamp must be recorded');
+
+      // Still stalled (still dirty) on the next poll. The old bug's guard
+      // (`!stalledSyncAlertActive`) is now false, so without the fix this
+      // whole block -- and therefore Team Room's retry -- would never run
+      // again for the rest of this stall episode.
+      await fixture.service.sync('fixture');
+      assert.equal(
+        calls.length,
+        2,
+        'a confirmed founder-inbox delivery must never stop Team Room from being retried -- this is the exact bug the reviewer flagged',
+      );
+      assert.deepEqual(
+        calls[1].already,
+        { teamRoomDelivered: false, founderInboxDelivered: true },
+        'a retry must tell the dispatcher founder inbox already succeeded so it is never re-attempted',
+      );
+
+      teamRoomUp = true;
+      await fixture.service.sync('fixture'); // Team Room now recovers
+      assert.equal(calls.length, 3);
+      status = fixture.readStatus();
+      assert.ok(status.stalledSyncAlertTeamRoomDeliveredAt, 'Team Room delivery must be confirmed once it recovers');
+      assert.equal(
+        status.stalledSyncAlertSentAt,
+        founderInboxSentAt,
+        'a channel already confirmed on a prior poll must not have its sent-at timestamp bumped again by a later poll that only newly confirms the OTHER channel',
+      );
+
+      // Now that both channels are confirmed, continuing to fail must not
+      // re-attempt either one.
+      await fixture.service.sync('fixture');
+      assert.equal(calls.length, 3, 'once both channels are confirmed delivered, further polls must not re-attempt at all');
+    } finally {
+      fixture.cleanup();
+    }
+  }
+
   // checkStalled() is the scheduler-driven backstop for a sync() that is
   // wedged (stuck lock, hung Git subprocess) and therefore never calls
   // writeStatus again on its own. It must detect staleness purely from
@@ -1861,6 +1927,57 @@ async function main(): Promise<void> {
       fixture.advanceMs(1000);
       await fixture.service.checkStalled();
       assert.equal(attempts.length, 3, 'once confirmed delivered for this snapshot, further checks must not re-attempt');
+    } finally {
+      fixture.cleanup();
+    }
+  }
+
+  // checkStalled()'s wall-clock backstop must also catch a sync() that
+  // wedges on its very first-ever attempt, before writeStatus() has run even
+  // once. No status file exists in that case, so isSourceControlSyncStalled()
+  // has neither consecutiveFailures nor lastSuccessfulSyncAt to compare
+  // against -- only wall-clock time since the service itself was constructed
+  // (startedAtMs) can catch it. Reviewer-flagged regression: the old
+  // `if (!status || ...) return;` guard bailed out unconditionally when no
+  // status file existed, so this case could never alert no matter how much
+  // time passed.
+  {
+    const alerts: StalledSyncAlertContext[] = [];
+    const fixture = await withRepeatableFixture('equal', {
+      notifyStalledSync: async (context) => {
+        alerts.push(context);
+        return { teamRoomDelivered: true, founderInboxDelivered: true };
+      },
+      extraEnv: {
+        SOURCE_CONTROL_STALL_FAILURE_THRESHOLD: '1000',
+        SOURCE_CONTROL_STALL_AGE_MS: '60000',
+      } as NodeJS.ProcessEnv,
+    });
+    try {
+      // No sync() call at all -- simulates a first-ever attempt wedged
+      // (stuck lock, hung Git subprocess) before it could write any status.
+      assert.equal(fixture.readStatus(), null, 'no status file must exist yet for this to be a valid first-run-wedge fixture');
+
+      await fixture.service.checkStalled();
+      assert.equal(alerts.length, 0, 'must not fire before the age threshold elapses, even with no status file');
+
+      fixture.advanceMs(61_000);
+      await fixture.service.checkStalled();
+      assert.equal(
+        alerts.length,
+        1,
+        'a first sync that never completes must still be caught once wall-clock time since service startup exceeds the threshold',
+      );
+      assert.equal(alerts[0].consecutiveFailures, 0, 'no completed attempt means no recorded failure count yet');
+      assert.equal(alerts[0].lastSuccessfulSyncAt, undefined);
+      assert.ok(alerts[0].error, 'a fallback explanation must be provided when there is no real status.error to report');
+      assert.equal(fixture.readStatus(), null, 'checkStalled() must never write a status file itself, even in the no-status case');
+
+      // Must dedupe against the same unchanging (still-null) snapshot.
+      await fixture.service.checkStalled();
+      fixture.advanceMs(1000);
+      await fixture.service.checkStalled();
+      assert.equal(alerts.length, 1, 'repeated checks against the same still-wedged first attempt must dedupe in memory');
     } finally {
       fixture.cleanup();
     }

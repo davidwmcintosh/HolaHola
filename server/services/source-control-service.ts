@@ -648,10 +648,21 @@ export class SourceControlService {
     delivered: StalledSyncAlertDeliveryResult;
   };
 
+  /** Wall-clock backstop for a sync() that wedges on its very first-ever
+   * attempt (stuck lock, hung Git subprocess) before writeStatus() has run
+   * even once. isSourceControlSyncStalled() alone cannot see that case: it
+   * needs either consecutiveFailures (only incremented by a completed
+   * writeStatus call) or lastSuccessfulSyncAt (only ever set by one), and a
+   * sync that never finishes never touches either. Recorded once, here, at
+   * construction time -- independent of the status file -- so checkStalled()
+   * still has a clock to measure against when getStatus() returns null. */
+  private readonly startedAtMs: number;
+
   constructor(options: SourceControlServiceOptions = {}) {
     this.rootDir = options.rootDir || process.cwd();
     this.env = options.env || process.env;
     this.now = options.now || (() => new Date());
+    this.startedAtMs = this.now().getTime();
     this.uuid = options.uuid || randomUUID;
     this.runCommand = options.runCommand || defaultRunner;
     this.branch = this.env.SOURCE_BRIDGE_BRANCH || 'main';
@@ -722,31 +733,46 @@ export class SourceControlService {
    * something (a real sync, or a process restart) changes the snapshot. A
    * channel whose last attempt failed is retried on the next poll rather
    * than being silently and permanently given up on; a channel already
-   * confirmed delivered is never re-attempted.
+   * confirmed delivered is never re-attempted -- but confirmation of ONE
+   * channel (say founder-inbox, tracked durably via stalledSyncAlertActive)
+   * must never be treated as a reason to stop checking the OTHER channel
+   * (Team Room): each is read independently from the status file below, and
+   * either one being outstanding is enough to keep going.
+   *
+   * Also covers the first-ever sync attempt wedging before writeStatus() has
+   * run even once: getStatus() returns null in that case, and
+   * isSourceControlSyncStalled() has neither consecutiveFailures nor
+   * lastSuccessfulSyncAt to compare against. Wall-clock time since this
+   * service instance was constructed (startedAtMs) stands in for the status
+   * file in that narrow case so the backstop still fires.
    */
   async checkStalled(): Promise<void> {
     const status = await this.getStatus();
-    if (!status || status.state === 'disabled' || status.stalledSyncAlertActive) return;
+    if (status?.state === 'disabled') return;
     const thresholds = resolveSourceControlStallThresholds(this.env);
-    if (!isSourceControlSyncStalled(status, thresholds, this.now().getTime())) return;
-    const key = `${status.consecutiveFailures}:${status.lastSuccessfulSyncAt || ''}`;
+    const nowMs = this.now().getTime();
+    const stalled = status
+      ? isSourceControlSyncStalled(status, thresholds, nowMs)
+      : nowMs - this.startedAtMs >= thresholds.staleSuccessAgeMs;
+    if (!stalled) return;
+    const key = status
+      ? `${status.consecutiveFailures}:${status.lastSuccessfulSyncAt || ''}`
+      : 'pending-first-sync';
     const remembered = this.lastStandaloneStallNotify?.key === key
       ? this.lastStandaloneStallNotify.delivered
       : undefined;
     const already: StalledSyncAlertDeliveryResult = {
-      teamRoomDelivered: Boolean(status.stalledSyncAlertTeamRoomDeliveredAt) || Boolean(remembered?.teamRoomDelivered),
-      // status.stalledSyncAlertActive is already known false here (the
-      // guard above returns early otherwise), so only in-memory state from
-      // a prior checkStalled() attempt this same episode can supply this.
-      founderInboxDelivered: Boolean(remembered?.founderInboxDelivered),
+      teamRoomDelivered: Boolean(status?.stalledSyncAlertTeamRoomDeliveredAt) || Boolean(remembered?.teamRoomDelivered),
+      founderInboxDelivered: Boolean(status?.stalledSyncAlertActive) || Boolean(remembered?.founderInboxDelivered),
     };
     if (already.teamRoomDelivered && already.founderInboxDelivered) return;
     const delivered = await this.notifyStalledSync(
       {
-        state: status.state,
-        consecutiveFailures: status.consecutiveFailures,
-        lastSuccessfulSyncAt: status.lastSuccessfulSyncAt,
-        error: status.error,
+        state: status?.state ?? 'retrying',
+        consecutiveFailures: status?.consecutiveFailures ?? 0,
+        lastSuccessfulSyncAt: status?.lastSuccessfulSyncAt,
+        error: status?.error
+          ?? 'No sync attempt has completed since the scheduler started; the process may be wedged before writing its first status.',
       },
       already,
     ).catch((err: any): StalledSyncAlertDeliveryResult => {
@@ -1806,13 +1832,20 @@ export class SourceControlService {
         resolveSourceControlStallThresholds(this.env),
         this.now().getTime(),
       );
-    // Retry every poll until the founder inbox confirms delivery, not just
-    // once at the moment the threshold is first crossed. Awaited (unlike
-    // the dirty-tree notice above) specifically because its outcome
-    // decides what gets persisted below; it only runs while genuinely
-    // stalled -- an already-degraded path -- so this extra latency never
-    // touches the normal fast path.
-    if (isStalled && !stalledSyncAlertActive) {
+    // Retry every poll until BOTH channels confirm delivery, not just once
+    // at the moment the threshold is first crossed, and not just for
+    // whichever channel happens to be tracked first. The two channels fail
+    // independently (a DB hiccup can block the founder-inbox insert while
+    // Team Room succeeds, or vice versa); gating this whole block on only
+    // one of them (as a `!stalledSyncAlertActive`-only check would) lets a
+    // confirmed founder-inbox delivery permanently stop Team Room from ever
+    // being retried again for the same stall episode. Awaited (unlike the
+    // dirty-tree notice above) specifically because its outcome decides what
+    // gets persisted below; it only runs while genuinely stalled -- an
+    // already-degraded path -- so this extra latency never touches the
+    // normal fast path.
+    if (isStalled && (!stalledSyncAlertActive || !stalledSyncAlertTeamRoomDeliveredAt)) {
+      const wasFounderInboxDelivered = stalledSyncAlertActive;
       const delivered = await this.notifyStalledSync(
         { state, error, consecutiveFailures, lastSuccessfulSyncAt },
         {
@@ -1823,7 +1856,11 @@ export class SourceControlService {
         console.warn('[SourceControl] Stalled-sync notification failed:', err?.message || err);
         return { teamRoomDelivered: false, founderInboxDelivered: false };
       });
-      if (delivered.founderInboxDelivered) {
+      // Guarded by the pre-call snapshot (not the live variable) so a
+      // channel already confirmed on a prior poll never has its sent-at
+      // timestamp bumped again just because this poll re-confirmed it while
+      // retrying the other, still-outstanding channel.
+      if (delivered.founderInboxDelivered && !wasFounderInboxDelivered) {
         stalledSyncAlertActive = true;
         stalledSyncAlertSentAt = now;
       }
