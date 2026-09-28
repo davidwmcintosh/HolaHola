@@ -88,6 +88,7 @@ import { reembedConversationMemory } from '../scripts/reembed-memory';
 import { postAsLuca } from './luca-responder';
 import { detectRollingTagMisroute } from './rolling-tag-utils';
 import { summarizeRawWindowReconciliationDirectory } from './raw-window-reconciliation';
+import { refreshMemoryIndexBestEffort } from './agent-memory-core';
 import {
   getRawWindowEvidenceLedgerSummary,
   type RawWindowEvidenceLedgerSummary,
@@ -1145,6 +1146,11 @@ function _writeCaptureStatusFile(episodeFilename: string | null, captureMs: numb
   // Intentional: a channel that has never fired is NOT ready, so the alert
   // persists until both channels have been written for the current output cycle.
   const staleChannelAlertPath = _staleChannelAlertPathOverrideForTest ?? STALE_CHANNEL_ALERT_PATH;
+  // Only trigger a real MEMORY.md refresh when operating on the real alert
+  // path — a test that overrides the path to a scratch file must not also
+  // cause a live DB read + write against this checkout's actual
+  // .agents/memory/MEMORY.md.
+  const isRealStaleChannelAlertPath = _staleChannelAlertPathOverrideForTest === null;
   if (feltStale || thinkingStale) {
     const alertTime  = new Date(now).toLocaleString('en-US', { weekday: 'short', month: 'short', day: 'numeric', year: 'numeric', hour: 'numeric', minute: '2-digit', second: '2-digit' });
     const staleParts = [
@@ -1170,9 +1176,11 @@ function _writeCaptureStatusFile(episodeFilename: string | null, captureMs: numb
       '_Check `.local/episode-capture-status.md` for the live channel state._',
     ].join('\n');
     try { writeFileSync(staleChannelAlertPath, alertContent, 'utf-8'); } catch { /* non-fatal */ }
+    if (isRealStaleChannelAlertPath) refreshMemoryIndexBestEffort('agent-session-autosave:stale-channel-alert-write');
   } else if (feltReady && thinkingReady) {
     // Both channels ready (written since last output) — safe to clear the alert.
     try { if (existsSync(staleChannelAlertPath)) unlinkSync(staleChannelAlertPath); } catch { /* non-fatal */ }
+    if (isRealStaleChannelAlertPath) refreshMemoryIndexBestEffort('agent-session-autosave:stale-channel-alert-clear');
   }
   // Note: when neither stale nor ready (e.g. "— not yet" under 10 min), the file
   // is left unchanged — it stays if it was previously written, stays absent otherwise.

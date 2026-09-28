@@ -52,6 +52,14 @@ const MEMORY_DIR = process.env.AGENT_MEMORY_TEST_FILES_DIR
 const MEMORY_INDEX_PATH = path.join(MEMORY_DIR, "MEMORY.md");
 const RECENT_ACTIVITY_WINDOW_MS = 24 * 60 * 60 * 1000;
 
+// Live-state files consulted by computeLiveStatusBanner() below. These are
+// plain workspace-relative paths (not test-overridable) because
+// computeLiveStatusBanner() short-circuits entirely under
+// AGENT_MEMORY_TEST_FILES_DIR -- see that function for why.
+const LIVE_STATE_DIR = path.join(process.cwd(), ".local");
+const STALE_CHANNEL_ALERT_PATH = path.join(LIVE_STATE_DIR, "stale-channel-alert.md");
+const EPISODE_CAPTURE_STATUS_PATH = path.join(LIVE_STATE_DIR, "episode-capture-status.md");
+
 function topicFilePath(topicSlug: string): string {
   return path.join(MEMORY_DIR, `${topicSlug}.md`);
 }
@@ -186,9 +194,71 @@ export async function fetchMemoryIndexEntries(): Promise<AgentMemoryEntry[]> {
     .orderBy(asc(agentMemoryEntries.createdAt));
 }
 
-export function formatMemoryIndex(entries: readonly AgentMemoryEntry[]): string {
+export function formatMemoryIndex(entries: readonly AgentMemoryEntry[], liveBanner = ""): string {
   const lines = entries.map((entry) => `- [${entry.title}](${entry.topicSlug}.md) — ${entry.hook}`);
-  return `${AGENT_MEMORY_PREAMBLE}\n\n${lines.join("\n")}\n`;
+  // liveBanner is "" in the common case, which collapses this to the exact
+  // original `${AGENT_MEMORY_PREAMBLE}\n\n${lines...}` — the blank line
+  // comes from the two \n's either side of an empty banner, not from a
+  // separate literal. See computeLiveStatusBanner() for what populates it.
+  return `${AGENT_MEMORY_PREAMBLE}\n${liveBanner}\n${lines.join("\n")}\n`;
+}
+
+// ===== Live-status banner =========================================================
+//
+// Session-start protocol compliance depends on a hat actually opening
+// .local/stale-channel-alert.md and .local/episode-capture-status.md before
+// its first output -- both require active discipline to read and neither is
+// auto-injected. MEMORY.md is the one artifact guaranteed to reach every
+// hat's context on every turn, so folding a short live-state headline into
+// its generated banner closes that gap: a hat that skips the live-state
+// files still sees the headline the moment MEMORY.md is (re)generated.
+//
+// Read-only and best-effort by design. A missing or unreadable live-state
+// file is the common/healthy case (ENOENT — no alert open, or no rolling
+// episode active), not an error, and any other failure here must never
+// block memory rendering, so every branch swallows its own error.
+//
+// Short-circuits entirely under AGENT_MEMORY_TEST_FILES_DIR: that env var
+// marks a hermetic test run against a disposable DB + scratch output dir,
+// but the live-state files below live under this checkout's real .local/
+// with no parallel scratch location. Reading them during such a test would
+// let whatever the real workspace happens to contain (or not, mid-session)
+// leak into content-equality assertions (e.g.
+// test-agent-memory-drift-guard.ts) that never intended to depend on it.
+export async function computeLiveStatusBanner(): Promise<string> {
+  if (process.env.AGENT_MEMORY_TEST_FILES_DIR) return "";
+
+  const lines: string[] = [];
+
+  try {
+    const alert = await fs.readFile(STALE_CHANNEL_ALERT_PATH, "utf8");
+    // "silent for 10+ min" is the one substring common to all three writers'
+    // phrasing ("channels have been silent for 10+ min" vs "channels silent
+    // for 10+ min" -- agent-session-autosave.ts's main cycle, its boot-seed
+    // path, and capture-watchdog.ts each word it slightly differently).
+    const headline =
+      alert.split("\n").find((line) => line.includes("silent for 10+ min")) ??
+      alert.split("\n").find((line) => line.trim().length > 0) ??
+      "";
+    lines.push(`🔴 **Unread stale-channel alert** (\`.local/stale-channel-alert.md\`): ${headline.replace(/\*/g, "").trim().slice(0, 200)}`);
+  } catch {
+    // ENOENT is the healthy/expected state -- no alert currently open.
+  }
+
+  try {
+    const status = await fs.readFile(EPISODE_CAPTURE_STATUS_PATH, "utf8");
+    const missing = [...status.matchAll(/⚠️ MISSING (\w+):/g)].map((match) => match[1]);
+    if (missing.length > 0) {
+      lines.push(
+        `🟡 **Inner-life capture gap**: \`.local/episode-capture-status.md\` last reported missing ${missing.join("/")} in the rolling episode file — read it before your next output.`,
+      );
+    }
+  } catch {
+    // No active rolling episode / file not present -- nothing to report.
+  }
+
+  if (lines.length === 0) return "";
+  return `\n${lines.join("\n")}\n`;
 }
 
 export async function fetchTopicBlocks(topicSlug: string): Promise<AgentMemoryTopicBlock[]> {
@@ -207,10 +277,28 @@ export function formatTopicFile(blocks: readonly AgentMemoryTopicBlock[]): strin
 
 export async function writeMemoryIndexFile(): Promise<string> {
   const entries = await fetchMemoryIndexEntries();
-  const content = formatMemoryIndex(entries);
+  const liveBanner = await computeLiveStatusBanner();
+  const content = formatMemoryIndex(entries, liveBanner);
   await fs.mkdir(MEMORY_DIR, { recursive: true });
   await fs.writeFile(MEMORY_INDEX_PATH, content, "utf8");
   return MEMORY_INDEX_PATH;
+}
+
+// Call sites outside the CLI — specifically wherever
+// .local/stale-channel-alert.md is written or cleared
+// (agent-session-autosave.ts, capture-watchdog.ts) — use this to get the
+// live-status banner above refreshed immediately, instead of waiting for the
+// next CLI-driven memory write to happen to pick it up. Fire-and-forget by
+// construction: a failure here must never interrupt the caller's own
+// (unrelated) work, matching the existing non-fatal style at those call
+// sites.
+export function refreshMemoryIndexBestEffort(caller: string): void {
+  writeMemoryIndexFile().catch((error) => {
+    console.warn(
+      `[AgentMemory] best-effort MEMORY.md refresh from "${caller}" failed (non-fatal):`,
+      error instanceof Error ? error.message : error,
+    );
+  });
 }
 
 export async function writeTopicFile(topicSlug: string): Promise<string> {

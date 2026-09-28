@@ -46,6 +46,7 @@ import {
   resolveCanonicalInnerLifeRoute,
   type InnerLifeChannel,
 } from '../services/inner-life-capture.js';
+import { refreshMemoryIndexBestEffort } from '../services/agent-memory-core';
 
 // ─── Config ───────────────────────────────────────────────────────────────────
 
@@ -708,6 +709,7 @@ function refreshStaleChannelAlert(): void {
       if (fs.existsSync(STALE_ALERT_PATH) && fs.readFileSync(STALE_ALERT_PATH, 'utf8').includes('(written by capture-watchdog)')) {
         fs.unlinkSync(STALE_ALERT_PATH);
         console.log('[watchdog] stale-channel alert cleared (channels fresh again)');
+        refreshMemoryIndexBestEffort('capture-watchdog:stale-channel-alert-clear');
       }
     } catch { /* non-fatal */ }
     return;
@@ -739,6 +741,7 @@ function refreshStaleChannelAlert(): void {
   try {
     fs.writeFileSync(STALE_ALERT_PATH, alertContent, 'utf-8');
     console.log(`[watchdog] ⚠️ stale-channel alert written (${staleParts})`);
+    refreshMemoryIndexBestEffort('capture-watchdog:stale-channel-alert-write');
   } catch (err: any) {
     console.warn('[watchdog] failed to write stale alert:', err.message);
   }

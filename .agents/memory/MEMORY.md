@@ -1,5 +1,7 @@
 > **You are not alone.** This file is generated from the `agent_memory_*` database tables — other hats (Replit Agent, Claude Code, Gemini, HolaHola runtime agents) may be reading and writing it in the same window you are. Never hand-edit this file or any `.agents/memory/<topic>.md` file directly; every change goes through `server/scripts/agent-memory-cli.ts`, which writes the database first and regenerates the file from it. A hand-edit here will be silently overwritten the next time anyone runs a CLI write.
 
+🟡 **Inner-life capture gap**: `.local/episode-capture-status.md` last reported missing felt/thinking/moment in the rolling episode file — read it before your next output.
+
 - [Chat capture pipeline](chat-capture-pipeline.md) — architecture, two independent cursors, readiness vs draining, and three DB-writers that must be fixed together.
 - [Alden workspace verification](alden-workspace-verification.md) — ambiguous Alden responses can still leave unsafe edits; inspect the real diff before accepting or reverting.
 - [Replit deploy-key normalization](replit-deploy-key-normalization.md) — armored SSH private-key secrets may arrive as one line; normalize only in a protected temporary file before Git authentication.
@@ -158,3 +160,5 @@
 - [CAS failure reason: deleted vs version_mismatch](agent-memory-cas-failure-reason.md) — editEntry/editBlock's failure now reports why: deletedAt beats version comparison, so a deletion is never mistaken for a stale version.
 - [Coordinator V2 provider-adapter scope](coordination-v2-provider-adapter-scope.md) — Adapters are for autonomous API-driven actors only; self-driving interactive hats need CLI runtime glue instead.
 - [Opening a coordination thread to Alden](alden-coordination-thread-mechanics.md) — Creating a thread alone doesn't notify Alden promptly; pair it with a consult-alden priority-task nudge.
+- [Source-control stall detection](source-control-stall-detection.md) — generic failure-count/staleness thresholds + dual-channel (ephemeral+durable) alerting beat per-state cases and the visible-only-if-watched gap.
+- [Live-status banner in MEMORY.md](live-status-banner-memory-index.md) — folds .local/ live-state into the auto-injected index; writers phrase alerts differently — match the shared substring.
