@@ -90,3 +90,35 @@ Two edited-but-uncommitted files once sat through a full app restart; the schedu
 
 **How to apply:** if a sync-status file shows `state: 'dirty'` with error "Uncommitted tracked files prevent automatic source synchronization", the fix is to `git add`/`git commit` the dirty files yourself (normal git, current `git config user.*` identity is fine — no special actor identity needed), then either wait for the next poll or nudge `.local/source-control-wake` for an immediate retry.
 
+
+## Sync's local-ahead push skips local validation
+
+**Sync's local-ahead push has no local validation gate; only prepare does.**
+
+`syncLocked()`'s three branches behave asymmetrically. When local is ahead of
+GitHub, it runs `git push` directly to `refs/heads/main` — only an
+episode-content-loss guard runs first, no typecheck/build/test — and reports
+`synced` on success. When local is behind, it fast-forwards then does call
+`validateCandidate()` before marking `ready_to_promote`. Only `prepareLocked()`
+requires local and GitHub to already be exactly equal, and only it gates
+promotion on the full validation manifest (typecheck, build, `test:ci:*`,
+source-bridge/release safety).
+
+**Why:** confirmed directly — a `sync` push of a local-ahead commit reached
+GitHub main and only failed on the subsequent async GitHub Actions `ci.yml` run
+(a mutation-write-scanner false positive in a brand-new test file's helper
+functions); that async CI run was the only thing that caught it. `prepare`
+would have caught it before GitHub ever saw the commit, but `prepare` refuses
+to run at all while local is ahead (it fails immediately on the equality
+check) — retrying `prepare` in a loop while local is ahead never validates
+anything and never pushes; it's a silent no-op for that case, not a slower
+path to the same result.
+
+**How to apply:** treat a `sync`-landed local-ahead commit as unvalidated until
+you've independently polled the GitHub Actions run for that exact SHA and
+confirmed it's green (successful runs on this repo take ~20-21 minutes
+end-to-end; failures on a fast-failing job report in ~4-6 minutes — size a poll
+budget/timeout for the green path, not just the failure path). Do not expect
+`prepare` to validate an ahead-of-GitHub commit; it won't run until equality
+already holds.
+
