@@ -141,6 +141,61 @@ test("edit-block CLI rejects a stale --base-version with exit 1 and leaves store
   }
 });
 
+test("edit-block CLI reports deletion, not a stale version, when another actor removed the block first -- even though --base-version matches exactly", async (context) => {
+  const url = disposableTarget();
+  if (!url) {
+    context.skip("run through the Neon migration gate with AGENT_MEMORY_TEST_* env set");
+    return;
+  }
+
+  const { getSharedDb } = await import("../db");
+  const { agentMemoryTopicBlocks } = await import("@shared/schema");
+  const { eq } = await import("drizzle-orm");
+
+  const suffix = `${Date.now()}-${Math.floor(Math.random() * 100000)}`;
+  const topicSlug = `agent-memory-deleted-block-${suffix}`;
+  const scratchDir = await mkdtemp(join(tmpdir(), "agent-memory-deleted-"));
+  const originalBodyFile = join(scratchDir, "original.md");
+  const editAfterDeleteBodyFile = join(scratchDir, "edit-after-delete.md");
+  await writeFile(originalBodyFile, "Original body.\n", "utf8");
+  await writeFile(editAfterDeleteBodyFile, "Edit attempted after deletion.\n", "utf8");
+
+  try {
+    const created = await runCli(["add-block", "--topic-slug", topicSlug, "--body-file", originalBodyFile, "--actor", "luca-replit"]);
+    assert.equal(created.code, 0, created.stderr);
+
+    const db = getSharedDb();
+    const [seeded] = await db.select({ id: agentMemoryTopicBlocks.id, version: agentMemoryTopicBlocks.version })
+      .from(agentMemoryTopicBlocks).where(eq(agentMemoryTopicBlocks.topicSlug, topicSlug));
+    assert.ok(seeded, "seed block must exist before deleting it");
+    assert.equal(seeded.version, 1);
+
+    // Simulates a concurrent session (luca-gemini) removing the block
+    // between this session reading its version and calling edit-block.
+    const removed = await runCli(["remove-block", "--block-id", seeded.id, "--actor", "luca-gemini"]);
+    assert.equal(removed.code, 0, removed.stderr);
+
+    // The caller's --base-version is still exactly 1 -- deletion never
+    // bumped it -- reproducing the case that used to print a "Stale
+    // version... is now at version 1" message even though the version the
+    // caller passed was never wrong.
+    const editAfterDelete = await runCli([
+      "edit-block", "--block-id", seeded.id, "--base-version", "1", "--body-file", editAfterDeleteBodyFile, "--actor", "luca-claude-code",
+    ]);
+    assert.equal(editAfterDelete.code, 1, `expected exit 1 for an edit against a deleted block, got ${editAfterDelete.code}\nstderr: ${editAfterDelete.stderr}`);
+    assert.doesNotMatch(editAfterDelete.stderr, /Stale version/, "a deleted row must not be blamed on a stale version");
+    assert.match(editAfterDelete.stderr, /deleted/i);
+    assert.match(editAfterDelete.stderr, /luca-gemini/, "the message must name the actor who actually deleted it");
+
+    const [afterEditAttempt] = await db.select({ version: agentMemoryTopicBlocks.version, bodyMarkdown: agentMemoryTopicBlocks.bodyMarkdown })
+      .from(agentMemoryTopicBlocks).where(eq(agentMemoryTopicBlocks.id, seeded.id));
+    assert.equal(afterEditAttempt.version, 1, "a rejected edit must not bump the stored version");
+    assert.equal(afterEditAttempt.bodyMarkdown, "Original body.\n", "a rejected edit must not change the stored body");
+  } finally {
+    await rm(scratchDir, { recursive: true, force: true });
+  }
+});
+
 test("edit-entry CLI rejects a stale --base-version with exit 1 and leaves stored content untouched, but accepts the correct version", async (context) => {
   const url = disposableTarget();
   if (!url) {
@@ -188,4 +243,51 @@ test("edit-entry CLI rejects a stale --base-version with exit 1 and leaves store
     .from(agentMemoryEntries).where(eq(agentMemoryEntries.id, seeded.id));
   assert.equal(afterCorrectAttempt.version, 2);
   assert.equal(afterCorrectAttempt.hook, "Correct-version edit.");
+});
+
+test("edit-entry CLI reports deletion, not a stale version, when another actor removed the entry first -- even though --base-version matches exactly", async (context) => {
+  // This is the exact scenario task 1622 was filed against: a concurrent
+  // session deleted the entry between this session reading its version and
+  // calling edit-entry, and the CLI used to print "Stale version ... is now
+  // at version 1" -- matching the caller's own --base-version 1 -- because
+  // it never checked deletedAt separately from the version comparison.
+  const url = disposableTarget();
+  if (!url) {
+    context.skip("run through the Neon migration gate with AGENT_MEMORY_TEST_* env set");
+    return;
+  }
+
+  const { getSharedDb } = await import("../db");
+  const { agentMemoryEntries, agentMemoryTopics } = await import("@shared/schema");
+  const { eq } = await import("drizzle-orm");
+
+  const suffix = `${Date.now()}-${Math.floor(Math.random() * 100000)}`;
+  const topicSlug = `agent-memory-deleted-entry-${suffix}`;
+
+  const db = getSharedDb();
+  await db.insert(agentMemoryTopics).values({ slug: topicSlug });
+
+  const created = await runCli(["add-entry", "--topic-slug", topicSlug, "--title", "A Title", "--hook", "Original hook.", "--actor", "luca-replit"]);
+  assert.equal(created.code, 0, created.stderr);
+
+  const [seeded] = await db.select({ id: agentMemoryEntries.id, version: agentMemoryEntries.version })
+    .from(agentMemoryEntries).where(eq(agentMemoryEntries.topicSlug, topicSlug));
+  assert.ok(seeded, "seed entry must exist before deleting it");
+  assert.equal(seeded.version, 1);
+
+  const removed = await runCli(["remove-entry", "--entry-id", seeded.id, "--actor", "luca-gemini"]);
+  assert.equal(removed.code, 0, removed.stderr);
+
+  const editAfterDelete = await runCli([
+    "edit-entry", "--entry-id", seeded.id, "--base-version", "1", "--hook", "Edit attempted after deletion.", "--actor", "luca-claude-code",
+  ]);
+  assert.equal(editAfterDelete.code, 1, `expected exit 1 for an edit against a deleted entry, got ${editAfterDelete.code}\nstderr: ${editAfterDelete.stderr}`);
+  assert.doesNotMatch(editAfterDelete.stderr, /Stale version/, "a deleted row must not be blamed on a stale version");
+  assert.match(editAfterDelete.stderr, /deleted/i);
+  assert.match(editAfterDelete.stderr, /luca-gemini/, "the message must name the actor who actually deleted it");
+
+  const [afterEditAttempt] = await db.select({ version: agentMemoryEntries.version, hook: agentMemoryEntries.hook })
+    .from(agentMemoryEntries).where(eq(agentMemoryEntries.id, seeded.id));
+  assert.equal(afterEditAttempt.version, 1, "a rejected edit must not bump the stored version");
+  assert.equal(afterEditAttempt.hook, "Original hook.", "a rejected edit must not change the stored hook");
 });

@@ -225,6 +225,7 @@ test("agent-memory-core: topic auto-creation, CAS edits, soft delete, and forced
       if (second.ok) return;
       assert.equal(second.current.hook, "Updated once.", "the stale writer must see the winner's content, not overwrite it");
       assert.equal(second.current.version, entry.version + 1);
+      assert.equal(second.reason, "version_mismatch", "a live row with a different version is a version mismatch, not a deletion");
     });
 
     await t.test("soft-deleted entries are excluded from rendering but remain queryable", async () => {
@@ -242,6 +243,26 @@ test("agent-memory-core: topic auto-creation, CAS edits, soft delete, and forced
       const again = await core.removeEntry(entry.id, "luca-gemini");
       assert.equal(again.alreadyDeleted, true, "removing an already-deleted entry is an idempotent no-op");
     });
+
+    await t.test("editing an already-deleted entry reports 'deleted', not 'version_mismatch', even when the caller's base version matches exactly", async () => {
+      const [current] = await db.select().from(agentMemoryEntries).where(eq(agentMemoryEntries.id, entry.id));
+      assert.ok(current.deletedAt, "entry must already be soft-deleted by the previous subtest");
+
+      // baseVersion is current.version itself -- deletion never bumps
+      // version, so this is exactly the confusing case the reason field
+      // exists to disambiguate: an exact version match that still fails.
+      const result = await core.editEntry({
+        entryId: entry.id,
+        baseVersion: current.version,
+        hook: "Should not apply either.",
+        actor: "luca-claude-code",
+      });
+      assert.equal(result.ok, false);
+      if (result.ok) return;
+      assert.equal(result.reason, "deleted");
+      assert.ok(result.current.deletedAt, "the failure result must surface deletedAt");
+      assert.equal(result.current.deletedByActor, "luca-replit");
+    });
   });
 
   await context.test("two CAS edits against the same stale block version: one succeeds, one reports conflict", async () => {
@@ -254,6 +275,7 @@ test("agent-memory-core: topic auto-creation, CAS edits, soft delete, and forced
     assert.equal(second.ok, false);
     if (second.ok) return;
     assert.equal(second.current.bodyMarkdown, "Edited once.");
+    assert.equal(second.reason, "version_mismatch", "a live row with a different version is a version mismatch, not a deletion");
   });
 
   await context.test("soft-deleted blocks are excluded from rendering but remain queryable", async () => {
@@ -265,6 +287,27 @@ test("agent-memory-core: topic auto-creation, CAS edits, soft delete, and forced
 
     const [raw] = await db.select().from(agentMemoryTopicBlocks).where(eq(agentMemoryTopicBlocks.id, lastBlockId));
     assert.ok(raw && raw.deletedAt);
+  });
+
+  await context.test("editing an already-deleted block reports 'deleted', not 'version_mismatch', even when the caller's base version matches exactly", async () => {
+    const [current] = await db.select().from(agentMemoryTopicBlocks).where(eq(agentMemoryTopicBlocks.id, lastBlockId));
+    assert.ok(current.deletedAt, "block must already be soft-deleted by the previous test");
+
+    // baseVersion is current.version itself (lastBlockId was never edited,
+    // so it is still 1) -- same exact-version-but-deleted case as the entry
+    // test above, proven independently for blocks since editBlock is a
+    // separate code path from editEntry.
+    const result = await core.editBlock({
+      blockId: lastBlockId,
+      baseVersion: current.version,
+      bodyMarkdown: "Should not apply.",
+      actor: "luca-holahola",
+    });
+    assert.equal(result.ok, false);
+    if (result.ok) return;
+    assert.equal(result.reason, "deleted");
+    assert.ok(result.current.deletedAt, "the failure result must surface deletedAt");
+    assert.equal(result.current.deletedByActor, "luca-replit");
   });
 
   await context.test("a render failure after a successful DB write throws rather than reporting success", async () => {

@@ -1,0 +1,6 @@
+editEntry()/editBlock() in server/services/agent-memory-core.ts return `{ ok: false, current, reason }` on a failed compare-and-swap, where `reason` is `"deleted"` or `"version_mismatch"`. `reason` is computed from `current.deletedAt !== null`, not from comparing `current.version` to the caller's `baseVersion` -- a soft-deleted row's version is never bumped by the delete, so its version can (and often does) exactly equal what the caller already passed as `baseVersion`. Comparing versions alone cannot tell the two failure modes apart.
+
+**Why this matters:** a system where many concurrent hats read and write the same memory store will keep producing this exact ambiguity. Before this field existed, the CLI's fallback lookup only printed "Stale version: ... is now at version N", even when N was the caller's own base version -- which reads as a CLI bug instead of naming the actual cause (another actor deleted the row).
+
+**How to apply:** any future change to editEntry/editBlock's CAS logic, or any new caller of `CasResult`, must preserve this explicit `reason` field rather than re-deriving "stale" purely from version numbers. Callers (CLI or otherwise) should surface `reason` and `current.deletedByActor`/`current.deletedAt` directly in their error text instead of re-guessing the cause from a version comparison.
+

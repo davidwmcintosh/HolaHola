@@ -155,3 +155,4 @@
 - [Coordinator V2 live-session verification gating](coordination-v2-live-verification-gating.md) — live start/poll/claim needs win32 AND an active operator grant -- query both DB tables before assuming a sandbox test run can substitute
 - [DB-generated memory files still get real rebase conflicts](db-file-rebase-conflict-resolution.md) — MEMORY.md/topic files are DB projections; resolve rebase conflicts on them via agent-memory-cli regenerate, never hand-merged text.
 - [Mutation-guard scenario coverage](mutation-guard-scenario-coverage.md) — A guard's failure modes can be asymmetric (never-fires vs always-fires); one mutation only proves one direction -- test each separately.
+- [CAS failure reason: deleted vs version_mismatch](agent-memory-cas-failure-reason.md) — editEntry/editBlock's failure now reports why: deletedAt beats version comparison, so a deletion is never mistaken for a stale version.

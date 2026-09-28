@@ -276,7 +276,19 @@ export async function addEntry(input: AddEntryInput): Promise<{ entry: AgentMemo
   return { entry, evidence };
 }
 
-export type CasResult<T> = { ok: true; value: T; evidence: RecentActivityEvidence } | { ok: false; current: T };
+// A zero-row CAS update means either the version moved under the caller
+// (another edit landed first) or the row was soft-deleted out from under
+// them -- deletion never touches `version`, so those are the only two ways
+// the WHERE clause (id + version + deletedAt IS NULL) can match nothing for
+// an id that still exists. Callers (the CLI in particular) must not collapse
+// this back into one "stale version" message: a deleted row's version often
+// still matches exactly what the caller passed, which reads as a CLI bug
+// rather than the real cause. See
+// .agents/memory/agent-memory-cas-failure-reason.md.
+export type CasFailureReason = "deleted" | "version_mismatch";
+export type CasResult<T> =
+  | { ok: true; value: T; evidence: RecentActivityEvidence }
+  | { ok: false; current: T; reason: CasFailureReason };
 
 export interface EditEntryInput {
   entryId: string;
@@ -304,7 +316,11 @@ export async function editEntry(input: EditEntryInput): Promise<CasResult<AgentM
     if (!current) {
       throw new AgentMemoryError("NOT_FOUND", `Entry "${input.entryId}" not found`, { entryId: input.entryId });
     }
-    return { ok: false, current };
+    // Deletion never bumps version, so a non-null deletedAt is the reliable
+    // signal that deletion (not a version race) is why the update matched
+    // nothing -- even when current.version happens to equal input.baseVersion.
+    const reason: CasFailureReason = current.deletedAt !== null ? "deleted" : "version_mismatch";
+    return { ok: false, current, reason };
   }
 
   await writeMemoryIndexFile();
@@ -464,7 +480,10 @@ export async function editBlock(input: EditBlockInput): Promise<CasResult<AgentM
     if (!current) {
       throw new AgentMemoryError("NOT_FOUND", `Block "${input.blockId}" not found`, { blockId: input.blockId });
     }
-    return { ok: false, current };
+    // See the matching comment in editEntry(): deletion never bumps version,
+    // so deletedAt is the reliable signal, not a version comparison.
+    const reason: CasFailureReason = current.deletedAt !== null ? "deleted" : "version_mismatch";
+    return { ok: false, current, reason };
   }
 
   await writeTopicFile(updated[0].topicSlug);

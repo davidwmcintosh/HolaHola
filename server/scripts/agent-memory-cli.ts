@@ -28,6 +28,7 @@ import {
   removeBlock,
   removeEntry,
   writeTopicFile,
+  type CasFailureReason,
   type RecentActivityEvidence,
 } from "../services/agent-memory-core";
 
@@ -111,6 +112,23 @@ function describeEvidence(evidence: RecentActivityEvidence): string {
   return `Note: ${evidence.otherActors.length} other actor(s) (${evidence.otherActors.join(", ")}) touched topic "${evidence.topicSlug}" in the last 24h.`;
 }
 
+// Names the real cause of a rejected CAS edit instead of always blaming a
+// stale version. A deleted row never has its version bumped, so its version
+// can (and often does) exactly match what the caller passed as
+// --base-version -- printing "stale version" in that case reads as a bug in
+// the CLI rather than telling the caller their target no longer exists. See
+// CasFailureReason in ../services/agent-memory-core.
+function describeCasFailureCause(
+  kind: "entry" | "block",
+  current: { id: string; deletedAt: Date | null; deletedByActor: string | null; version: number },
+  reason: CasFailureReason,
+): string {
+  if (reason === "deleted") {
+    return `Cannot edit ${kind} ${current.id}: it was deleted by ${current.deletedByActor} at ${current.deletedAt?.toISOString()} -- there is nothing left to edit.`;
+  }
+  return `Stale version: ${kind} ${current.id} is now at version ${current.version} (yours was based on an older version).`;
+}
+
 async function topicExists(topicSlug: string): Promise<boolean> {
   const db = getSharedDb();
   const [row] = await db.select({ slug: agentMemoryTopics.slug }).from(agentMemoryTopics).where(eq(agentMemoryTopics.slug, topicSlug));
@@ -157,7 +175,7 @@ export async function runAgentMemoryCli(argv: string[] = process.argv.slice(2)):
       actor: required(options, "actor"),
     });
     if (!result.ok) {
-      console.error(`Stale version: entry ${result.current.id} is now at version ${result.current.version} (yours was based on an older version).`);
+      console.error(describeCasFailureCause("entry", result.current, result.reason));
       console.error(`Current hook: ${result.current.hook}`);
       return 1;
     }
@@ -173,7 +191,7 @@ export async function runAgentMemoryCli(argv: string[] = process.argv.slice(2)):
     const bodyMarkdown = await requiredBodyFile(options);
     const result = await editBlock({ blockId, baseVersion, bodyMarkdown, actor });
     if (!result.ok) {
-      console.error(`Stale version: block ${result.current.id} is now at version ${result.current.version} (yours was based on an older version).`);
+      console.error(describeCasFailureCause("block", result.current, result.reason));
       console.error(`Current body:\n${result.current.bodyMarkdown}`);
       return 1;
     }
