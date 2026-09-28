@@ -36,3 +36,21 @@ Two adjacent gotchas worth keeping alongside these:
   file or env var: editing the guard's source is a visible, reviewable diff, while
   a config/env change can slip through unnoticed.
 
+
+Before adding a dedicated wiring test for "does script chain A still invoke
+script chain B" (e.g. one npm script referencing another via `npm run X`),
+check whether this same parity guard already protects that link transitively.
+Its required/reachable expansion resolves `npm run <name>` references
+recursively, so a downstream file reachable ONLY through that link -- and
+separately registered as its own `run_check` -- already fails loudly if the
+link is cut, with no dedicated test needed.
+
+Confirmed concretely: `test:ci:guards` silently dropping
+`&& npm run test:shared-spec:guards` would already surface here today,
+because `check-live-instruction-document-drift.ts --self-check` has no other
+reachability path into CI and is independently registered as its own
+run_check -- so a purpose-built test asserting that specific link would have
+been redundant. The link between two npm scripts is a real, uncovered gap
+only when NONE of the files it makes reachable are independently registered
+as their own run_check; verify that before building a duplicate guard.
+

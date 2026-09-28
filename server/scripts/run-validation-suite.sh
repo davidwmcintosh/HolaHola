@@ -143,6 +143,7 @@ run_check "Live voice provider routing" npx tsx --test server/__tests__/live-voi
 run_check "Inner-life no-episode-row guard" npx tsx server/scripts/test-inner-life-no-episode-row.ts
 run_check "Agent-memory round-trip gate isolation" npx tsx --test server/scripts/test-agent-memory-round-trip-gate-isolation.test.ts
 run_check "Agent-memory drift guard self-check" npx tsx server/scripts/test-agent-memory-drift-guard.ts --self-check
+run_check "Shared-spec mutation-guard scripts' CI wiring (package.json + neon-branch.ts cmdGate)" npx tsx --test server/scripts/test-shared-spec-guards-ci-wiring.test.ts
 # Replit-only: normal mode scopes its findings to the .agents/memory/*.md
 # paths THIS checkout's own git working tree shows as locally modified,
 # deleted, or untracked, so it only has real signal in a long-running
