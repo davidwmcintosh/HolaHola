@@ -139,3 +139,4 @@
 - [Source-control stall detection](source-control-stall-detection.md) — generic failure-count/staleness thresholds + dual-channel (ephemeral+durable) alerting beat per-state cases and the visible-only-if-watched gap.
 - [Live-status banner in MEMORY.md](live-status-banner-memory-index.md) — folds .local/ live-state into the auto-injected index; writers phrase alerts differently — match the shared substring.
 - [Coordination V2 system lessons](coordination-v2-consolidated-lessons.md) — 21 lessons on Coordination V2 authority boundaries, credential handling, testing patterns, and operational gotchas -- see topic file for each.
+- [Confabulation in code, not just conversation](confabulation-in-code-generation.md) — Same Archive-vs-Muse pattern hits code-writing agents: placeholder checks + false done/notified claims, not an engine quality gap.
