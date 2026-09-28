@@ -7304,3 +7304,56 @@ through the same Tier 1/2/3 + Step 5 checklist in
 also in that doc's new "Current onboarding queue" section, and in
 `docs/alden-agent-handoff.md` so Alden has the sequencing before either
 endorsement thread reaches him.
+
+## Antigravity's Coordinator V2 provider-adapter gap closed — September 28, 2026
+
+Task #1636 ("Let Antigravity pick up and complete real coordination work")
+picked up the second item from the Sep 26 entry above — "no live Coordinator
+V2 provider adapter exists for it" — and found that item was mis-scoped, not
+just unfinished.
+
+**The finding.** A direct query against the shared database showed
+`coordination_v2_sessions` and `coordination_v2_attempts` — the
+Windows-DPAPI-gated host/session/attempt system that
+`coordination-provider-adapters/gemini.ts` feeds — have zero rows for any
+actor, ever, including Gemini. Only `LITTLENEMO` is enrolled in
+`coordination_v2_host_enrollments`. That system has never carried real work
+for anyone, "working Gemini adapter" included. Meanwhile `coordination_events`
+(the ledger behind `server/scripts/coordination-cli.ts` and
+`coordination-actor-client.ts`) shows heavy real usage by `luca-claude-code`
+and `luca-replit`. "The same lifecycle other hats use" — the task's own done
+criterion — means the ledger, not the V2 host/session system. This matches
+Alden's prior ruling (coordination thread
+`4672bbaf-63be-47e5-b9a0-6f26478440b8`) that Antigravity, as a self-driving
+interactive hat like `luca-claude-code`, never needed a
+`coordination-provider-adapters/` entry — see the
+`coordination-v2-provider-adapter-scope` memory topic.
+
+**The fix.** Server-side support for `luca-antigravity` was already complete
+end to end: `server/middleware/coordination-auth.ts` (token env binding,
+legacy capabilities), `coordination-actor-client.ts`'s
+`CoordinationClientActor` type and `assertAllowed`, and
+`coordination-ledger-service.ts`'s participant/lifecycle checks all already
+covered it with zero code changes needed. The only real gap was two
+hardcoded client-side allowlists in `server/scripts/coordination-cli.ts` —
+`supportedActors` in `main()` and `supportedRecipients` in
+`requiredRecipient()` — that didn't yet list `luca-antigravity`. Adding it to
+both was the entire code change.
+
+**The proof.** Ran a real coordination thread through the full lifecycle
+against the live dev server using the real `COORDINATION_LUCA_ANTIGRAVITY_TOKEN`,
+no mocks or simulated calls: `luca-replit` created a thread addressed to
+`luca-antigravity`, which accepted it, posted progress, attached evidence
+(`repository_path` + `test_result` references), and completed it; `luca-replit`
+then verified and posted `outcome_acknowledged`. Confirmed via `show` that all
+six ledger events landed with the correct actors, sequence numbers, and
+content. The existing `test-coordination-cli-hermetic-env.test.ts` and
+`test-coordination-actor-clients.test.ts` suites (27 tests) still pass after
+the allowlist change, and `tsc --noEmit` is clean.
+
+**What remains.** Real-Windows verification through LITTLENEMO (tasks #1482,
+#1483) is untouched by this fix — that target was always the separate
+host-enrollment/DPAPI path, not the ledger. Once it closes, Antigravity's
+onboarding is fully done and OpenAI's Step-1 endorsement thread can open per
+the sequencing rule above. Full detail and the DB evidence trail are in the
+`hat-onboarding-sequencing` memory topic file.

@@ -164,7 +164,7 @@ function required(options: Options, name: string): string {
 function requiredRecipient(options: Options): Exclude<CoordinationActorId, 'coordination-system'> {
   const value = required(options, 'recipient');
   const supportedRecipients: readonly Exclude<CoordinationActorId, 'coordination-system'>[] = [
-    'luca-replit', 'luca-claude-code', 'luca-holahola', 'alden', 'daniela', 'david',
+    'luca-replit', 'luca-claude-code', 'luca-antigravity', 'luca-holahola', 'alden', 'daniela', 'david',
   ];
   if (!supportedRecipients.includes(value as Exclude<CoordinationActorId, 'coordination-system'>)) {
     fail(`Unsupported --recipient: ${value}`);
@@ -219,7 +219,7 @@ async function main(): Promise<void> {
   const apiUrl = typeof options.url === 'string' ? options.url : process.env.COORDINATION_API_URL;
   const actorValue = process.env.COORDINATION_ACTOR;
   const supportedActors: readonly CoordinationClientActor[] = [
-    'luca-replit', 'luca-claude-code', 'luca-holahola', 'alden', 'daniela', 'david',
+    'luca-replit', 'luca-claude-code', 'luca-antigravity', 'luca-holahola', 'alden', 'daniela', 'david',
   ];
   if (!apiUrl) fail('COORDINATION_API_URL is required (or provide --url)');
   if (!actorValue) fail('COORDINATION_ACTOR is required; set it to the identity running this client');

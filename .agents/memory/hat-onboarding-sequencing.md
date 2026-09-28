@@ -79,3 +79,50 @@ automatically either; some agent always has to point him at the thread.
 **How to apply:** reuse this exact sequence for OpenAI's Step-1 endorsement
 thread when that starts.
 
+
+## Update (Sep 28, 2026): the provider-adapter gap is closed
+
+Task #1636 investigated the "no live Coordinator V2 provider adapter" item
+from the Sep 26 entry and found it was the wrong requirement, not just an
+unfinished one.
+
+**What the DB actually shows.** `coordination_v2_sessions` and
+`coordination_v2_attempts` — the Windows-DPAPI-gated host/session/attempt
+system that `coordination-provider-adapters/gemini.ts` feeds — have zero rows
+for any actor, ever, including Gemini. Only one host
+(`LITTLENEMO`) is enrolled in `coordination_v2_host_enrollments`. That system
+has never carried real work for anyone. Meanwhile `coordination_events` (the
+ledger behind `coordination-cli.ts` / `coordination-actor-client.ts`) shows
+heavy real usage by `luca-claude-code` and `luca-replit` — creates, accepts,
+progress, evidence, completions, comments. "The same lifecycle other hats
+use" means the ledger, not the V2 host system.
+
+**What this confirms.** The `coordination-v2-provider-adapter-scope` topic's
+rule already predicted this: Antigravity is a self-driving interactive hat
+like `luca-claude-code`, not an autonomous API-driven one like Gemini, so it
+never needed an entry in `coordination-provider-adapters/`. Alden's ruling on
+this (thread `4672bbaf-63be-47e5-b9a0-6f26478440b8`) is the primary source;
+this update adds the DB evidence that makes it conclusive.
+
+**What was actually fixed.** `server/middleware/coordination-auth.ts`
+(token env, legacy capabilities), `coordination-actor-client.ts`'s
+`CoordinationClientActor` type/`assertAllowed`, and
+`coordination-ledger-service.ts`'s participant/lifecycle checks already
+supported `luca-antigravity` fully — zero changes needed. The only gap was
+two hardcoded client-side allowlists in `server/scripts/coordination-cli.ts`
+(`supportedActors` in `main()`, `supportedRecipients` in
+`requiredRecipient()`) that didn't yet list `luca-antigravity`. Adding it to
+both is the entire code change.
+
+**Proof.** Ran a real thread through the full lifecycle on the live server
+with the real `COORDINATION_LUCA_ANTIGRAVITY_TOKEN`: created by
+`luca-replit` → accepted, progressed, evidence-attached, and completed by
+`luca-antigravity` → outcome acknowledged by `luca-replit`. No mocks, no
+simulated calls.
+
+**What's still open.** Real-Windows verification through LITTLENEMO (tasks
+#1482, #1483) — unaffected by this fix and unrelated to it, since that
+verification target was always the separate host-enrollment/DPAPI path, not
+the ledger. Once that closes, Antigravity's onboarding is fully done and
+OpenAI's Step-1 thread can open per the sequencing rule above.
+
