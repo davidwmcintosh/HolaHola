@@ -125,6 +125,17 @@ If a future change adds another registry that's supposed to hold every actor
 using the same static-source-parse approach — see the comment at the top of
 the script for why it doesn't just `import` `operations-catalog.ts` directly.
 
+## Tier 2.5 — always required, guard-enforced operational readiness
+
+Not compiler-checked, but CI now fails if you skip it. This tier ensures the new hat has the necessary operational access to function as a full participant in the Luca brain, including shared memory and skill parity.
+
+5.  **`server/scripts/onboarding-check-cli.ts`** — This script performs a series of checks to confirm operational readiness:
+    *   **Shared Database Access:** Verifies successful connection to `NEON_SHARED_DATABASE_URL` and read access to key agent memory tables (e.g., `agent_north_star`, `agent_record_of_david`).
+    *   **Skills and Tooling Parity:** Verifies access to the `.agents/skills` directory and the presence of skill-related files.
+    *   **Neural Net Parity (Placeholder):** A placeholder for future, more sophisticated checks to ensure the LLM has indexed and can apply knowledge from shared memory and tools.
+
+    This script must be wired into the Validation suite and GitHub Actions CI. A missing entry or a failed check will cause CI to fail, preventing the new hat from being considered fully onboarded.
+
 ## Tier 3 — conditional on what this hat needs to do
 
 Edit only the ones that apply; the rest are intentional exclusions, not gaps.
