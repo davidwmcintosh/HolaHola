@@ -99,3 +99,57 @@ editEntry() and editBlock() in server/services/agent-memory-core.ts used to fail
 
 **Fixed:** editEntry/editBlock's failure result now carries an explicit `reason: "deleted" | "version_mismatch"` field (computed from `deletedAt !== null`, since deletion never bumps `version`), and the CLI's error message names the real cause directly -- "Cannot edit ... it was deleted by \<actor\> at \<time\>" instead of "Stale version" text when the row was actually deleted. A manual `deleted_at` query is no longer needed to tell the two apart. See [CAS failure reason](agent-memory-cas-failure-reason.md) for the durable interface contract this establishes.
 
+
+## Correction: always regenerate, never hand-merge via diff-based union
+
+A second, independently-created topic (`db-file-rebase-conflict-resolution.md`) recorded the same
+underlying lesson as the "concurrent appends, not real edit collisions" section above — DB-projected
+files can show real git rebase conflicts — but reached a different recommended procedure: always run
+`regenerate --all` (or `--topic-slug <slug>`) and never hand-merge the conflict markers as text, full
+stop. That is the correct, safer version; the "diff shows only added/missing lines → take the union of
+both sides" shortcut above is not actually safe in general, because `remove-entry`/`remove-block` exist
+— the file is not strictly append-only. If one snapshot predates a concurrent `remove-entry` and the
+other postdates it, a union-of-both-sides merge silently resurrects a deleted entry instead of
+reflecting current DB truth.
+
+**How to apply:** treat `regenerate --all` (or `--topic-slug` for a single file) as the *only* correct
+resolution for a conflict on `MEMORY.md` or any `.agents/memory/<topic>.md` file — not an optional
+follow-up step after a manual union-merge. Confirm zero conflict markers remain
+(`grep -c '^<<<<<<<\|^=======$\|^>>>>>>>' <file>`) and continue the rebase/merge normally. The
+diagnostic observations above (usually only trailing added lines differ, a rebase can hit this once per
+replayed commit, other topic files may appear/update as a side effect) are still accurate as
+*descriptions of what a conflict typically looks like* — only the recommended *resolution* changes.
+`db-file-rebase-conflict-resolution.md`'s standalone index entry has been folded into this topic as a
+result (mirroring the earlier `memory-index-rebase-conflicts` → this-topic fold from the Sep 25
+addendum above); its file remains on disk but nothing in MEMORY.md's index points to it anymore.
+
+
+## Task 1625 addendum: the cycle repeats — trimmed 161→159 again via the same umbrella
+
+Sep 28 2026: the index had drifted back up to 161 (from 159 right after task 1592) via
+ordinary entry growth from other work. Found 2 more standalone entries that genuinely fit
+the git-command-sharp-edge pattern (`git-lfs-range-rewrite-safety`, `blobless-partial-clone-commits`)
+and merged them into the SAME `git-operational-gotchas.md` umbrella task 1592 created,
+landing back at 159 (verified via `wc -l`, not recollection).
+
+**Why this matters:** this is the second time this exact umbrella has absorbed unrelated-session
+git gotchas. The index will likely keep drifting back up as more hats add entries over time —
+this is ordinary periodic maintenance, not a one-time fix or a sign anything is wrong.
+
+**How to apply:** when the nudge fires again later, check `git-operational-gotchas.md` first for
+a fit before searching from scratch — it is a proven, reusable landing spot for any short,
+standalone "sharp edge when scripting git commands" entry (pathspec/add ordering, commit-date
+choice, SSH/LFS hangs, LFS migrate ref rewrites, blobless partial-clone recovery, and whatever
+comes next in the same vein).
+
+
+## Sep 28 2026 addendum: large-scale consolidation via a new umbrella (164→141)
+
+The index had grown to 164 (past the 80% mark) by the time this nudge was actually acted on. Unlike the smaller `git-operational-gotchas.md` folds above, this round found one large, previously-unconsolidated cluster: 21 standalone entries all about the Coordination V2 system (authority/trust boundaries, credential handling, testing patterns, operational gotchas — e.g. `gate3-host-isolation`, `coordination-actor-completeness-tiers`, `runtime-rotation-pairing-verification`, `alden-coordination-thread-mechanics`, and 17 others). These already matched the established "N lessons — see topic file for each" pattern used elsewhere in this index (GitHub Actions pitfalls, PostgreSQL hermetic testing gotchas, JS/TS/Drizzle runtime gotchas, Windows quirks) but had never actually been folded.
+
+Created a new topic `coordination-v2-consolidated-lessons.md`, added all 21 original bodies to it verbatim as separate headed blocks (one `add-block` per original entry, original title as the block heading — no paraphrasing, per this project's own verbatim-preservation stance), added one new index entry ("Coordination V2 system lessons") pointing to it, then `remove-entry`'d all 21 originals. Net: −23 index lines (21 removed, 1 added, plus this file's own pre-existing on-disk/DB drift synced by the same `regenerate --all`), landing at 141 lines / ~30KB — well under both caps. Zero content loss: every original block is still readable in full, just under one shared topic file instead of 21 separate index lines.
+
+**Why this matters:** the git-command umbrella isn't the only reusable landing spot — any cluster of ~5+ standalone entries sharing a real subsystem (not just a vague topic word) is worth folding the same way, and it's worth periodically scanning for *unconsolidated* clusters rather than only reacting entry-by-entry as the nudge fires. This is a bigger lever than repeatedly finding one or two more strays for an existing umbrella.
+
+**How to apply:** when the nudge fires, before hunting for one-off strays, scan the full index for any topic-word cluster (5+ entries sharing a subsystem name, e.g. a product area or service name) that was never given its own umbrella. If found, consolidate the whole cluster in one pass (new topic + N `add-block` calls preserving original bodies verbatim + 1 `add-entry` + N `remove-entry` calls + `regenerate --all`) rather than trimming a handful and leaving the rest for the next cycle. `coordination-v2-consolidated-lessons.md` is now itself a reusable landing spot for future narrow Coordination V2 lessons, the same way `git-operational-gotchas.md` is for git command sharp edges.
+

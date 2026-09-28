@@ -55,3 +55,31 @@ Any git operation that resolves to an SSH transport (e.g. a remote configured as
 
 **How to apply:** run `ssh-keyscan -t ed25519 github.com`, verify the printed fingerprint equals GitHub's publicly documented ED25519 fingerprint (`SHA256:+DiY3wvvV6TuJJhbpZisF/zLDA0zPMSvHdkr4UvCOqU` as of this writing — cross-check docs if it ever looks different), then append the line to `~/.ssh/known_hosts`. This is environment-level, not repo-tracked, so it does not survive a fresh workspace/container and may need repeating there. It only fixes host-key verification — actual SSH authentication (a loaded deploy key) is a separate, independent requirement. In this project specifically, the working reconciliation path avoids SSH entirely by using a named HTTPS remote with GitHub App token auth instead — see `reconciliation-git-procedure.md`.
 
+
+## Git LFS migrate import can rewrite unrelated refs
+
+When an old ordinary Git blob must become an LFS pointer, do not trust a
+branch-scoped `git lfs migrate import` to leave unrelated local refs alone.
+Protect every original head first, then rewrite only the non-shared lineage
+from the common ancestor. Preserve the original heads as backup refs and
+rebuild the reconciliation merge on the unchanged GitHub head.
+
+**Why:** The LFS migration command can rewrite backup and auxiliary refs in
+the local repository even when a single branch was requested. Rewriting the
+shared ancestor makes a normal non-force push diverge from GitHub.
+
+**How to apply:** Identify the common ancestor, verify the exact source-byte
+hash, replace only the known oversized blob in the `base..Replit-lineage`
+range with its LFS pointer, scan the rewritten release for ordinary blobs over
+GitHub's limit, run `git lfs fsck`, and only then create a new two-parent merge
+with the current GitHub head before the guarded push.
+
+
+## Blobless partial-clone commit recovery
+
+In a `blob:none` partial clone, an ordinary diff or commit may try to fetch promised parent blobs. If the promisor remote is temporarily unavailable, do not change the remote, discard the staged work, or treat the fetch failure as a code failure. After independently verifying the working tree, stage it and write the tree with missing promised objects allowed; create the commit from that tree and update the branch atomically against the expected old head.
+
+**Why:** A fully verified reconciliation bundle could be staged, but ordinary `git commit` failed while trying to materialize old blobs over an unavailable SSH route. The current index already contained the complete intended tree, and an atomic low-level commit preserved it without rewriting history or weakening validation.
+
+**How to apply:** First scan for conflict markers and secrets, run the relevant tests, and confirm there is no Git lock. Remember that `git stash` and `git merge` can also trigger lazy promisor fetches; run them through the same protected deploy-key and pinned-host setup as the source-control coordinator. If the remote is unavailable but the intended index is already complete, use `git write-tree --missing-ok`, `git commit-tree` with the current head as parent, and `git update-ref` with the old head as the expected value. Never use this to bypass unresolved conflicts, hooks that enforce project policy, or a concurrently advancing branch.
+
