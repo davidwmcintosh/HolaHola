@@ -130,7 +130,7 @@
 - [Alden tool-result persistence boundary](alden-tool-result-persistence.md) — raw tool-result JSON is never persisted; secret-bearing tools need instruction, not redaction
 - [CLI-to-service extraction exit semantics](cli-to-service-exit-semantics.md) — extracting a CLI script's logic for an in-process tool/service must drop every process.exit() — it would kill the whole server, not a one-shot subprocess.
 - [Episode-lifecycle service guards](episode-lifecycle-service-guards.md) — new episode-insertion call sites must mirror createEpisode's fire-and-forget indexing side effects; never flip the live 'rolling' tag against shared prod DB during testing.
-- [Hat onboarding sequencing](hat-onboarding-sequencing.md) — Antigravity onboarding must fully close before OpenAI's starts; live per-hat status kept in coordination-new-actor-onboarding.md's onboarding queue section.
+- [Hat onboarding sequencing](hat-onboarding-sequencing.md) — Antigravity's Step-1 endorsement is done (Sep 28); 2 items remain (provider adapter, LITTLENEMO). OpenAI's onboarding waits until those close — detail in topic file.
 - [Synthetic fixture ID collision](synthetic-fixture-id-collision.md) — a hardcoded "surely never real" fixture value (e.g. Episode 99) can collide with real content as the system grows -- not a race, a deterministic expiry
 - [Windows PowerShell/console quirks](windows-environment-quirks.md) — Three Windows-only gotchas: PowerShell pipes corrupt piped files, openssl is missing (pre-size RNGCryptoServiceProvider's byte array), and closing the console kills undetached child processes.
 - [Shared-spec live-instruction-document drift](shared-spec-live-instruction-doc-drift.md) — docs/coordination-clients.md is DB-governed; a raw git edit silently diverges until synced via appendRevision.
@@ -140,3 +140,5 @@
 - [Live-status banner in MEMORY.md](live-status-banner-memory-index.md) — folds .local/ live-state into the auto-injected index; writers phrase alerts differently — match the shared substring.
 - [Coordination V2 system lessons](coordination-v2-consolidated-lessons.md) — 21 lessons on Coordination V2 authority boundaries, credential handling, testing patterns, and operational gotchas -- see topic file for each.
 - [Confabulation in code, not just conversation](confabulation-in-code-generation.md) — Same Archive-vs-Muse pattern hits code-writing agents: placeholder checks + false done/notified claims, not an engine quality gap.
+- [Shared-tool identity leak](shared-tool-identity-leak.md) — parallel branches need identity via explicit context, not a global-config read, or one gets told it's the other
+- [Source-control candidate provenance](source-control-candidate-provenance.md) — auto-sync can produce ready_to_promote too; candidateSource + drift check stop Publish shipping the unreviewed one.
