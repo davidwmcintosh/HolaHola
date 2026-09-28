@@ -194,6 +194,63 @@ export interface SourceControlStatus {
   consecutiveFailures: number;
   lastHeartbeatAt: string;
   updatedAt: string;
+  /** Set once a stalled-sync alert has fired for the current failure streak,
+   * so repeated polls don't spam Team Room / the founder inbox. Cleared on
+   * the next successful sync so a future stall can alert again. */
+  stalledSyncAlertActive?: boolean;
+  stalledSyncAlertSentAt?: string;
+}
+
+/** Thresholds that decide when a run of sync trouble stops being "normal
+ * transient noise" (a brief dirty tree, momentary lock contention) and
+ * becomes something a human should be told about. Both are env-overridable
+ * so an operator can tune them without a code change, the same way
+ * SOURCE_CONTROL_POLL_MS is. */
+export interface SourceControlStallThresholds {
+  consecutiveFailureThreshold: number;
+  staleSuccessAgeMs: number;
+}
+
+const DEFAULT_STALL_FAILURE_THRESHOLD = 6;
+const DEFAULT_STALL_AGE_MS = 3 * 60 * 60 * 1000;
+
+export function resolveSourceControlStallThresholds(
+  env: NodeJS.ProcessEnv = process.env,
+): SourceControlStallThresholds {
+  const consecutiveFailureThreshold = Number(env.SOURCE_CONTROL_STALL_FAILURE_THRESHOLD);
+  const staleSuccessAgeMs = Number(env.SOURCE_CONTROL_STALL_AGE_MS);
+  return {
+    consecutiveFailureThreshold: Number.isFinite(consecutiveFailureThreshold) && consecutiveFailureThreshold > 0
+      ? consecutiveFailureThreshold
+      : DEFAULT_STALL_FAILURE_THRESHOLD,
+    staleSuccessAgeMs: Number.isFinite(staleSuccessAgeMs) && staleSuccessAgeMs > 0
+      ? staleSuccessAgeMs
+      : DEFAULT_STALL_AGE_MS,
+  };
+}
+
+/**
+ * Pure decision of whether a status snapshot represents a genuine stall,
+ * deliberately blind to *which* state is currently failing: dirty trees,
+ * lock contention ('retrying'), divergence, and plain Git failures all
+ * increment the same consecutiveFailures counter in writeStatus(). A single
+ * bad poll -- or the "clears within a poll or two" dirty / lock-contention
+ * cases this exists to avoid alerting on -- must never cross this on its
+ * own; the defaults in resolveSourceControlStallThresholds sit comfortably
+ * above that noise floor. Exported so the threshold truth table can be
+ * tested directly without exercising sync()/writeStatus() or a fake Team
+ * Room/DB.
+ */
+export function isSourceControlSyncStalled(
+  status: Pick<SourceControlStatus, 'consecutiveFailures' | 'lastSuccessfulSyncAt'>,
+  thresholds: SourceControlStallThresholds,
+  nowMs: number,
+): boolean {
+  if (status.consecutiveFailures >= thresholds.consecutiveFailureThreshold) return true;
+  if (!status.lastSuccessfulSyncAt) return false;
+  const lastSuccessMs = new Date(status.lastSuccessfulSyncAt).getTime();
+  if (!Number.isFinite(lastSuccessMs)) return false;
+  return nowMs - lastSuccessMs >= thresholds.staleSuccessAgeMs;
 }
 
 export interface SourceControlOperation {
@@ -257,6 +314,10 @@ export interface SourceControlServiceOptions {
   ) => Promise<{ sourceContextSha256: string; sourceFileCount: number }>;
   /** GitHub App installation-token hook. Production mints a fresh RS256 JWT and exchanges it. */
   fetchInstallationToken?: () => Promise<{ token: string }>;
+  /** Stalled-sync alert dispatch hook. Production posts to Team Room and the
+   * founder's aldenNotifications inbox (see dispatchStalledSyncAlert).
+   * Injectable so tests can assert the alert fired without touching either. */
+  notifyStalledSync?: (status: SourceControlStatus) => Promise<void>;
 }
 
 export interface SourcePromotionRecordInput {
@@ -524,6 +585,14 @@ export class SourceControlService {
 
   private readonly fetchInstallationToken: () => Promise<{ token: string }>;
 
+  private readonly notifyStalledSync: (status: SourceControlStatus) => Promise<void>;
+
+  /** In-process dedup key for checkStalled()'s standalone timer path only.
+   * writeStatus() has its own durable dedup via stalledSyncAlertActive in
+   * the status file; this one guards the read-only backstop so it never
+   * writes to disk (see checkStalled() for why that matters). */
+  private lastStandaloneStallNotifyKey?: string;
+
   constructor(options: SourceControlServiceOptions = {}) {
     this.rootDir = options.rootDir || process.cwd();
     this.env = options.env || process.env;
@@ -566,6 +635,7 @@ export class SourceControlService {
       if (!privateKey) throw new Error('HOLAHOLA_GITHUB_APP_PRIVATE_KEY is unavailable.');
       return fetchGithubInstallationToken({ appId, installationId, privateKey, now: this.now });
     });
+    this.notifyStalledSync = options.notifyStalledSync ?? ((status) => this.dispatchStalledSyncAlert(status));
   }
 
   async getStatus(): Promise<SourceControlStatus | null> {
@@ -574,6 +644,36 @@ export class SourceControlService {
     } catch {
       return null;
     }
+  }
+
+  /**
+   * Independent, read-only staleness check meant to be driven by the
+   * scheduler's own timer rather than by a sync() outcome. writeStatus()
+   * already raises the same alert on every real sync attempt -- the pattern
+   * the original ~2.5-day incident actually followed, since the scheduler
+   * kept retrying and recording failures the whole time -- but that path
+   * only runs if sync() itself keeps returning. This method reads the
+   * on-disk status directly so a wedged sync() (stuck lock, hung Git
+   * subprocess) can still be surfaced from wall-clock time alone.
+   *
+   * Deliberately never writes to statusPath: it runs on a timer independent
+   * of writeStatus's own read-modify-write, so doing a read-modify-write
+   * here too could race a concurrent writeStatus() and clobber a fresher
+   * status with a stale copy. Instead it keeps its own in-memory "already
+   * notified this exact snapshot" key -- safe because if sync() is truly
+   * wedged, consecutiveFailures/lastSuccessfulSyncAt aren't changing either,
+   * so there is nothing to keep re-notifying about until something (a real
+   * sync, or a process restart) changes the snapshot.
+   */
+  async checkStalled(): Promise<void> {
+    const status = await this.getStatus();
+    if (!status || status.state === 'disabled' || status.stalledSyncAlertActive) return;
+    const thresholds = resolveSourceControlStallThresholds(this.env);
+    if (!isSourceControlSyncStalled(status, thresholds, this.now().getTime())) return;
+    const key = `${status.consecutiveFailures}:${status.lastSuccessfulSyncAt || ''}`;
+    if (this.lastStandaloneStallNotifyKey === key) return;
+    this.lastStandaloneStallNotifyKey = key;
+    await this.notifyStalledSync(status);
   }
 
   async sync(actor = 'scheduler', operationId = this.uuid()): Promise<SourceControlResult> {
@@ -1598,6 +1698,28 @@ export class SourceControlService {
     const now = this.now().toISOString();
     const ready = state === 'ready_to_promote';
     const successful = state === 'synced' || ready;
+    const consecutiveFailures = successful ? 0 : (previous?.consecutiveFailures || 0) + 1;
+    const lastSuccessfulSyncAt = successful ? now : previous?.lastSuccessfulSyncAt;
+    // Stalled-sync alerting: a run of trouble -- dirty tree, lock
+    // contention, divergence, a real Git failure, it doesn't matter which,
+    // they all increment the same consecutiveFailures counter above -- stops
+    // being normal transient noise once it crosses a threshold. Fire once
+    // per stall *episode* (mirroring the dirty-tree notifier above) via the
+    // stalledSyncAlertActive flag, and clear that flag on the next success
+    // so a future stall can alert again.
+    let stalledSyncAlertActive = successful ? false : (previous?.stalledSyncAlertActive ?? false);
+    let stalledSyncAlertSentAt = successful ? undefined : previous?.stalledSyncAlertSentAt;
+    const shouldRaiseStallAlert = !successful
+      && !stalledSyncAlertActive
+      && isSourceControlSyncStalled(
+        { consecutiveFailures, lastSuccessfulSyncAt },
+        resolveSourceControlStallThresholds(this.env),
+        this.now().getTime(),
+      );
+    if (shouldRaiseStallAlert) {
+      stalledSyncAlertActive = true;
+      stalledSyncAlertSentAt = now;
+    }
     const status: SourceControlStatus = {
       schemaVersion: 3,
       state,
@@ -1617,10 +1739,12 @@ export class SourceControlService {
         ? validation.validationId
         : previous?.validationId,
       error: error || undefined,
-      lastSuccessfulSyncAt: successful ? now : previous?.lastSuccessfulSyncAt,
-      consecutiveFailures: successful ? 0 : (previous?.consecutiveFailures || 0) + 1,
+      lastSuccessfulSyncAt,
+      consecutiveFailures,
       lastHeartbeatAt: now,
       updatedAt: now,
+      stalledSyncAlertActive,
+      stalledSyncAlertSentAt,
       // Promotion-completion evidence must survive incidental writes (a
       // later `dirty`/`failed`/plain `synced` sync) the same way candidate
       // evidence does. Otherwise a completed promotion's `promotedSha` marker
@@ -1639,6 +1763,11 @@ export class SourceControlService {
     const statusTemp = `${this.statusPath}.${process.pid}.${this.uuid()}.tmp`;
     await writeFile(statusTemp, `${JSON.stringify(status, null, 2)}\n`, { mode: 0o600 });
     await rename(statusTemp, this.statusPath);
+    if (shouldRaiseStallAlert) {
+      void this.notifyStalledSync(status).catch((err: any) => {
+        console.warn('[SourceControl] Stalled-sync notification failed:', err?.message || err);
+      });
+    }
     const summary = [
       '# Source-control status',
       '',
@@ -1680,5 +1809,61 @@ export class SourceControlService {
     const message = await storage.createRoomMessage({ roomId: rooms[0].id, speaker: 'Luca', content });
     const { emitNewMessage } = await import('./team-room-ws-broker');
     emitNewMessage(rooms[0].id, message);
+  }
+
+  /**
+   * Posts a stalled-sync alert once per stall episode. This pipeline gates
+   * every founder publish (source promotion, runtime release), so a silent
+   * multi-day outage blocks all of them -- exactly what happened when a
+   * 'diverged' state ran for ~2.5 days with only notifyDirtyTreeBlock's
+   * narrower dirty-tree case wired up. Unlike that Team-Room-only notice,
+   * this also writes a durable aldenNotifications row: Team Room is
+   * ephemeral chat that requires the page to be open, while aldenNotifications
+   * persists as an unread sidebar badge until someone actually reads it --
+   * the difference between "visible if you happen to be looking" and
+   * "visible whenever you next look". Both are fire-and-forget from
+   * writeStatus's/checkStalled's side; a notification-path failure must
+   * never affect the status write or staleness check it is reporting on.
+   */
+  private async dispatchStalledSyncAlert(status: SourceControlStatus): Promise<void> {
+    const ageDescription = status.lastSuccessfulSyncAt
+      ? `${Math.round((this.now().getTime() - new Date(status.lastSuccessfulSyncAt).getTime()) / 60000)} minutes since the last successful sync`
+      : 'no successful sync has been recorded yet';
+    const content = [
+      '**Source-control sync is stalled**',
+      '',
+      `State: ${status.state}`,
+      `Consecutive failed attempts: ${status.consecutiveFailures}`,
+      `${ageDescription}.`,
+      status.error ? `Last error: ${status.error}` : undefined,
+      '',
+      'This pipeline gates every founder publish (source promotion, runtime release). The scheduler will keep retrying on its own schedule, but it has not been able to resolve this by itself.',
+    ].filter((line): line is string => typeof line === 'string').join('\n');
+
+    try {
+      const { storage } = await import('../storage');
+      const rooms = await storage.listTeamRooms(1);
+      if (rooms.length) {
+        const message = await storage.createRoomMessage({ roomId: rooms[0].id, speaker: 'Luca', content });
+        const { emitNewMessage } = await import('./team-room-ws-broker');
+        emitNewMessage(rooms[0].id, message);
+      }
+    } catch (err: any) {
+      console.warn('[SourceControl] Stalled-sync Team Room notification failed:', err?.message || err);
+    }
+
+    try {
+      const { getUserDb } = await import('../db');
+      const { aldenNotifications } = await import('@shared/schema');
+      await getUserDb().insert(aldenNotifications).values({
+        content,
+        triggeredBy: 'source-control',
+        severity: 'alert',
+        read: false,
+        fingerprint: 'source_control_stalled_sync',
+      });
+    } catch (err: any) {
+      console.warn('[SourceControl] Stalled-sync founder-inbox notification failed:', err?.message || err);
+    }
   }
 }

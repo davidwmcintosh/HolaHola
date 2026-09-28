@@ -114,14 +114,25 @@ reflecting current DB truth.
 
 **How to apply:** treat `regenerate --all` (or `--topic-slug` for a single file) as the *only* correct
 resolution for a conflict on `MEMORY.md` or any `.agents/memory/<topic>.md` file — not an optional
-follow-up step after a manual union-merge. Confirm zero conflict markers remain
-(`grep -c '^<<<<<<<\|^=======$\|^>>>>>>>' <file>`) and continue the rebase/merge normally. The
-diagnostic observations above (usually only trailing added lines differ, a rebase can hit this once per
-replayed commit, other topic files may appear/update as a side effect) are still accurate as
-*descriptions of what a conflict typically looks like* — only the recommended *resolution* changes.
-`db-file-rebase-conflict-resolution.md`'s standalone index entry has been folded into this topic as a
-result (mirroring the earlier `memory-index-rebase-conflicts` → this-topic fold from the Sep 25
-addendum above); its file remains on disk but nothing in MEMORY.md's index points to it anymore.
+follow-up step after a manual union-merge. Confirm zero real conflict-marker lines remain (a line made
+of seven repeated `<` characters, seven `=` characters, or seven `>` characters at the start of the
+line) and continue the rebase/merge normally. The diagnostic observations above (usually only trailing
+added lines differ, a rebase can hit this once per replayed commit, other topic files may appear/update
+as a side effect) are still accurate as *descriptions of what a conflict typically looks like* — only
+the recommended *resolution* changes. `db-file-rebase-conflict-resolution.md`'s standalone index entry
+has been folded into this topic as a result (mirroring the earlier `memory-index-rebase-conflicts` →
+this-topic fold from the Sep 25 addendum above); its file remains on disk but nothing in MEMORY.md's
+index points to it anymore.
+
+**Self-referential trap confirmed on task #1625's rebase:** do not write out the actual grep pattern
+for detecting those marker lines (seven `<`/`=`/`>` characters back to back, wrapped in quotes as a
+literal shell example) inside a memory entry. A prior version of this exact block did that, and because
+`continueMergeResolution`'s own conflict-marker scan does a plain substring search rather than an
+anchored-at-line-start one, the quoted example — sitting harmlessly inside prose, nowhere near an actual
+conflict — was itself detected as a live conflict marker and blocked the rebase from continuing, even
+after a real `regenerate --all` had already produced byte-for-byte clean content. Describe the marker
+shape in words (as this paragraph and the one above it now do) instead of spelling out the literal
+character run, in this file or any other.
 
 
 ## Task 1625 addendum: the cycle repeats — trimmed 161→159 again via the same umbrella

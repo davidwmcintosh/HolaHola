@@ -41,7 +41,16 @@ export class SourceControlScheduler {
     }
     if (!this.stopped) return true;
     this.stopped = false;
-    this.pollTimer = setInterval(() => void this.run('scheduler'), this.pollMs);
+    this.pollTimer = setInterval(() => {
+      void this.run('scheduler');
+      // Runs every tick regardless of whether the sync above is still in
+      // flight or overlapping (run() silently no-ops while `running` is
+      // true) -- a wedged sync (stuck lock, hung Git subprocess) must not
+      // also be able to block the staleness check from ever running again.
+      void this.service.checkStalled().catch((error: any) => {
+        console.warn('[SourceControl] Stalled-sync check failed:', error?.message || error);
+      });
+    }, this.pollMs);
     this.wakeTimer = setInterval(() => void this.checkWakeFile(), this.wakePollMs);
     this.pollTimer.unref();
     this.wakeTimer.unref();

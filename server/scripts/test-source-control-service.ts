@@ -15,10 +15,13 @@ import {
   SOURCE_CONTROL_REQUIRED_CHECKS,
   SOURCE_CONTROL_VALIDATION_MANIFEST_VERSION,
   SourceControlService,
+  isSourceControlSyncStalled,
   materializeProtectedGitSnapshot,
   resolveRenderReleaseEvidenceFromHealth,
+  resolveSourceControlStallThresholds,
   validateRenderReleaseEvidence,
   type RenderReleaseEvidence,
+  type SourceControlStatus,
 } from '../services/source-control-service';
 
 const LOCAL_OLD = '1'.repeat(40);
@@ -95,15 +98,111 @@ interface EpisodeDiffFixture {
   newContent: string;
 }
 
+interface FixtureRunOptions {
+  dirty?: boolean;
+  untracked?: boolean;
+  missingKey?: boolean;
+  holdLock?: boolean;
+  episodeDiff?: EpisodeDiffFixture;
+}
+
+/** Extracted so a multi-call fixture (see withRepeatableFixture, used by the
+ * stalled-sync tests) can drive the same Git-command simulation across
+ * repeated sync() calls without re-deriving this scenario logic. `options`
+ * is read live on every invocation (not snapshotted), so a caller holding a
+ * reference to the same object can flip e.g. `dirty` between calls to
+ * simulate a tree that later gets cleaned up. */
+function buildFixtureRunCommand(
+  scenario: Scenario,
+  state: { local: string; remote: string },
+  calls: string[],
+  options: FixtureRunOptions,
+) {
+  return async (command: string, args: string[]) => {
+    calls.push(`${command} ${args.join(' ')}`);
+    assert.equal(command, 'git', 'fixture must never route Git through a shell helper');
+    const operation = args[0];
+    if (operation === 'branch') return { exitCode: 0, stdout: 'main\n', stderr: '' };
+    if (operation === 'status') {
+      return {
+        exitCode: 0,
+        stdout: options.dirty ? ' M tracked-file\n' : options.untracked ? '?? untracked-source.ts\n' : '',
+        stderr: '',
+      };
+    }
+    if (operation === 'fetch') return { exitCode: 0, stdout: '', stderr: '' };
+    if (operation === 'rev-parse' && args.includes('--is-shallow-repository')) {
+      return { exitCode: 0, stdout: 'false\n', stderr: '' };
+    }
+    if (operation === 'rev-parse') {
+      // episode-content-loss-guard.ts's resolveCommit() calls
+      // `rev-parse --verify <sha>^{commit}` with the two already-
+      // resolved head shas (not the symbolic HEAD/FETCH_HEAD refs
+      // SourceControlService's own head-resolution uses) — it must
+      // echo back that exact sha, not collapse both to whichever of
+      // state.local/state.remote happens to be current, or a
+      // violating-diff fixture would compare a version against itself.
+      const target = args[args.length - 1] ?? '';
+      const embeddedSha = target.match(/^([0-9a-f]{40})\^\{commit\}$/)?.[1];
+      const resolved = embeddedSha ?? (target.includes('FETCH_HEAD') ? state.remote : state.local);
+      return { exitCode: 0, stdout: `${resolved}\n`, stderr: '' };
+    }
+    if (operation === 'merge-base' && args[1] !== '--is-ancestor') {
+      return { exitCode: scenario === 'diverged' ? 1 : 0, stdout: '', stderr: '' };
+    }
+    if (operation === 'merge-base') {
+      const [, , ancestor, descendant] = args;
+      const isAncestor = ancestor === descendant
+        || (scenario === 'local-ahead' && ancestor === state.remote && descendant === state.local)
+        || (scenario === 'github-ahead' && ancestor === state.local && descendant === state.remote);
+      return { exitCode: isAncestor ? 0 : 1, stdout: '', stderr: '' };
+    }
+    if (operation === 'push') {
+      state.remote = state.local;
+      return { exitCode: 0, stdout: '', stderr: '' };
+    }
+    if (operation === 'merge' && args[1] === '--ff-only') {
+      state.local = state.remote;
+      return { exitCode: 0, stdout: '', stderr: '' };
+    }
+    // episode-content-loss-guard.ts (checked inline by syncLocked() before
+    // its fast-forward push — see server/services/episode-content-loss-
+    // guard.ts) issues a read-only diff to find changed docs/episode-*.md
+    // files. Only a fixture that opts in via `options.episodeDiff` ever
+    // touches such a file; every other fixture's synthetic history
+    // truthfully reports an empty changed-file list.
+    if (operation === 'diff') {
+      const changed = options.episodeDiff ? `${options.episodeDiff.changedPath}\n` : '';
+      return { exitCode: 0, stdout: changed, stderr: '' };
+    }
+    if (
+      operation === 'ls-tree'
+      && options.episodeDiff
+      && args[2] === '--'
+      && args[3] === options.episodeDiff.changedPath
+    ) {
+      // Both the old and new sha carry this path as a normal file in
+      // every scenario this fixture drives — it only exercises content
+      // mutation, never an add or a delete.
+      return { exitCode: 0, stdout: `100644 blob ${'a'.repeat(40)}\t${options.episodeDiff.changedPath}\n`, stderr: '' };
+    }
+    if (operation === 'show' && options.episodeDiff) {
+      const spec = args[1] ?? '';
+      const separator = spec.indexOf(':');
+      const sha = separator === -1 ? '' : spec.slice(0, separator);
+      const path = separator === -1 ? '' : spec.slice(separator + 1);
+      if (path === options.episodeDiff.changedPath) {
+        if (sha === state.remote) return { exitCode: 0, stdout: options.episodeDiff.oldContent, stderr: '' };
+        if (sha === state.local) return { exitCode: 0, stdout: options.episodeDiff.newContent, stderr: '' };
+      }
+    }
+    return { exitCode: 98, stdout: '', stderr: `unexpected command: ${args.join(' ')}` };
+  };
+}
+
 async function withFixture(
   scenario: Scenario,
-  options: {
-    dirty?: boolean;
-    untracked?: boolean;
-    missingKey?: boolean;
-    holdLock?: boolean;
-    episodeDiff?: EpisodeDiffFixture;
-  } = {},
+  options: FixtureRunOptions = {},
 ): Promise<{ result: Awaited<ReturnType<SourceControlService['sync']>>; calls: string[]; status: any }> {
   const rootDir = mkdtempSync(join(tmpdir(), 'source-control-service-test-'));
   const calls: string[] = [];
@@ -135,86 +234,7 @@ async function withFixture(
         return () => `fixture-${++value}`;
       })(),
       validateCandidate: async (sha) => manifest(sha),
-      runCommand: async (command, args) => {
-        calls.push(`${command} ${args.join(' ')}`);
-        assert.equal(command, 'git', 'fixture must never route Git through a shell helper');
-        const operation = args[0];
-        if (operation === 'branch') return { exitCode: 0, stdout: 'main\n', stderr: '' };
-        if (operation === 'status') {
-          return {
-            exitCode: 0,
-            stdout: options.dirty ? ' M tracked-file\n' : options.untracked ? '?? untracked-source.ts\n' : '',
-            stderr: '',
-          };
-        }
-        if (operation === 'fetch') return { exitCode: 0, stdout: '', stderr: '' };
-        if (operation === 'rev-parse' && args.includes('--is-shallow-repository')) {
-          return { exitCode: 0, stdout: 'false\n', stderr: '' };
-        }
-        if (operation === 'rev-parse') {
-          // episode-content-loss-guard.ts's resolveCommit() calls
-          // `rev-parse --verify <sha>^{commit}` with the two already-
-          // resolved head shas (not the symbolic HEAD/FETCH_HEAD refs
-          // SourceControlService's own head-resolution uses) — it must
-          // echo back that exact sha, not collapse both to whichever of
-          // state.local/state.remote happens to be current, or a
-          // violating-diff fixture would compare a version against itself.
-          const target = args[args.length - 1] ?? '';
-          const embeddedSha = target.match(/^([0-9a-f]{40})\^\{commit\}$/)?.[1];
-          const resolved = embeddedSha ?? (target.includes('FETCH_HEAD') ? state.remote : state.local);
-          return { exitCode: 0, stdout: `${resolved}\n`, stderr: '' };
-        }
-        if (operation === 'merge-base' && args[1] !== '--is-ancestor') {
-          return { exitCode: scenario === 'diverged' ? 1 : 0, stdout: '', stderr: '' };
-        }
-        if (operation === 'merge-base') {
-          const [, , ancestor, descendant] = args;
-          const isAncestor = ancestor === descendant
-            || (scenario === 'local-ahead' && ancestor === state.remote && descendant === state.local)
-            || (scenario === 'github-ahead' && ancestor === state.local && descendant === state.remote);
-          return { exitCode: isAncestor ? 0 : 1, stdout: '', stderr: '' };
-        }
-        if (operation === 'push') {
-          state.remote = state.local;
-          return { exitCode: 0, stdout: '', stderr: '' };
-        }
-        if (operation === 'merge' && args[1] === '--ff-only') {
-          state.local = state.remote;
-          return { exitCode: 0, stdout: '', stderr: '' };
-        }
-        // episode-content-loss-guard.ts (checked inline by syncLocked() before
-        // its fast-forward push — see server/services/episode-content-loss-
-        // guard.ts) issues a read-only diff to find changed docs/episode-*.md
-        // files. Only a fixture that opts in via `options.episodeDiff` ever
-        // touches such a file; every other fixture's synthetic history
-        // truthfully reports an empty changed-file list.
-        if (operation === 'diff') {
-          const changed = options.episodeDiff ? `${options.episodeDiff.changedPath}\n` : '';
-          return { exitCode: 0, stdout: changed, stderr: '' };
-        }
-        if (
-          operation === 'ls-tree'
-          && options.episodeDiff
-          && args[2] === '--'
-          && args[3] === options.episodeDiff.changedPath
-        ) {
-          // Both the old and new sha carry this path as a normal file in
-          // every scenario this fixture drives — it only exercises content
-          // mutation, never an add or a delete.
-          return { exitCode: 0, stdout: `100644 blob ${'a'.repeat(40)}\t${options.episodeDiff.changedPath}\n`, stderr: '' };
-        }
-        if (operation === 'show' && options.episodeDiff) {
-          const spec = args[1] ?? '';
-          const separator = spec.indexOf(':');
-          const sha = separator === -1 ? '' : spec.slice(0, separator);
-          const path = separator === -1 ? '' : spec.slice(separator + 1);
-          if (path === options.episodeDiff.changedPath) {
-            if (sha === state.remote) return { exitCode: 0, stdout: options.episodeDiff.oldContent, stderr: '' };
-            if (sha === state.local) return { exitCode: 0, stdout: options.episodeDiff.newContent, stderr: '' };
-          }
-        }
-        return { exitCode: 98, stdout: '', stderr: `unexpected command: ${args.join(' ')}` };
-      },
+      runCommand: buildFixtureRunCommand(scenario, state, calls, options),
     });
     const result = await service.sync('fixture');
     const status = (() => {
@@ -228,6 +248,76 @@ async function withFixture(
   } finally {
     rmSync(rootDir, { recursive: true, force: true });
   }
+}
+
+/**
+ * Multi-call fixture for the stalled-sync alerting tests. Unlike withFixture
+ * (one sync() call, then immediate cleanup), this hands back the live
+ * `service` plus a mutable clock and a mutable `runOptions` object so a test
+ * can call sync()/checkStalled() repeatedly -- e.g. failing several times to
+ * cross the alert threshold, then flipping `runOptions.dirty = false` to
+ * prove the alert clears on the next successful sync. The caller must
+ * invoke the returned `cleanup()` when done (there is no automatic
+ * try/finally here, since the whole point is staying alive across calls the
+ * caller controls).
+ */
+async function withRepeatableFixture(
+  scenario: Scenario,
+  options: FixtureRunOptions & {
+    notifyStalledSync?: (status: SourceControlStatus) => Promise<void>;
+    extraEnv?: NodeJS.ProcessEnv;
+  } = {},
+): Promise<{
+  service: SourceControlService;
+  runOptions: FixtureRunOptions;
+  calls: string[];
+  advanceMs: (ms: number) => void;
+  readStatus: () => any;
+  cleanup: () => void;
+}> {
+  const rootDir = mkdtempSync(join(tmpdir(), 'source-control-service-stall-test-'));
+  const calls: string[] = [];
+  const state = {
+    local: scenario === 'github-ahead' ? LOCAL_OLD : LOCAL_NEW,
+    remote: scenario === 'local-ahead' ? LOCAL_OLD : scenario === 'github-ahead' ? REMOTE_NEW : LOCAL_NEW,
+  };
+  const runOptions: FixtureRunOptions = { ...options };
+  const env = {
+    NODE_ENV: 'development',
+    SOURCE_BRIDGE_STATUS_FILE: join(rootDir, 'status.json'),
+    SOURCE_BRIDGE_SUMMARY_FILE: join(rootDir, 'status.md'),
+    SOURCE_CONTROL_LOCK_FILE: join(rootDir, 'control.lock'),
+    SOURCE_CONTROL_OPERATIONS_DIR: join(rootDir, 'operations'),
+    ...options.extraEnv,
+  } as NodeJS.ProcessEnv;
+  let clockMs = Date.parse('2026-01-01T00:00:00.000Z');
+  const service = new SourceControlService({
+    rootDir,
+    env,
+    now: () => new Date(clockMs),
+    fetchInstallationToken: async () => ({ token: 'fixture-token' }),
+    uuid: (() => {
+      let value = 0;
+      return () => `fixture-${++value}`;
+    })(),
+    validateCandidate: async (sha) => manifest(sha),
+    notifyStalledSync: options.notifyStalledSync,
+    runCommand: buildFixtureRunCommand(scenario, state, calls, runOptions),
+  });
+  return {
+    service,
+    runOptions,
+    calls,
+    advanceMs: (ms: number) => { clockMs += ms; },
+    readStatus: () => {
+      try {
+        return JSON.parse(readFileSync(env.SOURCE_BRIDGE_STATUS_FILE!, 'utf8'));
+      } catch {
+        return null;
+      }
+    },
+    cleanup: () => rmSync(rootDir, { recursive: true, force: true }),
+  };
 }
 
 async function recordPublicationMarkerFixture(overrides: {
@@ -1427,6 +1517,181 @@ async function main(): Promise<void> {
     assert.deepEqual(readdirSync(snapshotParent), before, 'post-fetch failure must remove the bare snapshot');
   } finally {
     rmSync(gitFixture, { recursive: true, force: true });
+  }
+
+  // --- Stalled-sync alerting (Task #1625) -----------------------------
+  // A ~2.5-day, 120-consecutive-failure 'diverged' outage ran unnoticed
+  // because nothing but a human reading .local/source-bridge-status.json
+  // could see it. These prove: the pure threshold decision, that an alert
+  // actually fires through the injected hook once a real stall crosses it,
+  // that it does not fire for the "clears within a poll or two" noise this
+  // must ignore, that it does not repeat-fire while still stalled, that it
+  // resets on recovery so a *future* stall can alert again, and that the
+  // scheduler-level checkStalled() backstop works independently of
+  // writeStatus for a wedged sync.
+
+  // Pure threshold resolution and decision function -- no fixture needed.
+  const defaultThresholds = resolveSourceControlStallThresholds({} as NodeJS.ProcessEnv);
+  assert.equal(defaultThresholds.consecutiveFailureThreshold, 6);
+  assert.equal(defaultThresholds.staleSuccessAgeMs, 3 * 60 * 60 * 1000);
+  const overriddenThresholds = resolveSourceControlStallThresholds({
+    SOURCE_CONTROL_STALL_FAILURE_THRESHOLD: '3',
+    SOURCE_CONTROL_STALL_AGE_MS: '60000',
+  } as NodeJS.ProcessEnv);
+  assert.equal(overriddenThresholds.consecutiveFailureThreshold, 3);
+  assert.equal(overriddenThresholds.staleSuccessAgeMs, 60000);
+  const invalidThresholds = resolveSourceControlStallThresholds({
+    SOURCE_CONTROL_STALL_FAILURE_THRESHOLD: '0',
+    SOURCE_CONTROL_STALL_AGE_MS: '-5',
+  } as NodeJS.ProcessEnv);
+  assert.equal(invalidThresholds.consecutiveFailureThreshold, 6, 'non-positive override must fall back to the default');
+  assert.equal(invalidThresholds.staleSuccessAgeMs, 3 * 60 * 60 * 1000, 'non-positive override must fall back to the default');
+
+  const stallThresholds = { consecutiveFailureThreshold: 6, staleSuccessAgeMs: 3 * 60 * 60 * 1000 };
+  const stallNowMs = Date.parse('2026-09-24T00:00:00.000Z');
+  assert.equal(
+    isSourceControlSyncStalled({ consecutiveFailures: 0, lastSuccessfulSyncAt: undefined }, stallThresholds, stallNowMs),
+    false,
+    'no failures yet and no prior success recorded must not read as stalled',
+  );
+  assert.equal(
+    isSourceControlSyncStalled({ consecutiveFailures: 2, lastSuccessfulSyncAt: new Date(stallNowMs).toISOString() }, stallThresholds, stallNowMs),
+    false,
+    'a couple of failures with a fresh last success is the "clears within a poll or two" case that must stay quiet',
+  );
+  assert.equal(
+    isSourceControlSyncStalled({ consecutiveFailures: 6, lastSuccessfulSyncAt: new Date(stallNowMs).toISOString() }, stallThresholds, stallNowMs),
+    true,
+    'crossing the failure-count threshold must read as stalled even with a recent success on record',
+  );
+  assert.equal(
+    isSourceControlSyncStalled(
+      { consecutiveFailures: 1, lastSuccessfulSyncAt: new Date(stallNowMs - 4 * 60 * 60 * 1000).toISOString() },
+      stallThresholds,
+      stallNowMs,
+    ),
+    true,
+    'a last success older than the stale-age threshold must read as stalled even with few consecutive failures',
+  );
+  assert.equal(
+    isSourceControlSyncStalled(
+      { consecutiveFailures: 1, lastSuccessfulSyncAt: new Date(stallNowMs - 60 * 60 * 1000).toISOString() },
+      stallThresholds,
+      stallNowMs,
+    ),
+    false,
+    'a recent-enough success with few failures must not read as stalled',
+  );
+  assert.equal(
+    isSourceControlSyncStalled({ consecutiveFailures: 1, lastSuccessfulSyncAt: 'not-a-real-date' }, stallThresholds, stallNowMs),
+    false,
+    'an unparseable timestamp must fail closed to "not stalled" rather than throw or read as infinitely stale',
+  );
+
+  // Alert fires once a genuine stall crosses the failure-count threshold,
+  // and not before -- using a low threshold (3) so the fixture does not
+  // need dozens of sync() calls to prove it.
+  {
+    const alerts: SourceControlStatus[] = [];
+    const fixture = await withRepeatableFixture('local-ahead', {
+      dirty: true,
+      notifyStalledSync: async (status) => { alerts.push(status); },
+      extraEnv: { SOURCE_CONTROL_STALL_FAILURE_THRESHOLD: '3' } as NodeJS.ProcessEnv,
+    });
+    try {
+      const first = await fixture.service.sync('fixture');
+      assert.equal(first.state, 'dirty');
+      assert.equal(alerts.length, 0, 'a single dirty poll must not alert');
+      const second = await fixture.service.sync('fixture');
+      assert.equal(second.state, 'dirty');
+      assert.equal(alerts.length, 0, 'two consecutive dirty polls (below threshold) must not alert -- the "poll or two" case');
+      const third = await fixture.service.sync('fixture');
+      assert.equal(third.state, 'dirty');
+      assert.equal(alerts.length, 1, 'crossing the threshold on the third consecutive failure must alert exactly once');
+      assert.equal(alerts[0].consecutiveFailures, 3);
+      assert.equal(alerts[0].stalledSyncAlertActive, true);
+      assert.equal(fixture.readStatus().stalledSyncAlertActive, true);
+
+      // Must not repeat-fire while still stalled.
+      const fourth = await fixture.service.sync('fixture');
+      assert.equal(fourth.state, 'dirty');
+      const fifth = await fixture.service.sync('fixture');
+      assert.equal(fifth.state, 'dirty');
+      assert.equal(alerts.length, 1, 'continuing to fail after the alert fired must not spam another notification');
+
+      // Recovery clears the flag, so a *future* stall can alert again.
+      fixture.runOptions.dirty = false;
+      const recovered = await fixture.service.sync('fixture');
+      assert.equal(recovered.state, 'synced');
+      const recoveredStatus = fixture.readStatus();
+      assert.equal(recoveredStatus.consecutiveFailures, 0);
+      assert.equal(recoveredStatus.stalledSyncAlertActive, false);
+      assert.equal(recoveredStatus.stalledSyncAlertSentAt, undefined);
+      assert.equal(alerts.length, 1, 'recovering must not itself fire a notification');
+
+      // A fresh stall after recovery must be able to alert again.
+      fixture.runOptions.dirty = true;
+      await fixture.service.sync('fixture');
+      await fixture.service.sync('fixture');
+      assert.equal(alerts.length, 1, 'still below threshold on the new streak must stay quiet');
+      await fixture.service.sync('fixture');
+      assert.equal(alerts.length, 2, 'a second stall episode after a recovery must be able to alert again');
+    } finally {
+      fixture.cleanup();
+    }
+  }
+
+  // checkStalled() is the scheduler-driven backstop for a sync() that is
+  // wedged (stuck lock, hung Git subprocess) and therefore never calls
+  // writeStatus again on its own. It must detect staleness purely from
+  // elapsed wall-clock time against the last on-disk status, independent of
+  // any further sync() calls, and must dedupe repeated notifications for
+  // the same unchanging snapshot in memory (never writing to disk itself).
+  {
+    const alerts: SourceControlStatus[] = [];
+    const fixture = await withRepeatableFixture('equal', {
+      notifyStalledSync: async (status) => { alerts.push(status); },
+      // A failure-count threshold far above anything this test reaches
+      // isolates the stale-age branch: only elapsed time should trigger it.
+      extraEnv: {
+        SOURCE_CONTROL_STALL_FAILURE_THRESHOLD: '1000',
+        SOURCE_CONTROL_STALL_AGE_MS: '60000',
+      } as NodeJS.ProcessEnv,
+    });
+    try {
+      const synced = await fixture.service.sync('fixture');
+      assert.equal(synced.state, 'synced');
+      assert.equal(fixture.readStatus().consecutiveFailures, 0);
+
+      // No time has passed yet -- must not be stalled.
+      await fixture.service.checkStalled();
+      assert.equal(alerts.length, 0, 'checkStalled() must not fire immediately after a fresh success');
+
+      // Simulate the sync loop wedging: no further sync() calls happen at
+      // all, but wall-clock time keeps moving. checkStalled() alone must
+      // still be able to detect and report this.
+      fixture.advanceMs(61_000);
+      await fixture.service.checkStalled();
+      assert.equal(alerts.length, 1, 'checkStalled() must alert once the last success ages past the threshold');
+
+      // The on-disk status file is untouched by checkStalled() -- it is a
+      // read-only backstop, so it must never race writeStatus's own
+      // read-modify-write.
+      // The last real writeStatus (the successful sync above) explicitly
+      // persisted `false` -- checkStalled() recognizing a stall in memory
+      // must not touch that on-disk value at all.
+      const statusAfterFirstCheck = fixture.readStatus();
+      assert.equal(statusAfterFirstCheck.stalledSyncAlertActive, false, 'checkStalled() must never write to the status file');
+
+      // Calling it again against the same unchanging snapshot must not
+      // spam a second notification.
+      await fixture.service.checkStalled();
+      fixture.advanceMs(1000);
+      await fixture.service.checkStalled();
+      assert.equal(alerts.length, 1, 'repeated checkStalled() calls against an unchanging snapshot must dedupe in memory');
+    } finally {
+      fixture.cleanup();
+    }
   }
 
   console.log('Source-control coordinator fixture checks passed.');
