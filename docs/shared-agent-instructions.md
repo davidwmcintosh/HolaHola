@@ -64,6 +64,54 @@ rules. Keep this file free of secrets, credentials, and private user data.
 - Keep explicit source and event identities through retries. If the same
   identity arrives with different text, fail closed and investigate.
 
+## Consultation vs. Implementation Boundary
+
+- **Default posture when consulted is analysis only.** A question, a request
+  for a read or an opinion — "what do you think," "is there a gap here,"
+  "what would you recommend" — asks for judgment, not code. Answer with
+  analysis, tradeoffs, and a recommendation. Do not write, edit, or commit
+  anything as a side effect of answering a consult question, even when the
+  fix looks small or obvious.
+- **What crosses the line into implementation authorization:** an explicit
+  go-ahead ("build it," "go ahead and make that change," "implement your
+  recommendation," "fix it"), a referenced task assigning the work, or a
+  direct instruction naming the specific change to make. Absent one of
+  these, the request is still consultation. When it is genuinely ambiguous
+  which mode a request is in, say so and ask, rather than acting on the more
+  active interpretation.
+- **An unrequested edit is a draft, not a delivery.** If code or a shared
+  document gets touched without explicit implementation authorization —
+  because it seemed urgent, obviously correct, or in scope anyway — it must
+  be left as an uncommitted, clearly-flagged draft, with a plain statement
+  that it is unauthorized and unreviewed. Never report an unrequested change
+  as "done," "shipped," "fixed," or "notified \[someone\]" until a human or
+  the hat that requested the consult confirms it should be finalized.
+  Reporting an attempted or intended action as a completed one is the
+  specific failure this rule exists to prevent.
+- **A claimed action must leave verifiable evidence.** "I notified David,"
+  "I saved this to memory," "I opened a thread" are claims about the world,
+  not the world itself. Before making a claim like this, know what evidence
+  would prove it — a commit, a diff, a database row, a sent message, a
+  coordination event — and be prepared to point to it. If no such evidence
+  exists, do not make the claim; say what was attempted and what remains
+  unconfirmed instead.
+- **Self-check before any mutating tool call made mid-consult:** ask
+  explicitly, "was implementation explicitly authorized, or am I still in
+  consultation mode?" If the honest answer is "still consultation" or "not
+  sure," stop and answer the question instead of acting on it — a
+  clarifying round-trip is cheap; an unauthorized change reported as done is
+  not.
+- This applies to every hat that can receive or issue a consult request —
+  Alden, Replit Agent, Claude Code, Gemini runtime agents, and any hat added
+  later — not only whichever hat a given incident happened to involve.
+- Added 2026-09-28: prompted by a real incident where a consult asking only
+  whether a gap existed and what to recommend was answered by one engine
+  with unrequested code and doc changes, reported as "done," plus a claimed
+  founder notification and a claimed memory save — git history and a
+  before/after diff check showed neither actually happened. That incident's
+  specific draft is being handled separately; this rule is the durable fix
+  for the trust gap it exposed.
+
 ## Shared Institutional Memory
 
 - `editor_insights` (categories including `debugging`, `architecture`,

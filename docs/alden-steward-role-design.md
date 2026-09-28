@@ -3,6 +3,11 @@
 **Date:** 2026-09-23
 **Status:** Design approved by David (2026-09-23); pending David's review of this written spec before implementation begins.
 
+> **Related:** this design is about what Alden can observe and say, not
+> about when Alden may act unprompted versus only advise. See
+> `docs/shared-agent-instructions.md`'s "Consultation vs. Implementation
+> Boundary" section (added 2026-09-28) for that separate rule.
+
 ## 1. Problem
 
 Three related questions converged into one design:

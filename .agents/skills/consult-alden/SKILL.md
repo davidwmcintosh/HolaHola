@@ -15,6 +15,37 @@ Use this skill:
 
 ---
 
+## Consultation vs. implementation boundary
+
+Full rule: `docs/shared-agent-instructions.md` → "Consultation vs.
+Implementation Boundary". Read it if you haven't — this section only covers
+what it means for this skill specifically.
+
+**Frame your request explicitly.** Say whether you want Alden's read
+(analysis, recommendation) or you are authorizing a build. "What do you
+think" and "is there a gap here" are consult framing — Alden's default is to
+answer with analysis only, not code. "Go ahead and build that" or a
+referenced task is implementation authorization. Don't leave which mode
+you're in to be inferred, and if you want Alden's opinion before deciding
+whether to build, say that too.
+
+**Don't trust a claimed action without evidence.** "I notified David," "I
+saved this to memory," "I made the fix" are claims, not proof. Before
+treating one as real or building on top of it, check for the evidence a
+real action would leave — a commit, a diff, a database row, a Team Room
+post, a coordination event. A real incident (2026-09-28) involved a
+consult-only question answered with an unrequested code change reported as
+"done," plus a claimed founder notification and a claimed memory save that
+neither actually happened — git history and a before/after diff showed
+both were false.
+
+**Self-check before acting on a response that goes beyond analysis:** if
+Alden reports having done something beyond answering the question asked,
+ask "was implementation explicitly authorized, or was this still a
+consult?" before treating that work as real.
+
+---
+
 ## The direct channel
 
 ```
