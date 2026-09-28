@@ -32,9 +32,30 @@
  * `git push origin <branch>` normally — pushing a non-main branch needs no
  * special credential. This script only asks GitHub Actions to validate and
  * fast-forward main; it never touches the deploy key itself.
+ *
+ * Added 2026-09-28 — auto-freshen before dispatch: `push` now fetches
+ * `origin/main` and merges it into the candidate branch locally
+ * (`git merge --no-edit`, never rebase — the branch's existing commit SHAs
+ * must not be rewritten, since coordination-evidence/provenance records may
+ * reference them) before asking the workflow to validate it, then pushes
+ * the merged branch back to its own ref with a normal, non-force push. This
+ * is the fix for the recurring "two hats land from a stale base and main
+ * diverges" failure mode: previously a candidate built from a base that
+ * fell behind main only found out at dispatch time (or, worse, passed the
+ * workflow's early ancestry check and failed only after the slow
+ * typecheck/build/Neon-gate steps), with no automatic path to catch up. A
+ * real content conflict aborts the merge and throws with a manual-
+ * resolution message — this never auto-resolves a conflict. See
+ * `freshenBranchAgainstMain` below. The workflow's own ancestry checks are
+ * unchanged and remain the actual enforcement; this is a low-privilege
+ * client-side convenience layered in front of them, not a replacement.
+ * Design + review: docs/shared-agent-instructions.md's "Keeping a
+ * cross-tool promotion candidate fresh" section.
  */
 import { existsSync } from 'node:fs';
 import { randomUUID } from 'node:crypto';
+import { execFileSync } from 'node:child_process';
+import { isDirectCliInvocation } from '../server/scripts/lib/cli-entrypoint';
 
 if (existsSync('.env')) {
   process.loadEnvFile('.env');
@@ -62,6 +83,87 @@ export function isValidBranchName(branch: string): boolean {
     !branch.startsWith('-') &&
     !branch.includes('..')
   );
+}
+
+/**
+ * Fetches `origin/main` and merges it into the currently checked-out branch
+ * (`git merge --no-edit`), then pushes the result back to the same branch
+ * ref with a normal, non-force push. Merge, not rebase, so the branch's
+ * existing commit SHAs are never rewritten — coordination-evidence and
+ * provenance records may reference them.
+ *
+ * Exported and directly testable, following the `isValidBranchName`
+ * pattern above — see server/scripts/test-cross-tool-promote-auto-freshen.ts
+ * for real-git-repo positive (clean merge) and negative (real conflict
+ * aborts loudly) cases.
+ *
+ * Preconditions this enforces itself rather than assuming:
+ *  - HEAD must already be on `branch` — this never switches branches out
+ *    from under the caller.
+ *  - The working tree must be clean — an uncommitted change could otherwise
+ *    produce a confusing partial merge state.
+ *
+ * On a real content conflict, the merge is aborted (leaving the working
+ * tree exactly as it was) and this throws with a manual-resolution message.
+ * It never auto-resolves a conflict by picking a side.
+ *
+ * Returns `merged: false` when the branch already contained `origin/main`
+ * (the common case for a branch that was just freshly branched, or a
+ * caller re-running `push` after an earlier successful freshen) — nothing
+ * to merge, nothing to push.
+ */
+export function freshenBranchAgainstMain(branch: string, cwd: string = process.cwd()): { merged: boolean } {
+  const git = (args: string[]): string =>
+    execFileSync('git', args, { cwd, encoding: 'utf-8', stdio: ['ignore', 'pipe', 'pipe'] });
+
+  const currentBranch = git(['rev-parse', '--abbrev-ref', 'HEAD']).trim();
+  if (currentBranch !== branch) {
+    throw new Error(
+      `Refusing to freshen — checked-out branch is "${currentBranch}" but push was asked to promote "${branch}". ` +
+        `Check out "${branch}" first.`,
+    );
+  }
+
+  const status = git(['status', '--porcelain']);
+  if (status.trim().length > 0) {
+    throw new Error(
+      `Refusing to freshen "${branch}" — the working tree has uncommitted changes. Commit or stash them first, then re-run push.`,
+    );
+  }
+
+  git(['fetch', 'origin', 'main', '--no-tags']);
+  const mainSha = git(['rev-parse', 'FETCH_HEAD']).trim();
+  const headSha = git(['rev-parse', 'HEAD']).trim();
+
+  let mainAlreadyIncluded = true;
+  try {
+    git(['merge-base', '--is-ancestor', mainSha, headSha]);
+  } catch {
+    mainAlreadyIncluded = false;
+  }
+  if (mainAlreadyIncluded) {
+    return { merged: false };
+  }
+
+  try {
+    git(['merge', '--no-edit', mainSha]);
+  } catch (err) {
+    try {
+      git(['merge', '--abort']);
+    } catch {
+      // Nothing to abort, or abort itself failed — surface the original
+      // merge error either way rather than masking it.
+    }
+    const detail = err instanceof Error ? err.message : String(err);
+    throw new Error(
+      `Could not automatically merge the latest main into "${branch}" — a real conflict needs manual resolution. ` +
+        `Run "git fetch origin main && git merge origin/main" locally, resolve the conflict, commit, and re-run push. ` +
+        `Original error: ${detail}`,
+    );
+  }
+
+  git(['push', 'origin', branch]);
+  return { merged: true };
 }
 
 async function githubApi<T>(apiPath: string, init: RequestInit = {}): Promise<T> {
@@ -137,6 +239,14 @@ async function cmdPush(positional: string[], flags: Record<string, string | bool
   const source = (flags.source as string) ?? 'claude-code';
   const jobId = randomUUID();
 
+  console.log(`[cross-tool-promote] Freshening "${branch}" against the latest origin/main...`);
+  const { merged } = freshenBranchAgainstMain(branch);
+  console.log(
+    merged
+      ? `[cross-tool-promote] Merged the latest main into "${branch}" and pushed the merge commit.`
+      : `[cross-tool-promote] "${branch}" already includes the latest main — nothing to merge.`,
+  );
+
   await githubApi(`/repos/${OWNER}/${REPO}/actions/workflows/${WORKFLOW_FILE}/dispatches`, {
     method: 'POST',
     body: JSON.stringify({ ref: 'main', inputs: { branch, jobId } }),
@@ -192,7 +302,9 @@ async function main() {
   }
 }
 
-main().catch((err) => {
-  console.error(err instanceof Error ? err.message : err);
-  process.exitCode = 1;
-});
+if (isDirectCliInvocation('cross-tool-promote.ts')) {
+  main().catch((err) => {
+    console.error(err instanceof Error ? err.message : err);
+    process.exitCode = 1;
+  });
+}
