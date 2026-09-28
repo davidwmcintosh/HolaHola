@@ -234,7 +234,7 @@ async function generateAldenResponseAnthropic(params: AldenChatParams): Promise<
         aldenActivity.push({ type: 'tool_start', name: tu.name, timestamp: new Date().toISOString() });
 
         try {
-          const toolResult = await executeAldenTool(tu.name, (tu.input as Record<string, any>) || {}, { conversationId });
+          const toolResult = await executeAldenTool(tu.name, (tu.input as Record<string, any>) || {}, { conversationId, engine: 'anthropic' });
           aldenActivity.push({ type: 'tool_result', name: tu.name, success: true, timestamp: new Date().toISOString() });
 
           const rawResult = JSON.stringify(toolResult.data);
@@ -410,7 +410,7 @@ async function generateAldenResponseGemini(params: AldenChatParams): Promise<Ald
         aldenActivity.push({ type: 'tool_start', name: toolName, timestamp: new Date().toISOString() });
 
         try {
-          const toolResult = await executeAldenTool(toolName, toolArgs, { conversationId });
+          const toolResult = await executeAldenTool(toolName, toolArgs, { conversationId, engine: 'gemini' });
           aldenActivity.push({ type: 'tool_result', name: toolName, success: true, timestamp: new Date().toISOString() });
 
           const rawResult = JSON.stringify(toolResult.data);

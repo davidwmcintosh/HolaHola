@@ -234,3 +234,12 @@ none exists, a quick parent-commit or standalone re-run will likely confirm pre-
 without needing a full worktree. The underlying self-check flakiness itself was not root-caused or
 fixed here -- left for a future task, since fixing it was out of scope for the task that found it.
 
+
+### Correction: a second, distinct pre-existing symptom for `luca-inner-life` — `ERR_MODULE_NOT_FOUND`, not the capture-status race (Sep 28 2026)
+
+Re-confirmed the `luca-inner-life` group (item 4 above) failing inside `test-all-consolidated-ci.sh`, but with a different symptom than the capture-status/`_seededFromPriorSession` race documented above: `test-watchdog-inner-life.ts` crashes with `Error [ERR_MODULE_NOT_FOUND]: Cannot find package '@shared/schema' imported from server/services/agent-memory-core.ts`, thrown from inside the script's own hermetic-temp-cwd subprocess driver. Reproduces identically standalone on current HEAD and via `git worktree add --detach <path> <parent-commit>` at the commit immediately before an unrelated documentation-only task's own commit — confirming it predates that task and shares no code overlap with it.
+
+**Why:** this is a distinct root cause from the capture-status race already documented above for this same group — likely the same class of bug as `tsx-path-alias-resolution-cwd.md` (a spawned `npx tsx` driver whose `cwd` isn't the repo root fails to resolve `@shared/*` path aliases), applied to this script's own subprocess driver. Not yet root-caused or fixed here — out of scope for the task that found it.
+
+**How to apply:** if `luca-inner-life` fails with `ERR_MODULE_NOT_FOUND` for `@shared/schema` (rather than a capture-status/`_seededFromPriorSession` assertion failure), treat it as this same pre-existing, already-confirmed bug — not a new regression from your own diff — unless your diff actually touches `test-watchdog-inner-life.ts`'s subprocess-spawning code or `agent-memory-core.ts`'s import graph.
+

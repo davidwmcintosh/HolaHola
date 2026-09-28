@@ -173,6 +173,7 @@ const ALLOWLIST: AllowlistEntry[] = [
   //    Fixing them (converting to the sandbox pattern) is tracked as a
   //    separate follow-up. ──
   { kind: 'target', file: 'test-alden-workspace-root-portability.ts', target: 'server/services/alden-functions.ts', reason: 'pre-existing in-place mutation (tech debt follow-up)' },
+  { kind: 'target', file: 'test-alden-dual-engine-self-report.ts', target: 'server/services/alden-functions.ts', reason: 'in-place mutation restored in a finally block, same target file and pattern as test-alden-workspace-root-portability.ts above (tech debt follow-up); full sandboxing is impractical here because get_current_engine is reached only through the real, DB-connected executeAldenTool with a large transitive import tree (neon-db, db, coordination-auth, voice-health-monitor, founder-collaboration-service, and more)' },
   { kind: 'target', file: 'test-context-lineage-migration-guard-selfcheck.ts', target: 'server/scripts/test-context-lineage-migration-guard-selfcheck.ts', reason: 'pre-existing in-place self-mutation (tech debt follow-up)' },
   { kind: 'target', file: 'test-coordination-credential-broker-selfcheck.ts', target: 'server/services/coordination-credential-broker.ts', reason: 'pre-existing in-place mutation (tech debt follow-up)' },
   { kind: 'target', file: 'test-coordination-runtime-envelope-violation-selfcheck.ts', target: 'server/services/coordination-runtime.ts', reason: 'pre-existing in-place mutation (tech debt follow-up)' },

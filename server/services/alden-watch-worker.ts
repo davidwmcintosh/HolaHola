@@ -297,7 +297,11 @@ async function runWatchCycle() {
     // doesn't poison the whole snapshot with a WebSocket/DB error narrative.
     const safeCall = async (toolName: string, args: Record<string, any>) => {
       try {
-        return await executeAldenTool(toolName, args);
+        // Watch cycles always run on Anthropic (see the Claude client used
+        // below) regardless of the saved alden_config default — pass that
+        // literal engine so get_current_engine can never report the DB
+        // default instead of the engine actually running this worker.
+        return await executeAldenTool(toolName, args, { engine: 'anthropic' });
       } catch (e: any) {
         console.warn(`[AldenWatch] Tool ${toolName} failed: ${e.message}`);
         return { data: { error: `${toolName} unavailable: ${e.message}` } };
@@ -512,7 +516,10 @@ Respond with NOTHING or a single line in SEVERITY:FINGERPRINT:Message format:`,
         console.log(`[AldenWatch] Tool call: ${block.name} (iteration ${iteration + 1})`);
         let toolOutput: any;
         try {
-          toolOutput = await executeAldenTool(block.name, block.input as Record<string, any>);
+          // Same as safeCall above: this loop is Anthropic-only, so pin the
+          // engine context rather than letting get_current_engine fall back
+          // to whatever the saved alden_config default currently is.
+          toolOutput = await executeAldenTool(block.name, block.input as Record<string, any>, { engine: 'anthropic' });
         } catch (e: any) {
           toolOutput = { error: `Tool "${block.name}" failed: ${e.message}` };
         }

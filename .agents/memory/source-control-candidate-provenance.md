@@ -1,0 +1,6 @@
+A `ready_to_promote` status does not by itself prove a human ran `prepare`: the sync scheduler's own auto-merge-and-revalidate path (GitHub ahead of Replit, a clean fast-forward) produces the identical shape -- correct candidateSha, unexpired, a structurally valid manifest. Only a `candidateSource` field distinguishes an explicit `prepare` from a scheduler auto-promotion, and only a live re-check of HEAD (not the last recorded status) can prove HEAD hasn't since moved past that candidate.
+
+**Why this matters:** Replit's Publish button always builds whatever commit is on HEAD, not a specific validated SHA. Treating `ready_to_promote` alone as "safe to publish" lets an auto-promoted, never-reviewed commit slip through undetected until a bad deploy surfaces it.
+
+**How to apply:** Never treat `state === 'ready_to_promote'` alone as clearance to publish -- check its provenance and re-verify HEAD live via a dedicated drift check, not the cached status, before telling anyone it's safe. Keep that live check a separate opt-in action rather than folding it into every status read: it re-authenticates before even a local, no-network git call, so it is meaningfully more expensive than a plain status read.
+

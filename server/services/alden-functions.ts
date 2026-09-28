@@ -619,7 +619,7 @@ export const ALDEN_TOOLS: AldenTool[] = [
   },
   {
     name: "get_current_engine",
-    description: "Check which LLM engine is currently powering your conversational layer — 'anthropic' (Claude) or 'gemini'. Your monitoring and watch workers always run on Anthropic regardless of this setting. Use this before switch_engine to confirm current state.",
+    description: "Check which LLM engine is answering THIS specific conversation right now, plus the saved default engine used to start new single-engine chats. The two can differ — e.g. during a dual-engine review where each branch runs a specific engine regardless of the saved default — so trust the 'engine' field for your own identity, not 'configuredDefault'. Your monitoring and watch workers always run on Anthropic regardless of either setting. Use this before switch_engine to confirm the saved default before changing it.",
     input_schema: {
       type: "object" as const,
       properties: {},
@@ -787,7 +787,7 @@ export function toAnthropicAldenTools(
 export async function executeAldenTool(
   toolName: string,
   args: Record<string, any>,
-  context?: { conversationId?: string }
+  context?: { conversationId?: string; engine?: 'anthropic' | 'gemini' }
 ): Promise<{ data: any; sideEffects?: Record<string, any> }> {
   try {
     switch (toolName) {
@@ -2675,13 +2675,31 @@ export async function executeAldenTool(
       }
 
       case "get_current_engine": {
-        const db = getUserDb();
-        const rows = await db.select().from(aldenConfig).limit(1);
-        const engine = (rows[0]?.engine as string) || 'anthropic';
+        // configuredDefault is the saved DB default used to START new
+        // single-engine chats. It is NOT necessarily the engine running
+        // THIS call — a dual-engine review runs each branch on a specific
+        // engine via engineOverride, independent of that saved default.
+        // Report context?.engine (the literal engine the calling branch is
+        // actually running on) as authoritative for "engine"; fall back to
+        // the DB default only when no override context was supplied (e.g. a
+        // normal single-engine chat that itself resolved from that default).
+        let configuredDefault = 'anthropic';
+        try {
+          const db = getUserDb();
+          const rows = await db.select().from(aldenConfig).limit(1);
+          configuredDefault = (rows[0]?.engine as string) || 'anthropic';
+        } catch (dbErr: any) {
+          console.warn('[Alden Tool] get_current_engine: failed to read alden_config, defaulting configuredDefault to anthropic:', dbErr.message);
+        }
+        const engine = context?.engine ?? configuredDefault;
+        const overridden = !!context?.engine && context.engine !== configuredDefault;
         return {
           data: {
             engine,
-            note: 'This is your conversational engine. Watch workers and monitoring always run on Anthropic regardless of this setting.',
+            configuredDefault,
+            note: overridden
+              ? `You are running THIS conversation on ${engine} right now, even though the saved default for new single-engine chats is ${configuredDefault} (e.g. this is a dual-engine review branch). Trust "${engine}" as who is answering right now — do not describe yourself as running on ${configuredDefault} instead. Watch workers and monitoring always run on Anthropic regardless of this setting.`
+              : 'This is your conversational engine. Watch workers and monitoring always run on Anthropic regardless of this setting.',
           },
         };
       }

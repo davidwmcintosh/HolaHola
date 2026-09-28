@@ -142,3 +142,4 @@
 - [Confabulation in code, not just conversation](confabulation-in-code-generation.md) — Same Archive-vs-Muse pattern hits code-writing agents: placeholder checks + false done/notified claims, not an engine quality gap.
 - [Shared-tool identity leak](shared-tool-identity-leak.md) — parallel branches need identity via explicit context, not a global-config read, or one gets told it's the other
 - [Source-control candidate provenance](source-control-candidate-provenance.md) — auto-sync can produce ready_to_promote too; candidateSource + drift check stop Publish shipping the unreviewed one.
+- [Agent-memory drift guard vs. concurrent writes](agent-memory-drift-guard-concurrent-writes.md) — the drift guard's "out of sync with DB" error also fires from another hat's legitimate concurrent write, not just a hand-edit -- regenerate --all before assuming a hand-edit
