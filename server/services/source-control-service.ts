@@ -622,6 +622,7 @@ export type CandidateDriftReason =
   | 'no_candidate'
   | 'match'
   | 'auto_promoted_candidate'
+  | 'candidate_invalid'
   | 'head_moved_past_candidate'
   | 'unknown';
 export class SourceControlService {
@@ -871,6 +872,28 @@ export class SourceControlService {
         message: `The ready-to-promote candidate ${status.candidateSha} was auto-validated by the sync scheduler receiving a new commit from GitHub, not by an explicit "prepare" run. Re-run \`npm run source-control:prepare\` before publishing.`,
       };
     }
+    // Mirrors recordLocked()'s own inline gate exactly: a candidateSha that
+    // is otherwise the right shape (matches HEAD, explicit source) must
+    // still not read as "safe to publish" once its validation window has
+    // expired or its manifest no longer checks out. Without this, a stale
+    // ready_to_promote left over from hours/days ago -- expired but never
+    // overwritten by a newer sync tick -- would report `match` right up
+    // until the moment `record` itself refuses it.
+    const candidateExpiresAt = Date.parse(status.candidateExpiresAt || '');
+    if (
+      !Number.isFinite(candidateExpiresAt)
+      || candidateExpiresAt <= this.now().getTime()
+      || !hasValidSourceControlManifest(status.validation, status.candidateSha)
+    ) {
+      return {
+        driftDetected: true,
+        reason: 'candidate_invalid',
+        state: status.state,
+        candidateSha: status.candidateSha,
+        candidatePreparedAt: status.candidatePreparedAt,
+        message: `The ready-to-promote candidate ${status.candidateSha} has expired or its validation record is no longer current -- the same check \`record\` itself applies. Re-run \`npm run source-control:prepare\` before publishing.`,
+      };
+    }
     let currentHeadSha: string;
     try {
       currentHeadSha = await this.currentHead();
@@ -896,7 +919,20 @@ export class SourceControlService {
     let isLegitimateMarker = false;
     try {
       const marker = await this.resolveLocalPublicationMarker(currentHeadSha);
-      isLegitimateMarker = marker.parentSha === status.candidateSha && marker.subject === 'Published your App';
+      if (marker.parentSha === status.candidateSha && marker.subject === 'Published your App') {
+        // A matching parent + subject alone isn't enough -- that only proves
+        // this commit *claims* to be a publish marker for the candidate. The
+        // marker must also carry the *same tree* as the candidate itself
+        // (proving it added no content of its own), the same way record's
+        // own marker check does against the authenticated remote tree. This
+        // stays a local-only comparison (no network fetch) since this
+        // method is an advisory, read-only, pre-publish sanity check, not
+        // the authoritative gate -- record() still performs the full
+        // authenticated remote verification before ever writing a receipt.
+        const candidateTree = await this.runGit(['rev-parse', '--verify', `${status.candidateSha}^{tree}`]);
+        isLegitimateMarker = candidateTree.exitCode === 0
+          && candidateTree.stdout.trim() === marker.treeSha;
+      }
     } catch {
       isLegitimateMarker = false;
     }
@@ -907,7 +943,7 @@ export class SourceControlService {
         state: status.state,
         candidateSha: status.candidateSha,
         currentHeadSha,
-        message: 'HEAD is exactly one Replit publish marker ahead of the last validated candidate. Safe to record.',
+        message: 'HEAD is exactly one Replit publish marker ahead of the last validated candidate, with no content change. Safe to record.',
       };
     }
     return {

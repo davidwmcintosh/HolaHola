@@ -2186,9 +2186,11 @@ async function main(): Promise<void> {
   // a human can check "is it still safe to click Publish?" independent of
   // the scheduler's own last sync/prepare/record tick.
   {
+    const DRIFT_NOW = new Date('2026-09-15T21:00:00.000Z');
     const driftRunCommand = (
       headSha: string,
       marker?: { sha: string; treeSha: string; parentSha: string; subject: string },
+      candidateTreeSha?: string,
     ) => async (command: string, args: string[]): Promise<{ exitCode: number; stdout: string; stderr: string }> => {
       assert.equal(command, 'git', 'checkCandidateDrift() must never route Git through a shell helper');
       if (args[0] === 'rev-parse' && args[1] === '--verify' && args[2] === 'HEAD^{commit}') {
@@ -2199,6 +2201,9 @@ async function main(): Promise<void> {
       }
       if (args[0] === 'show') {
         return { exitCode: 1, stdout: '', stderr: 'no such commit' };
+      }
+      if (args[0] === 'rev-parse' && args[1] === '--verify' && marker && args[2] === `${marker.parentSha}^{tree}` && candidateTreeSha) {
+        return { exitCode: 0, stdout: `${candidateTreeSha}\n`, stderr: '' };
       }
       return { exitCode: 98, stdout: '', stderr: `unexpected command: ${args.join(' ')}` };
     };
@@ -2224,6 +2229,11 @@ async function main(): Promise<void> {
             SOURCE_CONTROL_LOCK_FILE: join(rootDir, 'control.lock'),
             SOURCE_CONTROL_OPERATIONS_DIR: join(rootDir, 'operations'),
           },
+          // checkCandidateDrift() now checks candidateExpiresAt against
+          // "now" the same way recordLocked() does -- pin it so every
+          // fixture's expiry math stays deterministic regardless of when
+          // this suite actually runs.
+          now: () => DRIFT_NOW,
           fetchInstallationToken: async () => ({ token: 'fixture-token' }),
           runCommand,
         });
@@ -2252,8 +2262,44 @@ async function main(): Promise<void> {
     assert.equal(autoPromoted.candidateSha, LOCAL_NEW);
     assert.match(autoPromoted.message, /prepare/);
 
+    // An explicit candidate whose validation window has already lapsed
+    // must never read as `match` just because it is otherwise well-formed
+    // and even if HEAD still happens to equal it -- the same staleness
+    // record() itself checks. Must never touch git: the status alone
+    // already answers the question.
+    const expired = await withDriftService({
+      state: 'ready_to_promote',
+      candidateSha: LOCAL_NEW,
+      candidatePreparedAt: '2026-09-15T19:00:00.000Z',
+      candidateExpiresAt: '2026-09-15T20:00:00.000Z',
+      validation: manifest(LOCAL_NEW),
+    }, refuseGit);
+    assert.equal(expired.driftDetected, true);
+    assert.equal(expired.reason, 'candidate_invalid');
+    assert.equal(expired.candidateSha, LOCAL_NEW);
+    assert.match(expired.message, /npm run source-control:prepare/);
+
+    // Same gate, different failure: an unexpired candidate whose manifest
+    // does not validate (tampered, truncated, or naming a different sha)
+    // must also read as candidate_invalid, not match.
+    const invalidManifest = await withDriftService({
+      state: 'ready_to_promote',
+      candidateSha: LOCAL_NEW,
+      candidatePreparedAt: '2026-09-15T19:00:00.000Z',
+      candidateExpiresAt: '2026-09-15T22:00:00.000Z',
+      validation: manifest(LOCAL_OLD),
+    }, refuseGit);
+    assert.equal(invalidManifest.driftDetected, true);
+    assert.equal(invalidManifest.reason, 'candidate_invalid', 'a manifest naming a different candidateSha must not validate');
+
     const matching = await withDriftService(
-      { state: 'ready_to_promote', candidateSha: LOCAL_NEW, candidatePreparedAt: '2026-09-15T19:00:00.000Z' },
+      {
+        state: 'ready_to_promote',
+        candidateSha: LOCAL_NEW,
+        candidatePreparedAt: '2026-09-15T19:00:00.000Z',
+        candidateExpiresAt: '2026-09-15T22:00:00.000Z',
+        validation: manifest(LOCAL_NEW),
+      },
       driftRunCommand(LOCAL_NEW),
     );
     assert.equal(matching.driftDetected, false);
@@ -2261,7 +2307,13 @@ async function main(): Promise<void> {
     assert.equal(matching.currentHeadSha, LOCAL_NEW);
 
     const moved = await withDriftService(
-      { state: 'ready_to_promote', candidateSha: LOCAL_OLD, candidatePreparedAt: '2026-09-15T19:00:00.000Z' },
+      {
+        state: 'ready_to_promote',
+        candidateSha: LOCAL_OLD,
+        candidatePreparedAt: '2026-09-15T19:00:00.000Z',
+        candidateExpiresAt: '2026-09-15T22:00:00.000Z',
+        validation: manifest(LOCAL_OLD),
+      },
       driftRunCommand(LOCAL_NEW),
     );
     assert.equal(moved.driftDetected, true);
@@ -2271,19 +2323,54 @@ async function main(): Promise<void> {
     assert.match(moved.message, /npm run source-control:prepare/);
 
     const markerAhead = await withDriftService(
-      { state: 'ready_to_promote', candidateSha: LOCAL_OLD, candidatePreparedAt: '2026-09-15T19:00:00.000Z' },
+      {
+        state: 'ready_to_promote',
+        candidateSha: LOCAL_OLD,
+        candidatePreparedAt: '2026-09-15T19:00:00.000Z',
+        candidateExpiresAt: '2026-09-15T22:00:00.000Z',
+        validation: manifest(LOCAL_OLD),
+      },
       driftRunCommand(PUBLICATION_MARKER, {
         sha: PUBLICATION_MARKER,
         treeSha: CANDIDATE_TREE,
         parentSha: LOCAL_OLD,
         subject: 'Published your App',
-      }),
+      }, CANDIDATE_TREE),
     );
-    assert.equal(markerAhead.driftDetected, false, 'HEAD exactly one legitimate Replit publish marker ahead of the candidate must not read as drift');
+    assert.equal(markerAhead.driftDetected, false, 'HEAD exactly one legitimate Replit publish marker ahead of the candidate, with a verified matching tree, must not read as drift');
     assert.equal(markerAhead.reason, 'match');
 
+    // The marker's parent and subject alone are not proof: if its tree
+    // differs from the candidate's own tree, something changed the content
+    // between the validated candidate and this "marker" commit. Reviewer-
+    // flagged gap: the previous check only compared parentSha and subject,
+    // so a marker carrying different file content still read as `match`.
+    const markerTreeMismatch = await withDriftService(
+      {
+        state: 'ready_to_promote',
+        candidateSha: LOCAL_OLD,
+        candidatePreparedAt: '2026-09-15T19:00:00.000Z',
+        candidateExpiresAt: '2026-09-15T22:00:00.000Z',
+        validation: manifest(LOCAL_OLD),
+      },
+      driftRunCommand(PUBLICATION_MARKER, {
+        sha: PUBLICATION_MARKER,
+        treeSha: CANDIDATE_TREE,
+        parentSha: LOCAL_OLD,
+        subject: 'Published your App',
+      }, '7'.repeat(40)),
+    );
+    assert.equal(markerTreeMismatch.driftDetected, true, 'a marker whose tree does not match the candidate\'s own tree must never read as a safe match');
+    assert.equal(markerTreeMismatch.reason, 'head_moved_past_candidate');
+
     const gitUnavailable = await withDriftService(
-      { state: 'ready_to_promote', candidateSha: LOCAL_NEW, candidatePreparedAt: '2026-09-15T19:00:00.000Z' },
+      {
+        state: 'ready_to_promote',
+        candidateSha: LOCAL_NEW,
+        candidatePreparedAt: '2026-09-15T19:00:00.000Z',
+        candidateExpiresAt: '2026-09-15T22:00:00.000Z',
+        validation: manifest(LOCAL_NEW),
+      },
       failingGit,
     );
     assert.equal(gitUnavailable.driftDetected, false, 'an unreadable HEAD must fail closed to "cannot confirm" rather than a false drift/no-drift claim');

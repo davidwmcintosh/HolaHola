@@ -58,7 +58,10 @@ async function main(): Promise<void> {
     // cadence -- see SourceControlService.checkCandidateDrift().
     const report = await service.checkCandidateDrift();
     writeResult(report);
-    process.exitCode = report.driftDetected ? 1 : 0;
+    // Exit 0 only for a positively-verified, unexpired, explicit candidate
+    // that matches HEAD. Every other reason -- including "no candidate"
+    // and "could not confirm" -- must not read as clearance to publish.
+    process.exitCode = report.reason === 'match' ? 0 : 1;
     return;
   }
 
