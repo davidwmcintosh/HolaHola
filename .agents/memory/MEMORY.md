@@ -144,3 +144,4 @@
 - [Source-control candidate provenance](source-control-candidate-provenance.md) — auto-sync can produce ready_to_promote too; candidateSource + drift check stop Publish shipping the unreviewed one.
 - [Agent-memory drift guard vs. concurrent writes](agent-memory-drift-guard-concurrent-writes.md) — the drift guard's "out of sync with DB" error also fires from another hat's legitimate concurrent write, not just a hand-edit -- regenerate --all before assuming a hand-edit
 - [Scanner self-test fixture race](scanner-selftest-fixture-race.md) — a scanner's live-directory scratch-file self-test can transiently race a sibling test file's whole-directory scan; confirmed intermittent, not a regression
+- [Memory-file rebase conflicts](agent-memory-rebase-conflict-resolution.md) — resolve via regenerate --all from the shared DB, not by hand-merging ours/theirs prose -- rebase's ours/theirs is reversed from merge's
