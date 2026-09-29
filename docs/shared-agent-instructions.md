@@ -254,6 +254,78 @@ rules. Keep this file free of secrets, credentials, and private user data.
   separate external notification channel (Slack, email, a GitHub issue)
   for this; the calling agent's own turn is the notification.
 
+## Keeping a cross-tool promotion candidate fresh
+
+- `scripts/cross-tool-promote.ts push` fetches `origin/main` and merges it
+  into the candidate branch (`git merge --no-edit`, never a rebase — the
+  candidate branch's existing commit SHAs must not be rewritten, since
+  coordination-evidence and provenance records may reference them) before
+  dispatching `cross-tool-promote.yml`, then pushes the merged branch back to
+  its own ref with a normal, non-force push. This uses the same ordinary
+  branch-push credential the caller already needs for the initial push — no
+  new privilege, and no change to the deploy-key-gated final push to `main`
+  itself.
+- A real content conflict aborts the merge and fails the command with a
+  manual-resolution message; it is never auto-resolved. The workflow's own
+  "Refuse if main is not an ancestor of this branch" check is unchanged and
+  remains the actual enforcement — this CLI step is a fast, low-privilege
+  pre-check layered in front of it, not a replacement (defense in depth).
+- Added 2026-09-28: before this, a candidate branch built from a base that
+  fell behind `main` — while validation ran, or simply because nobody
+  re-fetched before starting — failed late, at dispatch, with no automatic
+  path to catch up; the caller had to notice, merge or rebase by hand, and
+  re-run. This removes that manual step for the common non-conflicting case.
+
+## Post-push validation on Replit's source-control sync
+
+- Replit's own dev-checkout sync (`server/services/source-control-service.ts`,
+  the "source-control-service.ts" path referenced above) now validates a
+  commit **after** it reaches GitHub `main`, not only before. When
+  `syncLocked()`'s local-ahead branch fast-forward-pushes to `main`, it runs
+  the same validation manifest `prepare` uses against that exact pushed SHA,
+  synchronously, while still holding the sync lock — not fire-and-forget after
+  the lock releases. `validateCandidate` runs against the live working tree,
+  not an isolated copy, so validating after the lock releases would let it
+  race a concurrent sync mutating that same checkout; this mirrors the
+  existing github-ahead branch, which already validates synchronously in-lock
+  before declaring a commit `ready_to_promote`.
+- The push itself already succeeded and can't be undone by retrying `sync()`,
+  so a failed post-push validation does not flip the sync result to failed —
+  `state` stays `'synced'` and `ok` stays `true`. The failure is carried
+  instead through dedicated persisted-status fields (`pushValidationStatus:
+  'pending'|'passed'|'failed'`, `pushValidationSha`, `pushValidationError`,
+  `pushValidationCompletedAt`) and a same-shaped `error` field, and triggers a
+  best-effort Team Room + founder-inbox alert (`aldenNotifications`,
+  fingerprint `source_control_push_validation_failed`) — the same
+  dual-channel pattern already used for a superseded candidate.
+- Added 2026-09-29: closes the gap where a commit could reach the shared
+  `main` other hats pull from with no automatic validation at all between
+  pushes — only `prepare`-time validation existed before, and the
+  local-ahead fast path skipped it entirely. This covers Replit's own sync
+  path only; `cross-tool-promote.ts`'s push path is unchanged.
+
+## Avoid independently duplicating another hat's in-flight fix
+
+- Before implementing a fix for a reviewed or flagged issue, a bug report, or
+  anything another hat might plausibly already be working on, check the
+  coordination ledger for an existing thread on that exact issue
+  (`coordination-cli.ts list`) and open one (`coordination-cli.ts create`) if
+  none exists, so a hat that checks the ledger before starting its own work
+  can see it is already claimed.
+- This reduces duplicate work among coordination-ledger actors (Alden, Claude
+  Code, Antigravity, Gemini runtime agents). **It does not bridge Replit
+  Agent's separate `project-tasks` system** — Replit Agent's own tasks are
+  not visible in the coordination ledger today, and a hat outside Replit has
+  no way to see what a Replit project task is currently in progress on.
+- Added 2026-09-28: the divergence that prompted this rule (task 1625
+  implemented independently in two checkouts) was exactly this gap — a
+  Replit project task and an Alden fix for the same issue, tracked in two
+  different systems, with neither actor able to see the other's in-flight
+  work. This convention closes the gap between coordination-ledger actors;
+  closing it between `project-tasks` and the coordination ledger needs a
+  visibility bridge between the two systems, which is separate, larger work
+  and is not yet built.
+
 ## Task Ownership — `unknown_stop`
 
 - `task-ownership-cli.ts` (and anything calling `TaskOwnershipService.probe()`)
