@@ -126,3 +126,52 @@ verification target was always the separate host-enrollment/DPAPI path, not
 the ledger. Once that closes, Antigravity's onboarding is fully done and
 OpenAI's Step-1 thread can open per the sequencing rule above.
 
+
+## Update (Sep 29, 2026): Gemini's V2 adapter proven live end-to-end
+
+Task 1639 asked whether "Gemini is the only hat with a working V2 adapter"
+(the comparison point used throughout this file) was actually checked
+against real usage or just against code existing -- `coordination_v2_sessions`
+and `coordination_v2_attempts` had zero rows for any actor, ever, before this.
+
+**What was run.** A one-off script (`server/scripts/verify-gemini-v2-adapter-live.ts`,
+not wired into CI) drove one real session through the actual production call
+sequence against the real shared database and the real Gemini API, with no
+mocks: `launchOrResumeCoordinationLifecycle` -> Windows-preparation ceremony
+-> attempt creation -> `CoordinationGeminiAdapter.turn()` (real
+`gemini-3-flash-preview` call) -> the model genuinely chose to call
+`git_status` -> transport poll/claim -> real host executed `git status` ->
+`.turn()` again with the tool result -> attempt `completed` -> session
+`begin_verification` -> `acceptCoordinationCompletion` -> all 4 cleanup
+obligations acknowledged.
+
+**What the DB shows** (independently re-queried after the run, not just the
+script's own self-check). Exactly 1 row in `coordination_v2_sessions` (state
+`succeeded`) and exactly 1 row in `coordination_v2_attempts`
+(`provider='gemini'`, state `completed`) exist in the whole table, both from
+this run -- confirming the claim was true but had simply never been
+exercised. Unlike the Sep 21 2026 Gate3 claim, this one held up under direct
+proof.
+
+**What this also corrects.** `coordination-v2-consolidated-lessons.md`'s
+"Host completion vs. session completion" section claimed (Sep 27 2026) that
+"nothing in the codebase calls `begin_verification`/`accept_completion`" --
+false as stated: both are wired to a real, reachable HTTP endpoint
+(`coordination-session-routes.ts`, registered in `routes.ts`). See that
+topic's corrected section 3, and its new section 4, for the real and
+narrower gap this uncovered.
+
+**What's still open.** The live run only worked because the script itself
+called every step, including `CoordinationGeminiAdapter.turn()` directly.
+Grepping the full `server/` tree found no production caller -- not
+`coordination-session-service.ts`, `coordination-lifecycle-facade-service.ts`,
+`coordination-session-routes.ts`, `coordination-v2-cli.ts`,
+`coordination-v2-interactive-cli.ts`, nor `coordination-host-routes.ts` --
+that ever invokes a provider adapter's `.turn()` automatically. The registry
+is consulted only for descriptor/provider-selection metadata at attempt
+creation. Only the retired Gate3 route (`coordination-runtime-routes.ts` ->
+the separate `coordination-gemini-adapter.ts`) and this one manual script
+have ever driven a provider turn for real. Filed as a follow-up rather than
+fixed in-scope -- building the actual autonomous driver is a real feature,
+not a verification task.
+

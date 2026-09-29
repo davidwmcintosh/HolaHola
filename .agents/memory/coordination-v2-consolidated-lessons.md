@@ -140,11 +140,6 @@ written as implemented, activated, executed, or independently verified.
 
 ## Coordinator V2 status
 
----
-name: Coordinator V2 status — ownership system distinction and real-run readiness
-description: Command Center's Task Ownership tab authorizes a separate legacy Gate3 system, not V2; tracks what a real Invoke-HolaCoordinator Windows run needs and what's already fixed.
----
-
 ## 1. Two separate founder-authorization systems
 
 The Command Center's "Task ownership" tab (`client/src/components/admin/TaskOwnershipTab.tsx`, `server/services/founder-task-ownership-service.ts`, `server/routes/founder-task-ownership-routes.ts`) is a real, working, deployed founder-approval UI — but it authorizes a separate legacy Gate3 system (challenge → receipt → proof-of-possession → Gate3ProofGrant), whose only live consumer is the older `coordination-runtime-routes.ts` HTTP subsystem. It is NOT wired into the current Coordinator V2 lifecycle (`coordination-v2-cli.ts` → `coordination-v2-http-factory.ts` → `coordination-lifecycle-facade-service.ts`). V2 launch/resume never checks `taskOwnershipReceipts`.
@@ -178,11 +173,21 @@ Related facts from the same investigation, evidence-checked Sep 18 2026:
 
 ## 3. Host completion vs. session completion are different states
 
-The host-transport lifecycle used by both `runCoordinationWindowsHost` and the interactive CLI (`server/scripts/coordination-v2-interactive-cli.ts`) can carry a task through claim -> execute -> submit-result, but `submit-result` only ever moves the *attempt* to `result_ready`. It never moves the *session* itself to `succeeded`. Reaching `succeeded` requires two separate session-level transitions in `coordination-session-state.ts` -- `begin_verification` then `accept_completion` -- and as of Sep 27 2026, nothing in the codebase calls either one; grepping for real callers (not just the type definitions in session-state/cleanup-service/session-routes) turns up none.
+The host-transport lifecycle used by both `runCoordinationWindowsHost` and the interactive CLI (`server/scripts/coordination-v2-interactive-cli.ts`) can carry a task through claim -> execute -> submit-result, but `submit-result` only ever moves the *attempt* to `result_ready`. It never moves the *session* itself to `succeeded`. Reaching `succeeded` requires two separate session-level transitions in `coordination-session-state.ts` -- `begin_verification` then `accept_completion`.
+
+**Correction (Sep 29 2026):** this section previously claimed "nothing in the codebase calls either one" (as of Sep 27 2026), based on a type-definition-only grep. That was false as stated: both are wired to a real, reachable HTTP endpoint -- `POST /api/coordination/v2/sessions/:id/transitions` (command `begin_verification`) and `POST /api/coordination/v2/sessions/:id/completion` (`coordination-session-routes.ts`, registered via `registerCoordinationSessionRoutes` in `server/routes.ts`). An authenticated external caller genuinely can drive a session to `succeeded` through real, live code -- confirmed directly, both by this route registration and by task 1639's live run actually calling it. See section 4 below for the real, narrower gap this surfaced.
 
 **Why:** the host protocol is deliberately "thin ... not a state-machine authority" (docs/coordination-v2-architecture.md) -- verification/completion is meant to be server- or provider-side reconciliation, out of host scope by design. This is architecture, not a bug to silently patch from a host script.
 
-**How to apply:** never assume a host reaching `submit-result`, or a task going quiet after it, means the session concluded successfully. Check the session's actual `state`, or wait for an explicit terminal signal (a clean `terminalState`, or a `LEASE_SESSION_TERMINAL`-class error on the next host call). Before building anything that treats "result submitted" as "done," grep for real callers of `begin_verification`/`accept_completion` rather than trusting this note's age -- the wiring gap may have been closed since.
+**How to apply:** never assume a host reaching `submit-result`, or a task going quiet after it, means the session concluded successfully. Check the session's actual `state`, or wait for an explicit terminal signal (a clean `terminalState`, or a `LEASE_SESSION_TERMINAL`-class error on the next host call). Before declaring a code path "never called," grep for real callers including route registrations, not just type definitions and service-layer call sites -- a registered HTTP route counts as a real caller even when nothing internal invokes it automatically.
+
+## 4. No production caller ever drives a provider turn automatically (found via task 1639, Sep 29 2026)
+
+Task 1639 proved `CoordinationGeminiAdapter.turn()` genuinely works end to end against the real Gemini API and real shared DB (see `hat-onboarding-sequencing.md`'s Sep 29 2026 update for the full run and evidence). Getting that proof required a one-off script to personally call every lifecycle step in order, including `.turn()` itself. Grepping the full `server/` tree for real (non-test) callers of `providerRegistry`/`DEFAULT_PROVIDER_REGISTRY` and `CoordinationGeminiAdapter`/`.turn(` found the registry consulted only for descriptor/provider-selection metadata (`coordination-attempt-service.ts`, `coordination-session-service.ts`, `coordination-lifecycle-facade-service.ts`, and a read-only listing in `coordination-host-routes.ts`) -- never for actually invoking a turn. The only real callers of a provider's `.turn()` anywhere in the repo are the retired Gate3 route (`coordination-runtime-routes.ts` -> the separate legacy `coordination-gemini-adapter.ts`, not the V2 one) and this one verification script.
+
+**Why:** this is the direct explanation for why `coordination_v2_sessions`/`coordination_v2_attempts` had zero rows for any actor, ever, before task 1639 -- the V2 system can create and track sessions/attempts, and can select a provider for bookkeeping, but nothing server-side ever progresses an attempt through an actual provider turn on its own. `docs/coordination-v2-provider-adapters.md` describes the operator starting the lifecycle via `Invoke-HolaCoordinator`, but that launcher (and the interactive CLI it wraps) only drives session/attempt/lease bookkeeping and host-side poll/claim/submit-result -- it never calls a provider adapter either.
+
+**How to apply:** don't treat "the adapter works" (proven, Sep 29 2026) and "a real task can complete through it unattended" as the same claim -- the second one is still false for every provider, not just Gemini, until a real driver (a background worker, or an extension of the interactive CLI/launcher) is built to call `.turn()` at the right point in an attempt's lifecycle and feed results back in. Check for that driver directly (grep for real `.turn()` callers) before assuming any provider's V2 path can complete a task without a human or script manually orchestrating each step.
 
 
 ## Coordination V2 standalone-CLI testing
