@@ -15,14 +15,37 @@
  * disposable branch and never calls the real Gemini API. This script is the
  * live counterpart: same call sequence, real infrastructure throughout.
  *
- * Safety: the fixture host must have hostType='windows' to pass
- * reserveCoordinationWindowsPreparation's validation, which makes it a
- * (narrow, short-duration) candidate for defaultHost()'s auto-selection by
- * any concurrent real launch that does not override resolveHost. This script
- * runs fast and revokes the fixture host/policy/grant in a `finally` block
- * regardless of outcome. The resulting session/attempt/lease/cleanup rows are
- * left in place as permanent evidence; only the authorization scaffolding is
- * revoked.
+ * Scope note: the "host" side of this run is SIMULATED. There is no real
+ * remote Windows machine involved -- this script itself performs the
+ * enrolled host's job (running `git status` locally, in this workspace) and
+ * submits its own output through the same transport calls a real host would
+ * use. What this genuinely proves live is the Gemini provider adapter (two
+ * real gemini-3-flash-preview calls) and the full session/attempt/lease/
+ * cleanup database lifecycle. It does not prove a real physical host
+ * end-to-end -- that is what LITTLENEMO's separate Windows-enrollment
+ * verification is for.
+ *
+ * Safety: the fixture host must have hostType='windows' and status='active'
+ * to pass reserveCoordinationWindowsPreparation's validation -- the exact
+ * same predicate defaultHost() uses to auto-select a host for any concurrent
+ * real launch that does not override resolveHost. Two mitigations, since
+ * that predicate can't be narrowed without breaking the ceremony being
+ * tested:
+ *   1. The fixture's created_at/updated_at are backdated (not left at the
+ *      row default of now()) so it can never outrank a real enrolled host
+ *      (e.g. LITTLENEMO) in defaultHost()'s `ORDER BY updated_at DESC`
+ *      selection for as long as one remains active. Confirmed no step this
+ *      script takes between insertion and revocation touches this row's
+ *      updated_at (coordination-cleanup-service.ts,
+ *      coordination-session-service.ts and coordination-windows-generation.ts
+ *      only ever SELECT ... FOR UPDATE it; only host-auth rotation/revocation
+ *      touch it elsewhere).
+ *   2. SIGINT/SIGTERM handlers run the same revocation a killed process
+ *      would otherwise skip (the `finally` block only covers a normal throw,
+ *      not an external signal), so an interrupted run doesn't leave the
+ *      fixture active indefinitely.
+ * The resulting session/attempt/lease/cleanup rows are left in place as
+ * permanent evidence; only the authorization scaffolding is revoked.
  *
  * Run with: npx tsx server/scripts/verify-gemini-v2-adapter-live.ts
  */
@@ -43,6 +66,29 @@ function sha(value: string): string {
 
 function banner(title: string) {
   console.log(`\n=== ${title} ===`);
+}
+
+// Real (non-fabricated) execution for the subset of tools this script can
+// safely run unattended and read-only. If Gemini asks for a tool outside
+// this set, the honest response is to stop, not invent a plausible-looking
+// result -- discovered live: turn 2 does not always ask for text: it can
+// request a further real tool call (e.g. git_diff after git_status), and
+// the attempt state machine supports looping back for exactly that case.
+function realToolExecution(name: string): { output: string; outputDigest: string } {
+  let output: string;
+  if (name === 'git_status') {
+    output = execSync('git status --short --branch', { encoding: 'utf8' });
+  } else if (name === 'git_diff') {
+    output = execSync('git diff', { encoding: 'utf8', maxBuffer: 20 * 1024 * 1024 });
+  } else {
+    throw new Error(
+      `Gemini requested tool '${name}', which this verification script does not implement real ` +
+      `execution for (only git_status and git_diff are wired to real host commands). Stopping here ` +
+      `rather than fabricating a result -- this is a scope boundary of the verification script, not ` +
+      `a discovered adapter bug.`,
+    );
+  }
+  return { output, outputDigest: sha(output) };
 }
 
 async function main() {
@@ -88,22 +134,65 @@ async function main() {
   });
 
   let fixturesCreated = false;
+  let cleanedUp = false;
   let sessionId = '';
   let attemptId = '';
   let leaseId = '';
   let leaseEpoch = 0;
 
+  // Shared by the normal `finally` path and the SIGINT/SIGTERM handlers below
+  // so an interrupted run cannot leave the fixture host permanently active
+  // and selectable by defaultHost() (see the header safety note). Idempotent:
+  // safe to call more than once, and safe to call before fixturesCreated is
+  // set (a no-op in that case).
+  async function revokeFixtures(reason: string): Promise<void> {
+    if (!fixturesCreated || cleanedUp) return;
+    cleanedUp = true;
+    banner(`CLEANUP (${reason}): revoking fixture host / policy identity / operator grant`);
+    try {
+      await client.query(
+        `UPDATE coordination_v2_host_enrollments SET status='revoked', revoked_at=now(), revocation_request_key=$2, updated_at=now() WHERE id=$1`,
+        [hostId, id('revoke-request')],
+      );
+      await client.query(
+        `UPDATE coordination_v2_policy_identities SET status='revoked', revoked_at=now(), updated_at=now() WHERE id=$1`,
+        [identityId],
+      );
+      await client.query(
+        `UPDATE coordination_v2_operator_grants SET revoked_at=now() WHERE id=$1`,
+        [grantId],
+      );
+      console.log('Fixture host/policy/grant revoked. Session/attempt/lease/cleanup rows left in place as evidence.');
+    } catch (cleanupError) {
+      console.error('WARNING: fixture cleanup failed -- manual revocation needed for', { hostId, identityId, grantId }, cleanupError);
+    }
+  }
+
+  for (const signal of ['SIGINT', 'SIGTERM'] as const) {
+    process.on(signal, () => {
+      console.error(`\n*** Received ${signal}, revoking fixtures before exit ***`);
+      revokeFixtures(signal).finally(() => process.exit(130));
+    });
+  }
+
   try {
     banner('STEP 0: create fixture host / policy / grant (real shared DB)');
     await client.query('BEGIN');
+    // created_at/updated_at are explicitly backdated to a fixed point in the
+    // deep past -- NOT left at the column default of now() -- so this
+    // throwaway fixture can never outrank a real enrolled host (e.g.
+    // LITTLENEMO) in defaultHost()'s `ORDER BY updated_at DESC` selection.
+    // See the header safety note for why the predicate itself can't be
+    // narrowed instead.
+    const FIXTURE_HOST_TIMESTAMP = '2000-01-01T00:00:00Z';
     await client.query(
       `INSERT INTO coordination_v2_host_enrollments
        (id,host_key,host_type,display_name,protocol_version,public_key,key_fingerprint,
-         capabilities,enrollment_digest,enrollment_request_key,status,created_by)
+         capabilities,enrollment_digest,enrollment_request_key,status,created_by,created_at,updated_at)
        VALUES ($1,$2,'windows',$3,1,'task-1639-live-verification-fixture-key',$4,
-                ARRAY['preflight','prepare','poll','claim','result'],$5,$6,'active','luca-replit-task-1639')`,
+                ARRAY['preflight','prepare','poll','claim','result'],$5,$6,'active','luca-replit-task-1639',$7,$7)`,
       [hostId, id('host-key'), 'Task 1639 Gemini live-verification fixture host (safe to revoke)',
-        digest('fingerprint'), digest('enrollment'), id('enrollment-request')],
+        digest('fingerprint'), digest('enrollment'), id('enrollment-request'), FIXTURE_HOST_TIMESTAMP],
     );
     await client.query(
       `INSERT INTO coordination_v2_policy_identities
@@ -383,96 +472,167 @@ async function main() {
     }
     console.log(`\nReal Gemini tool-call intent received: callId=${gitStatusIntent.callId} name=${gitStatusIntent.name}`);
 
-    banner('STEP 7: attempt transitions -> intent_ready -> waiting_for_host');
-    const intentReady = await attemptService.transitionCoordinationAttempt({
-      attemptId, requestKey: id('intent-ready'), actorId,
-      command: { type: 'intent_ready' },
-    });
-    console.log('State:', intentReady.state);
-    if (intentReady.state !== 'intent_ready') throw new Error(`Expected 'intent_ready', got ${intentReady.state}`);
+    // Generalized loop, not a fixed "one tool call then text" script: the
+    // real attempt state machine (coordination-attempt-state.ts) supports
+    // looping back via provider_continuation -> provider_resumed ->
+    // intent_ready for as many real tool-call rounds as the model asks for,
+    // up to the adapter's own hard cap of 4 turns (gemini.ts). Observed
+    // live: a turn-2+ response does not always give pure text -- it can
+    // request ANOTHER real tool call (e.g. git_diff after git_status). This
+    // loop drives that real capability for real instead of forcing
+    // completion after exactly one round.
+    let intent = gitStatusIntent;
+    let currentTurnResult = effectiveTurn1;
+    let turnNumber = 1;
+    let roundsExecuted = 0;
+    let finalHostResult: { operation: string; state: string; resultId: string; resultDigest: string } | null = null;
+    let reachedTurnCap = false;
 
-    const hostWaiting = await attemptService.transitionCoordinationAttempt({
-      attemptId, requestKey: id('host-wait'), actorId,
-      command: { type: 'host_wait' },
-    });
-    console.log('State:', hostWaiting.state);
-    if (hostWaiting.state !== 'waiting_for_host') throw new Error(`Expected 'waiting_for_host', got ${hostWaiting.state}`);
+    for (;;) {
+      banner(`STEP 7.${turnNumber}: attempt transitions -> intent_ready -> waiting_for_host (turn ${turnNumber}'s intent: ${intent.name})`);
+      const intentReady = await attemptService.transitionCoordinationAttempt({
+        attemptId, requestKey: id(`intent-ready-${turnNumber}`), actorId,
+        command: { type: 'intent_ready' },
+      });
+      console.log('State:', intentReady.state);
+      if (intentReady.state !== 'intent_ready') throw new Error(`Expected 'intent_ready', got ${intentReady.state}`);
 
-    banner('STEP 8: read the real active transport lease');
-    const leaseRows = await client.query(
-      `SELECT id,epoch,state,holder_instance_id FROM coordination_v2_transport_leases WHERE session_id=$1 AND state='active'`,
-      [sessionId],
-    );
-    if (leaseRows.rowCount !== 1) throw new Error(`Expected exactly 1 active lease, got ${leaseRows.rowCount}`);
-    leaseId = leaseRows.rows[0].id as string;
-    leaseEpoch = Number(leaseRows.rows[0].epoch);
-    console.log('Lease:', leaseRows.rows[0]);
+      const hostWaiting = await attemptService.transitionCoordinationAttempt({
+        attemptId, requestKey: id(`host-wait-${turnNumber}`), actorId,
+        command: { type: 'host_wait' },
+      });
+      console.log('State:', hostWaiting.state);
+      if (hostWaiting.state !== 'waiting_for_host') throw new Error(`Expected 'waiting_for_host', got ${hostWaiting.state}`);
 
-    const operationDigest = digestCanonical({ policyVersionId: versionId, sessionId, attemptId, operation: 'execute' });
-    const protocolBinding = {
-      policyVersionId: versionId, sessionId, attemptId, enrolledHostId: hostId,
-      transportLeaseId: leaseId, leaseEpoch, holderInstanceId, operation: 'execute', operationDigest,
-    };
-    const transportInput = {
-      sessionId, enrolledHostId: hostId, holderInstanceId, actorId,
-      leaseId, epoch: leaseEpoch, protocolBinding, authorizedOperation: 'execute',
-    };
+      if (turnNumber === 1) {
+        banner('STEP 8: read the real active transport lease');
+        const leaseRows = await client.query(
+          `SELECT id,epoch,state,holder_instance_id FROM coordination_v2_transport_leases WHERE session_id=$1 AND state='active'`,
+          [sessionId],
+        );
+        if (leaseRows.rowCount !== 1) throw new Error(`Expected exactly 1 active lease, got ${leaseRows.rowCount}`);
+        leaseId = leaseRows.rows[0].id as string;
+        leaseEpoch = Number(leaseRows.rows[0].epoch);
+        console.log('Lease:', leaseRows.rows[0]);
+      }
 
-    banner('STEP 9: transport poll -> claim (real host hand-off bookkeeping)');
-    const polled = await leaseService.pollCoordinationTransportWork({ ...transportInput, requestKey: id('host-poll') }) as {
-      operation: string; attempt: { id: string } | null;
-    };
-    console.log('Poll operation:', polled.operation, 'attempt:', polled.attempt?.id);
+      const operationDigest = digestCanonical({ policyVersionId: versionId, sessionId, attemptId, operation: 'execute' });
+      const protocolBinding = {
+        policyVersionId: versionId, sessionId, attemptId, enrolledHostId: hostId,
+        transportLeaseId: leaseId, leaseEpoch, holderInstanceId, operation: 'execute', operationDigest,
+      };
+      const transportInput = {
+        sessionId, enrolledHostId: hostId, holderInstanceId, actorId,
+        leaseId, epoch: leaseEpoch, protocolBinding, authorizedOperation: 'execute',
+      };
 
-    const hostClaim = await leaseService.claimCoordinationTransportWork({ ...transportInput, attemptId, requestKey: id('host-claim') }) as {
-      operation: string; claimId: string; attemptId: string; state: string;
-    };
-    console.log('Claim:', hostClaim.operation, hostClaim.state);
-    if (hostClaim.state !== 'host_active') throw new Error(`Expected 'host_active', got ${hostClaim.state}`);
+      banner(`STEP 9.${turnNumber}: transport poll -> claim (real host hand-off bookkeeping)`);
+      const polled = await leaseService.pollCoordinationTransportWork({ ...transportInput, requestKey: id(`host-poll-${turnNumber}`) }) as {
+        operation: string; attempt: { id: string } | null;
+      };
+      console.log('Poll operation:', polled.operation, 'attempt:', polled.attempt?.id);
 
-    banner('STEP 10: REAL host work -- actually run git status');
-    const gitStatusOutput = execSync('git status --short --branch', { encoding: 'utf8' });
-    console.log('Real git status output:\n' + gitStatusOutput);
-    const gitStatusOutputDigest = sha(gitStatusOutput);
+      const hostClaim = await leaseService.claimCoordinationTransportWork({ ...transportInput, attemptId, requestKey: id(`host-claim-${turnNumber}`) }) as {
+        operation: string; claimId: string; attemptId: string; state: string;
+      };
+      console.log('Claim:', hostClaim.operation, hostClaim.state);
+      if (hostClaim.state !== 'host_active') throw new Error(`Expected 'host_active', got ${hostClaim.state}`);
 
-    banner('STEP 11: submit real result to the transport (resultCoordinationTransportWork)');
-    const hostResult = await leaseService.resultCoordinationTransportWork({
-      ...transportInput, attemptId, claimId: hostClaim.claimId, requestKey: id('host-result'),
-      result: {
-        accepted: true,
-        outputDigest: gitStatusOutputDigest,
-        tool: 'git_status',
-        geminiCallId: gitStatusIntent.callId,
-        geminiRequestDigest: effectiveTurn1.requestDigest,
-        geminiResponseDigest: effectiveTurn1.responseDigest,
-      },
-    }) as { operation: string; state: string; resultId: string; resultDigest: string };
-    console.log('Result:', hostResult.operation, hostResult.state);
-    if (hostResult.state !== 'result_ready') throw new Error(`Expected 'result_ready', got ${hostResult.state}`);
+      banner(`STEP 10.${turnNumber}: SIMULATED host work -- this script performs the enrolled host's job locally (no real remote Windows host executes this; see header scope note), executing the real tool '${intent.name}'`);
+      const { output, outputDigest } = realToolExecution(intent.name);
+      console.log(`Real ${intent.name} output:\n` + output);
 
-    banner('STEP 12: REAL Gemini API call (turn 2) -- continuation with the real tool result');
-    const turn2Results = await adapter.turn(packet, 2, [
-      { callId: gitStatusIntent.callId, name: 'git_status', result: { exitCode: 0, stdoutDigest: gitStatusOutputDigest, stdoutPreview: gitStatusOutput.slice(0, 500) } },
-    ]);
-    const turn2 = turn2Results[0];
-    console.log('Turn 2 outcome:', turn2?.outcome);
-    console.log('Turn 2 textParts:', JSON.stringify(turn2?.textParts));
+      banner(`STEP 11.${turnNumber}: submit real result to the transport (resultCoordinationTransportWork)`);
+      const hostResult = await leaseService.resultCoordinationTransportWork({
+        ...transportInput, attemptId, claimId: hostClaim.claimId, requestKey: id(`host-result-${turnNumber}`),
+        result: {
+          accepted: true,
+          outputDigest,
+          tool: intent.name,
+          geminiCallId: intent.callId,
+          geminiRequestDigest: currentTurnResult.requestDigest,
+          geminiResponseDigest: currentTurnResult.responseDigest,
+        },
+      }) as { operation: string; state: string; resultId: string; resultDigest: string };
+      console.log('Result:', hostResult.operation, hostResult.state);
+      if (hostResult.state !== 'result_ready') throw new Error(`Expected 'result_ready', got ${hostResult.state}`);
+      finalHostResult = hostResult;
+      roundsExecuted += 1;
 
-    banner('STEP 13: attempt transitions -> provider_continuation -> complete');
-    const continuation = await attemptService.transitionCoordinationAttempt({
-      attemptId, requestKey: id('provider-continuation'), actorId,
-      command: { type: 'provider_continuation' },
-    });
-    console.log('State:', continuation.state);
-    if (continuation.state !== 'provider_continuation') throw new Error(`Expected 'provider_continuation', got ${continuation.state}`);
+      banner(`STEP 12.${turnNumber}: attempt transition -> provider_continuation`);
+      const continuation = await attemptService.transitionCoordinationAttempt({
+        attemptId, requestKey: id(`provider-continuation-${turnNumber}`), actorId,
+        command: { type: 'provider_continuation' },
+      });
+      console.log('State:', continuation.state);
+      if (continuation.state !== 'provider_continuation') throw new Error(`Expected 'provider_continuation', got ${continuation.state}`);
 
+      const nextTurnNumber = turnNumber + 1;
+      if (nextTurnNumber > 4) {
+        reachedTurnCap = true;
+        console.log(
+          `\nAdapter turn cap (4) reached with a real, submitted result pending. Completing directly from ` +
+          `provider_continuation without a further model call -- an honest real boundary of the current 4-turn ` +
+          `design, not a fabricated success.`,
+        );
+        break;
+      }
+
+      banner(`STEP 12b.${turnNumber}: REAL Gemini API call (turn ${nextTurnNumber}) -- continuation with the real tool result`);
+      const nextResults = await adapter.turn(packet, nextTurnNumber, [
+        { callId: intent.callId, name: intent.name, result: { exitCode: 0, stdoutDigest: outputDigest, stdoutPreview: output.slice(0, 500) } },
+      ]);
+      const nextTurn = nextResults[0];
+      console.log(`Turn ${nextTurnNumber} outcome:`, nextTurn?.outcome);
+      console.log(`Turn ${nextTurnNumber} textParts:`, JSON.stringify(nextTurn?.textParts));
+      console.log(`Turn ${nextTurnNumber} intents:`, JSON.stringify(nextTurn?.intents, null, 2));
+      console.log(`Turn ${nextTurnNumber} providerDetails:`, JSON.stringify(nextTurn?.providerDetails));
+
+      if (!nextTurn) throw new Error(`Gemini adapter returned zero results for turn ${nextTurnNumber} -- unexpected, adapter always returns at least one result`);
+      // 'consumed' is the adapter's own definition of a genuinely usable
+      // response (see the `usable` computation in gemini.ts's normalized()) --
+      // non-empty text and/or a valid further tool call. Every other outcome
+      // (safety_blocked, refused, context_limit, interrupted, empty_response,
+      // malformed_function_call, unsupported_provider_outcome,
+      // retryable_provider_error, terminal_provider_error) means this real
+      // call did not actually succeed, and the attempt/session must not be
+      // marked completed/succeeded on top of that -- doing so would report
+      // success even though a real call failed.
+      if (nextTurn.outcome !== 'consumed') {
+        throw new Error(
+          `Gemini's continuation (turn ${nextTurnNumber}) did not succeed: outcome=${nextTurn.outcome}. ` +
+          `A real completion requires Gemini to actually produce usable output for the tool result. ` +
+          `textParts=${JSON.stringify(nextTurn.textParts)}, providerDetails=${JSON.stringify(nextTurn.providerDetails)}`,
+        );
+      }
+
+      if (nextTurn.intents.length === 0) {
+        console.log(`\nTurn ${nextTurnNumber} confirmed usable (outcome=consumed, pure text, no further tool call) -- natural finish, safe to complete.`);
+        break;
+      }
+
+      console.log(`\nTurn ${nextTurnNumber} requested ANOTHER real tool call (${nextTurn.intents[0]!.name}) -- looping back through the real attempt state machine instead of forcing completion.`);
+      banner(`STEP 12c.${turnNumber}: attempt transition -> provider_resumed -> provider_active (real loop-back for another round)`);
+      const resumed = await attemptService.transitionCoordinationAttempt({
+        attemptId, requestKey: id(`provider-resumed-${turnNumber}`), actorId,
+        command: { type: 'provider_resumed' },
+      });
+      console.log('State:', resumed.state);
+      if (resumed.state !== 'provider_active') throw new Error(`Expected 'provider_active', got ${resumed.state}`);
+
+      intent = nextTurn.intents[0]!;
+      currentTurnResult = nextTurn;
+      turnNumber = nextTurnNumber;
+    }
+
+    banner('STEP 13: attempt transition -> complete');
     const completedAttempt = await attemptService.transitionCoordinationAttempt({
       attemptId, requestKey: id('attempt-complete'), actorId,
       // Omit<AttemptCommand, ...> collapses the union to its common keys only
       // (a known TS limitation with Omit over a discriminated union), so the
       // variant-specific `resultCode` field needs this cast. The runtime shape
       // is proven correct by test-coordination-v2-e2e.test.ts's identical call.
-      command: { type: 'complete', resultCode: 'verified_host_result' } as any,
+      command: { type: 'complete', resultCode: reachedTurnCap ? 'verified_host_result_turn_cap' : 'verified_host_result' } as any,
     });
     console.log('State:', completedAttempt.state);
     if (completedAttempt.state !== 'completed') throw new Error(`Expected 'completed', got ${completedAttempt.state}`);
@@ -484,7 +644,7 @@ async function main() {
     });
     const completion = await cleanupService.acceptCoordinationCompletion({
       sessionId, requestKey: id('completion'), actorId,
-      evidence: [{ type: 'digest', reference: hostResult.resultId, digest: hostResult.resultDigest }],
+      evidence: [{ type: 'digest', reference: finalHostResult!.resultId, digest: finalHostResult!.resultDigest }],
     }) as {
       session: { state: string; terminalReason: string };
       obligations: Array<{ id: string; kind: string; terminalOutcome: string }>;
@@ -525,35 +685,21 @@ async function main() {
     );
     console.log(evidence.rows[0]);
     const row = evidence.rows[0];
+    // host_claims/host_results scale with roundsExecuted, not a hardcoded 1:
+    // a turn that asks for a further real tool call drives another real
+    // claim/result round through the loop above rather than being forced to
+    // a premature completion.
     const ok = row.state === 'succeeded' && row.attempt_provider === 'gemini' && row.attempt_state === 'completed'
-      && row.lease_state === 'released' && row.acknowledged_cleanup === 4 && row.host_claims === 1
-      && row.host_results === 1 && row.completions === 1;
-    if (!ok) throw new Error(`Final evidence row did not match expected shape: ${JSON.stringify(row)}`);
+      && row.lease_state === 'released' && row.acknowledged_cleanup === 4 && row.host_claims === roundsExecuted
+      && row.host_results === roundsExecuted && row.completions === 1;
+    if (!ok) throw new Error(`Final evidence row did not match expected shape: ${JSON.stringify(row)} (roundsExecuted=${roundsExecuted})`);
 
     console.log('\n*** SUCCESS: Gemini coordination provider adapter drove one real task end to end. ***');
     console.log(`Session id: ${sessionId}`);
     console.log(`Attempt id: ${attemptId}`);
+    console.log(`Real tool-call rounds executed: ${roundsExecuted}${reachedTurnCap ? ' (completed at the adapter turn cap)' : ' (completed after a natural text finish)'}`);
   } finally {
-    if (fixturesCreated) {
-      banner('CLEANUP: revoking fixture host / policy identity / operator grant');
-      try {
-        await client.query(
-          `UPDATE coordination_v2_host_enrollments SET status='revoked', revoked_at=now(), revocation_request_key=$2, updated_at=now() WHERE id=$1`,
-          [hostId, id('revoke-request')],
-        );
-        await client.query(
-          `UPDATE coordination_v2_policy_identities SET status='revoked', revoked_at=now(), updated_at=now() WHERE id=$1`,
-          [identityId],
-        );
-        await client.query(
-          `UPDATE coordination_v2_operator_grants SET revoked_at=now() WHERE id=$1`,
-          [grantId],
-        );
-        console.log('Fixture host/policy/grant revoked. Session/attempt/lease/cleanup rows left in place as evidence.');
-      } catch (cleanupError) {
-        console.error('WARNING: fixture cleanup failed -- manual revocation needed for', { hostId, identityId, grantId }, cleanupError);
-      }
-    }
+    await revokeFixtures('normal-finally');
     await client.end();
   }
 }

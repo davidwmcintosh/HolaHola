@@ -181,13 +181,30 @@ The host-transport lifecycle used by both `runCoordinationWindowsHost` and the i
 
 **How to apply:** never assume a host reaching `submit-result`, or a task going quiet after it, means the session concluded successfully. Check the session's actual `state`, or wait for an explicit terminal signal (a clean `terminalState`, or a `LEASE_SESSION_TERMINAL`-class error on the next host call). Before declaring a code path "never called," grep for real callers including route registrations, not just type definitions and service-layer call sites -- a registered HTTP route counts as a real caller even when nothing internal invokes it automatically.
 
-## 4. No production caller ever drives a provider turn automatically (found via task 1639, Sep 29 2026)
+## 4. No production caller drives a provider turn automatically
 
-Task 1639 proved `CoordinationGeminiAdapter.turn()` genuinely works end to end against the real Gemini API and real shared DB (see `hat-onboarding-sequencing.md`'s Sep 29 2026 update for the full run and evidence). Getting that proof required a one-off script to personally call every lifecycle step in order, including `.turn()` itself. Grepping the full `server/` tree for real (non-test) callers of `providerRegistry`/`DEFAULT_PROVIDER_REGISTRY` and `CoordinationGeminiAdapter`/`.turn(` found the registry consulted only for descriptor/provider-selection metadata (`coordination-attempt-service.ts`, `coordination-session-service.ts`, `coordination-lifecycle-facade-service.ts`, and a read-only listing in `coordination-host-routes.ts`) -- never for actually invoking a turn. The only real callers of a provider's `.turn()` anywhere in the repo are the retired Gate3 route (`coordination-runtime-routes.ts` -> the separate legacy `coordination-gemini-adapter.ts`, not the V2 one) and this one verification script.
+Task 1639 proved `CoordinationGeminiAdapter.turn()` genuinely works end to
+end against the real Gemini API and shared DB (see
+`hat-onboarding-sequencing.md`'s Sep 29 2026 update). Getting that proof
+required a one-off script to personally call every lifecycle step, including
+`.turn()` itself -- grepping real (non-test) callers of the provider
+registry and adapter `.turn()` found it consulted only for
+descriptor/provider-selection metadata at attempt creation, never for
+actually invoking a turn.
 
-**Why:** this is the direct explanation for why `coordination_v2_sessions`/`coordination_v2_attempts` had zero rows for any actor, ever, before task 1639 -- the V2 system can create and track sessions/attempts, and can select a provider for bookkeeping, but nothing server-side ever progresses an attempt through an actual provider turn on its own. `docs/coordination-v2-provider-adapters.md` describes the operator starting the lifecycle via `Invoke-HolaCoordinator`, but that launcher (and the interactive CLI it wraps) only drives session/attempt/lease bookkeeping and host-side poll/claim/submit-result -- it never calls a provider adapter either.
+**Why:** this is the direct explanation for why
+`coordination_v2_sessions`/`coordination_v2_attempts` had zero rows for any
+actor before task 1639 -- the V2 system can create and track sessions/
+attempts and select a provider for bookkeeping, but nothing server-side
+progresses an attempt through an actual provider turn on its own.
 
-**How to apply:** don't treat "the adapter works" (proven, Sep 29 2026) and "a real task can complete through it unattended" as the same claim -- the second one is still false for every provider, not just Gemini, until a real driver (a background worker, or an extension of the interactive CLI/launcher) is built to call `.turn()` at the right point in an attempt's lifecycle and feed results back in. Check for that driver directly (grep for real `.turn()` callers) before assuming any provider's V2 path can complete a task without a human or script manually orchestrating each step.
+**How to apply:** don't treat "the adapter works" and "a real task can
+complete through it unattended" as the same claim -- the second is false for
+every provider, not just Gemini, until a real driver (a background worker,
+or an extension of the interactive CLI/launcher) is built. Check for that
+driver directly (grep for real `.turn()` callers) before assuming any
+provider's V2 path can complete a task without a human or script manually
+orchestrating each step. A follow-up task covers building it.
 
 
 ## Coordination V2 standalone-CLI testing

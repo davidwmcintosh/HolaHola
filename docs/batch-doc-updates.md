@@ -7413,3 +7413,30 @@ OpenAI's in-flight provider adapter (task #1447) unless it's addressed
 first. Full detail and DB evidence (session/attempt IDs) are in the
 `hat-onboarding-sequencing` and `coordination-v2-consolidated-lessons`
 memory topic files.
+
+## Correction to the above: the first proof was thinner than it looked — September 29, 2026
+
+Continuing task #1639 after the entry above found the initial live proof had
+a real gap, not just a documentation nit. It validated only the FIRST
+Gemini call's outcome before declaring success — not the second
+(continuation) call. Adding that check caught a genuine failure on a later
+run: the continuation came back `malformed_function_call`, a real
+non-deterministic Gemini outcome, not a script bug.
+
+Separately, a successful continuation doesn't always finish with text — it
+can request ANOTHER real tool call instead. The attempt state machine
+already supports looping back for exactly that
+(`provider_continuation → provider_resumed → intent_ready`); the
+verification script now does, up to the adapter's real 4-turn cap. A
+fully-looped run exhausted all 4 turns (repeated `git_status`/`git_diff`
+calls) before completing honestly from the last submitted result rather
+than fabricating a further call.
+
+The "exactly 1 row" claim above is now stale: repeated runs (one legitimate
+failure plus several successful completions, the final one fully looped)
+left multiple real session/attempt pairs in the table, not a single tidy
+pair. The underlying claim — the adapter genuinely works end to end — still
+holds; it just needed sturdier proof than the first pass gave it. The
+"no autonomous turn-driver" finding above is unaffected and still stands.
+Detail in the `hat-onboarding-sequencing` and
+`coordination-v2-consolidated-lessons` memory topic files.
