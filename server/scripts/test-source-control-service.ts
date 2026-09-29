@@ -11,6 +11,7 @@ import {
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { createHash } from 'node:crypto';
+import { getVerifiedCiDatabaseUrl } from '../ci-database';
 import {
   SOURCE_CONTROL_REQUIRED_CHECKS,
   SOURCE_CONTROL_VALIDATION_MANIFEST_VERSION,
@@ -927,6 +928,132 @@ async function syncThenRecordPublicationMarkerFixture(): Promise<{
   }
 }
 
+/**
+ * Task #1643: the DI-based coverage above only proves
+ * dispatchPushValidationFailedAlert's *hook* fires with the right data --
+ * the notifyPushValidationFailed override passed into the fixture never
+ * touches the real method. This calls the real (private) method directly
+ * against a verified disposable database and confirms its two live side
+ * effects actually happen: a Team Room message via storage.createRoomMessage,
+ * and an aldenNotifications row with fingerprint
+ * 'source_control_push_validation_failed'. It also proves the two channels
+ * are independently best-effort, matching the contract already established
+ * for the sibling dispatchStalledSyncAlert/dispatchCandidateSupersededAlert
+ * methods in the same file: a real failure injected into one channel (via a
+ * BEFORE INSERT trigger, not a mock) must never block the other.
+ *
+ * Skips outside a verified CI database (see
+ * .agents/memory/disposable-database-gate-design.md) so this file's normal
+ * Replit/local execution never opens a real database connection.
+ */
+async function testPushValidationFailedAlertRealDelivery(): Promise<void> {
+  const ciDatabaseUrl = getVerifiedCiDatabaseUrl();
+  if (!ciDatabaseUrl) {
+    console.log(
+      '[SKIP] push-validation-failed real-delivery coverage requires a verified CI_DATABASE_URL ' +
+      '(CI=true); skipping outside a real CI run.',
+    );
+    return;
+  }
+
+  const { storage } = await import('../storage');
+  const { getUserDb } = await import('../db');
+  const { aldenNotifications, roomVoiceMessages } = await import('@shared/schema');
+  const { sql: rawSql } = await import('drizzle-orm');
+
+  const db = getUserDb();
+  const service = new SourceControlService({});
+  const dispatch = (context: PushValidationFailedContext) =>
+    (service as unknown as {
+      dispatchPushValidationFailedAlert: (context: PushValidationFailedContext) => Promise<void>;
+    }).dispatchPushValidationFailedAlert(context);
+
+  // A real room for storage.listTeamRooms(1) to find -- the production
+  // method silently no-ops the Team Room channel when there is none.
+  const room = await storage.createTeamRoom({
+    topic: `test-source-control-service push-validation-failed ${Date.now()}`,
+  });
+
+  // ---- Scenario 1: both channels succeed for real. ----
+  const marker1 = `tscs-pvf-${Date.now()}-both-ok`;
+  const sha1 = 'a'.repeat(40);
+  await dispatch({ sha: sha1, error: `${marker1} fixture manifest failure`, actor: 'test-source-control-service' });
+
+  const roomMessagesAfter1 = await db.select().from(roomVoiceMessages);
+  const matchingMessages1 = roomMessagesAfter1.filter((m) => m.content.includes(marker1));
+  assert.equal(matchingMessages1.length, 1, 'dispatchPushValidationFailedAlert must actually call storage.createRoomMessage, not just the injected hook');
+  assert.equal(matchingMessages1[0].roomId, room.id);
+  assert.equal(matchingMessages1[0].speaker, 'Luca');
+  assert.match(matchingMessages1[0].content, new RegExp(sha1));
+
+  const notificationsAfter1 = await db.select().from(aldenNotifications);
+  const matchingNotifications1 = notificationsAfter1.filter((n) => n.content.includes(marker1));
+  assert.equal(matchingNotifications1.length, 1, 'dispatchPushValidationFailedAlert must actually insert an aldenNotifications row, not just call the injected hook');
+  assert.equal(matchingNotifications1[0].fingerprint, 'source_control_push_validation_failed');
+  assert.equal(matchingNotifications1[0].triggeredBy, 'source-control');
+  assert.equal(matchingNotifications1[0].severity, 'alert');
+  assert.equal(matchingNotifications1[0].read, false);
+  assert.match(matchingNotifications1[0].content, new RegExp(sha1));
+
+  // ---- Scenario 2: Team Room channel fails for real (a BEFORE INSERT
+  // trigger stands in for e.g. a broken import or schema mismatch); the
+  // founder-inbox insert must still succeed independently. ----
+  const marker2 = `tscs-pvf-${Date.now()}-team-room-fails`;
+  const sha2 = 'b'.repeat(40);
+  await db.execute(rawSql`DROP TRIGGER IF EXISTS test_scs_fail_room_message_trg ON room_voice_messages`);
+  await db.execute(rawSql`DROP FUNCTION IF EXISTS test_scs_fail_room_message()`);
+  await db.execute(rawSql`CREATE FUNCTION test_scs_fail_room_message() RETURNS trigger AS $BODY$ BEGIN RAISE EXCEPTION 'SIMULATED for test-source-control-service: Team Room channel failure'; END; $BODY$ LANGUAGE plpgsql`);
+  await db.execute(rawSql`CREATE TRIGGER test_scs_fail_room_message_trg BEFORE INSERT ON room_voice_messages FOR EACH ROW EXECUTE FUNCTION test_scs_fail_room_message()`);
+  try {
+    await dispatch({ sha: sha2, error: `${marker2} fixture manifest failure`, actor: 'test-source-control-service' });
+  } finally {
+    await db.execute(rawSql`DROP TRIGGER IF EXISTS test_scs_fail_room_message_trg ON room_voice_messages`);
+    await db.execute(rawSql`DROP FUNCTION IF EXISTS test_scs_fail_room_message()`);
+  }
+
+  const roomMessagesAfter2 = await db.select().from(roomVoiceMessages);
+  assert.equal(
+    roomMessagesAfter2.filter((m) => m.content.includes(marker2)).length,
+    0,
+    'sanity check: the simulated Team Room trigger must actually have blocked the insert',
+  );
+  const notificationsAfter2 = await db.select().from(aldenNotifications);
+  const matchingNotifications2 = notificationsAfter2.filter((n) => n.content.includes(marker2));
+  assert.equal(matchingNotifications2.length, 1, 'a Team Room delivery failure must not block the founder-inbox aldenNotifications insert');
+  assert.equal(matchingNotifications2[0].fingerprint, 'source_control_push_validation_failed');
+
+  // ---- Scenario 3: founder-inbox insert fails for real; the Team Room
+  // message must still be posted independently. ----
+  const marker3 = `tscs-pvf-${Date.now()}-founder-inbox-fails`;
+  const sha3 = 'c'.repeat(40);
+  await db.execute(rawSql`DROP TRIGGER IF EXISTS test_scs_fail_notification_trg ON alden_notifications`);
+  await db.execute(rawSql`DROP FUNCTION IF EXISTS test_scs_fail_notification()`);
+  await db.execute(rawSql`CREATE FUNCTION test_scs_fail_notification() RETURNS trigger AS $BODY$ BEGIN RAISE EXCEPTION 'SIMULATED for test-source-control-service: founder-inbox channel failure'; END; $BODY$ LANGUAGE plpgsql`);
+  await db.execute(rawSql`CREATE TRIGGER test_scs_fail_notification_trg BEFORE INSERT ON alden_notifications FOR EACH ROW EXECUTE FUNCTION test_scs_fail_notification()`);
+  try {
+    await dispatch({ sha: sha3, error: `${marker3} fixture manifest failure`, actor: 'test-source-control-service' });
+  } finally {
+    await db.execute(rawSql`DROP TRIGGER IF EXISTS test_scs_fail_notification_trg ON alden_notifications`);
+    await db.execute(rawSql`DROP FUNCTION IF EXISTS test_scs_fail_notification()`);
+  }
+
+  const notificationsAfter3 = await db.select().from(aldenNotifications);
+  assert.equal(
+    notificationsAfter3.filter((n) => n.content.includes(marker3)).length,
+    0,
+    'sanity check: the simulated founder-inbox trigger must actually have blocked the insert',
+  );
+  const roomMessagesAfter3 = await db.select().from(roomVoiceMessages);
+  const matchingMessages3 = roomMessagesAfter3.filter((m) => m.content.includes(marker3));
+  assert.equal(matchingMessages3.length, 1, 'a founder-inbox insert failure must not block the Team Room message delivery');
+  assert.equal(matchingMessages3[0].roomId, room.id);
+
+  console.log(
+    'Push-validation-failed real-database delivery checks passed ' +
+    '(Team Room message + aldenNotifications row, both channels independently best-effort).',
+  );
+}
+
 async function main(): Promise<void> {
   assertRenderRuntimeSourceSnapshotPrerequisites();
 
@@ -1065,6 +1192,8 @@ async function main(): Promise<void> {
   assert.equal(pushValidationAlerts[0].sha, LOCAL_NEW);
   assert.equal(pushValidationAlerts[0].actor, 'fixture');
   assert.match(pushValidationAlerts[0].error, /fixture failure/);
+
+  await testPushValidationFailedAlertRealDelivery();
 
   const githubAhead = await withFixture('github-ahead');
   assert.equal(githubAhead.result.state, 'ready_to_promote');
