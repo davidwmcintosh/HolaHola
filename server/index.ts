@@ -1001,6 +1001,9 @@ const listeningPromise = new Promise<void>((resolve, reject) => {
 
       const { startCoordinationDeliveryWorker } = await import('./services/coordination-delivery-worker');
       startCoordinationDeliveryWorker();
+
+      const { startGeminiProviderWorker } = await import('./services/coordination-gemini-provider-worker');
+      startGeminiProviderWorker();
     }, 85000);
 
     // +55s: Learning Goals Migration — idempotent CREATE TABLE IF NOT EXISTS for

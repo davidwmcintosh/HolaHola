@@ -127,6 +127,15 @@ test('provider failures normalize to stable classification and fallback decision
   assert.equal(mapProviderFailure(envelope('transport_interrupted')).classification, 'resume_transport');
   assert.equal(mapProviderFailure(envelope('provider_outage')).classification, 'fresh_attempt_same_provider');
   assert.equal(mapProviderFailure(envelope('rate_limited')).classification, 'fresh_attempt_same_provider');
+  // A malformed function call is the model glitching on one turn's structured
+  // output, not a policy-level refusal -- observed for real during task
+  // #1642's live demo, where it otherwise would have killed an
+  // already-healthy multi-turn session outright. It gets the same
+  // fresh-attempt-same-provider remedy as a transient provider outage,
+  // bounded by the session's own attempt budget rather than a permanent
+  // giveup on the first occurrence.
+  assert.equal(mapProviderFailure(envelope('malformed_function_call')).classification, 'fresh_attempt_same_provider');
+  assert.equal(mapProviderFailure(envelope('malformed_function_call')).fallbackEligible, false);
   assert.equal(mapProviderFailure(envelope('limit_exhausted')).classification, 'terminal_failure');
   assert.equal(
     mapProviderFailure(envelope('terminal_rejection'), policy).classification,

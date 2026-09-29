@@ -21,6 +21,7 @@ import {
   createFreshAttempt,
   transitionCoordinationAttempt,
   resumeSameCoordinationAttempt,
+  CoordinationAttemptError,
 } from './coordination-attempt-service';
 import {
   acquireCoordinationTransportLease,
@@ -166,6 +167,16 @@ export type CoordinationProviderFailureInput = Readonly<{
   attemptId: string;
   actorId: string;
   requestKey: string;
+  /**
+   * Forwarded verbatim to transitionCoordinationAttempt's own
+   * expectedFromState (see its doc comment for the race it closes). Only
+   * meaningful for the fresh-attempt and terminal-failure branches below,
+   * which call transitionCoordinationAttempt directly; resume_transport
+   * goes through resumeSameCoordinationAttempt instead, which is not
+   * subject to the same 'fail is valid from any non-terminal state' hazard
+   * because it is never given a 'fail' command.
+   */
+  expectedFromState?: string;
 }>;
 
 export type ResolvedProviderFailureAuthority = Readonly<{
@@ -484,6 +495,23 @@ function sessionFailureCommand(
   return { type: 'fail', reason, ...(classification ? { classification } : {}) };
 }
 
+/**
+ * Fails the session as a terminal_failure when a "keep retrying" decision
+ * turned out to be impossible to act on (see the call sites in
+ * applyCoordinationProviderFailure). The attempt itself is always already
+ * terminal by the time this runs; only the session is still open.
+ */
+async function failSessionForExhaustedRetry(
+  services: LifecycleServices,
+  input: CoordinationProviderFailureInput,
+  reason: string,
+): Promise<void> {
+  await services.transitionCoordinationSession({
+    sessionId: input.sessionId, requestKey: `${input.requestKey}:terminal`, actorId: input.actorId,
+    command: sessionFailureCommand(reason, 'terminal_failure'),
+  });
+}
+
 function deterministicIdentity(...parts: string[]): string {
   return createHash('sha256').update(parts.join('\u0000'), 'utf8').digest('hex');
 }
@@ -665,9 +693,6 @@ export async function applyCoordinationProviderFailure(
     transitionCoordinationCleanup,
     ...dependencies.services,
   };
-  if (decision.classification === 'fresh_attempt_next_provider' && !authority.nextProvider) {
-    throw new CoordinationLifecycleFacadeError('LIFECYCLE_PROVIDER_UNAVAILABLE');
-  }
   if (decision.classification === 'resume_transport') {
     await services.resumeSameCoordinationAttempt({
       attemptId: input.attemptId, requestKey: `${input.requestKey}:resume`, actorId: input.actorId,
@@ -677,6 +702,7 @@ export async function applyCoordinationProviderFailure(
     await services.transitionCoordinationAttempt({
       attemptId: input.attemptId, requestKey: `${input.requestKey}:fail`, actorId: input.actorId,
       command: attemptFailureCommand(decision.classification),
+      ...(input.expectedFromState !== undefined ? { expectedFromState: input.expectedFromState } : {}),
     });
     const next = decision.classification === 'fresh_attempt_next_provider'
       ? authority.nextProvider
@@ -685,19 +711,58 @@ export async function applyCoordinationProviderFailure(
         model: authority.currentProvider.model,
         adapterVersion: authority.currentProvider.adapterVersion,
       };
-    if (!next) throw new CoordinationLifecycleFacadeError('LIFECYCLE_PROVIDER_UNAVAILABLE');
-    await services.createFreshAttempt({
-      sessionId: input.sessionId, requestKey: `${input.requestKey}:attempt`, actorId: input.actorId,
-      provider: next.provider, model: next.model, adapterVersion: next.adapterVersion,
-      previousAttemptId: input.attemptId, classification: decision.classification,
-      attemptGeneration: deterministicIdentity(
-        input.requestKey, input.sessionId, 'retry', input.attemptId, next.provider,
-      ),
-    });
+    // A "keep retrying" decision is only ever half of the story: whether
+    // another attempt can *actually* be created is a separate, later check
+    // (no fallback provider configured; the session's total/per-provider
+    // attempt budget already spent; the provider disallowed by policy; the
+    // session already reached a terminal state through another path -- e.g.
+    // this task's own driver concurrency fence letting a racing caller's
+    // session-level transition win). Before this attempt was ever driven for
+    // real (task #1642), nothing exercised this path enough times in a row
+    // to hit it, so it silently threw past the attempt's own now-terminal
+    // 'fail' transition above, leaving the SESSION orphaned in a non-terminal
+    // state forever with no attempt left to progress it (observed for real,
+    // 2026-09-29: a 4-attempt budget exhausted by real transient provider
+    // failures). Retrying is a session-level policy choice; when it turns out
+    // to be impossible, the session -- not just the attempt -- must reach a
+    // terminal state so the task still finishes on its own.
+    if (!next) {
+      await failSessionForExhaustedRetry(services, input, decision.reason);
+      return decision;
+    }
+    try {
+      await services.createFreshAttempt({
+        sessionId: input.sessionId, requestKey: `${input.requestKey}:attempt`, actorId: input.actorId,
+        provider: next.provider, model: next.model, adapterVersion: next.adapterVersion,
+        previousAttemptId: input.attemptId, classification: decision.classification,
+        attemptGeneration: deterministicIdentity(
+          input.requestKey, input.sessionId, 'retry', input.attemptId, next.provider,
+        ),
+      });
+    } catch (error) {
+      if (error instanceof CoordinationAttemptError && error.code === 'ATTEMPT_SESSION_TERMINAL') {
+        // Another path (e.g. a concurrent racer, or this same call being
+        // replayed) already gave the session a terminal outcome. Nothing
+        // left to do -- the task already finished, just not via this call.
+        return decision;
+      }
+      if (error instanceof CoordinationAttemptError
+        && (error.code === 'ATTEMPT_BUDGET_EXHAUSTED' || error.code === 'ATTEMPT_PROVIDER_NOT_ALLOWED')) {
+        await failSessionForExhaustedRetry(services, input, decision.reason);
+        return decision;
+      }
+      // Anything else (invalid request, missing rows, replay-key conflict,
+      // transient database errors) is either a real bug in the caller or a
+      // condition a caller may legitimately retry -- not evidence that
+      // retrying is structurally impossible, so it is not this function's
+      // call to fail the session over it.
+      throw error;
+    }
   } else {
     await services.transitionCoordinationAttempt({
       attemptId: input.attemptId, requestKey: `${input.requestKey}:fail`, actorId: input.actorId,
       command: attemptFailureCommand('terminal_failure'),
+      ...(input.expectedFromState !== undefined ? { expectedFromState: input.expectedFromState } : {}),
     });
     await services.transitionCoordinationSession({
       sessionId: input.sessionId, requestKey: `${input.requestKey}:terminal`, actorId: input.actorId,

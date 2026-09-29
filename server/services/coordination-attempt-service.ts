@@ -305,6 +305,39 @@ export type AttemptTransitionInput = {
   actorId: string;
   command: Omit<AttemptCommand, 'requestId' | 'eventId' | 'now'>;
   now?: Date;
+  /**
+   * Opaque, caller-owned context persisted alongside this transition's event
+   * (under metadata.driverContext), never interpreted or validated by the
+   * state machine itself and never included in the replay commandDigest.
+   * Exists so an autonomous provider driver can record which provider-native
+   * tool intent a host is meant to execute next -- the transport lease
+   * protocol's own `poll` response carries no tool/argument channel today
+   * (see coordination-gemini-provider-driver.ts).
+   */
+  eventMetadata?: Record<string, unknown>;
+  /**
+   * When provided, the transition is only applied if the attempt's current
+   * state -- read inside this same row-locked transaction, not by an earlier
+   * separate query -- exactly matches this value; otherwise the call fails
+   * with ATTEMPT_TRANSITION_REJECTED (reason: 'expected_state_mismatch')
+   * instead of being applied against a state the caller no longer has an
+   * accurate picture of.
+   *
+   * This exists to close a real check-then-act race for concurrent drivers.
+   * Most of the state machine's transitions are already self-fencing: their
+   * own narrow `from` list rejects a stale caller outright once the attempt
+   * has moved past the state the caller expected. `fail`, however, is valid
+   * from any non-terminal state by design (coordination-attempt-state.ts),
+   * so a losing racer's `fail` call -- e.g. a duplicate turn() outcome for
+   * the same logical turn, observed for real, task #1642, 2026-09-29 -- can
+   * still land and clobber a winning racer's already-recorded progress
+   * (e.g. waiting_for_host) even though the two calls used different,
+   * outcome-correlated requestKeys and so were never deduplicated as
+   * replays of each other. Checking the expected state inside the same
+   * locked transaction as the update, rather than as an earlier separate
+   * read, makes that check atomic with the write.
+   */
+  expectedFromState?: string;
 };
 
 export async function transitionCoordinationAttempt(input: AttemptTransitionInput) {
@@ -369,6 +402,11 @@ export async function transitionCoordinationAttempt(input: AttemptTransitionInpu
       if (['succeeded', 'failed', 'exhausted', 'expired', 'revoked'].includes(session.state)) {
         fail('ATTEMPT_SESSION_TERMINAL');
       }
+      if (input.expectedFromState !== undefined && attempt.state !== input.expectedFromState) {
+        fail('ATTEMPT_TRANSITION_REJECTED', {
+          reason: 'expected_state_mismatch', expected: input.expectedFromState, actual: attempt.state,
+        });
+      }
       const result = reduceAttempt(attemptState(attempt), {
         ...(input.command as AttemptCommand), requestId: input.requestKey, eventId: randomUUID(), now: now.getTime(),
       });
@@ -385,7 +423,11 @@ export async function transitionCoordinationAttempt(input: AttemptTransitionInpu
         fromState: result.event.from, toState: result.event.to, eventType: result.event.kind,
         actorType: 'operator', actorId: input.actorId, failureClassification: result.event.classification,
         resultCode: result.event.resultCode, requestKey: input.requestKey,
-        metadata: { commandDigest: hash(input.command), resultSnapshot: dto(updated[0]) }, createdAt: now,
+        metadata: {
+          commandDigest: hash(input.command), resultSnapshot: dto(updated[0]),
+          ...(input.eventMetadata !== undefined ? { driverContext: input.eventMetadata } : {}),
+        },
+        createdAt: now,
       });
       return dto(updated[0]);
     });

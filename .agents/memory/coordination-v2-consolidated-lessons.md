@@ -207,6 +207,15 @@ provider's V2 path can complete a task without a human or script manually
 orchestrating each step. A follow-up task covers building it.
 
 
+## Update (Sep 29 2026): section 4's gap is closed for Gemini
+
+Task 1642 built the production driver section 4 said was missing. `coordination-gemini-provider-driver.ts`, polled by a worker wired into `server/index.ts`, finds any open Gemini attempt and drives it through repeated `.turn()` calls on its own, feeding real host tool results back through the authenticated poll/claim/result transport protocol (no privileged direct-SQL reads of driver-only event metadata), until the attempt reaches a terminal state -- handling every `NormalizedOutcome`, not just `consumed`. Demonstrated live the same way task 1639 was: a real session reached `succeeded` end to end against the real Gemini API and shared DB across real host rounds, with no script calling a provider-side transition directly.
+
+**Why this is worth its own entry, not just a status flip:** two concurrency/crash-safety hazards only surfaced by actually running this repeatedly. (1) `fail` is valid from any non-terminal state by design, so a slower duplicate `turn()` outcome for the same logical turn can silently clobber an already-recorded success unless the caller re-checks the attempt's current state immediately before applying its outcome. (2) A "retry with a fresh attempt" failure decision can turn out to be structurally impossible after the attempt already reached its own terminal `fail` (budget exhausted, no fallback provider) -- when that happens the session, not just the attempt, must also be failed, or it is left orphaned in a non-terminal state forever with no attempt left to progress it.
+
+**How to apply:** don't assume this closes the gap for every provider -- this driver is Gemini-specific (it constructs its own packet and owns its own worker loop), not a provider-agnostic driver loop. OpenAI's adapter (task 1447) will still hit the exact gap described above until it gets its own driver+worker built the same way.
+
+
 ## Coordination V2 standalone-CLI testing
 
 ---

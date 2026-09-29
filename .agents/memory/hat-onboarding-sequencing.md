@@ -177,3 +177,14 @@ failure left in place as evidence rather than deleted -- don't expect a
 single tidy row pair, and re-query current state directly rather than
 trusting any specific count written here.
 
+
+## Update (Sep 29, 2026): a production driver now completes Gemini attempts automatically
+
+Task 1642 closed the gap the block above left open. A production driver (`coordination-gemini-provider-driver.ts`), polled by a worker wired into `server/index.ts`, now finds any open Gemini attempt and drives it through repeated `.turn()` calls on its own -- feeding real host tool results back in through the authenticated poll/claim/result transport protocol, never a privileged direct read of driver-only metadata -- until the attempt reaches a terminal state. It handles every `NormalizedOutcome`, not just `consumed`.
+
+Demonstrated the same way task 1639 was: a real session reached `succeeded` end to end against the real Gemini API and shared DB, across three real host rounds, with the demo script never calling a provider-side transition directly -- only starting the worker.
+
+**Why this took more than wiring `.turn()` into a loop:** two hazards only surfaced by actually running it repeatedly, not by reading the code. `fail` is valid from any non-terminal state by design, so a slower duplicate `turn()` outcome for the same logical turn can silently overwrite an already-recorded success unless the caller re-checks the attempt's current state immediately before applying its outcome. And a "retry with a fresh attempt" decision can turn out to be structurally impossible after the attempt already reached its own terminal `fail` (budget exhausted, no fallback provider) -- when that happens the session itself, not just the attempt, must also be failed, or it is left orphaned in a non-terminal state forever with nothing left to progress it.
+
+**How to apply:** this driver is Gemini-specific, not provider-agnostic -- OpenAI's adapter (task 1447) will hit this identical gap on its own until it gets its own driver+worker built the same way. See `coordination-v2-consolidated-lessons.md` section 4 for the fuller technical detail.
+

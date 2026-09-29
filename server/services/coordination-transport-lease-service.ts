@@ -538,6 +538,41 @@ async function openAttempt(tx: any, sessionId: string): Promise<CoordinationV2At
   return rows[0] as CoordinationV2Attempt | undefined;
 }
 
+/**
+ * The provider-native tool call a host is meant to execute next, surfaced
+ * through the authenticated poll/claim protocol instead of a privileged
+ * direct read of attempt-event metadata. Only meaningful once an attempt has
+ * actually reached waiting_for_host/host_active -- any intent_ready event
+ * found while the attempt sits in an earlier state (provider_active,
+ * intent_ready itself mid-transition) or a later one (result_ready,
+ * provider_continuation, i.e. the pending call has already been answered and
+ * a new turn started) would be a stale prior turn's intent, not a live one,
+ * so this deliberately returns null outside those two states rather than the
+ * latest intent_ready event unconditionally.
+ *
+ * coordinationV2Attempts.provider/model/adapterVersion is Gemini-specific
+ * wiring today (coordination-gemini-provider-driver.ts is the only writer of
+ * intent_ready driverContext), but the shape and this gate are provider-
+ * agnostic: any future provider driver that records the same
+ * {callId, name} on its own intent_ready events is surfaced identically.
+ */
+async function pendingToolIntent(
+  tx: any,
+  attempt: Pick<CoordinationV2Attempt, 'id' | 'state'>,
+): Promise<{ callId: string; name: string } | null> {
+  if (attempt.state !== 'waiting_for_host' && attempt.state !== 'host_active') return null;
+  const rows = await tx.select().from(coordinationV2AttemptEvents)
+    .where(and(
+      eq(coordinationV2AttemptEvents.attemptId, attempt.id),
+      eq(coordinationV2AttemptEvents.eventType, 'intent_ready'),
+    ))
+    .orderBy(desc(coordinationV2AttemptEvents.sequence)).limit(1);
+  const metadata = rows[0]?.metadata as Record<string, unknown> | undefined;
+  const context = metadata?.driverContext as { callId?: unknown; name?: unknown } | undefined;
+  if (!context || typeof context.callId !== 'string' || typeof context.name !== 'string') return null;
+  return { callId: context.callId, name: context.name };
+}
+
 function operationDigest(input: LeaseInput, operation: LeaseOperation, hostId: string): string {
   return hash({
     operation, sessionId: input.sessionId, actorId: input.actorId, enrolledHostId: hostId,
@@ -626,11 +661,13 @@ export async function pollCoordinationTransportWork(input: LeaseInput) {
     return await fencedOperation('poll', input, async (context) => {
       const attempt = await openAttempt(context.tx, context.session.id);
       validateProtocolBinding(input, context.session, context.hostId, context.lease, 'poll', attempt?.id);
+      const pendingIntent = attempt ? await pendingToolIntent(context.tx, attempt) : null;
       const snapshot = {
         operation: 'poll', sessionId: context.session.id, leaseId: context.lease.id,
         epoch: context.lease.epoch, attempt: attempt ? {
           id: attempt.id, packetId: attempt.packetId, state: attempt.state,
           provider: attempt.provider, model: attempt.model, deadlineAt: attempt.deadlineAt.toISOString(),
+          pendingIntent,
         } : null,
       };
       await saveReceipt(context.tx, {
@@ -670,8 +707,10 @@ export async function claimCoordinationTransportWork(input: LeaseInput) {
         actorType: 'host', actorId: input.actorId, requestKey: input.requestKey,
         metadata: { leaseId: context.lease.id, epoch: context.lease.epoch }, createdAt: context.now,
       });
+      const pendingIntent = await pendingToolIntent(context.tx, { id: attempt.id, state: transition.state.state });
       const snapshot = { operation: 'claim', sessionId: context.session.id, leaseId: context.lease.id,
-        epoch: context.lease.epoch, claimId: inserted[0].id, attemptId: attempt.id, state: transition.state.state };
+        epoch: context.lease.epoch, claimId: inserted[0].id, attemptId: attempt.id, state: transition.state.state,
+        pendingIntent };
       await saveReceipt(context.tx, { sessionId: context.session.id, requestKey: input.requestKey, operation: 'claim' },
         context.digest, snapshot, context.now, input.actorId, context.hostId);
       return snapshot;

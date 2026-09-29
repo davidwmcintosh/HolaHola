@@ -38,7 +38,6 @@ export type FailureMapping = Readonly<{
 
 const FALLBACK_TERMINAL_REASONS = new Set<FailureMapping['reason']>([
   'malformed_response',
-  'malformed_function_call',
   'terminal_rejection',
   'safety_blocked',
   'authentication_failed',
@@ -68,7 +67,17 @@ export function mapProviderFailure(
   if (reason === 'resume_transport') {
     return freezeProviderValue({ classification: 'resume_transport', reason, fallbackEligible: false });
   }
-  if (reason === 'provider_outage' || reason === 'rate_limited') {
+  if (reason === 'provider_outage' || reason === 'rate_limited' || reason === 'malformed_function_call') {
+    // A malformed function call is the model's structured-output decoding
+    // glitching on one turn, not a policy-level refusal or a persistent
+    // property of the conversation -- observed for real (task #1642 live
+    // demo, 2026-09-29): an otherwise-healthy multi-turn conversation hit
+    // this on its second continuation call. Retrying the identical turn
+    // in place isn't available at this layer (see the driver's turn
+    // resolution), but a fresh attempt against the same provider is the
+    // same-shaped remedy this module already gives transient provider
+    // outages/rate limits, and it is bounded by the session's own
+    // attempt-budget policy rather than retrying forever.
     return freezeProviderValue({ classification: 'fresh_attempt_same_provider', reason, fallbackEligible: false });
   }
   if (reason === 'limit_exhausted') {
