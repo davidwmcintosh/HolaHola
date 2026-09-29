@@ -44,6 +44,7 @@ import {
 import { listCoordinationInbox } from "./coordination-inbox-service";
 import { OPERATIONS_CATALOG, toPublicOperationManifest } from "./operations-catalog";
 import { applyHandoffSection, shareAldenHandoffNote } from "./alden-handoff-shared-spec";
+import { readAldenSharedSpecReview, claimAldenSharedSpecReview, decideAldenSharedSpecReview } from "./alden-shared-spec-review";
 
 // Was hardcoded to '/home/runner/workspace' -- a Replit-only container path.
 // Once production ran on Render (post-DNS-swap), every file/shell tool here
@@ -764,6 +765,49 @@ export const ALDEN_TOOLS: AldenTool[] = [
     input_schema: {
       type: "object" as const,
       properties: {},
+    },
+  },
+  {
+    name: "read_shared_spec_review",
+    description: "Read a shared-spec review by id: the document it targets (title, kind, path, state), the full revision markdown, and the review's own state (pending/approved/rejected/cancelled). Shared-spec is Postgres-backed — an unapproved revision's content lives only here, not in any file your read_file tool can see. Use this before claim_shared_spec_review or decide_shared_spec_review.",
+    gemini_description: "Read a shared-spec review by id — returns the target document's title/kind/path/state, the full revision markdown you're being asked to review, and the review's own state. Use before claim_shared_spec_review or decide_shared_spec_review; a pending revision's content isn't visible through read_file.",
+    input_schema: {
+      type: "object" as const,
+      properties: {
+        review_id: { type: "string" as const, description: "The shared-spec review id." },
+      },
+      required: ["review_id"],
+    },
+  },
+  {
+    name: "claim_shared_spec_review",
+    description: "Claim a pending shared-spec review under your own identity (actor: alden), so you can then approve or reject it with decide_shared_spec_review. Fails if it's already claimed, if it isn't assigned to you, or if you authored the revision yourself.",
+    gemini_description: "Claim a pending shared-spec review as yourself (alden). Required before decide_shared_spec_review. Fails if someone else already claimed it, if it wasn't assigned to you, or if you wrote the revision (an author can't review their own work).",
+    input_schema: {
+      type: "object" as const,
+      properties: {
+        review_id: { type: "string" as const, description: "The shared-spec review id to claim." },
+      },
+      required: ["review_id"],
+    },
+  },
+  {
+    name: "decide_shared_spec_review",
+    description: "Approve or reject a shared-spec review you have already claimed, under your own identity (actor: alden). Your rationale is stored permanently on the review record. Approving the current revision of a live-instruction document (e.g. docs/shared-agent-instructions.md) commits and publishes it immediately.",
+    gemini_description: "Approve or reject a shared-spec review you've claimed, as yourself. Give a clear rationale — it's stored permanently on the review. Approving a live-instruction document's current revision publishes it immediately.",
+    input_schema: {
+      type: "object" as const,
+      properties: {
+        review_id: { type: "string" as const, description: "The shared-spec review id to decide." },
+        decision: { type: "string" as const, enum: ["approve", "reject"], description: "Your decision." },
+        rationale: { type: "string" as const, description: "Why you're approving or rejecting — stored on the review record." },
+        evidence_references: {
+          type: "array" as const,
+          items: { type: "string" as const },
+          description: "Optional citations backing your rationale (file paths, prior conversation or message ids, etc).",
+        },
+      },
+      required: ["review_id", "decision", "rationale"],
     },
   },
 ];
@@ -3013,6 +3057,58 @@ export async function executeAldenTool(
         try {
           const runtimes = await listCoordinationRuntimeRegistrations();
           return { data: { runtimes } };
+        } catch (e: any) {
+          return { data: { error: e.message } };
+        }
+      }
+
+      case "read_shared_spec_review": {
+        const reviewId = String(args.review_id || '').trim();
+        if (!reviewId) return { data: { error: 'review_id is required' } };
+        try {
+          const { review, document, revision } = await readAldenSharedSpecReview(reviewId);
+          return {
+            data: {
+              review,
+              document: {
+                id: document.id, title: document.title, kind: document.kind,
+                gitPath: document.gitPath, state: document.state,
+                liveInstructionDocument: document.liveInstructionDocument,
+              },
+              markdown: revision.markdown,
+            },
+          };
+        } catch (e: any) {
+          return { data: { error: e.message } };
+        }
+      }
+
+      case "claim_shared_spec_review": {
+        const reviewId = String(args.review_id || '').trim();
+        if (!reviewId) return { data: { error: 'review_id is required' } };
+        try {
+          const review = await claimAldenSharedSpecReview(reviewId);
+          console.log(`[Alden Tool] claim_shared_spec_review: ${reviewId}`);
+          return { data: { claimed: true, review } };
+        } catch (e: any) {
+          return { data: { error: e.message } };
+        }
+      }
+
+      case "decide_shared_spec_review": {
+        const reviewId = String(args.review_id || '').trim();
+        const decision = args.decision === 'approve' || args.decision === 'reject' ? args.decision : undefined;
+        const rationale = String(args.rationale || '').trim();
+        const evidenceReferences = Array.isArray(args.evidence_references)
+          ? args.evidence_references.filter((value: unknown): value is string => typeof value === 'string')
+          : undefined;
+        if (!reviewId) return { data: { error: 'review_id is required' } };
+        if (!decision) return { data: { error: 'decision must be "approve" or "reject"' } };
+        if (!rationale) return { data: { error: 'rationale is required' } };
+        try {
+          const review = await decideAldenSharedSpecReview({ reviewId, decision, rationale, evidenceReferences });
+          console.log(`[Alden Tool] decide_shared_spec_review: ${decision} ${reviewId}`);
+          return { data: { decided: true, review } };
         } catch (e: any) {
           return { data: { error: e.message } };
         }

@@ -1,5 +1,6 @@
 > **You are not alone.** This file is generated from the `agent_memory_*` database tables — other hats (Replit Agent, Claude Code, Gemini, HolaHola runtime agents) may be reading and writing it in the same window you are. Never hand-edit this file or any `.agents/memory/<topic>.md` file directly; every change goes through `server/scripts/agent-memory-cli.ts`, which writes the database first and regenerates the file from it. A hand-edit here will be silently overwritten the next time anyone runs a CLI write.
 
+🔴 **Unread stale-channel alert** (`.local/stale-channel-alert.md`): Inner-life channels silent for 10+ min: felt (last: 3:12 PM), thinking (last: 3:12 PM)
 🟡 **Inner-life capture gap**: `.local/episode-capture-status.md` last reported missing felt/thinking/moment in the rolling episode file — read it before your next output.
 
 - [Chat capture pipeline](chat-capture-pipeline.md) — architecture, two independent cursors, readiness vs draining, and three DB-writers that must be fixed together.
@@ -126,7 +127,7 @@
 - [Git operational gotchas](git-operational-gotchas.md) — Five sharp edges when scripting git commands: pathspec/add ordering, commit vs author date, SSH/LFS hang prompts, LFS migrate ref rewrites, and blobless partial-clone commit recovery -- see topic file for each.
 - [Long validation runs can hit the poll-budget limit](validation-run-poll-budget.md) — startValidationRun can time out (POLL_BUDGET_EXCEEDED, STOPPED exitCode -1) on a 10+ minute suite -- not a real failure; use backgrounded ShellExec + Monitor instead.
 - [Duplicate detector fixture gaps](duplicate-detector-fixture-gaps.md) — one guard's self-check only proves itself; grep for sibling detectors sharing the same rule before closing the bug class
-- [JS/TS/Drizzle runtime gotchas](js-ts-drizzle-runtime-gotchas.md) — 6 sharp edges: esbuild isMain bundle collapse, ESM await-in-callback, Drizzle sql-tag dynamic-import + array binding, SQL CASE param/column mixing, lazy-regex multiline $ -- see topic file
+- [JS/TS/Drizzle runtime gotchas](js-ts-drizzle-runtime-gotchas.md) — 7 sharp edges: esbuild isMain bundle collapse, ESM await-in-callback, Drizzle sql-tag dynamic-import + array binding, SQL CASE param/column mixing, lazy-regex multiline $, Omit-of-union collapse -- see topic file
 - [Alden tool-result persistence boundary](alden-tool-result-persistence.md) — raw tool-result JSON is never persisted; secret-bearing tools need instruction, not redaction
 - [CLI-to-service extraction exit semantics](cli-to-service-exit-semantics.md) — extracting a CLI script's logic for an in-process tool/service must drop every process.exit() — it would kill the whole server, not a one-shot subprocess.
 - [Episode-lifecycle service guards](episode-lifecycle-service-guards.md) — new episode-insertion call sites must mirror createEpisode's fire-and-forget indexing side effects; never flip the live 'rolling' tag against shared prod DB during testing.
@@ -138,7 +139,7 @@
 - [CAS failure reason: deleted vs version_mismatch](agent-memory-cas-failure-reason.md) — editEntry/editBlock's failure now reports why: deletedAt beats version comparison, so a deletion is never mistaken for a stale version.
 - [Source-control stall detection](source-control-stall-detection.md) — generic failure-count/staleness thresholds + dual-channel (ephemeral+durable) alerting beat per-state cases and the visible-only-if-watched gap.
 - [Live-status banner in MEMORY.md](live-status-banner-memory-index.md) — folds .local/ live-state into the auto-injected index; writers phrase alerts differently — match the shared substring.
-- [Coordination V2 system lessons](coordination-v2-consolidated-lessons.md) — 21 lessons on Coordination V2 authority boundaries, credential handling, testing patterns, and operational gotchas -- see topic file for each.
+- [Coordination V2 system lessons](coordination-v2-consolidated-lessons.md) — 22 lessons on Coordination V2 authority boundaries, credential handling, testing patterns, and operational gotchas -- see topic file for each.
 - [Confabulation in code, not just conversation](confabulation-in-code-generation.md) — Same Archive-vs-Muse pattern hits code-writing agents: placeholder checks + false done/notified claims, not an engine quality gap.
 - [Shared-tool identity leak](shared-tool-identity-leak.md) — parallel branches need identity via explicit context, not a global-config read, or one gets told it's the other
 - [Source-control candidate provenance](source-control-candidate-provenance.md) — auto-sync can produce ready_to_promote too; candidateSource + drift check stop Publish shipping the unreviewed one.

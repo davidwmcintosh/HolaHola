@@ -184,3 +184,12 @@ the same pattern. Test with a fixture where the target block has multiple
 lines of body content *and* a further section follows it -- that is the
 minimal case that distinguishes "matched the whole block" from "matched only
 its first line."
+
+## Omit of a discriminated union collapses to common keys only
+
+`Omit<T, K>` on a discriminated union `T` (e.g. a union of command variants each with a different `type` and different extra fields) does not distribute over the union members. TypeScript first computes `keyof T` as only the keys common to *every* member, then omits `K` from that. The result is a type with only the shared keys (e.g. just `type`), silently dropping every variant-specific field (e.g. a field present on one variant but not another).
+
+**Why this matters:** annotating a fresh object literal with a computed `Omit<Union, K>` type (intending "the union minus these common fields") looks reasonable and compiles fine for the variant that has no extra fields, but fails excess-property checking the moment the literal includes a field that isn't in the shared-keys-only result, even though that field is perfectly valid on the real union member.
+
+**How to apply:** don't annotate a fresh discriminated-union literal with a computed `Omit<Union, K>` type. Leave the literal's type inferred (let TypeScript pick the correct narrowed member from the `type` field), then pass the resulting variable -- not a fresh literal -- into the function expecting the `Omit<...>` type. Passing a variable of the full union type is structurally assignable there; only a *fresh object literal* triggers excess-property checking against the collapsed common-keys-only type.
+

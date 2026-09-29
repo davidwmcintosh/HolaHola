@@ -848,3 +848,26 @@ reply that actually arrives in the same session — confirmed working Sep 28,
 2026: thread created, nudged, Alden replied on-thread within the same
 exchange.
 
+
+## Newly-live policy fields inherit stale validation gaps
+
+---
+name: Newly-live policy fields inherit stale validation gaps
+description: When a previously-inert, pre-validated field becomes a real execution target for the first time, its existing validator may not cover the new consumer's actual safety requirement.
+---
+
+A shared canonicalizer/validator written before a field had any real consumer encodes only the safety properties someone thought to check at the time — not necessarily the ones a later, different consumer actually needs. Becoming that field's first real consumer (the first code to turn a validated string into an actual `readFileSync`/`execSync` target) makes the stated safety requirement yours to verify directly; "it already passes validation" does not mean it is safe for your specific new use.
+
+**Why:** Coordination V2's policy `paths` field (`coordination-policy-canonicalization.ts`) already rejected `..` traversal, `~` expansion, and null bytes, but not a POSIX-absolute or Windows-drive-letter/UNC path — invisible as a gap while `paths` had zero real consumers, and only became consequential the moment a driver started treating `paths[0]` as a real `readFileSync` target (task #1644, teaching the Gemini coordination adapter to read a session's own approved file/test target instead of one hardcoded fixture).
+
+**How to apply:** before trusting a pre-existing "validated" field for a new, more consequential purpose, re-derive what the validator actually rejects (read the function; don't infer from its name or the field's original purpose) against what your specific new use needs blocked. If the shared validator can't be safely tightened for every other consumer, add the missing check in your own consuming code instead.
+
+
+## Authority-free terminal transition for orphaned resources
+
+Coordination V2's ordinary transition path (`transitionCoordinationSession`) requires proving the caller holds current, unrevoked operator authority over a session for every command, including `terminate`/`expire`. This is correct for operator-driven transitions, but it means a session whose operator grant was revoked *after* the session was abandoned can never be moved to a terminal state through that path -- the authorization check itself permanently blocks the exact command that would clean it up.
+
+**Why:** a second, narrower write path that shares the same terminal-write logic (state machine reduction, event append, cleanup-obligation creation, cleanup-authority-effect application) but skips the authorization step entirely is safe specifically because it can only ever move a session from a non-terminal state to a terminal one (mirroring what an authorized `expire`/`fail` command already does) -- it never authorizes new work, extends a grant, or resumes a session, so it cannot be misused to grant capability the caller doesn't already lack.
+
+**How to apply:** when a resource's normal authority-gated transition path can end up permanently unreachable because the thing that would grant transition authority is exactly what already went missing (revoked grant, expired lease, crashed owner), don't try to route around it inside the authorized path. Give the terminal write its own authority-independent entry point and call it from a separate, narrowly-scoped path (a timeout sweep, a revocation cascade, etc.) whose own preconditions (staleness threshold, terminal-state check, "only non-terminal to terminal") are the real safety boundary instead of caller identity. A periodic sweep alone only catches an abandoned resource on its next poll -- consider also triggering the same terminal path immediately at the moment authority is revoked, so it doesn't sit stuck until the next cycle.
+

@@ -441,6 +441,11 @@ export class SharedSpecCore {
     return this.repository.transaction(tx => this.mustRevision(tx, revisionId));
   }
 
+  /** Reads a single review by id -- e.g. to resolve reviewId -> documentId/revisionId before reading revision content. */
+  async getReview(reviewId: string): Promise<SharedSpecReview> {
+    return this.repository.transaction(tx => this.mustReview(tx, reviewId));
+  }
+
   async listRevisions(documentId: string): Promise<readonly SharedSpecRevision[]> {
     return this.repository.transaction(async tx => {
       await this.mustDocument(tx, documentId);

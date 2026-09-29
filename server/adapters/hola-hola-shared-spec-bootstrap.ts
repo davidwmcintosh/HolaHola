@@ -123,6 +123,35 @@ function notificationSink(): HolaHolaSharedSpecNotificationSink {
   });
 }
 
+let cachedNotificationSink: HolaHolaSharedSpecNotificationSink | undefined;
+/**
+ * Process-wide singleton, shared by the HTTP routes (registered below) and
+ * any other in-process caller that decides a review outside the HTTP layer
+ * -- e.g. alden-shared-spec-review.ts, via shared-spec-review-decision.ts.
+ * The sink itself holds no meaningful per-instance state (each delivery is a
+ * fresh createCoordinationThread call), but one singleton keeps every
+ * decision path demonstrably identical rather than independently wired.
+ */
+export function getHolaHolaSharedSpecNotificationSink(): HolaHolaSharedSpecNotificationSink {
+  if (!cachedNotificationSink) cachedNotificationSink = notificationSink();
+  return cachedNotificationSink;
+}
+
+let cachedLiveSync: GitWorkingTreeLiveSyncProvider | undefined;
+/**
+ * Process-wide singleton -- unlike the notification sink, sharing this one
+ * is not just tidiness: GitWorkingTreeLiveSyncProvider serializes concurrent
+ * syncs to the same gitPath only within a single instance (see its own
+ * concurrency note), so a second instance constructed elsewhere would not be
+ * serialized against this one and could interleave commits to the same file.
+ */
+export function getHolaHolaSharedSpecLiveSync(environment: HostEnvironment = process.env): GitWorkingTreeLiveSyncProvider {
+  if (!cachedLiveSync) cachedLiveSync = new GitWorkingTreeLiveSyncProvider({
+    expectedRepository: environment.SHARED_SPEC_GITHUB_REPOSITORY?.trim() || undefined,
+  });
+  return cachedLiveSync;
+}
+
 /**
  * HolaHola's host composition. The shared-spec core remains portable: this is
  * the only layer that knows the current app database and coordination auth.
@@ -136,13 +165,11 @@ export function registerHolaHolaSharedSpecApi(
     db: getSharedDb(),
     authenticator: new HolaHolaSharedSpecAuthenticator(environment),
     publicationProvider: publicationProvider(environment),
-    notifications: notificationSink(),
+    notifications: getHolaHolaSharedSpecNotificationSink(),
     // Local working-tree commit, not a GitHub API call -- available even when
     // SHARED_SPEC_GITHUB_TOKEN is unset. SHARED_SPEC_GITHUB_REPOSITORY is
     // reused only as an optional defence-in-depth cross-check (see
     // GitWorkingTreeLiveSyncOptions.expectedRepository), not as a gate.
-    liveSync: new GitWorkingTreeLiveSyncProvider({
-      expectedRepository: environment.SHARED_SPEC_GITHUB_REPOSITORY?.trim() || undefined,
-    }),
+    liveSync: getHolaHolaSharedSpecLiveSync(environment),
   });
 }

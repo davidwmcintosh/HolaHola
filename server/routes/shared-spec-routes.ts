@@ -8,6 +8,7 @@ import type { SharedSpecActorAuthenticator } from "../services/shared-spec-auth"
 import type { SharedSpecPublicationService, SpecPublicationActionContext } from "../services/shared-spec-publication";
 import { NoopSharedSpecNotificationSink, type SharedSpecNotification, type SharedSpecNotificationSink } from "../services/shared-spec-notifications";
 import type { LiveInstructionDocumentSyncProvider } from "../services/shared-spec-live-sync";
+import { decideSharedSpecReviewWithEffects } from "../services/shared-spec-review-decision";
 
 export interface SharedSpecRouterDependencies {
   readonly core: SharedSpecCore;
@@ -53,30 +54,6 @@ export function createSharedSpecRouter({ core, authenticator, publications, noti
   const deliver = async (event: SharedSpecNotification) => {
     const delivery = await notifications.deliver(event);
     if (delivery.state === "failed") throw new Error(`Shared-spec transition was stored but notification delivery failed: ${delivery.error}`);
-  };
-  /**
-   * Approving a revision on a liveInstructionDocument writes and commits it
-   * directly (see shared-spec-live-sync.ts) instead of going through
-   * SpecPublicationProvider. The shared-spec approval itself has already
-   * succeeded by the time this runs and is never rolled back by a sync
-   * failure -- this only reports whether the working tree actually caught up.
-   */
-  const syncLiveInstructionDocument = async (documentId: string, revision: { id: string; markdown: string; contentHash: string }) => {
-    const { document } = await core.showDocument(documentId);
-    if (!document.liveInstructionDocument) return undefined;
-    if (!liveSync) {
-      console.error(`shared-spec live-sync: no provider configured for flagged document ${document.id} (${document.gitPath})`);
-      return { state: "stale" as const, reason: "Live-instruction-document sync is not configured on this host" };
-    }
-    const revisions = await core.listRevisions(document.id);
-    const revisionOrdinal = revisions.findIndex(item => item.id === revision.id) + 1 || revisions.length;
-    const result = await liveSync.sync({
-      documentId: document.id, title: document.title, repository: document.repository, gitPath: document.gitPath,
-      markdown: revision.markdown, contentHash: revision.contentHash, revisionOrdinal,
-      knownRevisionContentHashes: revisions.map(item => item.contentHash),
-    });
-    if (result.state === "stale") console.error(`shared-spec live-sync: ${document.gitPath} is stale -- ${result.reason}`);
-    return result;
   };
   router.get("/documents", async (request, response) => {
     try { if (!await actor(request, response, authenticator)) return; response.json(await core.listDocuments()); } catch (error) { sendError(response, error); }
@@ -168,6 +145,9 @@ export function createSharedSpecRouter({ core, authenticator, publications, noti
       response.status(201).json(review);
     } catch (error) { sendError(response, error); }
   });
+  router.get("/reviews/:reviewId", async (request, response) => {
+    try { if (!await actor(request, response, authenticator)) return; response.json(await core.getReview(request.params.reviewId)); } catch (error) { sendError(response, error); }
+  });
   router.post("/reviews/:reviewId/claim", async (request, response) => {
     try {
       const current = await actor(request, response, authenticator); if (!current) return;
@@ -183,19 +163,12 @@ export function createSharedSpecRouter({ core, authenticator, publications, noti
   for (const decision of ["approve", "reject"] as const) router.post(`/reviews/:reviewId/${decision}`, async (request, response) => {
     try {
       const current = await actor(request, response, authenticator); if (!current) return;
-      const input = { reviewId: request.params.reviewId, rationale: request.body?.rationale,
-        evidenceReferences: request.body?.evidenceReferences, idempotencyKey: idempotencyKey(request) ?? "" };
-      const review = await (decision === "approve" ? core.approveReview(current, input) : core.rejectReview(current, input));
-      const revision = await core.readRevision(review.revisionId);
-      await deliver({
-        idempotencyKey: `shared-spec:review_decided:v2:${review.id}:${review.state}:${current.actorId}`, kind: "review_decided",
-        initiatingActorId: current.actorId,
-        documentId: review.documentId, revisionId: review.revisionId, contentHash: revision.contentHash,
-        reviewId: review.id, recipientActorId: review.requestedByActorId,
-        summary: `Shared spec review ${review.state}: ${review.documentId}/${review.revisionId}`,
+      const result = await decideSharedSpecReviewWithEffects({ core, notifications, liveSync }, current, {
+        reviewId: request.params.reviewId, decision,
+        rationale: request.body?.rationale, evidenceReferences: request.body?.evidenceReferences,
+        idempotencyKey: idempotencyKey(request) ?? "",
       });
-      const liveSyncResult = decision === "approve" ? await syncLiveInstructionDocument(review.documentId, revision) : undefined;
-      response.json(liveSyncResult ? { ...review, liveSync: liveSyncResult } : review);
+      response.json(result.liveSync ? { ...result.review, liveSync: result.liveSync } : result.review);
     } catch (error) { sendError(response, error); }
   });
   // Re-applies the current approved revision of a liveInstructionDocument to

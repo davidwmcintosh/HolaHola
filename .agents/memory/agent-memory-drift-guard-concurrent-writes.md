@@ -36,3 +36,6 @@ suppress it. Only treat it as a real hand-edit concern if `regenerate --all`
 produces no diff, or produces a diff that would discard content the DB says
 should be there.
 
+
+**Addendum (Sep 29 2026):** the guard's actual scope check is "does this file differ from git HEAD", not "does it match the database right now" — `findAgentMemoryDriftInWorkingTree` only reports drift for paths `git diff --name-only HEAD` / `git ls-files --others` shows as locally modified or untracked; a file that is clean (matches HEAD) is exempt regardless of how far behind the live database it is. Under real concurrent multi-hat write pressure, `regenerate --all` can already be stale again by the time you re-check (the diff against HEAD kept growing across successive regenerate calls). Do not chase that: you cannot out-race an actively-writing hat, and you do not need to. Run `regenerate --all` once, then `git commit` the result immediately — a committed snapshot is permanently exempt from this guard even if the shared database moves again a second later, because the check only ever compares against your own last commit, never against the database's current state for clean files.
+
