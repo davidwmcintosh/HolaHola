@@ -224,6 +224,24 @@ export interface SourceControlStatus {
    * independently, and a retry aimed at the channel still failing must not
    * re-post to a channel that already succeeded. */
   stalledSyncAlertTeamRoomDeliveredAt?: string;
+  /** Tracks the post-push validation that runs synchronously, still inside
+   * the sync lock, immediately after syncLocked()'s local-ahead branch
+   * fast-forwards a push onto GitHub main. Unlike `validation` above --
+   * which is prepareLocked()'s / the auto-sync receive-branch's "is this
+   * SHA a reviewed, ready-to-promote candidate" signal -- this answers an
+   * orthogonal question: did the commit that is *already* on GitHub main
+   * turn out to pass the same manifest. `state` stays 'synced' regardless
+   * of the outcome (the git push did succeed and heads are equal), so this
+   * field -- and the dedicated one-shot alert fired on failure -- is the
+   * only signal a failure happened. Preserved across incidental writes the
+   * same way candidateSource is, and only ever reset by a fresh push
+   * starting this cycle again (see PushValidationFailedContext). */
+  pushValidationStatus?: 'pending' | 'passed' | 'failed';
+  /** Which pushed SHA the above status refers to, so a stale in-flight
+   * result from a since-superseded push is never mistaken for current. */
+  pushValidationSha?: string;
+  pushValidationError?: string;
+  pushValidationCompletedAt?: string;
 }
 
 /** Thresholds that decide when a run of sync trouble stops being "normal
@@ -313,6 +331,17 @@ export interface CandidateSupersededContext {
   newCandidateSha: string;
   actor: string;
 }
+/** Minimal facts a post-push-validation-failed alert needs: a commit
+ * already reached GitHub main via syncLocked()'s local-ahead fast-forward
+ * push, and the same validation manifest a `prepare` run would have used
+ * then failed against it. The push itself already succeeded and is never
+ * undone -- this only reports that nobody has confirmed the content is
+ * actually good. */
+export interface PushValidationFailedContext {
+  sha: string;
+  error: string;
+  actor: string;
+}
 export interface SourceControlOperation {
   schemaVersion: 1;
   operationId: string;
@@ -400,6 +429,16 @@ export interface SourceControlServiceOptions {
    * bookkeeping. Injectable so tests can assert on firing without
    * touching Team Room or the database. */
   notifyCandidateSuperseded?: (context: CandidateSupersededContext) => Promise<void>;
+  /** Post-push-validation-failed alert dispatch hook. Production posts to
+   * Team Room and the founder's aldenNotifications inbox (see
+   * dispatchPushValidationFailedAlert). Fired once, best-effort, exactly
+   * when syncLocked()'s local-ahead branch pushes to GitHub main and the
+   * synchronous validation of that same commit then fails. Unlike
+   * notifyCandidateSuperseded this is not about candidate bookkeeping --
+   * it means code already on the shared remote turned out to be broken.
+   * Injectable so tests can assert on firing without touching Team Room or
+   * the database. */
+  notifyPushValidationFailed?: (context: PushValidationFailedContext) => Promise<void>;
 }
 
 export interface SourcePromotionRecordInput {
@@ -681,6 +720,8 @@ export class SourceControlService {
 
   private readonly notifyCandidateSuperseded: (context: CandidateSupersededContext) => Promise<void>;
 
+  private readonly notifyPushValidationFailed: (context: PushValidationFailedContext) => Promise<void>;
+
   /** In-process retry/dedup state for checkStalled()'s standalone timer
    * path only. writeStatus() has its own durable dedup via
    * stalledSyncAlertActive/stalledSyncAlertTeamRoomDeliveredAt in the
@@ -752,6 +793,8 @@ export class SourceControlService {
       ?? ((context, alreadyDelivered) => this.dispatchStalledSyncAlert(context, alreadyDelivered));
     this.notifyCandidateSuperseded = options.notifyCandidateSuperseded
       ?? ((context) => this.dispatchCandidateSupersededAlert(context));
+    this.notifyPushValidationFailed = options.notifyPushValidationFailed
+      ?? ((context) => this.dispatchPushValidationFailedAlert(context));
   }
 
   async getStatus(): Promise<SourceControlStatus | null> {
@@ -1159,8 +1202,62 @@ export class SourceControlService {
         await this.writeStatus('failed', error, actor, verified.local, verified.github);
         return { ok: false, state: 'failed', ...verified, error };
       }
-      await this.writeStatus('synced', '', actor, verified.local, verified.github);
-      return { ok: true, state: 'synced', ...verified };
+      // The push above already made this commit visible to every other
+      // hat pulling from GitHub main -- convergence must never wait on the
+      // full validation manifest (that is the entire point of this fast
+      // path over a pre-push gate). Instead, confirm the content here,
+      // still inside the sync lock so nothing else can mutate this
+      // checkout mid-run (the same isolation validateCandidate() already
+      // relies on in the receive branch below), and alert immediately on
+      // failure rather than only discovering it at the next explicit
+      // `prepare`. Recorded as 'pending' first so a status check during
+      // the run sees an honest in-progress signal instead of stale data
+      // left over from the previous cycle.
+      await this.writeStatus('synced', '', actor, verified.local, verified.github, undefined, undefined, {
+        pushValidationStatus: 'pending',
+        pushValidationSha: verified.local,
+        pushValidationError: undefined,
+        pushValidationCompletedAt: undefined,
+      });
+      let pushValidation: Record<string, unknown> | undefined;
+      let pushValidationError: string | undefined;
+      try {
+        pushValidation = await this.validateCandidate(verified.local);
+      } catch (validationError: unknown) {
+        pushValidationError = validationError instanceof Error
+          ? validationError.message
+          : 'Post-push validation could not complete.';
+      }
+      if (pushValidationError) {
+        // `state` stays 'synced' -- the git push did succeed and heads are
+        // still equal -- so this is deliberately surfaced through `error`
+        // plus the dedicated pushValidationStatus field and one-shot alert
+        // below, never by claiming the sync operation itself failed (which
+        // would suggest retrying sync() could fix it; it cannot -- the
+        // fix is to the pushed content, not to this operation).
+        const error = bounded(
+          `POST_PUSH_VALIDATION_FAILED: ${verified.local} reached GitHub main via the fast sync path and then ` +
+          `failed validation: ${pushValidationError}. The push already completed and does not need to be redone ` +
+          `-- investigate and fix forward.`,
+        );
+        void this.notifyPushValidationFailed({ sha: verified.local, error: pushValidationError, actor }).catch((err: any) => {
+          console.warn('[SourceControl] Post-push validation-failed notification failed:', err?.message || err);
+        });
+        await this.writeStatus('synced', error, actor, verified.local, verified.github, undefined, undefined, {
+          pushValidationStatus: 'failed',
+          pushValidationSha: verified.local,
+          pushValidationError,
+          pushValidationCompletedAt: this.now().toISOString(),
+        });
+        return { ok: true, state: 'synced', ...verified, error };
+      }
+      await this.writeStatus('synced', '', actor, verified.local, verified.github, undefined, undefined, {
+        pushValidationStatus: 'passed',
+        pushValidationSha: verified.local,
+        pushValidationError: undefined,
+        pushValidationCompletedAt: this.now().toISOString(),
+      });
+      return { ok: true, state: 'synced', ...verified, validation: pushValidation };
     }
 
     if (await this.isAncestor(heads.local, heads.github)) {
@@ -2108,6 +2205,18 @@ export class SourceControlService {
       // fresh candidate window is never left holding a stale tag from the
       // previous one.
       candidateSource: previous?.candidateSource,
+      // Preserved across incidental writes for the same reason
+      // candidateSource is: only the local-ahead push branch in
+      // syncLocked() ever sets these explicitly via `extra` (moving
+      // through pending -> passed/failed for each new pushed SHA), so
+      // every other writeStatus call site (dirty, diverged, failed,
+      // ready_to_promote, plain synced-with-nothing-to-push, ...) must
+      // leave whatever the last push cycle recorded untouched rather than
+      // clearing it back to undefined.
+      pushValidationStatus: previous?.pushValidationStatus,
+      pushValidationSha: previous?.pushValidationSha,
+      pushValidationError: previous?.pushValidationError,
+      pushValidationCompletedAt: previous?.pushValidationCompletedAt,
       validation: validation ?? previous?.validation,
       validationManifestVersion: typeof validation?.manifestVersion === 'number'
         ? validation.manifestVersion
@@ -2307,6 +2416,59 @@ export class SourceControlService {
       });
     } catch (err: any) {
       console.warn('[SourceControl] Candidate-superseded founder-inbox notification failed:', err?.message || err);
+    }
+  }
+
+  /**
+   * Best-effort dual-channel notice that a commit already pushed to GitHub
+   * main (via syncLocked()'s local-ahead fast path) failed the same
+   * validation manifest a `prepare` run would have used beforehand. Fires
+   * once for a one-shot state transition -- the same contract as
+   * dispatchCandidateSupersededAlert -- each channel is simply tried once
+   * and its own failure logged, independent of the other. This is the
+   * highest-urgency of the three alert templates in this file: unlike a
+   * stalled sync or a superseded candidate, the broken commit is already
+   * live on the shared remote other hats pull from.
+   */
+  private async dispatchPushValidationFailedAlert(context: PushValidationFailedContext): Promise<void> {
+    const content = [
+      '**Source-control push failed post-push validation**',
+      '',
+      `Commit ${context.sha} was already fast-forward pushed to GitHub main, then failed validation:`,
+      '',
+      context.error,
+      '',
+      'The push is not undone and does not need to be redone -- the commit is already on the shared remote and ' +
+        'other hats may already be building on it. Investigate and fix forward, then let sync/prepare confirm a ' +
+        'later commit is clean.',
+      '',
+      `Triggered by: ${context.actor}`,
+    ].join('\n');
+
+    try {
+      const { storage } = await import('../storage');
+      const rooms = await storage.listTeamRooms(1);
+      if (rooms.length) {
+        const message = await storage.createRoomMessage({ roomId: rooms[0].id, speaker: 'Luca', content });
+        const { emitNewMessage } = await import('./team-room-ws-broker');
+        emitNewMessage(rooms[0].id, message);
+      }
+    } catch (err: any) {
+      console.warn('[SourceControl] Push-validation-failed Team Room notification failed:', err?.message || err);
+    }
+
+    try {
+      const { getUserDb } = await import('../db');
+      const { aldenNotifications } = await import('@shared/schema');
+      await getUserDb().insert(aldenNotifications).values({
+        content,
+        triggeredBy: 'source-control',
+        severity: 'alert',
+        read: false,
+        fingerprint: 'source_control_push_validation_failed',
+      });
+    } catch (err: any) {
+      console.warn('[SourceControl] Push-validation-failed founder-inbox notification failed:', err?.message || err);
     }
   }
 }

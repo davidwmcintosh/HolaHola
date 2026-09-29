@@ -21,6 +21,7 @@ import {
   resolveSourceControlStallThresholds,
   validateRenderReleaseEvidence,
   type CandidateSupersededContext,
+  type PushValidationFailedContext,
   type RenderReleaseEvidence,
   type SourceControlStatus,
   type StalledSyncAlertContext,
@@ -113,6 +114,11 @@ interface FixtureRunOptions {
    * to be superseded by this sync's own auto-promotion). */
   seedStatus?: Record<string, unknown>;
   notifyCandidateSuperseded?: (context: CandidateSupersededContext) => Promise<void>;
+  notifyPushValidationFailed?: (context: PushValidationFailedContext) => Promise<void>;
+  /** Overrides the fixture's default always-passing `async (sha) =>
+   * manifest(sha)`, so a test can make the post-push (or receive-branch)
+   * validation fail on demand. */
+  validateCandidate?: (sha: string) => Promise<Record<string, unknown>>;
 }
 
 /** Extracted so a multi-call fixture (see withRepeatableFixture, used by the
@@ -245,8 +251,9 @@ async function withFixture(
         let value = 0;
         return () => `fixture-${++value}`;
       })(),
-      validateCandidate: async (sha) => manifest(sha),
+      validateCandidate: options.validateCandidate ?? (async (sha) => manifest(sha)),
       notifyCandidateSuperseded: options.notifyCandidateSuperseded,
+      notifyPushValidationFailed: options.notifyPushValidationFailed,
       runCommand: buildFixtureRunCommand(scenario, state, calls, options),
     });
     const result = await service.sync('fixture');
@@ -1021,6 +1028,43 @@ async function main(): Promise<void> {
   });
   assert.equal(episodeAppendSafe.result.state, 'synced');
   assert.ok(episodeAppendSafe.calls.some((call) => call.startsWith('git push ')));
+
+  // The post-push validation confirms the very commit that was just
+  // fast-forward pushed. On a passing manifest it must not alert and must
+  // record 'passed' against the exact pushed SHA -- not silently succeed
+  // with no trace it ever ran.
+  const pushValidationPassed = await withFixture('local-ahead');
+  assert.equal(pushValidationPassed.result.state, 'synced');
+  assert.equal(pushValidationPassed.status.pushValidationStatus, 'passed');
+  assert.equal(pushValidationPassed.status.pushValidationSha, LOCAL_NEW);
+  assert.equal(pushValidationPassed.status.pushValidationError, undefined);
+  assert.ok(pushValidationPassed.status.pushValidationCompletedAt);
+
+  // A commit that fast-forward pushes cleanly but then fails the same
+  // manifest a `prepare` run would have used must: (1) still report the
+  // sync itself as ok (the git push genuinely succeeded and retrying
+  // sync() cannot undo or fix that), (2) surface the problem through both
+  // `error` and the dedicated pushValidationStatus field, and (3) alert
+  // exactly once. This is the exact gap Fix A closes: code reaching GitHub
+  // main via the fast path with nobody ever finding out it was broken.
+  const pushValidationAlerts: PushValidationFailedContext[] = [];
+  const pushValidationFailed = await withFixture('local-ahead', {
+    validateCandidate: async () => { throw new Error('npm run test:ci:unit failed validation: fixture failure'); },
+    notifyPushValidationFailed: async (context) => { pushValidationAlerts.push(context); },
+  });
+  assert.equal(pushValidationFailed.result.ok, true, 'the push itself succeeded and must not be reported as a sync failure');
+  assert.equal(pushValidationFailed.result.state, 'synced');
+  assert.match(pushValidationFailed.result.error || '', /POST_PUSH_VALIDATION_FAILED/);
+  assert.match(pushValidationFailed.result.error || '', /fixture failure/);
+  assert.equal(pushValidationFailed.status.state, 'synced');
+  assert.equal(pushValidationFailed.status.pushValidationStatus, 'failed');
+  assert.equal(pushValidationFailed.status.pushValidationSha, LOCAL_NEW);
+  assert.match(pushValidationFailed.status.pushValidationError || '', /fixture failure/);
+  assert.match(pushValidationFailed.status.error || '', /POST_PUSH_VALIDATION_FAILED/);
+  assert.equal(pushValidationAlerts.length, 1, 'a commit that fails validation after already reaching GitHub main must alert exactly once');
+  assert.equal(pushValidationAlerts[0].sha, LOCAL_NEW);
+  assert.equal(pushValidationAlerts[0].actor, 'fixture');
+  assert.match(pushValidationAlerts[0].error, /fixture failure/);
 
   const githubAhead = await withFixture('github-ahead');
   assert.equal(githubAhead.result.state, 'ready_to_promote');
