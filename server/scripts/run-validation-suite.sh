@@ -65,6 +65,7 @@ run_check "Coordinator V2 lifecycle diagnostics cleanup fault fallback and evide
   server/scripts/test-coordination-v2-e2e.test.ts \
   server/scripts/test-coordination-v2-fault-injection.test.ts \
   server/scripts/test-coordination-v2-provider-fallback.test.ts \
+  server/scripts/test-coordination-gemini-provider-driver.test.ts \
   server/scripts/test-coordination-v2-evidence-integrity.test.ts \
   server/scripts/test-coordination-v2-host-completion-boundary.test.ts \
   server/scripts/test-coordination-v2-host-factory-route.test.ts \

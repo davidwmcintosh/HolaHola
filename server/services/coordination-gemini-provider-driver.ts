@@ -96,7 +96,7 @@ import {
 } from './coordination-runtime';
 import type { ProviderFailure } from './coordination-provider-failure';
 
-const MAX_TURN = 4;
+export const MAX_TURN = 4;
 /**
  * intent_ready is included even though it is not one of the four states the
  * task names, so that a crash between recording intent_ready and recording
@@ -123,6 +123,16 @@ let sharedAdapter: CoordinationGeminiAdapter | null = null;
 function geminiAdapter(): CoordinationGeminiAdapter {
   if (!sharedAdapter) sharedAdapter = new CoordinationGeminiAdapter(liveTransport);
   return sharedAdapter;
+}
+
+/**
+ * Test-only seam: injects a scripted adapter (or clears one back to lazy-init
+ * live wiring with `null`) in place of the module-level singleton. Production
+ * code never calls this -- only a test process reaching into this module
+ * directly can.
+ */
+export function setGeminiAdapterForTest(adapter: CoordinationGeminiAdapter | null): void {
+  sharedAdapter = adapter;
 }
 
 function requestKey(attemptId: string, step: string): string {
@@ -161,7 +171,7 @@ function isWorkspaceRelativePath(path: string): boolean {
  * callTurnAndAdvance for why this must be checked before applying any
  * turn() outcome.
  */
-async function attemptMovedOn(attemptId: string, expected: 'provider_active' | 'provider_continuation'): Promise<boolean> {
+export async function attemptMovedOn(attemptId: string, expected: 'provider_active' | 'provider_continuation'): Promise<boolean> {
   const rows = await db.select({ state: coordinationV2Attempts.state })
     .from(coordinationV2Attempts).where(eq(coordinationV2Attempts.id, attemptId));
   const current = rows[0]?.state;
@@ -376,8 +386,29 @@ function buildAttemptPacket(
   return { ...packetWithoutDigest, digest: digestCanonical(packetWithoutDigest) };
 }
 
+/**
+ * completedToolCalls/turnsRemaining are handed to the model explicitly
+ * because it cannot otherwise perceive them: each turn() call is a stateless
+ * request carrying only the static per-attempt instruction plus this one
+ * latest tool result, never a running conversation history, so the model has
+ * no way to "remember" how many tool calls it has already made across
+ * earlier turns. Observed for real (task #1642 live demo, 2026-09-29):
+ * without this, a real run called a tool on every one of the MAX_TURN
+ * allowed turns and hit the turn cap (limit_exhausted) rather than ever
+ * finishing with a plain-text summary, because each turn looked identically
+ * like "your first additional check" to the model.
+ */
+export function buildTurnBudget(completedTurnNumber: number, nextTurnNumber: number) {
+  return {
+    completedToolCalls: completedTurnNumber,
+    maxTurns: MAX_TURN,
+    turnsRemainingIncludingThisOne: MAX_TURN - nextTurnNumber + 1,
+    mustRespondWithPlainTextNoToolCall: nextTurnNumber >= MAX_TURN,
+  };
+}
+
 /** Exhaustive over the 9 non-'consumed' NormalizedOutcome values -- see coordination-runtime.ts. */
-function mapOutcomeToFailure(result: GeminiTurnResult): ProviderFailure {
+export function mapOutcomeToFailure(result: GeminiTurnResult): ProviderFailure {
   const outcome: NormalizedOutcome = result.outcome;
   const details = result.providerDetails as { failure?: string } | undefined;
   switch (outcome) {
@@ -410,7 +441,7 @@ function mapOutcomeToFailure(result: GeminiTurnResult): ProviderFailure {
  * pass without needing a turn() call (host_wait recovery, or a host-result
  * protocol mismatch that already failed the attempt).
  */
-async function resolveTurnInput(
+export async function resolveTurnInput(
   session: CoordinationV2Session,
   attempt: CoordinationV2Attempt,
   actorId: string,
@@ -472,27 +503,9 @@ async function resolveTurnInput(
       return null;
     }
     const turnNumber = pending.turnNumber + 1;
-    // completedToolCalls/turnsRemaining are handed to the model explicitly
-    // because it cannot otherwise perceive them: each turn() call is a
-    // stateless request carrying only the static per-attempt instruction
-    // plus this one latest tool result, never a running conversation
-    // history, so the model has no way to "remember" how many tool calls
-    // it has already made across earlier turns. Observed for real (task
-    // #1642 live demo, 2026-09-29): without this, a real run called a tool
-    // on every one of the 4 allowed turns and hit the turn cap
-    // (limit_exhausted) rather than ever finishing with a plain-text
-    // summary, because each turn looked identically like "your first
-    // additional check" to the model.
     const priorToolResults = [
       { callId: pending.callId, name: pending.name, result: submitted.toolResult },
-      {
-        turnBudget: {
-          completedToolCalls: pending.turnNumber,
-          maxTurns: MAX_TURN,
-          turnsRemainingIncludingThisOne: MAX_TURN - turnNumber + 1,
-          mustRespondWithPlainTextNoToolCall: turnNumber >= MAX_TURN,
-        },
-      },
+      { turnBudget: buildTurnBudget(pending.turnNumber, turnNumber) },
     ];
     await transitionCoordinationAttempt({
       attemptId: attempt.id, actorId, now,
@@ -562,7 +575,7 @@ async function tryAcceptSessionCompletion(
   }
 }
 
-async function callTurnAndAdvance(
+export async function callTurnAndAdvance(
   session: CoordinationV2Session,
   attempt: CoordinationV2Attempt,
   actorId: string,
