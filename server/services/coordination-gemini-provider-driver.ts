@@ -65,6 +65,7 @@ import { db } from '../db';
 import {
   coordinationV2Attempts,
   coordinationV2AttemptEvents,
+  coordinationV2PolicyVersions,
   coordinationV2Sessions,
   coordinationV2TransportWorkResults,
   type CoordinationV2Attempt,
@@ -75,12 +76,18 @@ import type { AttemptCommand } from './coordination-attempt-state';
 import { applyCoordinationProviderFailure } from './coordination-lifecycle-facade-service';
 import { transitionCoordinationSession } from './coordination-session-service';
 import { acceptCoordinationCompletion } from './coordination-cleanup-service';
+import { canonicalizePolicy } from './coordination-policy-canonicalization';
 import {
   CoordinationGeminiAdapter,
+  DEFAULT_READABLE_PATH,
+  DEFAULT_TEST_COMMAND_NAME,
+  DEFAULT_TEST_COMMAND_TEMPLATE,
+  type GeminiSessionToolTargets,
   type GeminiTurnResult,
 } from './coordination-provider-adapters/gemini';
 import {
   digestCanonical,
+  isPlainRecord,
   type Assignment,
   type ExecutionEnvelope,
   type InboxItem,
@@ -120,6 +127,30 @@ function geminiAdapter(): CoordinationGeminiAdapter {
 
 function requestKey(attemptId: string, step: string): string {
   return `gemini-driver:${attemptId}:${step}`;
+}
+
+/**
+ * coordination-policy-canonicalization.ts's paths() already rejects `..`
+ * traversal segments, `~` home-dir expansion, and null bytes for every
+ * policy that declares `paths` -- but it stops short of rejecting an
+ * absolute path (POSIX `/foo`, a Windows drive letter `C:\foo`, or a UNC
+ * share `\\host\share`), because that canonicalizer is shared by every
+ * policy consumer, present and future, not just this one. Before task #1644
+ * this was moot: nothing ever turned a policy's `paths` entry into a real
+ * readFileSync target, so an absolute-path entry was inert data. This
+ * function is that first real consumer, so it is the one place responsible
+ * for enforcing the task's own stated safety boundary -- "a workspace-
+ * relative path boundary, not full arbitrary [...] file access" -- for
+ * this specific use. A path that fails this check is treated exactly like
+ * an absent one (see loadSessionToolTargets): fall back to the fixed,
+ * known-safe DEFAULT_READABLE_PATH rather than reject the whole session.
+ */
+function isWorkspaceRelativePath(path: string): boolean {
+  const normalized = path.replaceAll('\\', '/');
+  if (normalized.startsWith('/')) return false; // POSIX absolute
+  if (/^[A-Za-z]:/.test(normalized)) return false; // Windows drive letter, e.g. C:/foo
+  if (normalized.startsWith('//')) return false; // UNC share, e.g. //host/share
+  return true;
 }
 
 /**
@@ -214,13 +245,65 @@ async function latestSubstantiveEvent(attemptId: string) {
 }
 
 /**
+ * Derives this session's own real read_file target and run_test command from
+ * its approved policy (coordinationV2PolicyVersions.canonicalPolicy's `paths`
+ * and `commands` fields -- the pre-existing, safety-validated "approved
+ * repositories, paths, and commands" fields the policy schema already
+ * supports but which nothing populated before this) instead of the fixed
+ * fallback in coordination-provider-adapters/gemini.ts. Re-canonicalizes the
+ * raw DB row at read time rather than trusting the stored jsonb blob's shape
+ * directly -- the same defense-in-depth pattern coordination-windows-
+ * generation.ts uses for the same table.
+ *
+ * Returns undefined -- meaning "use the fixed default" -- whenever the
+ * policy does not declare both a real path and a `commands` entry named
+ * 'test' with a template. That is a deliberate, safe fallback: a session
+ * that never opted into a custom target keeps exactly the fixed-fixture
+ * behavior the system always had, rather than failing the attempt outright.
+ */
+async function loadSessionToolTargets(session: CoordinationV2Session): Promise<GeminiSessionToolTargets | undefined> {
+  const versionRows = await db.select({ canonicalPolicy: coordinationV2PolicyVersions.canonicalPolicy })
+    .from(coordinationV2PolicyVersions).where(eq(coordinationV2PolicyVersions.id, session.policyVersionId));
+  const rawPolicy = versionRows[0]?.canonicalPolicy;
+  if (!rawPolicy) return undefined;
+  let policy: Record<string, unknown>;
+  try {
+    policy = canonicalizePolicy(rawPolicy) as Record<string, unknown>;
+  } catch (error) {
+    console.warn(
+      `[CoordinationGeminiDriver] session ${session.id}'s stored policy (version ${session.policyVersionId}) ` +
+      'failed re-canonicalization -- falling back to the fixed default read_file/run_test target: ' +
+      `${error instanceof Error ? error.message : String(error)}`,
+    );
+    return undefined;
+  }
+  const paths = Array.isArray(policy.paths)
+    ? policy.paths.filter((entry): entry is string => typeof entry === 'string' && isWorkspaceRelativePath(entry))
+    : [];
+  const commands = Array.isArray(policy.commands) ? policy.commands : [];
+  const testCommand = commands.find((entry): entry is { name: string; template: string } =>
+    isPlainRecord(entry) && entry.name === 'test' && typeof entry.template === 'string');
+  if (!paths.length || !testCommand) return undefined;
+  return { readablePath: paths[0], testCommandName: testCommand.name, testCommandTemplate: testCommand.template };
+}
+
+/**
  * Builds the packet for an attempt. Deterministic over (attempt.id, session
  * fields) -- every field is derived from immutable session/attempt data, no
  * randomUUID()/Date.now() -- so the exact same packet bytes are reused on
  * every turn() call for the life of the attempt, whether this is the first
- * call or a crash-recovery retry.
+ * call or a crash-recovery retry. toolTargets is likewise immutable for the
+ * life of the attempt: it is derived from the session's policyVersionId, and
+ * policy version rows are never mutated in place (a new policy gets a new
+ * version row and a new id).
  */
-function buildAttemptPacket(session: CoordinationV2Session, attempt: CoordinationV2Attempt): InheritancePacket {
+function buildAttemptPacket(
+  session: CoordinationV2Session,
+  attempt: CoordinationV2Attempt,
+  toolTargets: GeminiSessionToolTargets | undefined,
+): InheritancePacket {
+  const readablePath = toolTargets?.readablePath ?? DEFAULT_READABLE_PATH;
+  const testCommandTemplate = toolTargets?.testCommandTemplate ?? DEFAULT_TEST_COMMAND_TEMPLATE;
   const threadId = `gemini-driver-thread:${attempt.id}`;
   const inboxItem: InboxItem = {
     id: `gemini-driver-inbox:${attempt.id}`,
@@ -235,10 +318,11 @@ function buildAttemptPacket(session: CoordinationV2Session, attempt: Coordinatio
           `You are the coordination host execution agent for coordination session ${session.id} ` +
           `(task ${session.taskRef}, repository ${session.repositoryIdentity}, starting commit ` +
           `${session.startingCommit}). Make bounded, verifiable, read-only progress on this task using ` +
-          'the available function tools. Every tool in this fixed set takes no arguments at all -- call ' +
-          'each with an empty object: git_status, git_diff, run_test (runs this session\'s one ' +
-          "predetermined check), and read_file (reads this session's one predetermined file; it does " +
-          'not accept a path argument, so do not try to choose which file to read). If no [TOOL_RESULTS] ' +
+          'the available function tools. git_status and git_diff take no arguments -- call each with an ' +
+          `empty object. run_test also takes no arguments; it runs this session's own approved check, ` +
+          `\`${testCommandTemplate}\`. read_file reads this session's own approved target, ` +
+          `${readablePath} -- call it with {"path": "${readablePath}"} (an empty object also reads the ` +
+          'same file, but naming it explicitly is preferred). If no [TOOL_RESULTS] ' +
           'block is present yet in this conversation, this is your first turn: you must call exactly one ' +
           'of those function tools now (git_status if you are uncertain which); do not respond with text ' +
           'only. Each [TOOL_RESULTS] block also carries a turnBudget object (completedToolCalls, ' +
@@ -504,10 +588,11 @@ async function callTurnAndAdvance(
     return;
   }
 
-  const packet = buildAttemptPacket(session, attempt);
+  const toolTargets = await loadSessionToolTargets(session);
+  const packet = buildAttemptPacket(session, attempt, toolTargets);
   let results: GeminiTurnResult[];
   try {
-    results = await geminiAdapter().turn(packet, turnNumber, priorToolResults);
+    results = await geminiAdapter().turn(packet, turnNumber, priorToolResults, toolTargets);
   } catch (error) {
     if (await attemptMovedOn(attempt.id, fromState)) return;
     const message = error instanceof Error ? error.message : String(error);

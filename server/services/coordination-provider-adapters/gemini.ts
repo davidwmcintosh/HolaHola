@@ -48,6 +48,30 @@ export type GeminiTurnResult = {
 
 const retryable = new Set([408, 409, 425, 429, 500, 502, 503, 504]);
 const knownTools = new Set(['git_status', 'git_diff', 'run_test', 'read_file', 'replace_once']);
+
+/**
+ * Per-attempt override for the two tools whose real meaning cannot be
+ * expressed by an empty-object schema alone: which file read_file may open,
+ * and which command run_test actually runs. A caller with no session context
+ * (the task-1448 compatibility surface in coordination-gemini-adapter.ts,
+ * and this module's own unit tests) passes no GeminiSessionToolTargets at
+ * all and gets the fixed fallback below -- unchanged shape, unchanged
+ * behavior. A real Coordinator V2 attempt derives one of these from its own
+ * session's approved policy (`paths`/`commands` fields) instead of a global
+ * constant; see coordination-gemini-provider-driver.ts's
+ * loadSessionToolTargets.
+ */
+export type GeminiSessionToolTargets = Readonly<{
+  readablePath: string;
+  testCommandName: string;
+  testCommandTemplate: string;
+}>;
+
+/** Fixed target used only when a turn() caller supplies no GeminiSessionToolTargets (see the type doc above). */
+export const DEFAULT_READABLE_PATH = 'server/scripts/test-coordination-runtime.test.ts';
+export const DEFAULT_TEST_COMMAND_NAME = 'typecheck';
+export const DEFAULT_TEST_COMMAND_TEMPLATE = 'npx tsc --noEmit -p .';
+
 const MAX_REQUEST_BYTES = 48_000;
 const MAX_RESPONSE_BYTES = 64_000;
 const MAX_ARGUMENT_BYTES = 40_960;
@@ -89,14 +113,15 @@ function operationFor(name: string): string {
       name === 'replace_once' ? 'fixed-target-replace-once' : name;
 }
 
-function executionEligible(name: string, args: unknown): boolean {
+function executionEligible(name: string, args: unknown, toolTargets?: GeminiSessionToolTargets): boolean {
   if (!isPlainRecord(args)) return false;
   const keys = Object.keys(args).sort();
   if ((name === 'git_status' || name === 'git_diff' || name === 'run_test') && keys.length === 0) return true;
   if (name === 'read_file') {
+    const readablePath = toolTargets?.readablePath ?? DEFAULT_READABLE_PATH;
     return keys.length === 0 || (
       keys.length === 1 && keys[0] === 'path' &&
-      args.path === 'server/scripts/test-coordination-runtime.test.ts'
+      args.path === readablePath
     );
   }
   return name === 'replace_once' && keys.join(',') === 'newText,oldText' &&
@@ -154,7 +179,7 @@ export function buildPacketBoundGeminiRequest(packet: InheritancePacket, priorTo
   return { bytes, digest: sha(bytes) };
 }
 
-function normalized(value: unknown, callSeed = ''): {
+function normalized(value: unknown, callSeed = '', toolTargets?: GeminiSessionToolTargets): {
   outcome: NormalizedOutcome;
   intents: NormalizedToolIntent[];
   textParts: string[];
@@ -192,7 +217,7 @@ function normalized(value: unknown, callSeed = ''): {
       }
       const captured = rawArgumentEvidence(call.args);
       const callId = call.id ?? sha(`${callSeed}:${partIndex}:${call.name}:${captured.evidence.fullDigest ?? captured.evidence.sha256}`);
-      const eligible = !captured.evidence.truncated && executionEligible(call.name, call.args);
+      const eligible = !captured.evidence.truncated && executionEligible(call.name, call.args, toolTargets);
       const intent: NormalizedToolIntent = {
         name: call.name, operation: operationFor(call.name),
         arguments: captured.persistedValue, rawArguments: captured.evidence,
@@ -266,7 +291,13 @@ export class CoordinationGeminiAdapter {
     return { endpointUrl: `${baseUrl.replace(/\/+$/, '')}/models/${COORDINATION_GEMINI_MODEL}:generateContent` };
   }
 
-  async turn(packet: InheritancePacket, turn: number, priorToolResults: unknown[] = [], signal?: AbortSignal): Promise<GeminiTurnResult[]> {
+  async turn(
+    packet: InheritancePacket,
+    turn: number,
+    priorToolResults: unknown[] = [],
+    toolTargets?: GeminiSessionToolTargets,
+    signal?: AbortSignal,
+  ): Promise<GeminiTurnResult[]> {
     if (this.configurationError || !this.apiKey || !this.endpointUrl) {
       throw new Error(this.configurationError ?? 'Gemini adapter is not configured');
     }
@@ -320,7 +351,7 @@ export class CoordinationGeminiAdapter {
           results.push({ outcome: 'unsupported_provider_outcome', requestBytes, requestDigest, normalizedResponseBytes, responseDigest: sha(normalizedResponseBytes), intents: [], textParts: [], additionalCandidateHashes: [], providerDetails: { status } });
           break;
         }
-        const result = normalized(parsed, `${requestDigest}:1:0`);
+        const result = normalized(parsed, `${requestDigest}:1:0`, toolTargets);
         if (result.intents.length > MAX_INTENTS) {
           const normalizedResponseBytes = boundedJson({ outcome: 'terminal_provider_error', failure: 'limit_exhausted', intentCount: result.intents.length, retainedIntents: MAX_INTENTS }, MAX_RESPONSE_BYTES);
           results.push({ outcome: 'terminal_provider_error', requestBytes, requestDigest, normalizedResponseBytes, responseDigest: sha(normalizedResponseBytes), intents: result.intents.slice(0, MAX_INTENTS), textParts: result.textParts, additionalCandidateHashes: result.additionalCandidateHashes, providerDetails: { ...result.providerDetails, failure: 'limit_exhausted', intentCount: result.intents.length } });

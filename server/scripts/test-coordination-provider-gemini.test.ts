@@ -67,6 +67,38 @@ test('Gemini retains exact raw arguments and fixed-target eligibility', async ()
   assert.equal(serverDerived.intents[0]?.executionEligible, true);
 });
 
+test('Gemini consults session-specific toolTargets for read_file eligibility, replacing the fixed default', async () => {
+  const toolTargets = {
+    readablePath: 'server/services/coordination-provider-adapters/gemini.ts',
+    testCommandName: 'test',
+    testCommandTemplate: 'npx tsx --test server/scripts/test-coordination-provider-gemini.test.ts',
+  };
+  const sessionPath = (await adapter({
+    candidates: [{ content: { parts: [{
+      functionCall: { name: 'read_file', id: 'session-path', args: { path: toolTargets.readablePath } },
+    }] } }],
+  }).turn(packet, 1, [], toolTargets))[0];
+  assert.equal(sessionPath.outcome, 'consumed');
+  assert.equal(sessionPath.intents[0]?.executionEligible, true);
+
+  // The old global default is no longer eligible once a session override is supplied --
+  // proves executionEligible actually consults toolTargets instead of only adding to the default.
+  const oldDefaultNowRejected = (await adapter({
+    candidates: [{ content: { parts: [{
+      functionCall: { name: 'read_file', id: 'old-default', args: { path: 'server/scripts/test-coordination-runtime.test.ts' } },
+    }] } }],
+  }).turn(packet, 1, [], toolTargets))[0];
+  assert.equal(oldDefaultNowRejected.outcome, 'malformed_function_call');
+  assert.equal(oldDefaultNowRejected.intents[0]?.executionEligible, false);
+
+  // Empty args stays eligible -- the host may still silently derive the session's one target.
+  const empty = (await adapter({
+    candidates: [{ content: { parts: [{ functionCall: { name: 'read_file', id: 'empty', args: {} } }] } }],
+  }).turn(packet, 1, [], toolTargets))[0];
+  assert.equal(empty.outcome, 'consumed');
+  assert.equal(empty.intents[0]?.executionEligible, true);
+});
+
 test('Gemini retains malformed arguments but marks them ineligible', async () => {
   const result = (await adapter({
     candidates: [{ content: { parts: [{ functionCall: { name: 'read_file', id: 'bad', args: [] } }] } }],

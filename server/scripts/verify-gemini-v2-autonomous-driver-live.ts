@@ -27,15 +27,24 @@
  * Scope note (identical to verify-gemini-v2-adapter-live.ts's, and for the same
  * reason): the "host" side of this run is SIMULATED. There is no real remote
  * Windows machine involved -- this script performs the enrolled host's job
- * locally (running `git status` / `git diff` / the project's real typecheck /
- * reading one fixed real file in this workspace, per realToolExecution below)
- * and submits its own output through the same transport calls a real host
- * would use. What this
+ * locally (running `git status` / `git diff` / this session's own real check /
+ * reading this session's own real file in this workspace, per
+ * realToolExecution below) and submits its own output through the same
+ * transport calls a real host would use. What this
  * genuinely proves live is that the autonomous driver + worker, unattended,
  * carry a real attempt through real Gemini API calls and the full
  * session/attempt/lease/cleanup database lifecycle to a successful finish. It
  * does not prove a real physical host end-to-end -- that is LITTLENEMO's
  * separate Windows-enrollment concern.
+ *
+ * Task #1644 note: the read_file/run_test target below (SESSION_READABLE_PATH
+ * / SESSION_TEST_COMMAND_TEMPLATE) is this run's own policy-declared `paths`/
+ * `commands`, not the old global hardcoded fixture -- see loadSessionToolTargets
+ * in coordination-gemini-provider-driver.ts, which the autonomous driver
+ * actually consults. This script picks a file/test genuinely relevant to task
+ * #1644 itself (the Gemini adapter and its own test suite) to demonstrate
+ * that a coordination attempt can check real, task-relevant material instead
+ * of being stuck on one fixed fixture.
  *
  * Safety: same fixture-host backdating and SIGINT/SIGTERM revocation mitigations
  * as verify-gemini-v2-adapter-live.ts, so this throwaway fixture can never
@@ -58,6 +67,23 @@ function banner(title: string) {
   console.log(`\n=== ${title} ===`);
 }
 
+/**
+ * This run's own session-specific tool targets (task #1644): proof that a
+ * coordination task can declare, via its policy's `paths`/`commands` fields,
+ * which real file and real test are relevant to ITS OWN task, instead of
+ * every session being stuck on the same hardcoded fixture. Both the policy
+ * object built in main() below (which a real host would only ever learn
+ * about indirectly, by independently deriving the same values from the same
+ * approved policy row -- see coordination-gemini-provider-driver.ts's
+ * loadSessionToolTargets) and this script's own realToolExecution (playing
+ * that host role) are built from these three constants, so the two stay in
+ * lockstep by construction. The target is genuinely relevant to task #1644
+ * itself: the Gemini adapter this task modifies, and its own test suite.
+ */
+const SESSION_READABLE_PATH = 'server/services/coordination-provider-adapters/gemini.ts';
+const SESSION_TEST_COMMAND_NAME = 'test';
+const SESSION_TEST_COMMAND_TEMPLATE = 'npx tsx --test server/scripts/test-coordination-provider-gemini.test.ts';
+
 function sleep(ms: number): Promise<void> {
   return new Promise((resolve) => setTimeout(resolve, ms));
 }
@@ -72,16 +98,17 @@ function sleep(ms: number): Promise<void> {
 //
 // git_status/git_diff/run_test/read_file are all "fixed" operations (see
 // coordination-provider-adapters/gemini.ts's executionEligible -- each takes
-// either no arguments or exactly one hardcoded argument shape), so there is
-// exactly one real, principled thing each can mean here:
-//   - run_test: the session's own policy declares
-//     requiredValidationCommands: ['typecheck'] below -- that IS this
-//     session's fixed definition of "the test", so run the project's real
-//     typecheck command, not an arbitrary guess.
-//   - read_file: executionEligible only allows the single hardcoded path
-//     'server/scripts/test-coordination-runtime.test.ts' -- read that real
-//     file from disk, nothing else.
-// A failing typecheck is a legitimate real result, not a script error: it is
+// either no arguments or exactly one argument shape), so there is exactly
+// one real, principled thing each can mean here:
+//   - run_test: this session's own policy (built in main() below) declares a
+//     `commands` entry named 'test' whose template is SESSION_TEST_COMMAND_
+//     TEMPLATE -- that IS this session's real definition of "the test" (its
+//     own adapter test suite), so run that real command, not an arbitrary
+//     guess and not the old global typecheck fixture.
+//   - read_file: this session's own policy declares `paths: [SESSION_
+//     READABLE_PATH]` -- the real adapter file this task modifies. Read that
+//     real file from disk, nothing else.
+// A failing test run is a legitimate real result, not a script error: it is
 // reported back to Gemini like any other tool output rather than aborting.
 function realToolExecution(name: string): { output: string; outputDigest: string } {
   let output: string;
@@ -91,15 +118,15 @@ function realToolExecution(name: string): { output: string; outputDigest: string
     output = execSync('git diff', { encoding: 'utf8', maxBuffer: 20 * 1024 * 1024 });
   } else if (name === 'run_test') {
     try {
-      output = execSync('npx tsc --noEmit -p .', { encoding: 'utf8', maxBuffer: 20 * 1024 * 1024 });
-      if (!output.trim()) output = 'typecheck passed with no errors (npx tsc --noEmit -p .)';
+      output = execSync(SESSION_TEST_COMMAND_TEMPLATE, { encoding: 'utf8', maxBuffer: 20 * 1024 * 1024 });
+      if (!output.trim()) output = `test passed with no errors (${SESSION_TEST_COMMAND_TEMPLATE})`;
     } catch (error) {
       const execError = error as { stdout?: string; stderr?: string; message: string };
-      output = `typecheck failed (npx tsc --noEmit -p .):\n${execError.stdout ?? ''}${execError.stderr ?? ''}`.trim()
-        || `typecheck failed (npx tsc --noEmit -p .): ${execError.message}`;
+      output = `test failed (${SESSION_TEST_COMMAND_TEMPLATE}):\n${execError.stdout ?? ''}${execError.stderr ?? ''}`.trim()
+        || `test failed (${SESSION_TEST_COMMAND_TEMPLATE}): ${execError.message}`;
     }
   } else if (name === 'read_file') {
-    output = readFileSync('server/scripts/test-coordination-runtime.test.ts', 'utf8');
+    output = readFileSync(SESSION_READABLE_PATH, 'utf8');
   } else {
     throw new Error(
       `Gemini requested tool '${name}', which this demonstration script does not implement real ` +
@@ -162,6 +189,13 @@ async function main() {
     // and verified independently of how generous this number is.
     totalAttemptBudget: 10,
     perProviderAttemptBudgets: { gemini: 10 },
+    // Task #1644: this session's own real read_file target and run_test
+    // command (coordination-gemini-provider-driver.ts's
+    // loadSessionToolTargets derives these from this exact policy row via
+    // policyVersionId) -- not the old global hardcoded fixture. See the
+    // SESSION_READABLE_PATH/SESSION_TEST_COMMAND_TEMPLATE doc comment above.
+    paths: [SESSION_READABLE_PATH],
+    commands: [{ name: SESSION_TEST_COMMAND_NAME, template: SESSION_TEST_COMMAND_TEMPLATE }],
     requiredValidationCommands: ['typecheck'],
     // The one evidence shape coordination-gemini-provider-driver.ts's
     // tryAcceptSessionCompletion knows how to produce -- see its
