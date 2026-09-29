@@ -46,3 +46,49 @@ review -> approve -> re-publish) or, if the change is just a note that a doc
 is stale/superseded, say so directly to the user in chat instead of trying
 to bolt it onto the immutable record.
 
+
+## Appending a revision orphans any pending review on the old one (observed Sep 29 2026)
+
+`appendRevision` unconditionally sets the document's state to `draft` and
+moves `currentRevisionId` forward, with no check for an existing pending
+review on the revision being superseded, and there is no `cancelReview`
+code path (the `"cancelled"` review state is declared in the type/enum but
+nothing ever sets it). A pending review on the old revision is left in the
+table permanently `state: 'pending'`, `claimedReviewerActorId` still empty
+-- the reviewer *can* still `claim` it (that check never looks at the
+document), but `approve`/`reject` will then fail with `CONFLICT` because
+the document has moved past that revision.
+
+**Why:** revisions are immutable by design, so "add content to a document
+that already has a pending review" has no in-place path -- it always means
+append-then-re-request, never editing the reviewed revision. This is
+correct system behavior, not a bug, but the stale row it leaves behind
+looks like an error if you don't expect it.
+
+**How to apply:** before appending a revision to a document that already
+has a pending review, expect that review to become permanently
+unresolvable once you do. Re-run `ready` naming the same reviewer on the
+new revision right after appending, and tell the reviewer directly which
+review id is now live so they don't act on the stale one.
+
+
+## deliver() never throws -- a 201 on ready doesn't prove the reviewer was notified
+
+The route's automatic `review_requested`/`note_shared` notification
+(`shared-spec-notifications.ts`) catches every internal failure and returns
+`{state:'failed', ...}` instead of throwing, so the `ready`/`revisions`
+HTTP call still returns 201 whether or not the underlying delivery actually
+reached the recipient's inbox. The response body never surfaces the
+delivery outcome either.
+
+**Why:** this is the same "claimed action must leave verifiable evidence"
+gap the Shared Agent Instructions doc itself warns about -- an HTTP success
+on the mutation is evidence the *document state* changed, not evidence a
+person was told.
+
+**How to apply:** when it matters that the named reviewer actually sees a
+new request promptly, don't rely on the mutation's success response alone
+-- also post directly to a channel with its own verifiable delivery receipt
+(e.g. `POST /api/agent/team-room/message`, which returns a real
+`messageId`) and reference the exact review/revision id in it.
+
