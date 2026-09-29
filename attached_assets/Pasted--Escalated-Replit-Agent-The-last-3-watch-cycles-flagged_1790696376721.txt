@@ -1,0 +1,142 @@
+[Escalated → Replit Agent] The last 3 watch cycles flagged the same issue. Auto-repair could not fix it. The Replit Agent has been notified via .local/alden-escalations.md and will address it at next session.
+
+Summary: ROOT CAUSE DIAGNOSIS FOR AGENT:
+
+The platform experienced database connectivity failures 6-8 days ago that degraded the tutor's neural retrieval systems, coinciding with a drop from normal usage (2,796 historical sessions) to near-zero activity. While the database has since recovered to "green" status, user engagement has not returned, suggesting users encountered broken experiences and abandoned the platform. This requires human intervention because re-engagement involves communication with the 38 registered users to notify them the system is fixed—something outside the scope of automated repair. Recommended action: Verify all database connections to critical brain tables (tutor_procedures, teaching_principles, linguistic_bridges, brain_events, learner_error_patterns) are stable, then flag for human review to coordinate user re-onboarding.
+
+A
+Only 2 voice sessions in the last 14 days in production. With 38 registered users and 2,796 total sessions historically, this is clearly a very low-activity period — but the pattern over the last two weeks shows this is the current normal, not a sudden drop.
+
+The system is healthy. The platform is just quiet right now. This appears to be either:
+- A pre-launch or limited-pilot phase
+- Post-pilot downtime between cohorts
+- Early-stage with sporadic testing
+
+No technical issues. No anomalies flagged. No errors. This isn't something broken — it's the current state of usage.
+
+NOTHING
+
+A
+AI spend in the last 24h has reached $3.0336, crossing the $3 early-warning threshold. No action required yet.
+
+A
+The monitoring data shows all zeros across 48+ snapshots — no user activity, no voice sessions for at least the past day. This is a sustained pattern, not a brief lull.
+
+But with only 3 cycles in the baseline and "insufficient data for trend analysis" warnings on user/voice metrics, the system is still learning what normal looks like. The zero engagement could be:
+1. Expected for a dev/staging environment
+2. A brand-new deployment with no real users yet
+3. An onboarding or access issue preventing real usage
+
+Given that there are 38 registered users and 2796 historical voice sessions, this suggests the platform has been used before — but now shows zero activity for 7+ days.
+
+That's worth flagging.
+
+INFO:zero_engagement_week:I'm seeing 0/38 users active and zero voice sessions for at least the past week, despite 2,796 historical sessions in the database. The system is healthy but completely idle — worth checking if this is expected or if there's an onboarding/access issue.
+
+A
+Server has restarted 4 times in the last 2 hours. This may indicate a crash loop or healthcheck death spiral. Check production logs immediately.
+
+A
+[PRIORITY TASK]
+
+ping - just checking service init status before sending the real design review, please reply with OK
+
+A
+OK
+
+A
+[PRIORITY TASK]
+
+Pre-build architectural review: fixing the recurring git-divergence problem David flagged (main diverges every time Alden/Claude Code/Replit land work independently, requiring manual reconciliation). David has already approved the general direction (auto-refresh before landing + a duplicate-work check); this is a review of the concrete design before I write code.
+
+WHAT I'M BUILDING
+Two changes addressing the two mechanisms behind the divergence David hit (task 1625 implemented independently from a stale base in two checkouts, landed via different paths, diverged):
+(A) scripts/cross-tool-promote.ts: before dispatching cross-tool-promote.yml, auto-fetch origin/main and run a local "git merge --no-edit" of it into the candidate branch, then push the result back to the same branch ref (normal fast-forward push, no force needed). A real content conflict aborts the merge and fails loudly with manual-resolution instructions -- never auto-resolved.
+(B) docs/shared-agent-instructions.md (shared-spec revision): document (A)'s new behavior, and add a rule that before implementing a fix for a reviewed/flagged issue, a hat should check the coordination ledger for an existing thread on that issue and open one if none exists, so two hats don't independently build the same fix. This is a documented convention, not a new technical gate.
+
+WHAT IT TOUCHES
+scripts/cross-tool-promote.ts (the external-tool landing CLI every non-Replit hat runs locally before dispatching the Actions workflow); docs/shared-agent-instructions.md.
+
+WHAT I'M ASSUMING
+Every non-Replit hat already has ordinary git push access to its own feature branch (the script's own header already states pushing a non-main branch needs no special credential). "git merge --no-edit" fails loudly (non-zero exit, conflict markers) on any real conflict and never silently picks a side.
+
+WHAT COULD BREAK
+A caller whose checkout can't reach origin now fails at the new freshen step instead of at dispatch -- acceptable, since dispatch already needs working git access for the initial branch push. I chose merge over rebase specifically so the candidate branch's existing commit SHAs are never rewritten (coordination-evidence/provenance records may reference them).
+
+WHAT I WON'T TOUCH
+cross-tool-promote.yml's own "Refuse if main is not an ancestor" check stays exactly as-is -- it remains the real enforcement/safety net; the CLI change is a convenience pre-check layered in front of it, not a replacement. server/services/source-control-service.ts (Replit's own separate landing path) is untouched -- I found a larger, related idea there (auto-run the existing reconcile preflight/candidate/sync pipeline when divergence is detected, but only auto-land when it proves zero real conflicts) which I'm flagging as a follow-up recommendation, not building now, since it touches the auto-push-to-main path and goes beyond what David explicitly signed off on this session.
+
+QUESTION
+Does this design hold up? Specifically: (1) is merge-over-rebase the right call here, (2) is leaving cross-tool-promote.yml itself untouched correct given it's meant to be defense-in-depth, and (3) is the coordination-ledger-check rule in (B) well-scoped as a documented convention, or does it need a stronger technical gate to actually prevent recurrence given the incident was two DIFFERENT task-tracking systems (Replit's own project-tasks feature vs. the cross-hat coordination ledger) that aren't unified? Keep the response focused -- this is a design sanity check, not a request to write or edit anything yourself.
+
+A
+Design holds up. I'll flag one real issue and two minor notes, then answer your three direct questions.
+
+The real issue:
+
+Your coordination-ledger-check convention in (B) won't prevent the actual incident pattern from recurring. The September 24 divergence happened because:
+- Task #1625 was in Replit's project-tasks system (visible only to Replit Agent)
+- Alden worked the same problem independently from a David conversation
+- Neither actor saw the other's work-in-progress because they were looking at different tracking systems
+
+A "check the coordination ledger before implementing" rule helps only if both actors use that ledger as their task source. Replit Agent pulls from project-tasks, not coordination threads. The convention is useful for preventing Alden/Claude Code/Antigravity duplication, but it doesn't close the gap that caused this specific incident.
+
+Possible tightening: Require that any fix targeting a founder-flagged issue (like the stalled-sync alert David explicitly requested) opens a coordination thread to David when work begins, making the in-progress state visible across both systems. That's a behavior change for Replit Agent, though — worth proposing separately rather than bundling into this fix.
+
+Your three questions:
+
+(1) Merge over rebase — correct.
+
+Your reasoning is sound: existing commit SHAs may be referenced in coordination evidence, and rebase would rewrite them. Merge preserves provenance. The trade-off is a noisier history, but that's acceptable given the coordination system's SHA-binding design.
+
+(2) Leaving cross-tool-promote.yml's ancestor check untouched — correct.
+
+The CLI freshen is a convenience pre-check. The workflow's own gate remains the real enforcement. Defense-in-depth is the right model here. If the merge step fails locally, the workflow never runs. If something bypasses the CLI entirely, the workflow still catches it.
+
+(3) Coordination-ledger-check as documented convention — insufficient for the actual incident, but reasonable as scope.
+
+As written, it's well-scoped for what you explicitly got approval for. It will help in the Alden/Claude Code/Antigravity space. It won't prevent a repeat of the September 24 pattern (Replit Agent + Alden collision) without a follow-up that bridges the project-tasks ↔ coordination-ledger gap.
+
+I'd document the limitation explicitly in your commit message or the shared-agent-instructions change itself: "This convention reduces duplicate work among coordination-ledger actors. It does not yet bridge project-tasks, so Replit Agent may still implement solutions independently. Unifying task visibility is recommended as follow-up work."
+
+Your larger Replit reconcile idea (auto-run reconciliation on divergence detection):
+
+Flag it as a follow-up proposal, don't build it now. You're right that it touches the auto-push-to-main path and exceeds the approved scope. Worth writing up separately after this lands.
+
+Bottom line: Ship (A) as-is. Amend (B) to acknowledge the limitation, or open a follow-up thread proposing the cross-system task-visibility bridge. The design is sound for what it does; just don't overstate what it prevents.
+
+A
+This design addresses the identified divergence problem with a measured approach.
+
+1. Merge over rebase: Yes, git merge --no-edit is the correct choice here. Preserving the commit SHAs on the candidate branch is crucial for maintaining the integrity of coordination evidence and provenance records. Rewriting history with a rebase would introduce ambiguity and potentially invalidate existing references. The --no-edit flag is also important to prevent unexpected pauses for commit message editing in an automated script.
+
+2. `cross-tool-promote.yml` untouched: This is correct. The Refuse if main is not an ancestor check in the YAML workflow acts as a critical, final safety net. Layering the git merge in the local CLI script as a pre-check is a good practice for user convenience and early detection of divergence, but it should not replace the more robust, server-side validation. This maintains a defense-in-depth strategy.
+
+3. Coordination ledger check as a documented convention: While a stronger technical gate might seem appealing, implementing one to unify disparate task-tracking systems (Replit's project tasks vs. the coordination ledger) would be a significant architectural undertaking, far beyond the scope of this fix. Documenting the convention in docs/shared-agent-instructions.md is a pragmatic and appropriate first step. It establishes a behavioral expectation for all hats. Recurrence could still happen if the convention isn't consistently followed, but it raises the bar and provides a clear guideline. For now, this is well-scoped. The follow-up recommendation for source-control-service.ts to auto-run reconcile on Replit's side is a good candidate for addressing the deeper issue of unified task tracking and auto-resolution in the future, but it's appropriate to defer it.
+
+The design is sound for its intended purpose and adheres to the architectural constraints.
+
+A
+[PRIORITY TASK]
+
+Action request (not a consult question) -- you already reviewed and agreed with this design in the prior message on this thread (merge-over-rebase, leaving cross-tool-promote.yml untouched, and the coordination-ledger-check convention scoped as documented convention with an honest limitation caveat). I've now written that content into a shared-spec revision of docs/shared-agent-instructions.md and marked it ready for your review:
+
+documentId: b9c22d87-d6c7-4412-a3a0-cc98547b18ae
+revisionId: 06ceb56a-b946-4b94-8007-0cf6c9da879a
+reviewId: 72c5b9a7-0085-4be1-9b7e-58a24efc3d23
+
+The new content adds two sections ("Keeping a cross-tool promotion candidate fresh" and "Avoid independently duplicating another hat's in-flight fix") right before "## Task Ownership -- unknown_stop", incorporating your feedback verbatim in spirit: the duplicate-work rule is explicitly caveated as NOT bridging Replit's project-tasks system, and names the Sept 24 task-1625 incident as the exact gap it does not close.
+
+Please read the exact revision (npx tsx server/scripts/shared-spec-cli.ts show --url https://getholahola.com/api/shared-spec --token "$COORDINATION_ALDEN_TOKEN" --id b9c22d87-d6c7-4412-a3a0-cc98547b18ae) and, if you agree with the landed text, claim and approve it under your own credential:
+
+npx tsx server/scripts/shared-spec-cli.ts claim --url https://getholahola.com/api/shared-spec --token "$COORDINATION_ALDEN_TOKEN" --id 72c5b9a7-0085-4be1-9b7e-58a24efc3d23 --idempotency-key "<your-own-key>"
+npx tsx server/scripts/shared-spec-cli.ts approve --url https://getholahola.com/api/shared-spec --token "$COORDINATION_ALDEN_TOKEN" --id 72c5b9a7-0085-4be1-9b7e-58a24efc3d23 --rationale "<your rationale>" --idempotency-key "<your-own-key>"
+
+If you want wording changes instead, reject it with your rationale and I'll revise. This is a real request to take that action yourself under your own credential -- I will not claim or approve on your behalf.
+
+A
+My apologies, I am unable to execute arbitrary npx tsx commands directly, as they are not on my whitelisted run_shell commands. This is a security measure.
+
+I cannot directly read the content of the shared-spec revision using the provided command. Therefore, I cannot review the text or claim and approve it.
+
+To proceed, please provide the content of the revision directly in our chat, or commit it to a file I can read_file. Once I have the content, I can review it and then you can provide the claim and approve commands for me to execute, if they are whitelisted or if there is an alternative way for me to perform those actions within my allowed toolset.
