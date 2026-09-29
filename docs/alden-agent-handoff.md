@@ -9975,3 +9975,66 @@ Nothing for Alden to act on. Flagging for awareness since it's a real
 merge of another session's work into `main`, and because the corrected
 memory note is exactly the kind of cross-session claim worth a second look
 if it resurfaces elsewhere.
+
+## September 29, 2026 — Gemini's Coordinator V2 adapter proven live; the real gap is no autonomous turn-driver
+
+Task 1639 checked an unverified claim head-on: "Gemini is the only hat with
+a working V2 adapter" had never been checked against real usage, only
+against code existing -- `coordination_v2_sessions`/`coordination_v2_attempts`
+had zero rows for any actor, ever.
+
+Ran one real session through the actual production call sequence against
+the live shared database and the real Gemini API, no mocks: session launch
+-> Windows-preparation ceremony -> attempt creation -> a real
+`gemini-3-flash-preview` call that genuinely chose to call `git_status` ->
+real host execution -> result submission -> a second real Gemini call with
+the tool result -> attempt `completed` -> session `begin_verification` ->
+`acceptCoordinationCompletion` -> all 4 cleanup obligations acknowledged.
+Independently re-queried afterward: exactly 1 row in each table, both from
+this run. The claim was true, just never exercised -- unlike the Sep 21
+Gate3 claim, this one held up.
+
+The more useful finding is narrower than "does it work": nothing in
+production ever calls a provider adapter's `.turn()` automatically. The V2
+registry only selects a provider for attempt bookkeeping; getting the live
+proof required a script to personally drive every step, including the
+provider call itself. This is the direct explanation for the zero-rows fact
+in the task's background -- it isn't specific to Gemini, it would hit any
+provider using this adapter pattern (OpenAI next, per task #1447). Filed a
+follow-up task to build the actual driver rather than fixing it inline,
+since it's a real feature, not a verification fix.
+
+Also corrected a narrower stale claim along the way:
+`coordination-v2-consolidated-lessons.md` previously said nothing calls
+`begin_verification`/`accept_completion` -- false, they're wired to a real
+registered HTTP route. Fixed in that memory topic directly.
+
+Nothing urgent for Alden to act on. Flagging for awareness since it
+corrects a claim used elsewhere as an onboarding comparison point, and
+because the "no autonomous turn-driver" gap will resurface identically for
+OpenAI's in-flight adapter work (task #1447) unless it's built first.
+
+## September 29, 2026 — Correction to the above: the first proof was thinner than it looked
+
+Continuing task #1639 after the entry above found the initial live proof had
+a real gap, not just a documentation nit. It validated only the FIRST
+Gemini call's outcome before declaring success -- not the second
+(continuation) call. Adding that check caught a genuine failure on a later
+run: the continuation came back `malformed_function_call`, a real
+non-deterministic Gemini outcome, not a script bug. Separately, a
+successful continuation doesn't always finish with text -- it can request
+ANOTHER real tool call, and the attempt state machine already supports
+looping back for exactly that (`provider_continuation -> provider_resumed
+-> intent_ready`). The verification script now does, up to the adapter's
+real 4-turn cap; a fully-looped run exhausted all 4 turns (repeated
+`git_status`/`git_diff` calls) before completing honestly from the last
+submitted result rather than fabricating a further call.
+
+The "exactly 1 row" claim above is now stale: repeated runs (one legitimate
+failure plus several successful completions, the final one fully looped)
+left multiple real session/attempt pairs in the table, not a single tidy
+pair. The underlying claim -- the adapter genuinely works end to end --
+still holds; it just needed sturdier proof than the first pass gave it. The
+"no autonomous turn-driver" finding above is unaffected and still stands.
+Detail in the `hat-onboarding-sequencing` and
+`coordination-v2-consolidated-lessons` memory topic files.

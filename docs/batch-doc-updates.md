@@ -7357,3 +7357,86 @@ host-enrollment/DPAPI path, not the ledger. Once it closes, Antigravity's
 onboarding is fully done and OpenAI's Step-1 endorsement thread can open per
 the sequencing rule above. Full detail and the DB evidence trail are in the
 `hat-onboarding-sequencing` memory topic file.
+
+## Gemini's Coordinator V2 adapter proven live; no autonomous turn-driver exists — September 29, 2026
+
+Task #1639 checked an unverified claim used elsewhere as an onboarding
+comparison point — "Gemini is the only hat with a working V2 adapter" —
+against real usage rather than code existing. `coordination_v2_sessions` and
+`coordination_v2_attempts` had zero rows for any actor, ever, before this.
+
+**The proof.** Ran one real session through the actual production call
+sequence against the live shared database and the real Gemini API, no
+mocks: `launchOrResumeCoordinationLifecycle` → Windows-preparation ceremony
+→ attempt creation → a real `gemini-3-flash-preview` call that genuinely
+chose to call `git_status` → real host execution → result submission → a
+second real Gemini call with the tool result → attempt `completed` →
+session `begin_verification` → `acceptCoordinationCompletion` → all 4
+cleanup obligations acknowledged. Independently re-queried afterward
+(separate script, not just the run's own self-check): exactly 1 row in
+`coordination_v2_sessions` (state `succeeded`) and exactly 1 row in
+`coordination_v2_attempts` (`provider='gemini'`, state `completed`) exist in
+the whole table, both from this run. Unlike the Sep 21 2026 Gate3 claim,
+this one held up under direct proof.
+
+**The real finding.** Nothing in production ever calls a provider adapter's
+`.turn()` automatically. Grepping the full `server/` tree for real callers
+of the provider registry and `CoordinationGeminiAdapter` found the registry
+consulted only for descriptor/provider-selection metadata at attempt
+creation (`coordination-attempt-service.ts`, `coordination-session-service.ts`,
+`coordination-lifecycle-facade-service.ts`, a read-only listing in
+`coordination-host-routes.ts`) — never for actually invoking a turn. The
+only real callers of a provider's `.turn()` anywhere in the repo are the
+retired Gate3 route (`coordination-runtime-routes.ts` → the separate legacy
+`coordination-gemini-adapter.ts`) and the one-off verification script this
+task wrote (`server/scripts/verify-gemini-v2-adapter-live.ts`, not wired
+into CI). This is the direct explanation for the zero-rows fact: the V2
+system can create and track sessions/attempts and select a provider for
+bookkeeping, but nothing server-side progresses an attempt through an
+actual provider turn on its own — an external driver has to call every step
+by hand, for any provider, not just Gemini.
+
+**What was corrected along the way.**
+`coordination-v2-consolidated-lessons.md`'s "Host completion vs. session
+completion" section previously claimed (Sep 27 2026) that nothing calls
+`begin_verification`/`accept_completion` — false as stated, both are wired
+to a real, reachable, registered HTTP endpoint
+(`coordination-session-routes.ts`). Corrected directly in that memory
+topic, which also gained a new section 4 recording the turn-driver finding
+above.
+
+**What remains.** Filed a follow-up task to build the actual autonomous
+provider-turn driver rather than fixing it inline — it's a real feature (a
+background worker, or an extension of the interactive CLI/launcher), not
+something in scope for a verification task. The same gap will affect
+OpenAI's in-flight provider adapter (task #1447) unless it's addressed
+first. Full detail and DB evidence (session/attempt IDs) are in the
+`hat-onboarding-sequencing` and `coordination-v2-consolidated-lessons`
+memory topic files.
+
+## Correction to the above: the first proof was thinner than it looked — September 29, 2026
+
+Continuing task #1639 after the entry above found the initial live proof had
+a real gap, not just a documentation nit. It validated only the FIRST
+Gemini call's outcome before declaring success — not the second
+(continuation) call. Adding that check caught a genuine failure on a later
+run: the continuation came back `malformed_function_call`, a real
+non-deterministic Gemini outcome, not a script bug.
+
+Separately, a successful continuation doesn't always finish with text — it
+can request ANOTHER real tool call instead. The attempt state machine
+already supports looping back for exactly that
+(`provider_continuation → provider_resumed → intent_ready`); the
+verification script now does, up to the adapter's real 4-turn cap. A
+fully-looped run exhausted all 4 turns (repeated `git_status`/`git_diff`
+calls) before completing honestly from the last submitted result rather
+than fabricating a further call.
+
+The "exactly 1 row" claim above is now stale: repeated runs (one legitimate
+failure plus several successful completions, the final one fully looped)
+left multiple real session/attempt pairs in the table, not a single tidy
+pair. The underlying claim — the adapter genuinely works end to end — still
+holds; it just needed sturdier proof than the first pass gave it. The
+"no autonomous turn-driver" finding above is unaffected and still stands.
+Detail in the `hat-onboarding-sequencing` and
+`coordination-v2-consolidated-lessons` memory topic files.
