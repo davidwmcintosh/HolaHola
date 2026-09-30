@@ -357,6 +357,10 @@ async function cmdGate(flags: Record<string, string | boolean>) {
     SHARED_SPEC_TEST_DATABASE_DISPOSABLE: '1',
     SHARED_SPEC_FORBIDDEN_SHARED_URL: process.env.NEON_SHARED_DATABASE_URL,
     SHARED_SPEC_REQUIRE_DATABASE_TESTS: '1',
+    ALDEN_SHARED_SPEC_REVIEW_TEST_DATABASE_URL: directUrl,
+    ALDEN_SHARED_SPEC_REVIEW_TEST_DATABASE_DISPOSABLE: '1',
+    ALDEN_SHARED_SPEC_REVIEW_FORBIDDEN_SHARED_URL: process.env.NEON_SHARED_DATABASE_URL,
+    ALDEN_SHARED_SPEC_REVIEW_REQUIRE_DATABASE_TESTS: '1',
   };
   // Never inherit CI=true here — run-ci-test-steps.mjs requires
   // CI_DATABASE_URL to be a localhost Postgres service when CI is true, and
@@ -631,6 +635,12 @@ async function cmdGate(flags: Record<string, string | boolean>) {
   // Mirrors server/services/release-cutover-attestation-service.test.ts,
   // which has no standalone runCommand() call here either despite its own
   // RELEASE_CUTOVER_ATTESTATION_* branchEnv vars being retained above.
+  //
+  // Same reasoning, same absence of a standalone step, for
+  // server/scripts/test-alden-shared-spec-review-postgres.test.ts: its
+  // disposableTarget() falls through to the ALDEN_SHARED_SPEC_REVIEW_*
+  // branchEnv vars above once CI is deleted, so `npm run test:ci:unit`
+  // already covers it.
 
   if (!failureReason) {
     // Gives the Postgres-backed half of the drift-guard mutation proof (Scenario

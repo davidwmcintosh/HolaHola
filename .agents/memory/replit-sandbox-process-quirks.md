@@ -138,3 +138,34 @@ Replit's nix-based dev sandbox ships tools and ambient secrets that a bare CI ru
 **Why:** Two confirmed instances in the same investigation. (1) ripgrep (rg) is present by default in the Replit nix sandbox but absent from GitHub's ubuntu-latest runner image, so a test that forces the rg-available branch of a search tool (to prove parity with its own JS fallback) only fails on GitHub. (2) SESSION_SECRET is always set as an ambient secret in the Replit sandbox, so a service (coordination-inbox-service.ts) that signs tokens with COORDINATION_INBOX_TOKEN_SECRET || SESSION_SECRET and requires >=32 chars never hits its own "not configured" error locally, but GitHub Actions' job env sets neither.
 
 **How to apply:** When a test or code path only fails in GitHub Actions (or any external CI) and passes locally on Replit, suspect an ambient-tool or ambient-secret gap before suspecting flakiness or a logic bug. Fix by making the CI environment match the real contract (install the missing tool in the workflow) when the dependency is legitimate infrastructure, or by generating a disposable/run-scoped value inside the test harness itself (matching how disposable test databases are already generated) when the dependency is just a signing/config secret that a hermetic test run shouldn't need to share with the real app.
+
+## Coordination-inbox activation required for real-notification-sink Postgres tests
+
+## A real coordination-inbox-backed notification sink needs the inbox activated, not just migrated
+
+A Postgres-gated test that goes through the *real* `getHolaHolaSharedSpecNotificationSink()`
+(or any other real notification sink backed by `coordination-inbox-service.ts`) needs more than
+`drizzle-kit migrate` against a fresh disposable database. `assertSupportedWriterActivation()`
+requires a `coordination_inbox_activation` row with `state = 'active'`; a freshly migrated
+database has this row in a non-active state (e.g. `'preparing'`), so any recipient-addressed
+write throws `'Coordination inbox is not active and recipient-addressed writes are paused'`
+even though every other precondition (reviewer policy, document/revision fixtures, git working
+tree) is correctly set up.
+
+**Why:** the two real invocation paths for this class of test already guarantee activation
+without the test file doing anything itself: GitHub Actions' job-local database is seeded by
+`server/scripts/setup-ci-test-database.ts`, which calls `activateCoordinationInbox()` as its last
+step; and `scripts/neon-branch.ts`'s migration-gate branch is created `from: 'production'`, so it
+inherits production's already-active row. A hand-rolled disposable Postgres (e.g. the recipe
+above) gets neither for free.
+
+**How to apply:** when manually verifying a Postgres-gated test that exercises a real
+notification sink end to end, run `CI_DATABASE_URL=... NEON_SHARED_DATABASE_URL=... npx tsx
+server/scripts/setup-ci-test-database.ts` against the scratch database before running the test
+(mirrors real CI exactly; harmless unrelated fixtures aside). That standalone script does not
+call `closeDbConnections()` after its own `activateCoordinationInbox()` call and can appear to
+hang the shell past its actual completion -- check the `coordination_inbox_activation` row
+directly (or just proceed to the next command) rather than assuming the activation didn't happen.
+Tests that only exercise a fake/stub notification sink (most existing shared-spec Postgres tests)
+never hit this gate and need no such step.
+

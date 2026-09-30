@@ -89,6 +89,7 @@ run_check "Shared-spec live-instruction-document PostgreSQL integration" npx tsx
 run_check "Alden review-discovery tool (list_shared_spec_reviews) against a real Postgres database" npx tsx --test server/scripts/test-alden-shared-spec-review-discovery.test.ts
 run_check "Shared-spec review-decision effects (working-tree write/commit + review_decided notification)" npx tsx --test server/services/shared-spec-review-decision.test.ts
 run_check "Shared-spec review-decision bypass guard (no direct core.approveReview/rejectReview outside the wrapper)" bash -c 'npx tsx server/scripts/test-shared-spec-review-decision-bypass-guard.ts && npx tsx server/scripts/test-shared-spec-review-decision-bypass-guard.ts --self-check'
+run_check "Alden's own shared-spec review-decision entry point (real singleton wiring) PostgreSQL integration" npx tsx --test server/scripts/test-alden-shared-spec-review-postgres.test.ts
 run_check "Coordination runtime Gate3 claim/execute/complete/verify lifecycle" npx tsx --test server/scripts/test-coordination-runtime.test.ts
 run_check "Coordination runtime envelope-violation-recovery self-check" npx tsx server/scripts/test-coordination-runtime-envelope-violation-selfcheck.ts
 run_check "Coordination runtime standing-verifier self-check" npx tsx server/scripts/test-coordination-runtime-verifier-standing-selfcheck.ts

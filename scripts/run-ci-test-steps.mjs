@@ -152,6 +152,13 @@ commands.splice(safetyInsertion, 0,
   // needed.
   'npx tsx --test server/scripts/test-alden-shared-spec-review-discovery.test.ts',
 
+  // Alden's own shared-spec review-decision entry point
+  // (alden-shared-spec-review.ts), exercised through its real singleton
+  // wiring (getCore/getHolaHolaSharedSpecNotificationSink/
+  // getHolaHolaSharedSpecLiveSync) rather than the shared wrapper directly.
+  // Same getVerifiedCiDatabaseUrl-first disposableTarget() pattern as above.
+  'npx tsx --test server/scripts/test-alden-shared-spec-review-postgres.test.ts',
+
   // Coordinator V2 lifecycle diagnostics, cleanup, fault fallback, evidence,
   // and neighboring first-host-bootstrap/contract/reauthorization suites.
   'npx tsx --test server/scripts/test-coordination-v2-first-host-bootstrap.test.ts',
