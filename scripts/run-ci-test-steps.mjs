@@ -152,6 +152,17 @@ commands.splice(safetyInsertion, 0,
   // needed.
   'npx tsx --test server/scripts/test-alden-shared-spec-review-discovery.test.ts',
 
+  // Task 1658's listReviewerQueue open_eligible case made a fully open
+  // pending review discoverable by every eligible reviewer at once, so two
+  // reviewers racing to claim it is now realistic. Proves against a real
+  // Postgres database that claimReview's compareAndSetReviewClaim guard lets
+  // exactly one of two concurrent claims win -- the in-memory mirror in
+  // shared-spec-core.test.ts cannot exercise genuine cross-transaction
+  // interleaving (see that file's comment). Same getVerifiedCiDatabaseUrl-first
+  // disposableTarget() pattern as the file above, so no extra gate wiring is
+  // needed.
+  'npx tsx --test server/scripts/test-shared-spec-review-claim-race-postgres.test.ts',
+
   // Alden's own shared-spec review-decision entry point
   // (alden-shared-spec-review.ts), exercised through its real singleton
   // wiring (getCore/getHolaHolaSharedSpecNotificationSink/

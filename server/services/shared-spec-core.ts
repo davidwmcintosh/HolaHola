@@ -127,6 +127,18 @@ export interface SharedSpecTransaction {
     updatedAt: Date,
   ): Promise<boolean>;
   getReview(id: string): Promise<SharedSpecReview | undefined>;
+  /**
+   * Atomically claims a still-open review: database implementations must use
+   * `WHERE state = 'pending' AND claimed_reviewer_actor IS NULL`; false means
+   * zero rows changed (another actor already won the claim) and the caller
+   * must not treat this actor as holding it. Without this, two concurrent
+   * claimReview calls can both read the review as unclaimed, both pass their
+   * pre-check, and both commit -- the second write silently overwriting the
+   * first's claim with no error to either caller. Mirrors
+   * compareAndSetCurrentRevision's guard against the identical shape of race
+   * for a document's current revision.
+   */
+  compareAndSetReviewClaim(reviewId: string, claimedReviewerActorId: string, claimedAt: Date): Promise<boolean>;
   listReviews(documentId: string): Promise<readonly SharedSpecReview[]>;
   /**
    * A reviewer's own queue, across every document: every review still
@@ -627,8 +639,16 @@ export class SharedSpecCore {
       if (review.state !== "pending" || review.claimedReviewerActorId) throw new SharedSpecDomainError("INVALID_STATE", "Review cannot be claimed");
       if (review.requestedReviewerActorId && review.requestedReviewerActorId !== actor.actorId) throw new SharedSpecDomainError("FORBIDDEN", "Review is assigned to another actor");
       await this.assertEligibleReviewer(tx, actor.actorId, document, revision);
-      const updated = { ...review, claimedReviewerActorId: actor.actorId, claimedAt: this.now() };
-      await tx.updateReview(updated);
+      const claimedAt = this.now();
+      // The check above only rules out a claim this transaction has already
+      // seen. A second transaction can read the same unclaimed row before
+      // either commits, so the actual guard against two claims landing is
+      // this atomic compare-and-set, not the read above -- see
+      // compareAndSetReviewClaim's contract.
+      if (!await tx.compareAndSetReviewClaim(reviewId, actor.actorId, claimedAt)) {
+        throw new SharedSpecDomainError("CONFLICT", "Another actor already claimed this review");
+      }
+      const updated = { ...review, claimedReviewerActorId: actor.actorId, claimedAt };
       await tx.insertIdempotency({ scope: `claim:${reviewId}`, actorId: actor.actorId, key: idempotencyKey, requestDigest: digest, resultType: "review", resultId: reviewId });
       return updated;
     });
@@ -836,6 +856,12 @@ export class InMemorySharedSpecRepository implements SharedSpecRepository {
         .map(clone),
       insertReview: async value => { this.reviews.set(value.id, clone(value)); },
       updateReview: async value => { if (!this.reviews.has(value.id)) throw new SharedSpecDomainError("NOT_FOUND", "Review not found"); this.reviews.set(value.id, clone(value)); },
+      compareAndSetReviewClaim: async (reviewId, claimedReviewerActorId, claimedAt) => {
+        const review = this.reviews.get(reviewId);
+        if (!review || review.state !== "pending" || review.claimedReviewerActorId) return false;
+        this.reviews.set(reviewId, { ...review, claimedReviewerActorId, claimedAt: new Date(claimedAt) });
+        return true;
+      },
       getActivePolicy: async (actorId, capability, kind) => {
         const matches = [...this.policies.values()].filter(x => x.actorId === actorId && x.capability === capability && (!x.documentKind || x.documentKind === kind));
         const latest = matches.sort((a, b) => b.version - a.version)[0];

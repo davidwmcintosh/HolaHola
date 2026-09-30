@@ -167,6 +167,16 @@ export class PostgresSharedSpecRepository implements SharedSpecRepository {
           decisionPolicyEffectiveAt: review.decisionPolicyEffectiveAt,
         }).where(eq(sharedSpecReviews.id, review.id));
       },
+      compareAndSetReviewClaim: async (reviewId, claimedReviewerActorId, claimedAt) => {
+        const updated = await db.update(sharedSpecReviews).set({
+          claimedReviewerActor: claimedReviewerActorId, claimedAt,
+        }).where(and(
+          eq(sharedSpecReviews.id, reviewId),
+          eq(sharedSpecReviews.state, "pending"),
+          isNull(sharedSpecReviews.claimedReviewerActor),
+        )).returning({ id: sharedSpecReviews.id });
+        return updated.length === 1;
+      },
       getActivePolicy: async (actorId, capability, kind) => {
         const [row] = await db.select().from(sharedSpecReviewerPolicies).where(and(
           eq(sharedSpecReviewerPolicies.actorId, actorId), eq(sharedSpecReviewerPolicies.capability, capability),

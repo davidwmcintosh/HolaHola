@@ -43,6 +43,48 @@ test("compare-and-swap admits one concurrent append and leaves the loser non-mut
   assert.equal((await core.listRevisions(created.document.id)).length, 2);
 });
 
+// Task 1662: listReviewerQueue's open_eligible case (task 1658) made a fully
+// open pending review discoverable by every eligible reviewer at once, so two
+// reviewers racing to claim it is now a realistic scenario. claimReview reads
+// the review, checks claimedReviewerActorId is unset, then writes it, inside
+// one transaction; compareAndSetReviewClaim is the guard that stops two
+// concurrent claims from both landing. InMemorySharedSpecRepository's
+// transaction() fully serializes (see its class comment), so -- exactly like
+// the compare-and-swap append test above, whose loser is actually rejected by
+// appendRevision's own currentRevisionId pre-check rather than reaching
+// compareAndSetCurrentRevision -- the loser here is rejected by claimReview's
+// pre-check (INVALID_STATE) rather than by reaching the new CAS (CONFLICT).
+// That still proves the domain-level contract (exactly one claim ever wins,
+// the loser never mutates the row) using this file's established concurrency
+// model; genuine cross-transaction interleaving against real PostgreSQL is
+// proven separately by
+// server/scripts/test-shared-spec-review-claim-race-postgres.test.ts, which
+// reproducibly caught both actors winning before compareAndSetReviewClaim
+// existed.
+test("two concurrent claimReview calls against the same open review yield exactly one success and one clean rejection", async () => {
+  const { core, created } = await setup();
+  await core.setReviewerPolicy(admin, {
+    actorId: "reviewer-two", capability: "reviewer", active: true, idempotencyKey: "reviewer-two-on",
+  });
+  const review = await core.markRevisionReady(author, {
+    documentId: created.document.id, revisionId: created.revision.id, idempotencyKey: "ready-claim-race",
+  });
+  const results = await Promise.allSettled([
+    core.claimReview(reviewer, review.id, "claim-race-first"),
+    core.claimReview({ actorId: "reviewer-two" }, review.id, "claim-race-second"),
+  ]);
+  const fulfilled = results.filter((result): result is PromiseFulfilledResult<Awaited<ReturnType<typeof core.claimReview>>> => result.status === "fulfilled");
+  assert.equal(fulfilled.length, 1);
+  const rejected = results.find((result): result is PromiseRejectedResult => result.status === "rejected");
+  assert.ok(
+    ["CONFLICT", "INVALID_STATE"].includes((rejected!.reason as SharedSpecDomainError).code),
+    `expected a clean domain rejection, got ${rejected!.reason}`,
+  );
+  // The loser never mutated the row: the persisted claimant is exactly the winner's.
+  const finalReview = await core.getReview(review.id);
+  assert.equal(finalReview.claimedReviewerActorId, fulfilled[0].value.claimedReviewerActorId);
+});
+
 test("idempotency returns matching revision and rejects different request reuse", async () => {
   const { core, created } = await setup();
   const input = { documentId: created.document.id, baseRevisionId: created.revision.id, markdown: "# Two\n", idempotencyKey: "append" };
