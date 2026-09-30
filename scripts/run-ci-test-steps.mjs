@@ -143,6 +143,15 @@ commands.splice(safetyInsertion, 0,
   // migration required.
   'npx tsx --test server/scripts/test-shared-spec-live-instruction-document-postgres.test.ts',
 
+  // Alden's review-discovery tool (list_shared_spec_reviews), proven end to
+  // end through his real dispatch path -- executeAldenTool ->
+  // listAldenSharedSpecReviews -> PostgresSharedSpecRepository -> a real
+  // Postgres database -- not just the in-memory domain coverage already in
+  // shared-spec-core.test.ts. Same getVerifiedCiDatabaseUrl-first
+  // disposableTarget() pattern as the file above, so no extra gate wiring is
+  // needed.
+  'npx tsx --test server/scripts/test-alden-shared-spec-review-discovery.test.ts',
+
   // Coordinator V2 lifecycle diagnostics, cleanup, fault fallback, evidence,
   // and neighboring first-host-bootstrap/contract/reauthorization suites.
   'npx tsx --test server/scripts/test-coordination-v2-first-host-bootstrap.test.ts',
