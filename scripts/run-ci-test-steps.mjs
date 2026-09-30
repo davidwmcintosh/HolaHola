@@ -163,6 +163,15 @@ commands.splice(safetyInsertion, 0,
   // needed.
   'npx tsx --test server/scripts/test-shared-spec-review-claim-race-postgres.test.ts',
 
+  // Task 1664: assignReview and decideReview wrote reviews through the same
+  // plain unconditional tx.updateReview(updated) call the claim race above
+  // used to, with no compare-and-set on the fields each changes. Proves
+  // against a real Postgres database that compareAndSetReviewAssignment and
+  // compareAndSetReviewDecision each let exactly one of two concurrent writes
+  // win. Same getVerifiedCiDatabaseUrl-first disposableTarget() pattern as
+  // the file above, so no extra gate wiring is needed.
+  'npx tsx --test server/scripts/test-shared-spec-review-assign-decision-race-postgres.test.ts',
+
   // Alden's own shared-spec review-decision entry point
   // (alden-shared-spec-review.ts), exercised through its real singleton
   // wiring (getCore/getHolaHolaSharedSpecNotificationSink/

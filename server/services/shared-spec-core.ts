@@ -139,6 +139,26 @@ export interface SharedSpecTransaction {
    * for a document's current revision.
    */
   compareAndSetReviewClaim(reviewId: string, claimedReviewerActorId: string, claimedAt: Date): Promise<boolean>;
+  /**
+   * Atomically reassigns a still-open review: database implementations must
+   * use `WHERE state = 'pending' AND requested_reviewer_actor IS [NOT]
+   * DISTINCT FROM expectedRequestedReviewerActorId AND
+   * claimed_reviewer_actor IS [NOT] DISTINCT FROM
+   * expectedClaimedReviewerActorId`. False means zero rows changed (another
+   * assignReview, or a claimReview, already changed one of those fields
+   * since this transaction read the review) and the caller must not treat
+   * the reassignment as having taken effect. Without this, two concurrent
+   * assignReview calls can both read the review as pending, both pass their
+   * pre-check, and both commit -- the second write silently overwriting the
+   * first's reassignment with no error to either caller. Mirrors
+   * compareAndSetReviewClaim's guard against the identical shape of race.
+   */
+  compareAndSetReviewAssignment(
+    reviewId: string,
+    reviewerActorId: string,
+    expectedRequestedReviewerActorId: string | undefined,
+    expectedClaimedReviewerActorId: string | undefined,
+  ): Promise<boolean>;
   listReviews(documentId: string): Promise<readonly SharedSpecReview[]>;
   /**
    * A reviewer's own queue, across every document: every review still
@@ -158,6 +178,21 @@ export interface SharedSpecTransaction {
   listOpenReviews(): Promise<readonly SharedSpecReview[]>;
   insertReview(review: SharedSpecReview): Promise<void>;
   updateReview(review: SharedSpecReview): Promise<void>;
+  /**
+   * Atomically records a review decision: database implementations must use
+   * `WHERE state = 'pending' AND claimed_reviewer_actor =
+   * expectedClaimedReviewerActorId`. False means zero rows changed (the
+   * claiming actor already decided this review through a different request)
+   * and the caller must not apply the decision's document-state side effect.
+   * Without this, two concurrent decideReview calls from the same claiming
+   * actor (e.g. a rapid double-submit of approve/reject with different
+   * idempotency keys) can both read the review as pending and claimed by
+   * them, both pass their pre-check, and both commit -- the second write
+   * silently overwriting the first's decision with no error to either
+   * caller. Mirrors compareAndSetReviewClaim's guard against the identical
+   * shape of race.
+   */
+  compareAndSetReviewDecision(review: SharedSpecReview, expectedClaimedReviewerActorId: string): Promise<boolean>;
   getActivePolicy(
     actorId: string,
     capability: ReviewerCapability,
@@ -664,7 +699,14 @@ export class SharedSpecCore {
       if (review.state !== "pending") throw new SharedSpecDomainError("INVALID_STATE", "Only a pending review may be assigned");
       await this.assertEligibleReviewer(tx, reviewerActorId, document, revision);
       const updated = { ...review, requestedReviewerActorId: reviewerActorId, claimedReviewerActorId: undefined, claimedAt: undefined };
-      await tx.updateReview(updated);
+      // The check above only rules out a reassignment this transaction has
+      // already seen. A second assignReview (or a claimReview) can read the
+      // same review before either commits, so the actual guard against two
+      // writes landing is this atomic compare-and-set, not the read above --
+      // see compareAndSetReviewAssignment's contract.
+      if (!await tx.compareAndSetReviewAssignment(reviewId, reviewerActorId, review.requestedReviewerActorId, review.claimedReviewerActorId)) {
+        throw new SharedSpecDomainError("CONFLICT", "Review was reassigned or claimed by another request");
+      }
       await tx.insertIdempotency({ scope: `assign:${reviewId}`, actorId: actor.actorId, key: idempotencyKey, requestDigest: digest, resultType: "review", resultId: reviewId });
       return updated;
     });
@@ -714,7 +756,16 @@ export class SharedSpecCore {
         decisionPolicyActorId: policy.actorId, decisionPolicyCapability: policy.capability,
         decisionPolicyActive: policy.active, decisionPolicyDocumentKind: policy.documentKind,
         decisionPolicyEffectiveAt: policy.effectiveAt };
-      await tx.updateReview(updated);
+      // The check above only rules out a decision this transaction has
+      // already seen. A second decideReview call from the same claiming
+      // actor (e.g. a rapid double-submit of approve/reject with different
+      // idempotency keys) can read the same claimed-and-pending review before
+      // either commits, so the actual guard against two decisions landing is
+      // this atomic compare-and-set, not the read above -- see
+      // compareAndSetReviewDecision's contract.
+      if (!await tx.compareAndSetReviewDecision(updated, actor.actorId)) {
+        throw new SharedSpecDomainError("CONFLICT", "Review was already decided by another request");
+      }
       await tx.updateDocument({
         ...document,
         state: decision === "approved" ? "approved" : "draft",
@@ -860,6 +911,20 @@ export class InMemorySharedSpecRepository implements SharedSpecRepository {
         const review = this.reviews.get(reviewId);
         if (!review || review.state !== "pending" || review.claimedReviewerActorId) return false;
         this.reviews.set(reviewId, { ...review, claimedReviewerActorId, claimedAt: new Date(claimedAt) });
+        return true;
+      },
+      compareAndSetReviewAssignment: async (reviewId, reviewerActorId, expectedRequestedReviewerActorId, expectedClaimedReviewerActorId) => {
+        const review = this.reviews.get(reviewId);
+        if (!review || review.state !== "pending") return false;
+        if (review.requestedReviewerActorId !== expectedRequestedReviewerActorId) return false;
+        if (review.claimedReviewerActorId !== expectedClaimedReviewerActorId) return false;
+        this.reviews.set(reviewId, { ...review, requestedReviewerActorId: reviewerActorId, claimedReviewerActorId: undefined, claimedAt: undefined });
+        return true;
+      },
+      compareAndSetReviewDecision: async (review, expectedClaimedReviewerActorId) => {
+        const current = this.reviews.get(review.id);
+        if (!current || current.state !== "pending" || current.claimedReviewerActorId !== expectedClaimedReviewerActorId) return false;
+        this.reviews.set(review.id, clone(review));
         return true;
       },
       getActivePolicy: async (actorId, capability, kind) => {

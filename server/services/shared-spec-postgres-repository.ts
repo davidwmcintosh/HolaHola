@@ -177,6 +177,50 @@ export class PostgresSharedSpecRepository implements SharedSpecRepository {
         )).returning({ id: sharedSpecReviews.id });
         return updated.length === 1;
       },
+      compareAndSetReviewAssignment: async (reviewId, reviewerActorId, expectedRequestedReviewerActorId, expectedClaimedReviewerActorId) => {
+        const updated = await db.update(sharedSpecReviews).set({
+          // Explicit null literals, not undefined: Drizzle's set() silently
+          // drops any field whose value is undefined instead of writing SQL
+          // NULL, so passing undefined here would leave a stale
+          // claimed_reviewer_actor/claimed_at in place instead of clearing it.
+          requestedReviewerActor: reviewerActorId, claimedReviewerActor: null, claimedAt: null,
+        }).where(and(
+          eq(sharedSpecReviews.id, reviewId),
+          eq(sharedSpecReviews.state, "pending"),
+          expectedRequestedReviewerActorId === undefined
+            ? isNull(sharedSpecReviews.requestedReviewerActor)
+            : eq(sharedSpecReviews.requestedReviewerActor, expectedRequestedReviewerActorId),
+          expectedClaimedReviewerActorId === undefined
+            ? isNull(sharedSpecReviews.claimedReviewerActor)
+            : eq(sharedSpecReviews.claimedReviewerActor, expectedClaimedReviewerActorId),
+        )).returning({ id: sharedSpecReviews.id });
+        return updated.length === 1;
+      },
+      compareAndSetReviewDecision: async (review, expectedClaimedReviewerActorId) => {
+        const updated = await db.update(sharedSpecReviews).set({
+          // Explicit `?? null` throughout: Drizzle's set() silently drops any
+          // field whose value is undefined instead of writing SQL NULL, so an
+          // absent optional field (e.g. no rationale) must be coalesced here
+          // rather than passed through as undefined.
+          state: review.state,
+          decisionActor: review.decisionActorId,
+          decisionRationale: review.rationale ?? null,
+          evidenceReferences: [...review.evidenceReferences],
+          decidedAt: review.decidedAt ?? null,
+          decisionPolicyVersionId: review.decisionPolicyVersionId ?? null,
+          decisionPolicyVersion: review.decisionPolicyVersion ?? null,
+          decisionPolicyActorId: review.decisionPolicyActorId ?? null,
+          decisionPolicyCapability: review.decisionPolicyCapability ?? null,
+          decisionPolicyActive: review.decisionPolicyActive ?? null,
+          decisionPolicyDocumentKind: review.decisionPolicyDocumentKind ?? null,
+          decisionPolicyEffectiveAt: review.decisionPolicyEffectiveAt ?? null,
+        }).where(and(
+          eq(sharedSpecReviews.id, review.id),
+          eq(sharedSpecReviews.state, "pending"),
+          eq(sharedSpecReviews.claimedReviewerActor, expectedClaimedReviewerActorId),
+        )).returning({ id: sharedSpecReviews.id });
+        return updated.length === 1;
+      },
       getActivePolicy: async (actorId, capability, kind) => {
         const [row] = await db.select().from(sharedSpecReviewerPolicies).where(and(
           eq(sharedSpecReviewerPolicies.actorId, actorId), eq(sharedSpecReviewerPolicies.capability, capability),
