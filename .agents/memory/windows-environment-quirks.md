@@ -44,3 +44,12 @@ Windows delivers `CTRL_CLOSE_EVENT` (same signal family as Ctrl+C/Ctrl+Break) to
 
 **How to apply:** any future Windows launcher script in this repo that spawns a long-running child via `ProcessStartInfo` needs `CreateNoWindow = $true` (or equivalent full detachment) before it can be trusted to survive the launcher's own terminal window closing or being reused for another task.
 
+
+## Coordinator V2 host scripts collapse all network failures into one opaque code
+
+`scripts/hola-coordinator.ps1`'s host enrollment/reauthorization functions (`Register-HolaCoordinatorHost`, `Restore-HolaCoordinatorHostCredential`) wrap every `Invoke-RestMethod` call in `try { ... } catch { Fail-Safe '<fixed-code>' }`. `Fail-Safe` discards `$_` entirely and throws a new plain-string exception, so a true network/TLS failure and a legitimate server-side 4xx/5xx rejection (bad fingerprint, idempotency conflict, validation error) both surface to the operator as the exact same generic message (e.g. `hola_coordinator_host_reauthorization_transport`).
+
+**Why:** hit this live diagnosing a real LITTLENEMO reauthorization failure (Sep 30 2026) — the generic error gave zero signal on whether the request even reached the server. Curling the production endpoint directly proved the route was healthy and correctly returning structured 422s for bad input, which narrowed the problem to "something about this specific signed request," not the transport layer itself.
+
+**How to apply:** don't trust the generic code alone. The function persists its fully-built, signed request body to a local DPAPI state file (`host-reauthorization-request.dpapi` / the analogous enrollment file) *before* attempting the network call. Dot-source the script (for its helper functions and script-scope variables like `$RuntimeBootstrapRoot`/`$CurrentUserScope`), `Read-DpapiJson` that file, and manually replay the exact same `Invoke-RestMethod` call *without* a swallowing try/catch — `$_.Exception.Response.StatusCode` and `$_.ErrorDetails.Message` (Windows PowerShell 5.1 populates this reliably for REST error bodies) then reveal the real status and JSON error code. This requires no edits to the reviewed script. In that session the root cause was never conclusively identified — the identical replayed request succeeded immediately after with zero changes, consistent with a one-off transient network blip rather than a real defect. Follow-up tracked to make the script itself surface this detail instead of requiring the workaround.
+

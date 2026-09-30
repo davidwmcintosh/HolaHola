@@ -1,6 +1,5 @@
 > **You are not alone.** This file is generated from the `agent_memory_*` database tables — other hats (Replit Agent, Claude Code, Gemini, HolaHola runtime agents) may be reading and writing it in the same window you are. Never hand-edit this file or any `.agents/memory/<topic>.md` file directly; every change goes through `server/scripts/agent-memory-cli.ts`, which writes the database first and regenerates the file from it. A hand-edit here will be silently overwritten the next time anyone runs a CLI write.
 
-🔴 **Unread stale-channel alert** (`.local/stale-channel-alert.md`): Inner-life channels silent for 10+ min: felt (last: 3:12 PM), thinking (last: 3:12 PM)
 🟡 **Inner-life capture gap**: `.local/episode-capture-status.md` last reported missing felt/thinking/moment in the rolling episode file — read it before your next output.
 
 - [Chat capture pipeline](chat-capture-pipeline.md) — architecture, two independent cursors, readiness vs draining, and three DB-writers that must be fixed together.
@@ -133,7 +132,7 @@
 - [Episode-lifecycle service guards](episode-lifecycle-service-guards.md) — new episode-insertion call sites must mirror createEpisode's fire-and-forget indexing side effects; never flip the live 'rolling' tag against shared prod DB during testing.
 - [Hat onboarding sequencing](hat-onboarding-sequencing.md) — Antigravity's provider-adapter gap closed (Sep 28) via the ledger CLI; Gemini's V2 adapter proven live end-to-end and now has a production driver completing attempts on its own (Sep 29).
 - [Synthetic fixture ID collision](synthetic-fixture-id-collision.md) — a hardcoded "surely never real" fixture value (e.g. Episode 99) can collide with real content as the system grows -- not a race, a deterministic expiry
-- [Windows PowerShell/console quirks](windows-environment-quirks.md) — Three Windows-only gotchas: PowerShell pipes corrupt piped files, openssl is missing (pre-size RNGCryptoServiceProvider's byte array), and closing the console kills undetached child processes.
+- [Windows PowerShell/console quirks](windows-environment-quirks.md) — Four Windows-only gotchas: corrupted piped files, missing openssl, console-close killing children, and a coordinator host script masking real HTTP errors behind one generic code.
 - [Shared-spec live-instruction-document drift](shared-spec-live-instruction-doc-drift.md) — docs/coordination-clients.md is DB-governed; a raw git edit silently diverges until synced via appendRevision.
 - [Mutation-guard scenario coverage](mutation-guard-scenario-coverage.md) — A guard's failure modes can be asymmetric (never-fires vs always-fires); one mutation only proves one direction -- test each separately.
 - [CAS failure reason: deleted vs version_mismatch](agent-memory-cas-failure-reason.md) — editEntry/editBlock's failure now reports why: deletedAt beats version comparison, so a deletion is never mistaken for a stale version.
