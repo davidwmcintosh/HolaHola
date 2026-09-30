@@ -37,7 +37,7 @@ Once `candidate` reaches `state: candidate_ready` (branch `refs/heads/reconcile/
 
 ## 5. Manual resolution when `candidate` refuses (`ordinary` / `append-only-manual` policy kinds)
 
-`candidate()` only ever auto-resolves two narrow policy kinds (`generated-local` mailbox pairs, `canonical-incoming-subset` chat-capture files) via cryptographic/structural proof. Every intersecting path with no policy entry (kind `ordinary`, the manifest's fallback) or an explicit `append-only-manual` policy hard-codes `unclassified_conflict`/manual resolution — this is intentional, confirmed by reading the source, not a bug to work around. There is no CLI subcommand for "manual resolution"; construct it by hand:
+`candidate()` auto-resolves three narrow kinds, not two: `generated-local` mailbox pairs and `canonical-incoming-subset` chat-capture files (cryptographic/structural proof), plus `.agents/memory/*.md` topic files (recognized by path pattern, not a manifest policy) via regeneration proof -- rerunning `agent-memory-cli.ts regenerate --all` and verifying neither side's content added since the merge base is missing from the result. Every remaining intersecting path with no policy entry (kind `ordinary`, the manifest's fallback) or an explicit `append-only-manual` policy still hard-codes `unclassified_conflict`/manual resolution — this remains intentional, confirmed by reading the source, not a bug to work around. There is no CLI subcommand for "manual resolution" for those remaining cases; construct it by hand:
 
 1. `git worktree add --detach <path> <localSha>` — isolate from the primary checkout, same pattern `candidate()` itself uses.
 2. `git merge --no-commit --no-ff <remoteSha>` in that worktree. Paths untouched by either side's unique commits merge silently; only genuinely-conflicting intersecting paths produce markers.
@@ -46,6 +46,7 @@ Once `candidate` reaches `state: candidate_ready` (branch `refs/heads/reconcile/
 5. Fast-forward the primary `main` onto the new commit (`git merge --ff-only <newSha>`), then run the normal `sync` CLI action and confirm with `git ls-remote` — same landing procedure as §3, since a hand-built 2-parent merge is indistinguishable from `candidate()`'s own output to `sync`'s ancestor check.
 
 **Before resolving an append-only/index-style file (e.g. `.agents/memory/MEMORY.md`) by just picking one side, prove the other side's unique lines aren't unique data.** A later, more-consolidated version isn't automatically a superset — check every "other side only" entry: (a) does its target file still exist locally at all (if not, was it *deleted* by a local commit, or never present)? (b) `git show <mergeBase>:<path>` — if the file already existed unchanged at the merge-base and is now absent locally, a local commit intentionally deleted it (safe to treat as superseded, e.g. folded into a consolidated entry) rather than lost. Map every "missing" reference to its replacement entry by content, not just by vibes, before dropping it. For plain scripts/docs where one side only adds lines, `diff` showing purely one-directional `<`/`>` hunks (not interleaved changes) is a fast, sufficient proof that one side is a strict superset.
+
 
 ## Same feature landed via two commit paths looks like real divergence
 

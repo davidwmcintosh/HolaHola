@@ -33,6 +33,7 @@ function fixture(policy: Policy[] = []) {
   const service = (
     validator: () => Promise<Record<string, string>> = async () => ({ check: 'passed' }),
     sourceControl: any = lease,
+    regenerateAgentMemory?: (cwd: string) => Promise<boolean>,
   ) => new SourceReconciliationService({
     rootDir: root, sourceControl,
     run: async (args, cwd = root) => {
@@ -41,6 +42,7 @@ function fixture(policy: Policy[] = []) {
       catch (error: any) { return { code: 1, stdout: String(error?.stdout || ''), stderr: String(error?.stderr || error?.message || '') }; }
     },
     validateCandidate: async () => { validations += 1; return validator(); },
+    regenerateAgentMemory,
   });
   const diverge = (path: string, localBody: string, remoteBody: string) => {
     git(root, 'checkout', '-b', 'local'); write(path, localBody); const local = commit('local');
@@ -490,6 +492,143 @@ await withFixture(async (f) => {
   const result = await service.candidate(candidateAudit(f, preflight.packet!.fingerprint));
   assert.equal(result.state, 'missing_git_object');
   primaryUnchanged(f, local, remote);
+});
+
+// .agents/memory/*.md conflicts are DB-generated projections (see
+// .agents/memory/agent-memory-rebase-conflict-resolution.md): a fake
+// regenerateAgentMemory stands in for the real CLI regeneration so these
+// stay hermetic real-Git fixtures, never touching a live database.
+function regenerateWith(contents: Record<string, string>, onCall?: () => void): (cwd: string) => Promise<boolean> {
+  return async (cwd) => {
+    onCall?.();
+    for (const [path, body] of Object.entries(contents)) {
+      mkdirSync(dirname(join(cwd, path)), { recursive: true });
+      writeFileSync(join(cwd, path), body);
+    }
+    return true;
+  };
+}
+
+// Plain add/add conflict with no merge-base version of the file: both sides'
+// entire content is "unique", and the fake regeneration covers all of it.
+await withFixture(async (f) => {
+  const path = '.agents/memory/MEMORY.md';
+  const localBody = '# Memory\n- [Local](local-topic.md) — hookLocal\n';
+  const remoteBody = '# Memory\n- [Remote](remote-topic.md) — hookRemote\n';
+  const regenerated = '# Memory\n- [Local](local-topic.md) — hookLocal\n- [Remote](remote-topic.md) — hookRemote\n';
+  const { local, remote } = f.diverge(path, localBody, remoteBody);
+  const preflight = await f.service().preflight(local);
+  assert.equal(preflight.state, 'candidate_ready', preflight.error);
+  const result = await f.service(undefined, undefined, regenerateWith({ [path]: regenerated })).candidate(candidateAudit(f, preflight.packet!.fingerprint));
+  assert.equal(result.state, 'candidate_ready', result.error);
+  assert.equal(git(f.root, 'show', `${result.candidateSha}:${path}`), regenerated.trim());
+  primaryUnchanged(f, local, remote); noTemporaryMetadata(f);
+});
+
+// A regeneration that silently drops content one side newly added must fail
+// closed, not be trusted just because the CLI reported success.
+await withFixture(async (f) => {
+  const path = '.agents/memory/MEMORY.md';
+  const localBody = '# Memory\n- [Local](local-topic.md) — hookLocal\n';
+  const remoteBody = '# Memory\n- [Remote](remote-topic.md) — hookRemote\n';
+  const incomplete = '# Memory\n- [Local](local-topic.md) — hookLocal\n'; // drops remote's addition
+  const { local, remote } = f.diverge(path, localBody, remoteBody);
+  const preflight = await f.service().preflight(local);
+  const result = await f.service(undefined, undefined, regenerateWith({ [path]: incomplete })).candidate(candidateAudit(f, preflight.packet!.fingerprint));
+  assert.equal(result.state, 'generated_regeneration_failed', result.error);
+  primaryUnchanged(f, local, remote); noTemporaryMetadata(f);
+});
+
+// The regeneration command itself can fail outright (e.g. the CLI process
+// exits non-zero); that must also fail closed rather than proceed with
+// whatever conflict markers were left on disk.
+await withFixture(async (f) => {
+  const path = '.agents/memory/MEMORY.md';
+  const { local, remote } = f.diverge(path, 'local\n', 'remote\n');
+  const preflight = await f.service().preflight(local);
+  const result = await f.service(undefined, undefined, async () => false).candidate(candidateAudit(f, preflight.packet!.fingerprint));
+  assert.equal(result.state, 'generated_regeneration_failed', result.error);
+  primaryUnchanged(f, local, remote); noTemporaryMetadata(f);
+});
+
+// If the shared memory store no longer has a conflicted topic (e.g. it was
+// deleted upstream between the merge base and now), the real regenerate
+// command can legitimately report success without ever rewriting that one
+// file -- leaving it exactly as `git merge --no-commit --no-ff` left it,
+// literal conflict markers and all. Both sides' unique lines are still
+// physically present in that file, sitting either side of the markers, so a
+// check that only asks "is each side's unique content present somewhere"
+// would wrongly accept this as resolved. Model the gap with a regenerator
+// that reports success but writes nothing.
+await withFixture(async (f) => {
+  const path = '.agents/memory/MEMORY.md';
+  const localBody = '# Memory\n- [Local](local-topic.md) — hookLocal\n';
+  const remoteBody = '# Memory\n- [Remote](remote-topic.md) — hookRemote\n';
+  const { local, remote } = f.diverge(path, localBody, remoteBody);
+  const preflight = await f.service().preflight(local);
+  assert.equal(preflight.state, 'candidate_ready', preflight.error);
+  const result = await f.service(undefined, undefined, async () => true).candidate(candidateAudit(f, preflight.packet!.fingerprint));
+  assert.equal(result.state, 'generated_regeneration_failed', result.error);
+  primaryUnchanged(f, local, remote); noTemporaryMetadata(f);
+});
+
+// Several memory files conflicting at once must be resolved together with a
+// single regeneration pass, not one per file.
+await withFixture(async (f) => {
+  const pathA = '.agents/memory/MEMORY.md';
+  const pathB = '.agents/memory/topic-a.md';
+  git(f.root, 'checkout', '-b', 'local');
+  f.write(pathA, 'local-a\n'); f.write(pathB, 'local-b\n');
+  const local = f.commit('local memory');
+  git(f.root, 'checkout', 'main');
+  f.write(pathA, 'remote-a\n'); f.write(pathB, 'remote-b\n');
+  const remote = f.commit('remote memory'); git(f.root, 'push', 'origin', 'main'); git(f.root, 'checkout', 'local');
+  const preflight = await f.service().preflight(local);
+  assert.equal(preflight.state, 'candidate_ready', preflight.error);
+  let regenerateCalls = 0;
+  const regenerated = { [pathA]: 'local-a\nremote-a\n', [pathB]: 'local-b\nremote-b\n' };
+  const result = await f.service(undefined, undefined, regenerateWith(regenerated, () => { regenerateCalls += 1; })).candidate(candidateAudit(f, preflight.packet!.fingerprint));
+  assert.equal(result.state, 'candidate_ready', result.error);
+  assert.equal(regenerateCalls, 1, 'multiple memory-file conflicts must trigger exactly one regeneration pass');
+  assert.equal(git(f.root, 'show', `${result.candidateSha}:${pathA}`), 'local-a\nremote-a');
+  assert.equal(git(f.root, 'show', `${result.candidateSha}:${pathB}`), 'local-b\nremote-b');
+  primaryUnchanged(f, local, remote); noTemporaryMetadata(f);
+});
+
+// A nested path under .agents/memory/ is deliberately outside the recognized
+// pattern (topic files are always direct children) and must still fail
+// closed as an ordinary unclassified conflict -- even with a regeneration
+// fake that would otherwise happily resolve it, proving the boundary is the
+// path pattern, not merely the absence of a fake in other tests.
+await withFixture(async (f) => {
+  const path = '.agents/memory/sub/nested.md';
+  const { local, remote } = f.diverge(path, 'local\n', 'remote\n');
+  const preflight = await f.service().preflight(local);
+  const result = await f.service(undefined, undefined, regenerateWith({ [path]: 'anything\n' })).candidate(candidateAudit(f, preflight.packet!.fingerprint));
+  assert.equal(result.state, 'unclassified_conflict', result.error);
+  primaryUnchanged(f, local, remote); noTemporaryMetadata(f);
+});
+
+// Content common to the merge base that the shared store legitimately
+// dropped between the merge base and now (e.g. an entry someone deleted via
+// the CLI) must not be treated as "missing" just because neither side's
+// blob still has it verbatim in the regenerated file -- only each side's
+// newly-added-since-base content has to survive, the same guarantee a real
+// three-way text merge gives any other file.
+await withFixture(async (f) => {
+  const path = '.agents/memory/MEMORY.md';
+  const baseBody = '# Memory\n- [Old](old-topic.md) — staleHook\n';
+  f.write(path, baseBody); f.commit('memory base'); git(f.root, 'push', 'origin', 'main');
+  const localBody = `${baseBody}- [Local](local-topic.md) — hookLocal\n`;
+  const remoteBody = `${baseBody}- [Remote](remote-topic.md) — hookRemote\n`;
+  const regenerated = '# Memory\n- [Local](local-topic.md) — hookLocal\n- [Remote](remote-topic.md) — hookRemote\n'; // old entry legitimately gone
+  const { local, remote } = f.diverge(path, localBody, remoteBody);
+  const preflight = await f.service().preflight(local);
+  assert.equal(preflight.state, 'candidate_ready', preflight.error);
+  const result = await f.service(undefined, undefined, regenerateWith({ [path]: regenerated })).candidate(candidateAudit(f, preflight.packet!.fingerprint));
+  assert.equal(result.state, 'candidate_ready', result.error);
+  assert.equal(git(f.root, 'show', `${result.candidateSha}:${path}`), regenerated.trim());
+  primaryUnchanged(f, local, remote); noTemporaryMetadata(f);
 });
 
 const source = readFileSync(join(process.cwd(), 'server/services/source-reconciliation-service.ts'), 'utf8');

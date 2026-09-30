@@ -76,12 +76,37 @@ export interface ReconciliationInspectionResult extends ReconciliationResult {
     outputLimit: number;
   };
 }
-export interface ReconciliationOptions { rootDir?: string; run?: (args: string[], cwd?: string) => Promise<{ code: number; stdout: string; stderr: string }>; sourceControl?: Pick<SourceControlService, 'acquireReconciliationLease' | 'runReconciliationGit'>; validateCandidate?: (cwd: string) => Promise<Record<string, string>> }
+export interface ReconciliationOptions { rootDir?: string; run?: (args: string[], cwd?: string) => Promise<{ code: number; stdout: string; stderr: string }>; sourceControl?: Pick<SourceControlService, 'acquireReconciliationLease' | 'runReconciliationGit'>; validateCandidate?: (cwd: string) => Promise<Record<string, string>>; regenerateAgentMemory?: (cwd: string) => Promise<boolean> }
 
 const stable = (value: unknown): string => JSON.stringify(value, (_key, item) => item && typeof item === 'object' && !Array.isArray(item) ? Object.fromEntries(Object.keys(item).sort().map((key) => [key, item[key]])) : item);
 const hash = (value: string) => createHash('sha256').update(value).digest('hex');
 const lines = (text: string) => text.trim() ? text.trim().split('\n').filter(Boolean) : [];
 const policyMatches = (policy: Policy, path: string) => policy.path === path;
+// .agents/memory/*.md files are generated projections of a shared memory
+// store (see .agents/memory/agent-memory-rebase-conflict-resolution.md) --
+// every hat's writes go through server/scripts/agent-memory-cli.ts, which
+// updates the shared store first and regenerates the file from it, so a
+// git-level text conflict between two snapshots of one of these files is
+// never a real authorship conflict. Recognized by path pattern rather than a
+// manifest entry (the same way docs/episode-*.md is recognized by pattern in
+// classifyProjectedChange() below) because topic files are created
+// dynamically and can't be enumerated in the manifest in advance.
+const AGENT_MEMORY_PATH = /^\.agents\/memory\/[^/]+\.md$/;
+// Trimmed, non-blank lines of arbitrary file content, for the agent-memory
+// conflict proof below -- distinct from `lines()` above, which parses Git
+// plumbing command output (one path/SHA per line), not free-form document text.
+const contentLines = (text: string) => new Set(text.split('\n').map((line) => line.trim()).filter(Boolean));
+// Detects a literal, still-unresolved Git conflict marker line (default,
+// diff3, and zdiff3 styles all use a run of exactly 7 <, |, =, or > chars).
+// `regenerateAgentMemory` only rewrites topics that still exist in the shared
+// memory store -- a topic deleted from the store between the merge base and
+// now can leave its conflicted file completely untouched, still containing
+// both sides' content inside the markers. That untouched file would satisfy
+// a check that only asks "is each side's unique content present somewhere",
+// since both sides' lines are still sitting right there either side of the
+// markers -- so unresolved-conflict state must be checked for explicitly,
+// not inferred from content presence alone.
+const CONFLICT_MARKER = /^(?:<{7}|\|{7}|={7}|>{7})(?=\s|$)/m;
 const trustedEpisodeWriter = (writer: string) => new Set([
   'restore-rolling-episodes-from-db', 'restore-episode-27-from-db', 'restore-episode-28-from-db', 'sync-ep27-from-db',
 ]).has(writer);
@@ -152,6 +177,7 @@ export class SourceReconciliationService {
   private readonly run: NonNullable<ReconciliationOptions['run']>;
   private sourceControl?: Pick<SourceControlService, 'acquireReconciliationLease' | 'runReconciliationGit'>;
   private readonly validateCandidate: (cwd: string) => Promise<Record<string, string>>;
+  private readonly regenerateAgentMemory: (cwd: string) => Promise<boolean>;
   constructor(options: ReconciliationOptions = {}) {
     this.root = options.rootDir || process.cwd();
     this.sourceControl = options.sourceControl;
@@ -187,6 +213,29 @@ export class SourceReconciliationService {
         }
       }
       return checks;
+    });
+    // Deliberately not statically imported (see file header): this shells
+    // out to the CLI script rather than calling its underlying module
+    // in-process, because that module binds its output directory once at
+    // first import (from process.cwd() at load time) and a second import
+    // from this already-running process would keep reusing that first
+    // binding -- it would never re-target the isolated worktree `cwd` a
+    // later call passes here. A fresh subprocess per call re-evaluates that
+    // binding against the `cwd` it's actually given. No explicit `env` is
+    // passed, so (unlike validateCandidate above) the child inherits this
+    // process's full environment -- regeneration genuinely needs whatever
+    // credentials the shared memory store requires, unlike the hermetic
+    // typecheck/self-check candidate proofs.
+    this.regenerateAgentMemory = options.regenerateAgentMemory || (async (cwd) => {
+      try {
+        await execFile(resolve(this.root, 'node_modules/.bin/tsx'), ['server/scripts/agent-memory-cli.ts', 'regenerate', '--all'], {
+          cwd,
+          maxBuffer: 8 * 1024 * 1024,
+        });
+        return true;
+      } catch {
+        return false;
+      }
     });
   }
 
@@ -511,13 +560,20 @@ export class SourceReconciliationService {
       if (merged.code) {
         const conflicts = lines((await this.git(['diff', '--name-only', '--diff-filter=U'], worktree)).stdout);
         if (!conflicts.length) return finish('protected_path_proof_failed', merged.stderr || 'Merge failed without classifiable conflicts.');
+        const agentMemoryConflicts: string[] = [];
         for (const path of conflicts) {
           const policy = manifest.policies.find((item) => policyMatches(item, path));
-          if (!policy) return finish('unclassified_conflict', `No protected-path policy permits resolution of ${path}.`);
+          if (!policy) {
+            if (AGENT_MEMORY_PATH.test(path)) { agentMemoryConflicts.push(path); continue; }
+            return finish('unclassified_conflict', `No protected-path policy permits resolution of ${path}.`);
+          }
           if (policy.kind === 'append-only-manual') return finish('candidate_conflicts_manual', `Manual resolution required for ${path}.`);
           if (policy.kind === 'generated-local' && !(await this.resolveGenerated(worktree, packet, path, policy))) return finish('generated_regeneration_failed', `Generated proof failed for ${path}.`);
           if (policy.kind === 'canonical-incoming-subset' && !(await this.resolveCanonical(worktree, packet, path))) return finish('protected_path_proof_failed', `Canonical subset proof failed for ${path}.`);
           if (policy.kind === 'ordinary') return finish('unclassified_conflict', `Ordinary conflict requires manual resolution: ${path}.`);
+        }
+        if (agentMemoryConflicts.length && !(await this.resolveAgentMemory(worktree, agentMemoryConflicts, packet))) {
+          return finish('generated_regeneration_failed', `Agent-memory regeneration proof failed for ${agentMemoryConflicts.join(', ')}.`);
         }
       }
       if (lines((await this.git(['ls-files', '-u'], worktree)).stdout).length) return finish('candidate_conflicts_manual', 'Candidate index has unmerged entries.');
@@ -672,6 +728,42 @@ export class SourceReconciliationService {
     for (const item of r) { const index = l.findIndex((candidate) => candidate.id === item.id); if (index < 0 || index <= cursor || l[index].bytes !== item.bytes) return false; cursor = index; }
     await writeFile(join(cwd, path), local.stdout); if ((await this.git(['add', '--', path], cwd)).code) return false;
     const staged = await this.git(['show', `:${path}`], cwd); return staged.code === 0 && staged.stdout === local.stdout;
+  }
+  /**
+   * .agents/memory/*.md conflicts are resolved by regenerating every file in
+   * the directory from the shared memory store (the same operation
+   * `server/scripts/agent-memory-cli.ts regenerate --all` performs by hand --
+   * see .agents/memory/agent-memory-rebase-conflict-resolution.md), then
+   * proving each conflicted path was actually resolved: no literal conflict
+   * markers survive, and neither side's git blob had content the regenerated
+   * result doesn't cover. "Unique" is deliberately relative to the merge
+   * base, not each blob's absolute content: an entry legitimately edited or
+   * removed through the CLI between the merge base and now must not be
+   * flagged just because its old text no longer appears anywhere -- only
+   * content one side newly *added* since the point of divergence has to
+   * survive, matching what a real 3-way text merge would guarantee for any
+   * other file.
+   */
+  private async resolveAgentMemory(cwd: string, paths: string[], packet: ReconciliationPacket): Promise<boolean> {
+    if (!(await this.regenerateAgentMemory(cwd))) return false;
+    for (const path of paths) {
+      const [local, remote, base] = await Promise.all([
+        this.git(['show', `${packet.localSha}:${path}`]),
+        this.git(['show', `${packet.remoteSha}:${path}`]),
+        this.git(['show', `${packet.mergeBase}:${path}`]),
+      ]);
+      if (local.code || remote.code) return false;
+      const baseLines = base.code === 0 ? contentLines(base.stdout) : new Set<string>();
+      const localUnique = [...contentLines(local.stdout)].filter((line) => !baseLines.has(line));
+      const remoteUnique = [...contentLines(remote.stdout)].filter((line) => !baseLines.has(line));
+      let regenerated: string;
+      try { regenerated = await readFile(join(cwd, path), 'utf8'); }
+      catch { return false; }
+      if (CONFLICT_MARKER.test(regenerated)) return false;
+      const regeneratedLines = contentLines(regenerated);
+      if (!localUnique.every((line) => regeneratedLines.has(line)) || !remoteUnique.every((line) => regeneratedLines.has(line))) return false;
+    }
+    return (await this.git(['add', '-A', '--', '.agents/memory'], cwd)).code === 0;
   }
   private async manifest(): Promise<Manifest> { return JSON.parse(await readFile(resolve(this.root, 'config/source-reconciliation-policies.json'), 'utf8')) as Manifest; }
   private validateManifest(manifest: Manifest): string | undefined {
