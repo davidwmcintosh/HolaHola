@@ -44,7 +44,7 @@ import {
 import { listCoordinationInbox } from "./coordination-inbox-service";
 import { OPERATIONS_CATALOG, toPublicOperationManifest } from "./operations-catalog";
 import { applyHandoffSection, shareAldenHandoffNote } from "./alden-handoff-shared-spec";
-import { readAldenSharedSpecReview, claimAldenSharedSpecReview, decideAldenSharedSpecReview } from "./alden-shared-spec-review";
+import { listAldenSharedSpecReviews, readAldenSharedSpecReview, claimAldenSharedSpecReview, decideAldenSharedSpecReview } from "./alden-shared-spec-review";
 
 // Was hardcoded to '/home/runner/workspace' -- a Replit-only container path.
 // Once production ran on Render (post-DNS-swap), every file/shell tool here
@@ -762,6 +762,15 @@ export const ALDEN_TOOLS: AldenTool[] = [
     name: "list_coordination_runtimes",
     description: "List every registered coordination runtime — id, actor, display name, capabilities, provider/model, and enabled/revoked state. Non-secret: never includes a bootstrap hash or live credential. Use this before registering or revoking a runtime, to check what already exists.",
     gemini_description: "List every registered coordination runtime (id, actor, display name, capabilities, provider/model, enabled/revoked state). Non-secret — never includes credentials.",
+    input_schema: {
+      type: "object" as const,
+      properties: {},
+    },
+  },
+  {
+    name: "list_shared_spec_reviews",
+    description: "List every shared-spec review currently waiting on you (actor: alden): still pending, and either assigned to you directly or already claimed by you, across every document. Returns each review's full state plus its target document's title/kind/path — use this to discover review work yourself instead of needing the exact review_id handed to you first (e.g. via a priority-task message). Follow up with read_shared_spec_review on any id returned here to see the full revision markdown before deciding.",
+    gemini_description: "List every pending shared-spec review assigned to or already claimed by you (alden), across every document — each review's state plus its target document's title/kind/path. Use this to find review work without already knowing a review_id; follow up with read_shared_spec_review for the full markdown.",
     input_schema: {
       type: "object" as const,
       properties: {},
@@ -3057,6 +3066,26 @@ export async function executeAldenTool(
         try {
           const runtimes = await listCoordinationRuntimeRegistrations();
           return { data: { runtimes } };
+        } catch (e: any) {
+          return { data: { error: e.message } };
+        }
+      }
+
+      case "list_shared_spec_reviews": {
+        try {
+          const entries = await listAldenSharedSpecReviews();
+          return {
+            data: {
+              reviews: entries.map(({ review, document }) => ({
+                review,
+                document: {
+                  id: document.id, title: document.title, kind: document.kind,
+                  gitPath: document.gitPath, state: document.state,
+                  liveInstructionDocument: document.liveInstructionDocument,
+                },
+              })),
+            },
+          };
         } catch (e: any) {
           return { data: { error: e.message } };
         }

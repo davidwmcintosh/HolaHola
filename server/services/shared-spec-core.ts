@@ -128,6 +128,13 @@ export interface SharedSpecTransaction {
   ): Promise<boolean>;
   getReview(id: string): Promise<SharedSpecReview | undefined>;
   listReviews(documentId: string): Promise<readonly SharedSpecReview[]>;
+  /**
+   * A reviewer's own queue, across every document: every review still
+   * `pending` that is either explicitly assigned to this actor
+   * (requestedReviewerActorId) or already claimed by them
+   * (claimedReviewerActorId), oldest-requested-first.
+   */
+  listReviewsForReviewer(actorId: string): Promise<readonly SharedSpecReview[]>;
   insertReview(review: SharedSpecReview): Promise<void>;
   updateReview(review: SharedSpecReview): Promise<void>;
   getActivePolicy(
@@ -446,6 +453,16 @@ export class SharedSpecCore {
     return this.repository.transaction(tx => this.mustReview(tx, reviewId));
   }
 
+  /**
+   * A reviewer's queue: every pending review, across every document, that is
+   * assigned to this actor or already claimed by them. Lets a reviewer (e.g.
+   * Alden) discover waiting review work without already knowing a reviewId.
+   */
+  async listReviewsForReviewer(actorId: string): Promise<readonly SharedSpecReview[]> {
+    this.required(actorId, "actorId");
+    return this.repository.transaction(tx => tx.listReviewsForReviewer(actorId));
+  }
+
   async listRevisions(documentId: string): Promise<readonly SharedSpecRevision[]> {
     return this.repository.transaction(async tx => {
       await this.mustDocument(tx, documentId);
@@ -738,6 +755,10 @@ export class InMemorySharedSpecRepository implements SharedSpecRepository {
       },
       getReview: async id => clone(this.reviews.get(id)),
       listReviews: async documentId => [...this.reviews.values()].filter(x => x.documentId === documentId).map(clone),
+      listReviewsForReviewer: async actorId => [...this.reviews.values()]
+        .filter(x => x.state === "pending" && (x.requestedReviewerActorId === actorId || x.claimedReviewerActorId === actorId))
+        .sort((a, b) => a.requestedAt.getTime() - b.requestedAt.getTime())
+        .map(clone),
       insertReview: async value => { this.reviews.set(value.id, clone(value)); },
       updateReview: async value => { if (!this.reviews.has(value.id)) throw new SharedSpecDomainError("NOT_FOUND", "Review not found"); this.reviews.set(value.id, clone(value)); },
       getActivePolicy: async (actorId, capability, kind) => {

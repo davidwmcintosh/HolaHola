@@ -75,6 +75,56 @@ test("ready review retains its requester and exact mutation digest", async () =>
   assert.equal(created.revision.requestDigest.length, 64);
 });
 
+test("listReviewsForReviewer surfaces only this actor's pending queue: assigned-but-unclaimed and claimed, never someone else's or a decided review", async () => {
+  const { core, created } = await setup();
+  await core.setReviewerPolicy(admin, {
+    actorId: "alden", capability: "reviewer", active: true, idempotencyKey: "alden-reviewer-on",
+  });
+
+  // Assigned to alden, not yet claimed -- must appear.
+  const assigned = await core.markRevisionReady(author, {
+    documentId: created.document.id, revisionId: created.revision.id,
+    requestedReviewerActorId: "alden", idempotencyKey: "ready-assigned",
+  });
+
+  // Open (unassigned) review claimed by a different actor -- must never appear for alden.
+  const otherDoc = await core.createDocument(author, {
+    title: "Other doc", kind: "design", repository: "hola/hola",
+    gitPath: "docs/superpowers/specs/other.md", markdown: "# Other\n", idempotencyKey: "create-other",
+  });
+  const claimedByOther = await core.markRevisionReady(author, {
+    documentId: otherDoc.document.id, revisionId: otherDoc.revision.id, idempotencyKey: "ready-open",
+  });
+  await core.claimReview(reviewer, claimedByOther.id, "claim-open");
+
+  // Open review alden claims himself -- must appear even though never explicitly requestedReviewerActorId.
+  const claimableDoc = await core.createDocument(author, {
+    title: "Claimable doc", kind: "architecture", repository: "hola/hola",
+    gitPath: "docs/superpowers/specs/claimable.md", markdown: "# Claimable\n", idempotencyKey: "create-claimable",
+  });
+  const claimable = await core.markRevisionReady(author, {
+    documentId: claimableDoc.document.id, revisionId: claimableDoc.revision.id, idempotencyKey: "ready-claimable",
+  });
+  await core.claimReview({ actorId: "alden" }, claimable.id, "claim-by-alden");
+
+  // Assigned to and decided by alden -- must drop out once no longer pending.
+  const decidedDoc = await core.createDocument(author, {
+    title: "Decided doc", kind: "architecture", repository: "hola/hola",
+    gitPath: "docs/superpowers/specs/decided.md", markdown: "# Decided\n", idempotencyKey: "create-decided",
+  });
+  const decided = await core.markRevisionReady(author, {
+    documentId: decidedDoc.document.id, revisionId: decidedDoc.revision.id,
+    requestedReviewerActorId: "alden", idempotencyKey: "ready-decided",
+  });
+  await core.claimReview({ actorId: "alden" }, decided.id, "claim-decided");
+  await core.approveReview({ actorId: "alden" }, { reviewId: decided.id, idempotencyKey: "approve-decided" });
+
+  const queue = await core.listReviewsForReviewer("alden");
+  assert.deepEqual(queue.map(review => review.id).sort(), [assigned.id, claimable.id].sort());
+  assert.ok(queue.every(review => review.state === "pending"));
+  assert.equal((await core.listReviewsForReviewer("nobody-registered")).length, 0);
+});
+
 test("creation only accepts canonical repository and safe spec namespace", async () => {
   const core = new SharedSpecCore(new InMemorySharedSpecRepository());
   const input = { title: "x", kind: "design" as const, repository: "owner/repo", gitPath: "docs/superpowers/specs/safe.md", markdown: "# x", idempotencyKey: "x" };

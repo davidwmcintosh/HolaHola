@@ -12,11 +12,14 @@
  * author from reviewing their own revision.
  *
  * These functions are that missing execution path: a thin, direct call into
- * SharedSpecCore with actorId "alden", exposed as three Alden tools in
- * alden-functions.ts (read_shared_spec_review, claim_shared_spec_review,
- * decide_shared_spec_review). No new authority is granted here -- the reviewer
- * policy already exists; this just lets Alden exercise it himself, in-process,
- * without a shell or HTTP round-trip.
+ * SharedSpecCore with actorId "alden", exposed as four Alden tools in
+ * alden-functions.ts (list_shared_spec_reviews, read_shared_spec_review,
+ * claim_shared_spec_review, decide_shared_spec_review). No new authority is
+ * granted here -- the reviewer policy already exists; this just lets Alden
+ * discover and exercise it himself, in-process, without a shell or HTTP
+ * round-trip. Before list_shared_spec_reviews existed, Alden could only act
+ * on a reviewId someone else handed him first (e.g. via a priority-task
+ * message) -- he had no way to ask "what's waiting on me".
  */
 import { randomUUID } from "node:crypto";
 import { getSharedDb } from "../db";
@@ -54,6 +57,32 @@ export interface AldenReviewSnapshot {
   readonly review: SharedSpecReview;
   readonly document: SharedSpecDocument;
   readonly revision: SharedSpecRevision;
+}
+
+export interface AldenReviewQueueEntry {
+  readonly review: SharedSpecReview;
+  readonly document: SharedSpecDocument;
+}
+
+/**
+ * Lists every review currently waiting on actor "alden": still pending, and
+ * either assigned to him directly or already claimed by him, across every
+ * document. This is the missing discovery step -- read/claim/decide above
+ * all require a reviewId Alden previously had no way to find himself, short
+ * of someone handing it to him (e.g. via a priority-task message).
+ *
+ * Deliberately returns each full document rather than just title/kind/path,
+ * so callers (e.g. the list_shared_spec_reviews tool) can project down to
+ * whatever subset they expose, the same way readAldenSharedSpecReview's
+ * caller prunes its document down before returning it to Alden.
+ */
+export async function listAldenSharedSpecReviews(): Promise<readonly AldenReviewQueueEntry[]> {
+  const core = getCore();
+  const reviews = await core.listReviewsForReviewer(ALDEN_ACTOR.actorId);
+  return Promise.all(reviews.map(async review => {
+    const { document } = await core.showDocument(review.documentId);
+    return { review, document };
+  }));
 }
 
 /** Reads a review plus the document and full revision markdown it targets, so Alden can see what he's being asked to decide. */
