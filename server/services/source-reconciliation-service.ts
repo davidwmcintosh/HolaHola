@@ -96,6 +96,17 @@ const AGENT_MEMORY_PATH = /^\.agents\/memory\/[^/]+\.md$/;
 // conflict proof below -- distinct from `lines()` above, which parses Git
 // plumbing command output (one path/SHA per line), not free-form document text.
 const contentLines = (text: string) => new Set(text.split('\n').map((line) => line.trim()).filter(Boolean));
+// Detects a literal, still-unresolved Git conflict marker line (default,
+// diff3, and zdiff3 styles all use a run of exactly 7 <, |, =, or > chars).
+// `regenerateAgentMemory` only rewrites topics that still exist in the shared
+// memory store -- a topic deleted from the store between the merge base and
+// now can leave its conflicted file completely untouched, still containing
+// both sides' content inside the markers. That untouched file would satisfy
+// a check that only asks "is each side's unique content present somewhere",
+// since both sides' lines are still sitting right there either side of the
+// markers -- so unresolved-conflict state must be checked for explicitly,
+// not inferred from content presence alone.
+const CONFLICT_MARKER = /^(?:<{7}|\|{7}|={7}|>{7})(?=\s|$)/m;
 const trustedEpisodeWriter = (writer: string) => new Set([
   'restore-rolling-episodes-from-db', 'restore-episode-27-from-db', 'restore-episode-28-from-db', 'sync-ep27-from-db',
 ]).has(writer);
@@ -723,13 +734,15 @@ export class SourceReconciliationService {
    * the directory from the shared memory store (the same operation
    * `server/scripts/agent-memory-cli.ts regenerate --all` performs by hand --
    * see .agents/memory/agent-memory-rebase-conflict-resolution.md), then
-   * proving neither side's git blob had content the regenerated result
-   * doesn't cover. "Unique" is deliberately relative to the merge base, not
-   * each blob's absolute content: an entry legitimately edited or removed
-   * through the CLI between the merge base and now must not be flagged just
-   * because its old text no longer appears anywhere -- only content one side
-   * newly *added* since the point of divergence has to survive, matching
-   * what a real 3-way text merge would guarantee for any other file.
+   * proving each conflicted path was actually resolved: no literal conflict
+   * markers survive, and neither side's git blob had content the regenerated
+   * result doesn't cover. "Unique" is deliberately relative to the merge
+   * base, not each blob's absolute content: an entry legitimately edited or
+   * removed through the CLI between the merge base and now must not be
+   * flagged just because its old text no longer appears anywhere -- only
+   * content one side newly *added* since the point of divergence has to
+   * survive, matching what a real 3-way text merge would guarantee for any
+   * other file.
    */
   private async resolveAgentMemory(cwd: string, paths: string[], packet: ReconciliationPacket): Promise<boolean> {
     if (!(await this.regenerateAgentMemory(cwd))) return false;
@@ -746,6 +759,7 @@ export class SourceReconciliationService {
       let regenerated: string;
       try { regenerated = await readFile(join(cwd, path), 'utf8'); }
       catch { return false; }
+      if (CONFLICT_MARKER.test(regenerated)) return false;
       const regeneratedLines = contentLines(regenerated);
       if (!localUnique.every((line) => regeneratedLines.has(line)) || !remoteUnique.every((line) => regeneratedLines.has(line))) return false;
     }

@@ -551,6 +551,27 @@ await withFixture(async (f) => {
   primaryUnchanged(f, local, remote); noTemporaryMetadata(f);
 });
 
+// If the shared memory store no longer has a conflicted topic (e.g. it was
+// deleted upstream between the merge base and now), the real regenerate
+// command can legitimately report success without ever rewriting that one
+// file -- leaving it exactly as `git merge --no-commit --no-ff` left it,
+// literal conflict markers and all. Both sides' unique lines are still
+// physically present in that file, sitting either side of the markers, so a
+// check that only asks "is each side's unique content present somewhere"
+// would wrongly accept this as resolved. Model the gap with a regenerator
+// that reports success but writes nothing.
+await withFixture(async (f) => {
+  const path = '.agents/memory/MEMORY.md';
+  const localBody = '# Memory\n- [Local](local-topic.md) — hookLocal\n';
+  const remoteBody = '# Memory\n- [Remote](remote-topic.md) — hookRemote\n';
+  const { local, remote } = f.diverge(path, localBody, remoteBody);
+  const preflight = await f.service().preflight(local);
+  assert.equal(preflight.state, 'candidate_ready', preflight.error);
+  const result = await f.service(undefined, undefined, async () => true).candidate(candidateAudit(f, preflight.packet!.fingerprint));
+  assert.equal(result.state, 'generated_regeneration_failed', result.error);
+  primaryUnchanged(f, local, remote); noTemporaryMetadata(f);
+});
+
 // Several memory files conflicting at once must be resolved together with a
 // single regeneration pass, not one per file.
 await withFixture(async (f) => {
