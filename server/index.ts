@@ -1004,6 +1004,12 @@ const listeningPromise = new Promise<void>((resolve, reject) => {
 
       const { startGeminiProviderWorker } = await import('./services/coordination-gemini-provider-worker');
       startGeminiProviderWorker();
+
+      // Reaps Coordination V2 sessions abandoned in a non-terminal state
+      // (e.g. waiting_for_host with no host process left polling it) -- see
+      // coordination-lifecycle-reaper-service.ts.
+      const { startCoordinationLifecycleReaperWorker } = await import('./services/coordination-lifecycle-reaper-worker');
+      startCoordinationLifecycleReaperWorker();
     }, 85000);
 
     // +55s: Learning Goals Migration — idempotent CREATE TABLE IF NOT EXISTS for

@@ -28,4 +28,3 @@ disposable-database-gate-design.md) so it never runs outside a verified
 disposable Postgres instance, and confirm via a real GitHub Actions job
 definition (not just the splice list) that the gate's env vars are actually
 supplied there before assuming the coverage is live.
-

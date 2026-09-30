@@ -11,13 +11,18 @@ import {
   coordinationV2SessionEvents,
   coordinationV2Sessions,
   coordinationV2CleanupObligations,
+  coordinationV2TransportLeaseReceipts,
   type CoordinationV2Session,
 } from '@shared/schema';
 import { canonicalJson, canonicalizePolicy } from './coordination-policy-canonicalization';
 import { transitionSession as reduceSession, type SessionCommand } from './coordination-session-state';
 import type { FailureClassification, SessionState, SessionStatus } from './coordination-v2-types';
 import { authorizeCoordinationLifecycleInTransaction, CoordinationLifecycleAuthorizationError } from './coordination-lifecycle-authorization';
-import { applyCoordinationCleanupAuthorityEffectInTransaction } from './coordination-cleanup-service';
+import {
+  applyCoordinationCleanupAuthorityEffectInTransaction,
+  CLEANUP_OBLIGATION_KINDS,
+  cleanupObligationIdempotencyKey,
+} from './coordination-cleanup-service';
 import {
   DEFAULT_PROVIDER_REGISTRY,
   type CoordinationProviderRegistry,
@@ -340,6 +345,66 @@ export type SessionTransitionInput = {
   evidenceRef?: string;
 };
 
+/**
+ * Shared terminal write path for both the actor-authorized transition below
+ * and the authority-free reaper transition. Idempotent on (sessionId,
+ * requestKey): a replayed call with the same command returns the original
+ * snapshot instead of re-applying the reducer or re-inserting cleanup rows.
+ */
+async function commitSessionTransition(
+  tx: any,
+  row: CoordinationV2Session,
+  command: Omit<SessionCommand, 'requestId' | 'eventId' | 'now'>,
+  requestKey: string,
+  actorType: string,
+  actorId: string,
+  now: Date,
+  evidenceRef?: string,
+): Promise<SessionDto> {
+  const existing = await tx.select().from(coordinationV2SessionEvents)
+    .where(and(eq(coordinationV2SessionEvents.sessionId, row.id), eq(coordinationV2SessionEvents.requestKey, requestKey)));
+  if (existing[0]) {
+    const expected = digest(command);
+    const actual = (existing[0].metadata as Record<string, unknown>)?.commandDigest;
+    if (actual !== expected) fail('SESSION_REQUEST_REPLAY_CONFLICT');
+    return ((existing[0].metadata as Record<string, unknown>)?.resultSnapshot ?? dto(row)) as SessionDto;
+  }
+  const result = reduceSession(await stateFor(tx, row), {
+    ...(command as SessionCommand), requestId: requestKey, eventId: randomUUID(), now: now.getTime(),
+  });
+  if (!result.ok) fail('SESSION_TRANSITION_REJECTED', { reason: result.code });
+  const updatedRows = await tx.update(coordinationV2Sessions).set({
+    state: result.state.state, terminalAt: result.state.terminalAt ? new Date(result.state.terminalAt) : null,
+    terminalReason: result.state.terminalReason, updatedAt: now,
+  }).where(eq(coordinationV2Sessions.id, row.id)).returning();
+  const sequenceRows = await tx.select({ sequence: coordinationV2SessionEvents.sequence })
+    .from(coordinationV2SessionEvents).where(eq(coordinationV2SessionEvents.sessionId, row.id))
+    .orderBy(desc(coordinationV2SessionEvents.sequence)).limit(1);
+  await tx.insert(coordinationV2SessionEvents).values({
+    id: result.event.eventId, sessionId: row.id, sequence: (sequenceRows[0]?.sequence ?? 0) + 1,
+    fromState: result.event.from, toState: result.event.to, eventType: result.event.kind,
+    actorType, actorId, reasonCode: result.event.classification,
+    evidenceRef, requestKey,
+    metadata: { commandDigest: digest(command), resultSnapshot: dto(updatedRows[0]) }, createdAt: now,
+  });
+  if (['succeeded', 'failed', 'exhausted', 'expired', 'revoked'].includes(result.state.state)) {
+    const terminalReason = result.state.terminalReason ?? 'terminal session';
+    for (const kind of CLEANUP_OBLIGATION_KINDS) {
+      const obligationRequestKey = cleanupObligationIdempotencyKey(requestKey, kind);
+      const inserted = await tx.insert(coordinationV2CleanupObligations).values({
+        id: randomUUID(), sessionId: row.id, kind, state: 'pending',
+        terminalOutcome: result.state.state, terminalReason,
+        required: true, idempotencyKey: obligationRequestKey,
+        requestedAt: now, createdAt: now, updatedAt: now,
+      }).returning();
+      await applyCoordinationCleanupAuthorityEffectInTransaction(
+        tx, inserted[0], actorId, obligationRequestKey, now,
+      );
+    }
+  }
+  return dto(updatedRows[0]);
+}
+
 export async function transitionCoordinationSession(input: SessionTransitionInput): Promise<SessionDto> {
   required(input.sessionId, 'sessionId'); required(input.requestKey, 'requestKey'); required(input.actorId, 'actorId');
   const now = input.now ?? new Date();
@@ -361,48 +426,112 @@ export async function transitionCoordinationSession(input: SessionTransitionInpu
         }
         throw error;
       }
-      const existing = await tx.select().from(coordinationV2SessionEvents)
-        .where(and(eq(coordinationV2SessionEvents.sessionId, row.id), eq(coordinationV2SessionEvents.requestKey, input.requestKey)));
-      if (existing[0]) {
-        const expected = digest(input.command);
-        const actual = (existing[0].metadata as Record<string, unknown>)?.commandDigest;
-        if (actual !== expected) fail('SESSION_REQUEST_REPLAY_CONFLICT');
-        return ((existing[0].metadata as Record<string, unknown>)?.resultSnapshot ?? dto(row)) as SessionDto;
+      return commitSessionTransition(tx, row, input.command, input.requestKey, 'operator', input.actorId, now, input.evidenceRef);
+    });
+  } catch (error) {
+    if (error instanceof CoordinationSessionError) throw error;
+    const pgCode = (error as { code?: string }).code;
+    if (pgCode === '23505') fail('SESSION_REQUEST_REPLAY_CONFLICT');
+    if (pgCode === '23514') fail('SESSION_TRANSITION_REJECTED');
+    if (pgCode === '40001' || pgCode === '40P01') fail('SESSION_RETRYABLE_DATABASE_CONFLICT');
+    fail('SESSION_DATABASE_UNAVAILABLE');
+  }
+}
+
+const TERMINAL_SESSION_STATES = ['succeeded', 'failed', 'exhausted', 'expired', 'revoked'] as const;
+
+/** Fixed system identity recorded on every reaper-driven session event, so the
+ *  audit trail never confuses an autonomous sweep with a real operator command. */
+export const COORDINATION_REAPER_ACTOR_TYPE = 'system';
+export const COORDINATION_REAPER_ACTOR_ID = 'system:coordination-lifecycle-reaper';
+
+export type ReapStaleSessionOutcome =
+  | { reaped: true; command: 'expire' | 'fail'; session: SessionDto }
+  | { reaped: false; reason: 'already_terminal' | 'not_stale' };
+
+/**
+ * Authority-free terminal transition for sessions that have no forward
+ * progress left driving them: nothing polls, claims, or submits for them
+ * any more, and the actor authorization chain that would normally gate a
+ * transition (authorizeCoordinationLifecycleInTransaction) may itself be
+ * gone -- for example, an operator grant revoked after the session was
+ * abandoned, which permanently blocks the ordinary transitionCoordinationSession
+ * path (it requires a live, unrevoked grant for every action, including
+ * 'terminate'). This is why the reaper does not reuse that path: it commits
+ * the exact same terminal write (state machine, event, cleanup obligations,
+ * cleanup authority effects) via commitSessionTransition, just without first
+ * proving the caller holds current operator authority over the session.
+ *
+ * Safe because it can only ever move a session from a non-terminal state to
+ * a terminal one (mirroring 'expire'/'fail'); it never authorizes new work,
+ * extends a grant, or resumes a session.
+ */
+export async function reapStaleCoordinationSession(input: {
+  sessionId: string;
+  staleThresholdMs: number;
+  now?: Date;
+}): Promise<ReapStaleSessionOutcome> {
+  required(input.sessionId, 'sessionId');
+  if (!Number.isFinite(input.staleThresholdMs) || input.staleThresholdMs <= 0) {
+    fail('SESSION_INVALID_REQUEST', { field: 'staleThresholdMs' });
+  }
+  const now = input.now ?? new Date();
+  try {
+    return await db.transaction(async (tx) => {
+      const rows = await tx.select().from(coordinationV2Sessions)
+        .where(eq(coordinationV2Sessions.id, input.sessionId)).for('update');
+      const row = rows[0] as CoordinationV2Session | undefined;
+      if (!row) fail('SESSION_NOT_FOUND');
+      if ((TERMINAL_SESSION_STATES as readonly string[]).includes(row.state)) {
+        return { reaped: false, reason: 'already_terminal' };
       }
-      const result = reduceSession(await stateFor(tx, row), {
-        ...(input.command as SessionCommand), requestId: input.requestKey, eventId: randomUUID(), now: now.getTime(),
-      });
-      if (!result.ok) fail('SESSION_TRANSITION_REJECTED', { reason: result.code });
-      const updatedRows = await tx.update(coordinationV2Sessions).set({
-        state: result.state.state, terminalAt: result.state.terminalAt ? new Date(result.state.terminalAt) : null,
-        terminalReason: result.state.terminalReason, updatedAt: now,
-      }).where(eq(coordinationV2Sessions.id, row.id)).returning();
-      const sequenceRows = await tx.select({ sequence: coordinationV2SessionEvents.sequence })
-        .from(coordinationV2SessionEvents).where(eq(coordinationV2SessionEvents.sessionId, row.id))
-        .orderBy(desc(coordinationV2SessionEvents.sequence)).limit(1);
-      await tx.insert(coordinationV2SessionEvents).values({
-        id: result.event.eventId, sessionId: row.id, sequence: (sequenceRows[0]?.sequence ?? 0) + 1,
-        fromState: result.event.from, toState: result.event.to, eventType: result.event.kind,
-        actorType: 'operator', actorId: input.actorId, reasonCode: result.event.classification,
-        evidenceRef: input.evidenceRef, requestKey: input.requestKey,
-        metadata: { commandDigest: digest(input.command), resultSnapshot: dto(updatedRows[0]) }, createdAt: now,
-      });
-      if (['succeeded', 'failed', 'exhausted', 'expired', 'revoked'].includes(result.state.state)) {
-        const kinds = ['revoke_authority', 'release_lease', 'cleanup_generation', 'revoke_credentials'] as const;
-        const terminalReason = result.state.terminalReason ?? 'terminal session';
-        for (const kind of kinds) {
-          const inserted = await tx.insert(coordinationV2CleanupObligations).values({
-            id: randomUUID(), sessionId: row.id, kind, state: 'pending',
-            terminalOutcome: result.state.state, terminalReason,
-            required: true, idempotencyKey: `${input.requestKey}:${kind}`,
-            requestedAt: now, createdAt: now, updatedAt: now,
-          }).returning();
-          await applyCoordinationCleanupAuthorityEffectInTransaction(
-            tx, inserted[0], input.actorId, `${input.requestKey}:${kind}`, now,
-          );
-        }
+      const pastExpiry = row.expiresAt.getTime() <= now.getTime();
+      // The session row's own updatedAt only reflects session-level transitions
+      // (e.g. created -> provider_active). It is NOT refreshed by an attempt
+      // making forward progress (coordinationV2Attempts.updatedAt is bumped on
+      // every attempt state transition instead) or by a host renewing/using its
+      // transport lease (every lease operation -- acquire, renew, poll, claim,
+      // result, ack, release, expire, takeover -- writes a fresh
+      // coordinationV2TransportLeaseReceipts row instead of touching the lease's
+      // own immutable createdAt). Using only row.updatedAt here would let the
+      // sweep classify a genuinely active session as idle and terminate it out
+      // from under a working attempt or a live host. Take the most recent of
+      // all three signals as the session's true last-activity timestamp.
+      const [latestAttempt] = await tx.select({ updatedAt: coordinationV2Attempts.updatedAt })
+        .from(coordinationV2Attempts)
+        .where(eq(coordinationV2Attempts.sessionId, row.id))
+        .orderBy(desc(coordinationV2Attempts.updatedAt))
+        .limit(1);
+      const [latestReceipt] = await tx.select({ createdAt: coordinationV2TransportLeaseReceipts.createdAt })
+        .from(coordinationV2TransportLeaseReceipts)
+        .where(eq(coordinationV2TransportLeaseReceipts.sessionId, row.id))
+        .orderBy(desc(coordinationV2TransportLeaseReceipts.createdAt))
+        .limit(1);
+      const lastActivityAt = [row.updatedAt, latestAttempt?.updatedAt, latestReceipt?.createdAt]
+        .reduce((max: Date, ts) => (ts && ts.getTime() > max.getTime() ? ts : max), row.updatedAt);
+      const idleMs = now.getTime() - lastActivityAt.getTime();
+      if (!pastExpiry && idleMs < input.staleThresholdMs) {
+        return { reaped: false, reason: 'not_stale' };
       }
-      return dto(updatedRows[0]);
+      const commandType: 'expire' | 'fail' = pastExpiry ? 'expire' : 'fail';
+      // Not annotated as Omit<SessionCommand, ...>: that computed type collapses
+      // a discriminated union down to its common keys only (see keyof-of-union),
+      // which would make this fresh literal fail excess-property checking on
+      // 'reason'/'classification'. Left inferred, then passed as a variable
+      // (not a fresh literal) into commitSessionTransition below, exactly like
+      // every other named command builder in this module (e.g. sessionFailureCommand).
+      const command = pastExpiry
+        ? { type: 'expire' as const }
+        : {
+          type: 'fail' as const,
+          reason: `reaped after ${Math.round(idleMs / 60_000)}m with no forward progress (state=${row.state})`,
+          classification: 'terminal_failure' as const,
+        };
+      const requestKey = `reaper:${row.id}:${commandType}`.slice(0, 128);
+      const session = await commitSessionTransition(
+        tx, row, command, requestKey, COORDINATION_REAPER_ACTOR_TYPE, COORDINATION_REAPER_ACTOR_ID, now,
+      );
+      return { reaped: true, command: commandType, session };
     });
   } catch (error) {
     if (error instanceof CoordinationSessionError) throw error;

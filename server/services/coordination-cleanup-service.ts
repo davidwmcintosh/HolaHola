@@ -54,6 +54,42 @@ async function lockById(tx: any, table: any, id: string): Promise<any | undefine
   return rows[0];
 }
 
+/** The four durable, policy-independent revocation boundaries created for
+ *  every terminal session. Single source of truth shared with the
+ *  coordination_v2_cleanup_kind_value CHECK constraint (shared/schema.ts). */
+export const CLEANUP_OBLIGATION_KINDS = ['revoke_authority', 'release_lease', 'cleanup_generation', 'revoke_credentials'] as const;
+export type CleanupObligationKind = typeof CLEANUP_OBLIGATION_KINDS[number];
+
+// Matches coordination_v2_cleanup_obligations.idempotency_key's varchar(128)
+// column (shared/schema.ts).
+const CLEANUP_OBLIGATION_IDEMPOTENCY_KEY_MAX_LENGTH = 128;
+
+/**
+ * Builds the idempotency key for one of a terminal session's cleanup
+ * obligations. requestKey is independently validated only up to its own
+ * column's limit (coordination_v2_session_events.request_key, also 128
+ * chars) -- appending ":${kind}" on top of an already-128-char requestKey
+ * overflows this narrower idempotency_key column. A long requestKey is not
+ * hypothetical: the lifecycle reaper (coordination-lifecycle-reaper-service.ts)
+ * builds its own requestKey from a session id and can land at or near the
+ * 128-char cap for a normal-length session id.
+ *
+ * Truncates the requestKey portion only, never the kind suffix: the suffix
+ * is what keeps a session's obligations distinct under the
+ * uq_coordination_v2_cleanup_request unique index (sessionId, idempotencyKey).
+ * Truncating the combined string instead (as if via a trailing .slice(0,128))
+ * would drop the suffix entirely once requestKey alone reaches the column
+ * limit, producing an IDENTICAL idempotencyKey for every kind in the same
+ * session and turning the 2nd obligation insert into a unique-constraint
+ * failure -- the same "session can never reach a terminal state" bug class
+ * this function exists to prevent, just relocated instead of fixed.
+ */
+export function cleanupObligationIdempotencyKey(requestKey: string, kind: CleanupObligationKind): string {
+  const suffix = `:${kind}`;
+  const maxRequestKeyLength = CLEANUP_OBLIGATION_IDEMPOTENCY_KEY_MAX_LENGTH - suffix.length;
+  return `${requestKey.slice(0, maxRequestKeyLength)}${suffix}`;
+}
+
 /**
  * Cleanup retries remain server-owned after the reusable operator grant
  * expires or is revoked. We still bind the request to the session's original
@@ -293,13 +329,13 @@ export async function acceptCoordinationCompletion(input: CompletionInput) {
       // These are the durable, policy-independent revocation boundaries for a
       // terminal session. They are created in this transaction and never
       // delete evidence.
-      const kinds = ['revoke_authority', 'release_lease', 'cleanup_generation', 'revoke_credentials'] as const;
       const obligations = [];
-      for (const kind of kinds) {
+      for (const kind of CLEANUP_OBLIGATION_KINDS) {
+        const obligationRequestKey = cleanupObligationIdempotencyKey(input.requestKey, kind);
         const inserted = await tx.insert(coordinationV2CleanupObligations).values({
           id: randomUUID(), sessionId: session.id, kind, state: 'pending',
           terminalOutcome: 'succeeded', terminalReason: 'completion_accepted',
-          required: true, idempotencyKey: `${input.requestKey}:${kind}`,
+          required: true, idempotencyKey: obligationRequestKey,
           requestedAt: now, createdAt: now, updatedAt: now,
         }).returning();
         // Terminal completion is itself the cleanup trigger. The durable
@@ -307,7 +343,7 @@ export async function acceptCoordinationCompletion(input: CompletionInput) {
         // present-day authority must not remain live while that acknowledgement
         // is being delivered or repaired.
         await applyCoordinationCleanupAuthorityEffectInTransaction(
-          tx, inserted[0], input.actorId, `${input.requestKey}:${kind}`, now,
+          tx, inserted[0], input.actorId, obligationRequestKey, now,
         );
         obligations.push(inserted[0]);
       }
