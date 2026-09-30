@@ -86,6 +86,8 @@ run_check "Coordinator V2 host credential reauthorization" npx tsx --test \
   server/scripts/test-coordination-v2-host-reauthorization-static.test.ts
 run_check "Release cutover attestation service" npx tsx --test server/services/release-cutover-attestation-service.test.ts
 run_check "Shared-spec live-instruction-document PostgreSQL integration" npx tsx --test server/scripts/test-shared-spec-live-instruction-document-postgres.test.ts
+run_check "Shared-spec review-decision effects (working-tree write/commit + review_decided notification)" npx tsx --test server/services/shared-spec-review-decision.test.ts
+run_check "Shared-spec review-decision bypass guard (no direct core.approveReview/rejectReview outside the wrapper)" bash -c 'npx tsx server/scripts/test-shared-spec-review-decision-bypass-guard.ts && npx tsx server/scripts/test-shared-spec-review-decision-bypass-guard.ts --self-check'
 run_check "Coordination runtime Gate3 claim/execute/complete/verify lifecycle" npx tsx --test server/scripts/test-coordination-runtime.test.ts
 run_check "Coordination runtime envelope-violation-recovery self-check" npx tsx server/scripts/test-coordination-runtime-envelope-violation-selfcheck.ts
 run_check "Coordination runtime standing-verifier self-check" npx tsx server/scripts/test-coordination-runtime-verifier-standing-selfcheck.ts
