@@ -573,7 +573,18 @@ export async function createCoordinationThread(
       if (!updatedThread) throw new CoordinationError('Thread projection update failed', 500, 'projection_failed');
 
       let deliveryState: CoordinationMutationResult['deliveryState'] = 'not_applicable';
-      if (input.createInboxDelivery !== false && shouldCreateInboxDelivery(input.intendedRecipient)) {
+      // A self-addressed thread (actor === intendedRecipient) can never be routed:
+      // inboxActors() in coordination-delivery-worker.ts rejects same-actor delivery
+      // by design (no point mirroring your own action into your own inbox). Creating
+      // the delivery row anyway leaves it retrying forever at the capped backoff,
+      // permanently 'failed' with no way to succeed -- see the Sep 8 2026 thread
+      // created by shared-spec publication notifications when the publish actor was
+      // also the original requester (event e2a598f2, coordination-inbox-delivery-actor-routing.md).
+      if (
+        input.createInboxDelivery !== false
+        && input.actor !== input.intendedRecipient
+        && shouldCreateInboxDelivery(input.intendedRecipient)
+      ) {
         await tx.insert(coordinationAdapterDeliveries).values({
           eventId: event.id,
           adapterName: 'agent_notes',
@@ -780,8 +791,13 @@ export async function appendCoordinationEvent(
       if (!updatedThread) throw new CoordinationError('Thread projection update failed', 500, 'projection_failed');
 
       let deliveryState: CoordinationMutationResult['deliveryState'] = 'not_applicable';
+      // Same self-addressed guard as createCoordinationThread: inboxActors() at
+      // delivery time already refuses to route thread.originActor -> itself, so
+      // gate row creation on it here too rather than letting an unroutable row
+      // retry forever. See coordination-inbox-delivery-actor-routing.md.
       if (
         ['reassigned', 'reopened'].includes(input.eventType)
+        && thread.originActor !== newRecipient
         && shouldCreateInboxDelivery(newRecipient as CoordinationActorId)
       ) {
         await tx.insert(coordinationAdapterDeliveries).values({
