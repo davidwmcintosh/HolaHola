@@ -18,6 +18,8 @@ type Seen = {
   acknowledge?: Json;
   status?: Json;
   revoke?: Json;
+  artifactsRequestedFor?: string;
+  sourceMembersRequestedFor?: { repositoryIdentity: string; promotedCommitSha: string };
 };
 
 const seen: Seen = {};
@@ -25,6 +27,30 @@ let publishCreated = true;
 let publishFailure: Error | undefined;
 let server: Server;
 let baseUrl: string;
+
+let currentSourcePromotion: Record<string, unknown> | undefined = {
+  id: 'source-1',
+  repository_identity: 'org/repo',
+  promoted_commit_sha: 'a'.repeat(40),
+  exact_tree_sha: 'b'.repeat(40),
+  created_at: '2026-01-01T00:00:00.000Z',
+};
+let currentRuntimeRelease: Record<string, unknown> | undefined = {
+  id: 'release-1',
+  source_promotion_id: 'source-1',
+  promoted_commit_sha: 'a'.repeat(40),
+  published_at: '2026-01-01T00:00:00.000Z',
+};
+const previewArtifacts = [{
+  role: 'node_executable' as const,
+  fixedDestination: 'runtime/node.exe',
+  objectKey: 'coordination-v2/runtime/aa/node.exe',
+  objectDigest: 'c'.repeat(64),
+  byteLength: 10,
+  mediaType: 'application/octet-stream',
+  requiresAuthenticode: false,
+}];
+const previewMembers = [{ fixedPath: 'scripts/hola-coordinator.ps1', sha256: 'e'.repeat(64) }];
 
 const founderMiddleware: RequestHandler = (req, res, next) => {
   const actor = req.header('x-founder-actor');
@@ -100,6 +126,16 @@ registerCoordinationV2RuntimeBootstrapRoutes(app, {
   revoke: async (input) => {
     seen.revoke = input as unknown as Json;
     return { created: true, revoked: true, revokedAt: '2026-01-01T00:00:00.000Z' };
+  },
+  latestPublishedSourcePromotion: async () => currentSourcePromotion,
+  latestRuntimeRelease: async () => currentRuntimeRelease,
+  latestRuntimeReleaseArtifacts: async (runtimeReleaseId) => {
+    seen.artifactsRequestedFor = runtimeReleaseId;
+    return previewArtifacts;
+  },
+  previewSourceMembers: async (repositoryIdentity, promotedCommitSha) => {
+    seen.sourceMembersRequestedFor = { repositoryIdentity, promotedCommitSha };
+    return previewMembers;
   },
 });
 
@@ -258,4 +294,78 @@ test('revoke binds actor to founder middleware and stable service errors', async
   }, { 'x-founder-actor': 'founder-1' });
   assert.equal(failed.status, 409);
   assert.deepEqual(failed.body, { error: { code: 'V2_RUNTIME_IDEMPOTENCY_CONFLICT' } });
+  publishFailure = undefined;
+});
+
+test('runtime-release-approval GET is founder-gated and previews live state without mutating anything', async () => {
+  const publishCallsBefore = seen.publish;
+  const unauthenticated = await request('/coordination/v2/runtime-release-approval');
+  assert.equal(unauthenticated.status, 401);
+  const nonFounder = await request('/coordination/v2/runtime-release-approval', {
+    headers: { 'x-founder-actor': 'not-founder' },
+  });
+  assert.equal(nonFounder.status, 403);
+  const ok = await request('/coordination/v2/runtime-release-approval', {
+    headers: { 'x-founder-actor': 'founder-1' },
+  });
+  assert.equal(ok.status, 200);
+  assert.deepEqual(seen.publish, publishCallsBefore); // GET must never call publish
+  const html = ok.body as string;
+  assert.match(html, /Up to date/);
+  assert.match(html, /form method="post" action="\/coordination\/v2\/runtime-release-publish"/);
+  assert.match(html, /scripts\/hola-coordinator\.ps1/);
+  assert.equal(html.includes('<script'), false);
+});
+
+test('runtime-release-approval GET reports stale when the latest release does not match current source', async () => {
+  const previousRelease = currentRuntimeRelease;
+  currentRuntimeRelease = { ...currentRuntimeRelease, source_promotion_id: 'some-older-source' };
+  const stale = await request('/coordination/v2/runtime-release-approval', {
+    headers: { 'x-founder-actor': 'founder-1' },
+  });
+  assert.equal(stale.status, 200);
+  assert.match(stale.body as string, /Stale/);
+  currentRuntimeRelease = previousRelease;
+});
+
+test('runtime-release-publish POST recomputes every input server-side and ignores the request body', async () => {
+  publishCreated = true;
+  const response = await json('POST', '/coordination/v2/runtime-release-publish', {
+    sourcePromotionId: 'attacker-supplied-id',
+    artifacts: [{ role: 'node_executable' }],
+    sourceMembers: [{ fixedPath: 'evil', sha256: 'f'.repeat(64) }],
+  }, { 'x-founder-actor': 'founder-1' });
+  assert.equal(response.status, 201);
+  assert.deepEqual(seen.publish, {
+    sourcePromotionId: 'source-1',
+    artifacts: previewArtifacts,
+    sourceMembers: previewMembers,
+  });
+  assert.deepEqual(seen.artifactsRequestedFor, 'release-1');
+  assert.deepEqual(seen.sourceMembersRequestedFor, {
+    repositoryIdentity: 'org/repo',
+    promotedCommitSha: 'a'.repeat(40),
+  });
+  assert.match(response.body as unknown as string, /published/);
+});
+
+test('runtime-release-publish POST rejects unauthenticated and non-founder callers without touching publish', async () => {
+  const unauthenticated = await request('/coordination/v2/runtime-release-publish', { method: 'POST' });
+  assert.equal(unauthenticated.status, 401);
+  const nonFounder = await request('/coordination/v2/runtime-release-publish', {
+    method: 'POST',
+    headers: { 'x-founder-actor': 'not-founder' },
+  });
+  assert.equal(nonFounder.status, 403);
+});
+
+test('runtime-release-publish POST surfaces publication failures as the same stable error shape', async () => {
+  publishFailure = new CoordinationV2RuntimeError('V2_RUNTIME_SOURCE_MEMBERS_MISMATCH');
+  const failed = await request('/coordination/v2/runtime-release-publish', {
+    method: 'POST',
+    headers: { 'x-founder-actor': 'founder-1' },
+  });
+  assert.equal(failed.status, 422);
+  assert.deepEqual(failed.body, { error: { code: 'V2_RUNTIME_SOURCE_MEMBERS_MISMATCH' } });
+  publishFailure = undefined;
 });

@@ -1,5 +1,8 @@
 > **You are not alone.** This file is generated from the `agent_memory_*` database tables — other hats (Replit Agent, Claude Code, Gemini, HolaHola runtime agents) may be reading and writing it in the same window you are. Never hand-edit this file or any `.agents/memory/<topic>.md` file directly; every change goes through `server/scripts/agent-memory-cli.ts`, which writes the database first and regenerates the file from it. A hand-edit here will be silently overwritten the next time anyone runs a CLI write.
 
+🔴 **Unread stale-channel alert** (`.local/stale-channel-alert.md`): Inner-life channels silent for 10+ min: felt (last: 3:12 PM), thinking (last: 3:12 PM)
+🟡 **Inner-life capture gap**: `.local/episode-capture-status.md` last reported missing felt/thinking/moment in the rolling episode file — read it before your next output.
+
 - [Chat capture pipeline](chat-capture-pipeline.md) — architecture, two independent cursors, readiness vs draining, and three DB-writers that must be fixed together.
 - [Alden workspace verification](alden-workspace-verification.md) — ambiguous Alden responses can still leave unsafe edits; inspect the real diff before accepting or reverting.
 - [Replit deploy-key normalization](replit-deploy-key-normalization.md) — armored SSH private-key secrets may arrive as one line; normalize only in a protected temporary file before Git authentication.
@@ -148,3 +151,4 @@
 - [Text-scan guards can flag themselves](grep-guard-self-reference-false-positive.md) — a regex-based guard's own doc comments or self-check fixture strings can match its target pattern -- exempt its own file path or it fails on itself
 - [Coordination inbox delivery only routes two actors](coordination-inbox-delivery-actor-routing.md) — agent_notes inbox projection used to hardcode luca-replit<->luca-claude-code only; fixed Sep 29 2026 to accept any actor as origin -- recipients besides those two still have no inbox at all.
 - [CAS guard testing needs a real-Postgres race test](shared-spec-cas-guard-testing.md) — InMemorySharedSpecRepository serializes transactions -- only a real Postgres test can prove a new CAS guard closes a genuine race
+- [HTML admin-route implicit status code](html-admin-route-implicit-status.md) — Express defaults to 200 when .status() is never called; an HTML confirmation page mirroring a JSON API's created-vs-replay codes needs it set explicitly per outcome.
