@@ -114,8 +114,22 @@ Do not claim or decide their review yourself.
 
 ### 4. Reviewer claims and decides independently
 
-The named reviewer switches to their own runtime and credential, reads the
-exact revision and content hash, then claims the review:
+The named reviewer switches to their own runtime and credential. Rather than
+waiting to be handed a review ID, they can discover their own queue -- every
+review assigned to them, already claimed by them, or fully open and eligible
+for them to claim under their active reviewer policy:
+
+```bash
+npx tsx server/scripts/shared-spec-cli.ts my-reviews \
+  --url "$SHARED_SPEC_API_URL" --token "$SHARED_SPEC_TOKEN"
+```
+
+Each entry reports its `relationship` (`assigned`, `claimed`, or
+`open_eligible`) alongside the target document, so an open, first-claim-wins
+review is never mistaken for one already reserved for you.
+
+After reading the exact revision and content hash (`show-review --id
+<review-id>`), claim the review:
 
 ```bash
 npx tsx server/scripts/shared-spec-cli.ts claim \

@@ -1,6 +1,6 @@
 type Options = Record<string, string | boolean>;
 
-const commands = new Set(["list", "show", "show-review", "create", "revision", "ready", "claim", "approve", "reject", "export", "share", "pull", "resync"]);
+const commands = new Set(["list", "show", "show-review", "my-reviews", "create", "revision", "ready", "claim", "approve", "reject", "export", "share", "pull", "resync"]);
 const mutationCommands = new Set(["create", "revision", "ready", "claim", "approve", "reject", "share"]);
 // Fast-share notes live in a fixed flat namespace (see canonicalNotePathPattern
 // in shared-spec-core.ts). This default lets `share`/`pull` omit --repository
@@ -19,7 +19,7 @@ function fail(message: string): never {
 }
 function parse(argv: string[]): { command: string; options: Options } {
   const command = argv.shift();
-  if (!command || !commands.has(command)) fail("Usage: shared-spec-cli <list|show|show-review|create|revision|ready|claim|approve|reject|export|share|pull|resync> --url URL --token TOKEN");
+  if (!command || !commands.has(command)) fail("Usage: shared-spec-cli <list|show|show-review|my-reviews|create|revision|ready|claim|approve|reject|export|share|pull|resync> --url URL --token TOKEN");
   const options: Options = {};
   while (argv.length) {
     const part = argv.shift()!;
@@ -93,6 +93,13 @@ export async function runSharedSpecCli(
   let body: Record<string, unknown> | undefined;
   if (command === "show") path = `/documents/${required(options, "id")}`;
   if (command === "show-review") path = `/reviews/${required(options, "id")}`;
+  // Review discovery for the caller's own authenticated actor: every review
+  // assigned to or claimed by them, plus every fully open review their
+  // reviewer policy makes them eligible to claim right now -- see
+  // SharedSpecCore.listReviewerQueue. Lets Claude Code, Gemini Code, and
+  // Antigravity ask "what's waiting on me" without already knowing a
+  // reviewId, the same discovery Alden already has in-process.
+  if (command === "my-reviews") path = "/reviews/mine";
   if (command === "export") path = `/documents/${required(options, "id")}/export/raw`;
   if (command === "create") { method = "POST"; body = { title: required(options, "title"), kind: required(options, "kind"), repository: required(options, "repository"), gitPath: required(options, "path"), markdown: required(options, "markdown"), summary: options.summary, liveInstructionDocument: options["live-instruction-document"] === true }; }
   if (command === "resync") { method = "POST"; path = `/documents/${required(options, "id")}/resync`; }

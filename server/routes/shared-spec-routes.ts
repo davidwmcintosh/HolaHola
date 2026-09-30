@@ -145,6 +145,25 @@ export function createSharedSpecRouter({ core, authenticator, publications, noti
       response.status(201).json(review);
     } catch (error) { sendError(response, error); }
   });
+  // Review discovery for the authenticated actor: every pending review
+  // assigned to or claimed by them, plus every fully open pending review
+  // their active reviewer policy makes them eligible to claim (see
+  // SharedSpecCore.listReviewerQueue). Before this route existed, Claude
+  // Code, Gemini Code, and Antigravity -- which drive shared-spec only
+  // through this HTTP API and shared-spec-cli.ts -- had no way to ask
+  // "what's waiting on me" short of already knowing a reviewId; Alden got
+  // this same discovery in-process via alden-shared-spec-review.ts. Registered
+  // ahead of "/reviews/:reviewId" because it is a literal path segment.
+  router.get("/reviews/mine", async (request, response) => {
+    try {
+      const current = await actor(request, response, authenticator); if (!current) return;
+      const entries = await core.listReviewerQueue(current.actorId);
+      response.json(await Promise.all(entries.map(async ({ review, relationship }) => {
+        const { document } = await core.showDocument(review.documentId);
+        return { review, relationship, document };
+      })));
+    } catch (error) { sendError(response, error); }
+  });
   router.get("/reviews/:reviewId", async (request, response) => {
     try { if (!await actor(request, response, authenticator)) return; response.json(await core.getReview(request.params.reviewId)); } catch (error) { sendError(response, error); }
   });

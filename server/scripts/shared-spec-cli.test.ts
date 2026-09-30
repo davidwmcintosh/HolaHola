@@ -44,6 +44,26 @@ for (const markdown of ["# Approved\n", "# Approved"]) {
   });
 }
 
+test("my-reviews uses the authenticated review-discovery route with no idempotency key", async () => {
+  let request: { url: string; init?: RequestInit } | undefined;
+  let output = "";
+  await runSharedSpecCli(
+    ["my-reviews", "--url", "https://example.test/api/shared-spec", "--token", "actor-token"],
+    {
+      fetchImpl: async (input, init) => {
+        request = { url: String(input), init };
+        return Response.json([]);
+      },
+      writeOutput: (value) => { output += value; },
+    },
+  );
+
+  assert.equal(request?.url, "https://example.test/api/shared-spec/reviews/mine");
+  assert.equal(request?.init?.method, "GET");
+  assert.deepEqual(request?.init?.headers, { "x-shared-spec-token": "actor-token" });
+  assert.equal(output, "[]\n");
+});
+
 test("mutations preserve auth and idempotency headers", async () => {
   let request: { url: string; init?: RequestInit } | undefined;
   await runSharedSpecCli(

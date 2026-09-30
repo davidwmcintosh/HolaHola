@@ -93,6 +93,83 @@ test("the by-destination note lookup is registered ahead of the :documentId para
   assert.ok(byDestinationIndex < paramIndex, "by-destination must be registered before the :documentId param route");
 });
 
+test("/reviews/mine is registered ahead of the /reviews/:reviewId param route so it is never shadowed", async () => {
+  const core = new SharedSpecCore(new InMemorySharedSpecRepository());
+  const router = createSharedSpecRouter({
+    core,
+    authenticator: { authenticate: async () => ({ actorId: "portable-test-actor" }) },
+  });
+  const paths = (router as any).stack.map((layer: any) => layer.route?.path).filter(Boolean);
+  const mineIndex = paths.indexOf("/reviews/mine");
+  const paramIndex = paths.indexOf("/reviews/:reviewId");
+  assert.ok(mineIndex >= 0 && paramIndex >= 0);
+  assert.ok(mineIndex < paramIndex, "/reviews/mine must be registered before the /reviews/:reviewId param route");
+});
+
+test("GET /reviews/mine reports the authenticated actor's assigned, claimed, and open_eligible reviews with each target document, excluding reviews assigned to someone else", async () => {
+  const core = new SharedSpecCore(new InMemorySharedSpecRepository());
+  await core.setReviewerPolicy({ actorId: "admin", capabilities: ["policy_admin"] }, {
+    actorId: "reviewer", capability: "reviewer", active: true, idempotencyKey: "reviewer-on",
+  });
+  await core.setReviewerPolicy({ actorId: "admin", capabilities: ["policy_admin"] }, {
+    actorId: "someone-else", capability: "reviewer", active: true, idempotencyKey: "someone-else-on",
+  });
+
+  const assignedDoc = await core.createDocument({ actorId: "author" }, {
+    title: "Assigned Doc", kind: "design", repository: "hola/hola", gitPath: "docs/superpowers/specs/assigned.md",
+    markdown: "# Assigned\n", idempotencyKey: "create-assigned",
+  });
+  const assignedReview = await core.markRevisionReady({ actorId: "author" }, {
+    documentId: assignedDoc.document.id, revisionId: assignedDoc.revision.id,
+    requestedReviewerActorId: "reviewer", idempotencyKey: "ready-assigned",
+  });
+
+  const openDoc = await core.createDocument({ actorId: "author" }, {
+    title: "Open Doc", kind: "design", repository: "hola/hola", gitPath: "docs/superpowers/specs/open.md",
+    markdown: "# Open\n", idempotencyKey: "create-open",
+  });
+  const openReview = await core.markRevisionReady({ actorId: "author" }, {
+    documentId: openDoc.document.id, revisionId: openDoc.revision.id, idempotencyKey: "ready-open",
+  });
+
+  const claimedDoc = await core.createDocument({ actorId: "author" }, {
+    title: "Claimed Doc", kind: "design", repository: "hola/hola", gitPath: "docs/superpowers/specs/claimed.md",
+    markdown: "# Claimed\n", idempotencyKey: "create-claimed",
+  });
+  const claimedReview = await core.markRevisionReady({ actorId: "author" }, {
+    documentId: claimedDoc.document.id, revisionId: claimedDoc.revision.id, idempotencyKey: "ready-claimed",
+  });
+  await core.claimReview({ actorId: "reviewer" }, claimedReview.id, "claim-claimed");
+
+  // Assigned to a different actor -- must never appear for "reviewer".
+  const otherDoc = await core.createDocument({ actorId: "author" }, {
+    title: "Other Doc", kind: "design", repository: "hola/hola", gitPath: "docs/superpowers/specs/other.md",
+    markdown: "# Other\n", idempotencyKey: "create-other",
+  });
+  await core.markRevisionReady({ actorId: "author" }, {
+    documentId: otherDoc.document.id, revisionId: otherDoc.revision.id,
+    requestedReviewerActorId: "someone-else", idempotencyKey: "ready-other",
+  });
+
+  const router = createSharedSpecRouter({ core, authenticator: { authenticate: async () => ({ actorId: "reviewer" }) } });
+  const { response, state } = fakeResponse();
+  await findHandler(router, "get", "/reviews/mine")(fakeRequest({}), response);
+
+  const body = state.body as any[];
+  const byReviewId = new Map(body.map(entry => [entry.review.id, entry]));
+  assert.equal(byReviewId.size, 3, `unexpected extra/missing entries: ${JSON.stringify([...byReviewId.keys()])}`);
+
+  assert.equal(byReviewId.get(assignedReview.id)?.relationship, "assigned");
+  assert.equal(byReviewId.get(assignedReview.id)?.document.id, assignedDoc.document.id);
+  assert.equal(byReviewId.get(assignedReview.id)?.document.gitPath, "docs/superpowers/specs/assigned.md");
+
+  assert.equal(byReviewId.get(openReview.id)?.relationship, "open_eligible");
+  assert.equal(byReviewId.get(openReview.id)?.document.gitPath, "docs/superpowers/specs/open.md");
+
+  assert.equal(byReviewId.get(claimedReview.id)?.relationship, "claimed");
+  assert.equal(byReviewId.get(claimedReview.id)?.document.gitPath, "docs/superpowers/specs/claimed.md");
+});
+
 test("publicationActionContext prefers the task-ref header, falls back to the body, and omits blank values", () => {
   const fakeRequest = (header: string | undefined, body: unknown) =>
     ({ header: (name: string) => (name === "x-shared-spec-task-ref" ? header : undefined), body }) as any;

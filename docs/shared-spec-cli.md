@@ -37,6 +37,8 @@ or invalid credential returns HTTP 401; the CLI exits non-zero.
 ```text
 list
 show --id DOCUMENT_ID
+show-review --id REVIEW_ID
+my-reviews
 create --title TITLE --kind KIND --repository OWNER/REPO --path PATH --markdown MARKDOWN --idempotency-key KEY
 revision --id DOCUMENT_ID --base REVISION_ID --markdown MARKDOWN --idempotency-key KEY
 ready --id DOCUMENT_ID --revision REVISION_ID [--reviewer ACTOR_ID] --idempotency-key KEY
@@ -48,4 +50,7 @@ export --id DOCUMENT_ID
 
 Every command also requires `--url` and `--token`. Mutation commands require an
 idempotency key. `export` prints the exact approved Markdown bytes from the raw
-export endpoint.
+export endpoint. `my-reviews` lists every pending review for your authenticated
+actor -- assigned to you, already claimed by you, or fully open and eligible
+for you to claim -- so you can discover waiting work without already knowing a
+review ID.
