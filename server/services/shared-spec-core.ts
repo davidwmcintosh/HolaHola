@@ -135,6 +135,15 @@ export interface SharedSpecTransaction {
    * (claimedReviewerActorId), oldest-requested-first.
    */
   listReviewsForReviewer(actorId: string): Promise<readonly SharedSpecReview[]>;
+  /**
+   * Every currently `pending` review nobody has been assigned or already
+   * claimed -- i.e. still fully open, across every document,
+   * oldest-requested-first. Unfiltered by actor or document kind: a caller
+   * must still resolve eligibility itself (see
+   * SharedSpecCore.listReviewerQueue / assertEligibleReviewer) before
+   * treating one of these as claimable by a particular actor.
+   */
+  listOpenReviews(): Promise<readonly SharedSpecReview[]>;
   insertReview(review: SharedSpecReview): Promise<void>;
   updateReview(review: SharedSpecReview): Promise<void>;
   getActivePolicy(
@@ -281,6 +290,22 @@ export interface ReviewDecisionInput {
   rationale?: string;
   evidenceReferences?: readonly string[];
   idempotencyKey: string;
+}
+
+/**
+ * How a pending review relates to the actor who asked for their discovery
+ * queue (see SharedSpecCore.listReviewerQueue): "assigned" (explicitly
+ * requested of them, not yet claimed), "claimed" (they already hold the
+ * claim), or "open_eligible" (nobody has been assigned or claimed it, and
+ * this actor's active reviewer policy covers the document's kind -- claiming
+ * it would succeed right now, but it is not reserved for them: any other
+ * eligible reviewer could claim it first).
+ */
+export type ReviewerQueueRelationship = "assigned" | "claimed" | "open_eligible";
+
+export interface ReviewerQueueEntry {
+  readonly review: SharedSpecReview;
+  readonly relationship: ReviewerQueueRelationship;
 }
 
 export class SharedSpecCore {
@@ -461,6 +486,40 @@ export class SharedSpecCore {
   async listReviewsForReviewer(actorId: string): Promise<readonly SharedSpecReview[]> {
     this.required(actorId, "actorId");
     return this.repository.transaction(tx => tx.listReviewsForReviewer(actorId));
+  }
+
+  /**
+   * A reviewer's full discovery queue: everything listReviewsForReviewer
+   * would return (assigned to or claimed by this actor), plus every fully
+   * open pending review -- no requestedReviewerActorId, unclaimed -- whose
+   * document kind this actor's active reviewer policy covers, using the same
+   * rule assertEligibleReviewer enforces at claim time (via the shared
+   * getEligibleReviewerPolicy helper, so the two can never drift apart).
+   *
+   * This is the missing half of listReviewsForReviewer: that method only
+   * shows work already handed to the actor, so a review left unassigned
+   * never appeared for a reviewer who could claim it -- even though
+   * claimReview would have succeeded. Each entry's `relationship` tells the
+   * two apart, so a caller never mistakes "you could claim this" (open,
+   * first-claim-wins) for "you alone are responsible for this" (assigned or
+   * already claimed).
+   */
+  async listReviewerQueue(actorId: string): Promise<readonly ReviewerQueueEntry[]> {
+    this.required(actorId, "actorId");
+    return this.repository.transaction(async tx => {
+      const own = await tx.listReviewsForReviewer(actorId);
+      const ownEntries: ReviewerQueueEntry[] = own.map(review => ({
+        review, relationship: review.claimedReviewerActorId === actorId ? "claimed" : "assigned",
+      }));
+      const openEntries: ReviewerQueueEntry[] = [];
+      for (const review of await tx.listOpenReviews()) {
+        const { document, revision } = await this.reviewTarget(tx, review);
+        if (await this.getEligibleReviewerPolicy(tx, actorId, document, revision)) {
+          openEntries.push({ review, relationship: "open_eligible" });
+        }
+      }
+      return [...ownEntries, ...openEntries];
+    });
   }
 
   async listRevisions(documentId: string): Promise<readonly SharedSpecRevision[]> {
@@ -649,11 +708,23 @@ export class SharedSpecCore {
   private async reviewTarget(tx: SharedSpecTransaction, review: SharedSpecReview) {
     return { document: await this.mustDocument(tx, review.documentId), revision: await this.mustRevision(tx, review.revisionId) };
   }
+  /**
+   * Non-throwing form of the same rule assertEligibleReviewer enforces: an
+   * author can never review their own revision, and eligibility otherwise
+   * comes only from an active reviewer policy for the document's kind.
+   * Shared by the throwing assertion below and listReviewerQueue's read-only
+   * discovery pass, so a review that would fail claimReview can never be
+   * shown as open_eligible.
+   */
+  private async getEligibleReviewerPolicy(tx: SharedSpecTransaction, actorId: string, document: SharedSpecDocument, revision: SharedSpecRevision) {
+    if (revision.authorActorId === actorId) return undefined;
+    return tx.getActivePolicy(actorId, "reviewer", document.kind);
+  }
   private async assertEligibleReviewer(tx: SharedSpecTransaction, actorId: string, document: SharedSpecDocument, revision: SharedSpecRevision) {
+    const policy = await this.getEligibleReviewerPolicy(tx, actorId, document, revision);
+    if (policy) return policy;
     if (revision.authorActorId === actorId) throw new SharedSpecDomainError("FORBIDDEN", "An author cannot review their own revision");
-    const policy = await tx.getActivePolicy(actorId, "reviewer", document.kind);
-    if (!policy) throw new SharedSpecDomainError("FORBIDDEN", "Actor is not an eligible reviewer");
-    return policy;
+    throw new SharedSpecDomainError("FORBIDDEN", "Actor is not an eligible reviewer");
   }
   private requirePolicyAdmin(actor: ActorContext) {
     if (!actor.capabilities?.includes("policy_admin")) throw new SharedSpecDomainError("FORBIDDEN", "Policy-admin capability is required");
@@ -757,6 +828,10 @@ export class InMemorySharedSpecRepository implements SharedSpecRepository {
       listReviews: async documentId => [...this.reviews.values()].filter(x => x.documentId === documentId).map(clone),
       listReviewsForReviewer: async actorId => [...this.reviews.values()]
         .filter(x => x.state === "pending" && (x.requestedReviewerActorId === actorId || x.claimedReviewerActorId === actorId))
+        .sort((a, b) => a.requestedAt.getTime() - b.requestedAt.getTime())
+        .map(clone),
+      listOpenReviews: async () => [...this.reviews.values()]
+        .filter(x => x.state === "pending" && !x.requestedReviewerActorId && !x.claimedReviewerActorId)
         .sort((a, b) => a.requestedAt.getTime() - b.requestedAt.getTime())
         .map(clone),
       insertReview: async value => { this.reviews.set(value.id, clone(value)); },

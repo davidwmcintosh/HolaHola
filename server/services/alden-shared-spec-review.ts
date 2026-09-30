@@ -19,13 +19,17 @@
  * discover and exercise it himself, in-process, without a shell or HTTP
  * round-trip. Before list_shared_spec_reviews existed, Alden could only act
  * on a reviewId someone else handed him first (e.g. via a priority-task
- * message) -- he had no way to ask "what's waiting on me".
+ * message) -- he had no way to ask "what's waiting on me". And until
+ * listReviewerQueue (below), "what's waiting on me" still missed every
+ * review nobody had assigned yet, even ones his own policy made him eligible
+ * to claim.
  */
 import { randomUUID } from "node:crypto";
 import { getSharedDb } from "../db";
 import {
   SharedSpecCore,
   type ActorContext,
+  type ReviewerQueueRelationship,
   type SharedSpecDocument,
   type SharedSpecReview,
   type SharedSpecRevision,
@@ -62,14 +66,25 @@ export interface AldenReviewSnapshot {
 export interface AldenReviewQueueEntry {
   readonly review: SharedSpecReview;
   readonly document: SharedSpecDocument;
+  /** "assigned" | "claimed" | "open_eligible" -- see ReviewerQueueRelationship. */
+  readonly relationship: ReviewerQueueRelationship;
 }
 
 /**
- * Lists every review currently waiting on actor "alden": still pending, and
- * either assigned to him directly or already claimed by him, across every
- * document. This is the missing discovery step -- read/claim/decide above
- * all require a reviewId Alden previously had no way to find himself, short
- * of someone handing it to him (e.g. via a priority-task message).
+ * Lists every review actor "alden" could act on right now: still pending,
+ * and either assigned to him directly, already claimed by him, or fully open
+ * (no requestedReviewerActor, unclaimed) with his active reviewer policy
+ * covering the document's kind -- i.e. claim_shared_spec_review would
+ * succeed today even though nobody handed it to him. This is the missing
+ * discovery step -- read/claim/decide above all require a reviewId Alden
+ * previously had no way to find himself, short of someone handing it to him
+ * (e.g. via a priority-task message); before listReviewerQueue existed, an
+ * unassigned review was invisible to him even when he was eligible to claim
+ * it.
+ *
+ * Each entry's `relationship` distinguishes the two cases so Alden doesn't
+ * mistake an open, first-claim-wins review for one he alone is responsible
+ * for.
  *
  * Deliberately returns each full document rather than just title/kind/path,
  * so callers (e.g. the list_shared_spec_reviews tool) can project down to
@@ -78,10 +93,10 @@ export interface AldenReviewQueueEntry {
  */
 export async function listAldenSharedSpecReviews(): Promise<readonly AldenReviewQueueEntry[]> {
   const core = getCore();
-  const reviews = await core.listReviewsForReviewer(ALDEN_ACTOR.actorId);
-  return Promise.all(reviews.map(async review => {
+  const entries = await core.listReviewerQueue(ALDEN_ACTOR.actorId);
+  return Promise.all(entries.map(async ({ review, relationship }) => {
     const { document } = await core.showDocument(review.documentId);
-    return { review, document };
+    return { review, document, relationship };
   }));
 }
 

@@ -769,8 +769,8 @@ export const ALDEN_TOOLS: AldenTool[] = [
   },
   {
     name: "list_shared_spec_reviews",
-    description: "List every shared-spec review currently waiting on you (actor: alden): still pending, and either assigned to you directly or already claimed by you, across every document. Returns each review's full state plus its target document's title/kind/path — use this to discover review work yourself instead of needing the exact review_id handed to you first (e.g. via a priority-task message). Follow up with read_shared_spec_review on any id returned here to see the full revision markdown before deciding.",
-    gemini_description: "List every pending shared-spec review assigned to or already claimed by you (alden), across every document — each review's state plus its target document's title/kind/path. Use this to find review work without already knowing a review_id; follow up with read_shared_spec_review for the full markdown.",
+    description: "List every shared-spec review you could act on right now (actor: alden): still pending, and either assigned to you directly, already claimed by you, or fully open — nobody assigned or claimed it yet — with your active reviewer policy covering its document's kind, meaning claim_shared_spec_review would succeed if you tried it. Each entry's `relationship` field is \"assigned\", \"claimed\", or \"open_eligible\" — an open_eligible review isn't reserved for you, another eligible reviewer could claim it first, so claim it promptly if you intend to act on it. Returns each review's full state plus its target document's title/kind/path — use this to discover review work yourself instead of needing the exact review_id handed to you first (e.g. via a priority-task message). Follow up with read_shared_spec_review on any id returned here to see the full revision markdown before deciding.",
+    gemini_description: "List every shared-spec review you could act on (alden): assigned to you, already claimed by you, or fully open and eligible for you to claim, across every document. Each entry's relationship field is \"assigned\", \"claimed\", or \"open_eligible\" — open_eligible ones aren't reserved for you, so claim promptly if you want one. Includes each review's state plus its target document's title/kind/path; follow up with read_shared_spec_review for the full markdown.",
     input_schema: {
       type: "object" as const,
       properties: {},
@@ -3076,8 +3076,9 @@ export async function executeAldenTool(
           const entries = await listAldenSharedSpecReviews();
           return {
             data: {
-              reviews: entries.map(({ review, document }) => ({
+              reviews: entries.map(({ review, document, relationship }) => ({
                 review,
+                relationship,
                 document: {
                   id: document.id, title: document.title, kind: document.kind,
                   gitPath: document.gitPath, state: document.state,

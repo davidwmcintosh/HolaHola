@@ -129,6 +129,13 @@ export class PostgresSharedSpecRepository implements SharedSpecRepository {
           or(eq(sharedSpecReviews.requestedReviewerActor, actorId), eq(sharedSpecReviews.claimedReviewerActor, actorId)),
         ))
         .orderBy(sharedSpecReviews.createdAt)).map(reviewFromRow),
+      listOpenReviews: async () => (await db.select().from(sharedSpecReviews)
+        .where(and(
+          eq(sharedSpecReviews.state, "pending"),
+          isNull(sharedSpecReviews.requestedReviewerActor),
+          isNull(sharedSpecReviews.claimedReviewerActor),
+        ))
+        .orderBy(sharedSpecReviews.createdAt)).map(reviewFromRow),
       insertReview: async review => {
         await db.insert(sharedSpecReviews).values({
           id: review.id, documentId: review.documentId, revisionId: review.revisionId,

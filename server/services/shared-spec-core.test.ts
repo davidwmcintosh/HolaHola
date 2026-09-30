@@ -125,6 +125,89 @@ test("listReviewsForReviewer surfaces only this actor's pending queue: assigned-
   assert.equal((await core.listReviewsForReviewer("nobody-registered")).length, 0);
 });
 
+test("listReviewerQueue adds fully-open reviews alden is eligible to claim, correctly labelled and excluding every ineligible case", async () => {
+  const { core, created } = await setup();
+  // Deliberately alden's only policy, restricted to "design" -- exercises the
+  // kind-mismatch exclusion below without a second, later policy version
+  // that would otherwise shadow it for every kind (see getActivePolicy).
+  await core.setReviewerPolicy(admin, {
+    actorId: "alden", capability: "reviewer", active: true, documentKind: "design", idempotencyKey: "alden-reviewer-design-only",
+  });
+
+  // Assigned to alden, not yet claimed -- "assigned".
+  const assigned = await core.markRevisionReady(author, {
+    documentId: created.document.id, revisionId: created.revision.id,
+    requestedReviewerActorId: "alden", idempotencyKey: "ready-assigned",
+  });
+
+  // Fully open, right kind, alden not the author -- "open_eligible".
+  const openEligibleDoc = await core.createDocument(author, {
+    title: "Open eligible", kind: "design", repository: "hola/hola",
+    gitPath: "docs/superpowers/specs/open-eligible.md", markdown: "# Open eligible\n", idempotencyKey: "create-open-eligible",
+  });
+  const openEligible = await core.markRevisionReady(author, {
+    documentId: openEligibleDoc.document.id, revisionId: openEligibleDoc.revision.id, idempotencyKey: "ready-open-eligible",
+  });
+
+  // Fully open, but alden claims it himself -- must show as "claimed", not "open_eligible".
+  const claimableDoc = await core.createDocument(author, {
+    title: "Claimed by alden", kind: "design", repository: "hola/hola",
+    gitPath: "docs/superpowers/specs/claimed-by-alden.md", markdown: "# Claimed by alden\n", idempotencyKey: "create-claimed-by-alden",
+  });
+  const claimedByAlden = await core.markRevisionReady(author, {
+    documentId: claimableDoc.document.id, revisionId: claimableDoc.revision.id, idempotencyKey: "ready-claimed-by-alden",
+  });
+  await core.claimReview({ actorId: "alden" }, claimedByAlden.id, "claim-by-alden");
+
+  // Fully open, but a different actor already claimed it -- never shown to alden.
+  const claimedByOtherDoc = await core.createDocument(author, {
+    title: "Claimed by reviewer", kind: "design", repository: "hola/hola",
+    gitPath: "docs/superpowers/specs/claimed-by-reviewer.md", markdown: "# Claimed by reviewer\n", idempotencyKey: "create-claimed-by-other",
+  });
+  const claimedByOther = await core.markRevisionReady(author, {
+    documentId: claimedByOtherDoc.document.id, revisionId: claimedByOtherDoc.revision.id, idempotencyKey: "ready-claimed-by-other",
+  });
+  await core.claimReview(reviewer, claimedByOther.id, "claim-by-reviewer");
+
+  // Assigned to a different, specific actor -- not open, so excluded even though alden is otherwise eligible.
+  const assignedToOtherDoc = await core.createDocument(author, {
+    title: "Assigned to reviewer", kind: "design", repository: "hola/hola",
+    gitPath: "docs/superpowers/specs/assigned-to-reviewer.md", markdown: "# Assigned to reviewer\n", idempotencyKey: "create-assigned-to-other",
+  });
+  await core.markRevisionReady(author, {
+    documentId: assignedToOtherDoc.document.id, revisionId: assignedToOtherDoc.revision.id,
+    requestedReviewerActorId: reviewer.actorId, idempotencyKey: "ready-assigned-to-other",
+  });
+
+  // Fully open, right kind, but alden authored it himself -- excluded (no self-review).
+  const selfAuthoredDoc = await core.createDocument({ actorId: "alden" }, {
+    title: "Alden's own design doc", kind: "design", repository: "hola/hola",
+    gitPath: "docs/superpowers/specs/alden-authored.md", markdown: "# Alden's own\n", idempotencyKey: "create-alden-authored",
+  });
+  await core.markRevisionReady({ actorId: "alden" }, {
+    documentId: selfAuthoredDoc.document.id, revisionId: selfAuthoredDoc.revision.id, idempotencyKey: "ready-alden-authored",
+  });
+
+  // Fully open, but of a kind alden's policy does not cover -- excluded.
+  const wrongKindDoc = await core.createDocument(author, {
+    title: "Wrong kind", kind: "architecture", repository: "hola/hola",
+    gitPath: "docs/superpowers/specs/wrong-kind.md", markdown: "# Wrong kind\n", idempotencyKey: "create-wrong-kind",
+  });
+  await core.markRevisionReady(author, {
+    documentId: wrongKindDoc.document.id, revisionId: wrongKindDoc.revision.id, idempotencyKey: "ready-wrong-kind",
+  });
+
+  const queue = await core.listReviewerQueue("alden");
+  const relationshipById = Object.fromEntries(queue.map(entry => [entry.review.id, entry.relationship]));
+  assert.deepEqual(relationshipById, {
+    [assigned.id]: "assigned",
+    [openEligible.id]: "open_eligible",
+    [claimedByAlden.id]: "claimed",
+  });
+  assert.equal(queue.length, 3, `unexpected extra/missing entries: ${JSON.stringify(relationshipById)}`);
+  assert.equal((await core.listReviewerQueue("nobody-registered")).length, 0);
+});
+
 test("creation only accepts canonical repository and safe spec namespace", async () => {
   const core = new SharedSpecCore(new InMemorySharedSpecRepository());
   const input = { title: "x", kind: "design" as const, repository: "owner/repo", gitPath: "docs/superpowers/specs/safe.md", markdown: "# x", idempotencyKey: "x" };
