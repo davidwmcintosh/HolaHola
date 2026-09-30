@@ -6,7 +6,12 @@ description: 6 sharp edges in esbuild bundling, Node ESM imports, and Drizzle's 
 ## esbuild isMain guard — bundle collapse
 
 ## The rule
-In a Drizzle `sql\`...\`` template, `${content}` is a **bound parameter** and bare `content` is the **SQL column reference**. They are not ambiguous — the SQL engine distinguishes them correctly. The atomic CASE WHEN pattern is safe and preferred over a JS read-then-write sequence.
+
+Never use `import.meta.url.endsWith(process.argv[1])` (or `===`) as a "am I the main script?" guard in any file that is or could be imported by the server bundle.
+
+**Why:** esbuild merges all source files into one `dist/index.js`. Inside that bundle, every module's `import.meta.url` is `file:///…/dist/index.js` — the same value as `process.argv[1]`. The check is always `true`, so any top-level `if (isMain) { … process.exit() … }` block fires at server boot as an async IIFE, then kills the process when it finishes (exit 0 on success, exit 1 on failure).
+
+**How it manifested:** `populate-principle-embeddings.ts` was killing the production server ~1–2 min after every boot. Logs showed "command finished successfully with exit code 0" (Neon WS query succeeded → `process.exit(0)`) or "exit status 1" (Neon WS dropped mid-query → catch → `process.exit(1)`). The server appeared to start and serve briefly, then die in a restart loop.
 
 ## Correct pattern
 
@@ -56,7 +61,8 @@ this helper.
 ## Node.js ESM await import() inside a callback
 
 ## The rule
-In a Drizzle `sql\`...\`` template, `${content}` is a **bound parameter** and bare `content` is the **SQL column reference**. They are not ambiguous — the SQL engine distinguishes them correctly. The atomic CASE WHEN pattern is safe and preferred over a JS read-then-write sequence.
+
+When using `node --input-type=module` (inline ESM scripts), **always import at the top of the file**. Never `await import()` inside a Promise constructor, callback, or any non-async scope.
 
 ## What fails
 
@@ -186,3 +192,4 @@ its first line."
 **Why this matters:** annotating a fresh object literal with a computed `Omit<Union, K>` type (intending "the union minus these common fields") looks reasonable and compiles fine for the variant that has no extra fields, but fails excess-property checking the moment the literal includes a field that isn't in the shared-keys-only result, even though that field is perfectly valid on the real union member.
 
 **How to apply:** don't annotate a fresh discriminated-union literal with a computed `Omit<Union, K>` type. Leave the literal's type inferred (let TypeScript pick the correct narrowed member from the `type` field), then pass the resulting variable -- not a fresh literal -- into the function expecting the `Omit<...>` type. Passing a variable of the full union type is structurally assignable there; only a *fresh object literal* triggers excess-property checking against the collapsed common-keys-only type.
+
