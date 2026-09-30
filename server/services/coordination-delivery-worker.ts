@@ -12,14 +12,29 @@ const DEFAULT_POLL_MS = 5_000;
 let running = false;
 let timer: NodeJS.Timeout | null = null;
 
+// agent_notes predates the general CoordinationActorId system and keeps its own
+// identity for the Replit hat ('agent' instead of 'luca-replit'); every other
+// actor (alden, luca-claude-code, david, daniela, luca-gemini, luca-antigravity,
+// luca-holahola) already uses its literal CoordinationActorId as the agent_notes
+// from_agent/to_agent value -- see the Team Room @agent-mention note creation in
+// routes.ts, which writes fromAgent: 'alden' directly.
+function agentNotesIdentity(actor: string): string {
+  return actor === 'luca-replit' ? 'agent' : actor;
+}
+
+// Only luca-replit and luca-claude-code have an agent_notes inbox to deliver
+// into -- shouldCreateInboxDelivery() in coordination-ledger-service.ts already
+// gates delivery-row creation on the recipient being one of those two -- but the
+// origin can be any coordination actor (Alden, David, Daniela, another Luca
+// runtime). Restricting the origin to just the other Luca hat, as this used to
+// do, silently dropped every notification from any other actor: the canonical
+// coordination_threads/events record still succeeded, but the delivery row
+// permanently failed with "cannot project X -> Y" and no inbox item ever
+// appeared. See coordination-inbox-delivery-actor-routing.md.
 function inboxActors(originActor: string, targetActor: string) {
-  if (originActor === 'luca-replit' && targetActor === 'luca-claude-code') {
-    return { fromAgent: 'agent', toAgent: 'luca-claude-code' };
-  }
-  if (originActor === 'luca-claude-code' && targetActor === 'luca-replit') {
-    return { fromAgent: 'luca-claude-code', toAgent: 'agent' };
-  }
-  return null;
+  if (originActor === targetActor) return null;
+  if (targetActor !== 'luca-replit' && targetActor !== 'luca-claude-code') return null;
+  return { fromAgent: agentNotesIdentity(originActor), toAgent: agentNotesIdentity(targetActor) };
 }
 
 async function appendDeliveredEvent(deliveryId: string, eventId: string, targetActor: string) {

@@ -1,5 +1,6 @@
 > **You are not alone.** This file is generated from the `agent_memory_*` database tables — other hats (Replit Agent, Claude Code, Gemini, HolaHola runtime agents) may be reading and writing it in the same window you are. Never hand-edit this file or any `.agents/memory/<topic>.md` file directly; every change goes through `server/scripts/agent-memory-cli.ts`, which writes the database first and regenerates the file from it. A hand-edit here will be silently overwritten the next time anyone runs a CLI write.
 
+🔴 **Unread stale-channel alert** (`.local/stale-channel-alert.md`): Inner-life channels silent for 10+ min: felt (last: 3:12 PM), thinking (last: 3:12 PM)
 🟡 **Inner-life capture gap**: `.local/episode-capture-status.md` last reported missing felt/thinking/moment in the rolling episode file — read it before your next output.
 
 - [Chat capture pipeline](chat-capture-pipeline.md) — architecture, two independent cursors, readiness vs draining, and three DB-writers that must be fixed together.
@@ -148,4 +149,4 @@
 - [Real-DB channel-independence testing](postgres-trigger-fault-injection.md) — prove two best-effort DB writes fail independently with a real BEFORE INSERT trigger, not a mock
 - [Alden's shell whitelist excludes ad-hoc interpreter commands](alden-tool-whitelist.md) — Alden cannot run npx tsx or other project CLI scripts -- give him the plain HTTP/curl equivalent; stacked shared-spec reviews only need the newest one decided.
 - [Text-scan guards can flag themselves](grep-guard-self-reference-false-positive.md) — a regex-based guard's own doc comments or self-check fixture strings can match its target pattern -- exempt its own file path or it fails on itself
-- [Coordination inbox delivery only routes two actors](coordination-inbox-delivery-actor-routing.md) — agent_notes projection hardcodes luca-replit<->luca-claude-code only; any other origin (e.g. alden) creates a pending delivery that permanently fails after 3 retries even though the canonical thread/event succeeds.
+- [Coordination inbox delivery only routes two actors](coordination-inbox-delivery-actor-routing.md) — agent_notes inbox projection used to hardcode luca-replit<->luca-claude-code only; fixed Sep 29 2026 to accept any actor as origin -- recipients besides those two still have no inbox at all.
