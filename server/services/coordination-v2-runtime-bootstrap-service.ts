@@ -334,6 +334,10 @@ export type RuntimeSourceSnapshotDiagnostic =
   | 'github_app_credentials_invalid'
   | 'request_invalid'
   | 'git_operation_failed'
+  | 'git_tls_failed'
+  | 'git_executable_missing'
+  | 'git_authentication_failed'
+  | 'git_source_object_missing'
   | 'snapshot_validation_failed'
   | 'filesystem_failed'
   | 'unknown';
@@ -362,6 +366,10 @@ export function classifyRuntimeSourceSnapshotFailure(error: unknown): RuntimeSou
   }
   if (message === 'protected_remote_snapshot_request_invalid') return 'request_invalid';
   if (message === 'protected_remote_snapshot_git_failed') return 'git_operation_failed';
+  if (message === 'protected_remote_snapshot_git_tls_failed') return 'git_tls_failed';
+  if (message === 'protected_remote_snapshot_git_executable_missing') return 'git_executable_missing';
+  if (message === 'protected_remote_snapshot_git_authentication_failed') return 'git_authentication_failed';
+  if (message === 'protected_remote_snapshot_git_source_object_missing') return 'git_source_object_missing';
   if ([
     'remote_commit_proof_mismatch',
     'protected_remote_snapshot_blob_invalid',

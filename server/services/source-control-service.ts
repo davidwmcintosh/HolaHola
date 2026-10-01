@@ -22,6 +22,7 @@ import {
 import { parseReleaseIdentity } from './release-identity';
 import { encodeGithubAppGitCredential, fetchGithubInstallationToken } from './github-app-auth';
 import { coordinationV2SourcePromotions } from '@shared/schema';
+import { protectedSnapshotGitErrorCode } from './protected-snapshot-git-diagnostic';
 import { hashGitCommitSourceContext } from '../../scripts/source-context-digest.mjs';
 import { checkEpisodeContentLoss } from './episode-content-loss-guard';
 
@@ -1974,8 +1975,8 @@ export class SourceControlService {
             maxBuffer,
           });
           return Buffer.from(result.stdout as Buffer);
-        } catch {
-          throw new Error('protected_remote_snapshot_git_failed');
+        } catch (error) {
+          throw new Error(protectedSnapshotGitErrorCode(error));
         }
       },
     }));

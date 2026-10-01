@@ -56,6 +56,10 @@ function assertRenderRuntimeSourceSnapshotPrerequisites(): void {
     runtimeInstallBlocks.some((block) => /\bgit\b/.test(block)),
     'Render Docker runtime stage must install git for protected source snapshots',
   );
+  assert.ok(
+    runtimeInstallBlocks.some((block) => /\bca-certificates\b/.test(block)),
+    'Render Docker runtime stage must install CA certificates for authenticated Git HTTPS',
+  );
 
   const renderBlueprint = readFileSync(join(process.cwd(), 'render.yaml'), 'utf8');
   for (const key of ['HOLAHOLA_GITHUB_APP_ID', 'HOLAHOLA_GITHUB_APP_INSTALLATION_ID', 'HOLAHOLA_GITHUB_APP_PRIVATE_KEY']) {
