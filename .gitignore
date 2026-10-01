@@ -16,6 +16,11 @@ dist
 !.env.example
 !.env.template
 *.pem
+# Public half of the Coordinator V2 runtime-release signing keypair. Not a
+# secret (the private half is COORDINATION_V2_SERVER_SIGNING_PRIVATE_KEY,
+# held outside git) -- this file must be tracked so protected GitHub
+# snapshots can hash-pin it as a RUNTIME_SOURCE_MEMBER_PATHS entry.
+!scripts/coordination-v2-server-signing-public.pem
 *.key
 server/public
 vite.config.ts.*
