@@ -2668,3 +2668,189 @@ Corrected gate `kc5EhlOi` remains running at `test:ci:unit`, not passed. No
 migration apply or dev restart. Native/live-client/provider checks and
 publication remain pending. Coordinator V2 launcher/source pin/reset remain
 unchanged. This is build evidence, not reconstructed dialogue.
+
+Luca: Secure reusable runtime onboarding — shared schema applied; app publication pending
+
+Main implemented the backend, founder UI, native helper, HTTP-MCP, and OpenAI
+SDK. Whole-project typecheck passed, along with 13 targeted runtime/SDK/
+restricted tests and two response-log tests. The public Fetch credential-
+return guard canonicalizes case, encoding, decoded separators, and dot
+segments before store or network access. Global logging canonicalizes
+backslashes and URL paths, applies bounded eight-pass decoding fail-closed,
+then omits sensitive families.
+
+The development bundle at `/tmp/runtime-onboarding-dev.KL0vBf/package`
+verified all five manifest hashes; reproducibility passed once. It remains
+`sourceDirty=true`, `release=false`. The two malformed-source tests assert
+zero store/fetch calls; other denied-source tests assert zero fetch calls; the
+compiled smoke asserted zero store/fetch for 19 denied routes. A read-only
+near-expiry mock made one SDK call without renewal or network access. Gemini
+source review `5aceedde-167d-4ecc-a5f8-c163e3252bb1` approved that source scope.
+
+The corrected full gate `kc5EhlOi` exited 0 with `READY_TO_PROMOTE`, running
+177 CI commands plus formal PostgreSQL/data-operation proofs. Disposable branch
+`test/migration-2026-10-01T18-49-21-376Z` was deleted. Reviewed migration 0064
+was applied with `npx drizzle-kit migrate` on the verified UNPOOLED shared
+target; hash registered once in `drizzle.__drizzle_migrations`, three
+onboarding tables present. The shared schema affects both environments; no
+application/source/runtime publication.
+
+Canonical record `d5959654-d61d-4c98-822f-22f7d23a68c5`, snapshot revision
+`2451624e-c6e1-4f40-ba44-8187d748e47f`, review
+`6ba77335-0210-44d6-872d-19042aad3982`, is independently approved by Alden.
+Main verified via GET the exact revision, `approved` state, and
+`decisionActorId=alden`. Snapshot approval is not release approval. Main will
+append a new status revision and request independent review. Gemini review
+`119fb593-4dff-47d6-8115-ec9535ba13a7` approved the narrow startup-order fix.
+Design unchanged; no live credentials or publication.
+
+Initial full gate failed global lifecycle-reaper assertion 6 vs 2; at least
+three extra sessions came from earlier same-gate suites (transport lease, host
+authorization, Windows generation), fourth origin unproven. Focused-only
+baseline passed; one synthetic unrelated stale session reproduced 3 vs 2.
+Fixture-only correction retains/strengthens exact owned states, reasons,
+cleanup, lease, and live protections. OnboardingPG and fixture reaper proofs
+each passed 2/2 on disposable branches; all three branches were deleted.
+
+After the full gate, a live anonymous onboarding/admin GET hung because route
+registration preceded session Passport setup. Moving registration after
+`await setupAuth` and `await setupGoogleAuth`, before `coordPolicy`, fixed the
+ordering. AST ordering/comments/hoist-mutation and real Passport/default-chain
+anonymous 401/service-zero checks passed 3/3; existing route test 1/1 and
+typecheck passed; CI wired. The full gate was not rerun after this backend-only,
+schema-neutral follow-up. No second migration needed.
+
+After the second dev restart, root returned 200/111ms, anonymous admin
+401/142ms, own Replit legacy-token Alden read 403/45ms as expected under the
+Alden/David allowlist; no impersonation. Startup readiness verified, but no
+actual founder-cookie/API view (fixture browser pass only; no second tester).
+No invitations/credentials, native/client/provider tests, or publication.
+Development bundle remains `sourceDirty=true`, `release=false`, with no rebuild
+needed for backend route source. Native founder follow-up/publication blocked;
+Windows-count issue unresolved. Coordinator V2 launcher/source pin/reset
+unchanged. This is build evidence, not reconstructed dialogue.
+
+Luca: Secure reusable runtime onboarding — shared schema applied; app publication pending
+
+Main implemented the backend, founder UI, native helper, HTTP-MCP, and OpenAI
+SDK. Whole-project typecheck passed, along with 13 targeted runtime/SDK/
+restricted tests and two response-log tests. The public Fetch credential-
+return guard canonicalizes case, encoding, decoded separators, and dot
+segments before store or network access. Global logging canonicalizes
+backslashes and URL paths, applies bounded eight-pass decoding fail-closed,
+then omits sensitive families.
+
+The development bundle at `/tmp/runtime-onboarding-dev.KL0vBf/package`
+verified all five manifest hashes; reproducibility passed once. It remains
+`sourceDirty=true`, `release=false`. The two malformed-source tests assert
+zero store/fetch calls; other denied-source tests assert zero fetch calls; the
+compiled smoke asserted zero store/fetch for 19 denied routes. A read-only
+near-expiry mock made one SDK call without renewal or network access. Gemini
+source review `5aceedde-167d-4ecc-a5f8-c163e3252bb1` approved that source scope.
+
+The corrected full gate `kc5EhlOi` exited 0 with `READY_TO_PROMOTE`, executing
+177 CI commands plus formal PostgreSQL/data-operation proofs. Disposable branch
+`test/migration-2026-10-01T18-49-21-376Z` was deleted. Reviewed migration 0064
+was applied with `npx drizzle-kit migrate` on the verified UNPOOLED shared
+target; hash registered once in `drizzle.__drizzle_migrations`, three
+onboarding tables present. The shared schema affects both environments; no
+application/source/runtime publication.
+
+Canonical record `d5959654-d61d-4c98-822f-22f7d23a68c5`, snapshot revision
+`2451624e-c6e1-4f40-ba44-8187d748e47f`, review
+`6ba77335-0210-44d6-872d-19042aad3982`, is independently approved by Alden.
+Main verified via GET the exact revision, `approved` state, and
+`decisionActorId=alden`. Snapshot approval is not release approval. New status
+facts are not yet approved; main will append a new status revision and request
+independent review. Gemini review
+`119fb593-4dff-47d6-8115-ec9535ba13a7` approved the narrow startup-order fix.
+Design unchanged; no live credentials or publication.
+
+Initial full gate failed global lifecycle-reaper assertion 6 vs 2; at least
+three extra sessions came from earlier same-gate suites (transport lease, host
+authorization, Windows generation), fourth origin unproven. Focused-only
+baseline passed; one synthetic unrelated stale session reproduced 3 vs 2.
+Fixture-only correction retains/strengthens exact owned states, reasons,
+cleanup, lease, and live protections. OnboardingPG and fixture reaper proofs
+each passed 2/2 on disposable branches; all three branches were deleted.
+
+After the full gate, a live anonymous onboarding/admin GET hung because route
+registration preceded session Passport setup. Moving registration after
+`await setupAuth` and `await setupGoogleAuth`, before `coordPolicy`, fixed the
+ordering. AST ordering/comments/hoist-mutation and real Passport/default-chain
+anonymous 401/service-zero checks passed 3/3; existing route test 1/1 and
+typecheck passed; CI wired. The full gate was not rerun after this backend-only,
+schema-neutral follow-up. No second migration needed.
+
+After the second dev restart, root returned 200/111ms, anonymous admin
+401/142ms, own Replit legacy-token Alden read 403/45ms as expected under the
+Alden/David allowlist; no impersonation. Startup readiness verified, but no
+actual founder-cookie/API view (fixture browser pass only; no second tester).
+No invitations/credentials, native/client/provider tests, or publication.
+Development bundle remains `sourceDirty=true`, `release=false`, with no rebuild
+needed for backend route source. Native founder follow-up/publication blocked;
+Windows-count issue unresolved. Coordinator V2 launcher/source pin/reset
+unchanged. This is build evidence, not reconstructed dialogue.
+
+Luca: Secure reusable runtime onboarding — shared schema applied; app publication pending
+
+Main implemented the backend, founder UI, native helper, HTTP-MCP, and OpenAI
+SDK. Whole-project typecheck passed, along with 13 targeted runtime/SDK/
+restricted tests and two response-log tests. The public Fetch credential-
+return guard canonicalizes case, encoding, decoded separators, and dot
+segments before store or network access. Global logging canonicalizes
+backslashes and URL paths, applies bounded eight-pass decoding fail-closed,
+then omits sensitive families.
+
+The development bundle at `/tmp/runtime-onboarding-dev.KL0vBf/package`
+verified all five manifest hashes; reproducibility passed once. It remains
+`sourceDirty=true`, `release=false`. The two malformed-source tests assert
+zero store/fetch calls; other denied-source tests assert zero fetch calls; the
+compiled smoke asserted zero store/fetch for 19 denied routes. A read-only
+near-expiry mock made one SDK call without renewal or network access. Gemini
+source review `5aceedde-167d-4ecc-a5f8-c163e3252bb1` approved that source scope.
+
+The corrected full gate `kc5EhlOi` exited 0 with `READY_TO_PROMOTE` and
+completed 177 CI commands plus formal PostgreSQL/data-operation proofs. Disposable branch
+`test/migration-2026-10-01T18-49-21-376Z` was deleted. Reviewed migration 0064
+was applied with `npx drizzle-kit migrate` on the verified UNPOOLED shared
+target; hash registered once in `drizzle.__drizzle_migrations`, three
+onboarding tables present. The shared schema affects both environments; no
+application/source/runtime publication.
+
+Canonical record `d5959654-d61d-4c98-822f-22f7d23a68c5`, snapshot revision
+`2451624e-c6e1-4f40-ba44-8187d748e47f`, review
+`6ba77335-0210-44d6-872d-19042aad3982`, is independently approved by Alden.
+Main verified via GET the exact revision, `approved` state, and
+`decisionActorId=alden`. Snapshot approval is not release approval. New status
+facts are not yet approved; main will append a new status revision and request
+independent review. Gemini review
+`119fb593-4dff-47d6-8115-ec9535ba13a7` approved the narrow startup-order fix.
+Design unchanged; no onboarding invitations or scoped credentials, and no
+publication.
+
+Initial full gate failed global lifecycle-reaper assertion 6 vs 2; at least
+three extra sessions came from earlier same-gate suites (transport lease, host
+authorization, Windows generation), fourth origin unproven. Focused-only
+baseline passed; one synthetic unrelated stale session reproduced 3 vs 2.
+Fixture-only correction retains/strengthens exact owned states, reasons,
+cleanup, lease, and live protections. OnboardingPG and fixture reaper proofs
+each passed 2/2 on disposable branches; all three branches were deleted.
+
+After the full gate, a live anonymous onboarding/admin GET hung because route
+registration preceded session Passport setup. Moving registration after
+`await setupAuth` and `await setupGoogleAuth`, before `coordPolicy`, fixed the
+ordering. AST ordering/comments/hoist-mutation and real Passport/default-chain
+anonymous 401/service-zero checks passed 3/3; existing route test 1/1 and
+typecheck passed; CI wired. The full gate was not rerun after this backend-only,
+schema-neutral follow-up. No second migration needed.
+
+After the second dev restart, root returned 200/111ms, anonymous admin
+401/142ms, own Replit legacy-token Alden read 403/45ms as expected under the
+Alden/David allowlist; no impersonation. Startup readiness verified, but no
+actual founder-cookie/API view (fixture browser pass only; no second tester).
+No onboarding invitations/scoped credentials, native/client/provider tests, or publication.
+Development bundle remains `sourceDirty=true`, `release=false`, with no rebuild
+needed for backend route source. Native founder follow-up/publication blocked;
+Windows-count issue unresolved. Coordinator V2 launcher/source pin/reset
+unchanged. This is build evidence, not reconstructed dialogue.

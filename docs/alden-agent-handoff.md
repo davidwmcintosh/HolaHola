@@ -1,8 +1,20 @@
 # Alden ↔ Agent Handoff
 
-## From Agent — last updated: Thu, Oct 1, 8:00 PM
+## From Agent — last updated: Thu, Oct 1, 9:38 PM
 
 # Runtime onboarding — current handoff
+
+## Publication preflight update — supersedes earlier publication assumptions
+
+The founder authorized setting `COORDINATION_PUBLIC_ENDPOINT=https://getholahola.com` for Replit production only. The setting is applied and verified; development is unchanged. It adds one tracked `.replit` line and remains uncommitted.
+
+Live read-only `/health/release` at getholahola.com reports `render-build-input` for `8fe429e0c2d47f99bd26aa990835d15fc5de6ac9`, matching the HEAD observed during this check. Thus the current source already reached the live Render-built release through existing deployment automation; the previous broad “no production source publication” statement must not be used as a current status. This session did not invoke Publish, synchronize/push this configuration, or issue onboarding credentials.
+
+Replit's production setting does not configure Render. The actual Render endpoint value is unverified. `render.yaml` declares automatic deployment; a source-sync push can deploy the live app. Protected source preparation needs a clean, equal local/GitHub commit and cannot complete for the uncommitted change while guaranteeing no live deployment.
+
+Preparation is blocked, not ready to publish. The earlier prepare was stopped intentionally before configuration changes; there is no completed fresh protected candidate. Founder control of Render automatic deployments and its production endpoint is required before continuing. Keep configuration uncommitted, preserve any independent episode/memory bookkeeping, and do not bypass candidate gates or remove locks. See `.local/runtime-onboarding-publication-preflight.md` for the precise preflight and manual Save-only guidance. The development app was restarted once after the configuration batch; anonymous onboarding admin still returns 401.
+
+Replit source-publication markers and V2 runtime-publication requirements remain distinct from a Render deploy. Do not replace that authorization chain or alter the V2 launcher/pin.
 
 ## Current state
 

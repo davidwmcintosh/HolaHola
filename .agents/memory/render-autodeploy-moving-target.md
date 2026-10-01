@@ -24,3 +24,11 @@ directly rather than trusting either side of a comparison someone else made
 earlier — by the time you look, a third commit may already be current. Don't
 assume a low-risk file edit (memory, docs) is deployment-inert in this
 project.
+
+## Registered deployment metadata is not live-host authority
+
+Deployment metadata that lists a custom domain does not prove which platform currently serves that domain. Check the live release-identity endpoint before selecting a publishing action or setting platform-specific production variables.
+
+**Why:** Replit reported a successful public Autoscale deployment with `getholahola.com` as its primary URL, while the live domain's release identity reported `render-build-input` for the current source. Replit's production environment settings therefore could not establish the live Render process's configuration. With Render automatic deploys enabled, a source-sync push is a live deployment side effect, even when the source coordinator's own prepare operation never publishes.
+
+**How to apply:** Distinguish registration/deployment metadata, live build identity, and per-platform environment configuration. Do not claim a Replit-only variable configures Render. Before promising preparation without publication, verify whether source synchronization triggers a live auto-deploy, and stop for founder control rather than bypassing candidate gates.
