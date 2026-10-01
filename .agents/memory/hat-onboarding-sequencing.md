@@ -188,3 +188,43 @@ Demonstrated the same way task 1639 was: a real session reached `succeeded` end 
 
 **How to apply:** this driver is Gemini-specific, not provider-agnostic -- OpenAI's adapter (task 1447) will hit this identical gap on its own until it gets its own driver+worker built the same way. See `coordination-v2-consolidated-lessons.md` section 4 for the fuller technical detail.
 
+
+## Update (Sep 30, 2026): the interactive-CLI path is a third, still-untouched path — real LITTLENEMO has zero V2 sessions
+
+Task #1614 ("confirm a real Antigravity run can finish one coordination task
+using only the new [interactive-CLI] commands") checked whether prior proof
+already covered this. It doesn't — `server/scripts/coordination-v2-interactive-cli.ts`'s
+seven subcommands (start/poll/claim/renew/submit-result/cleanup/status) are a
+third, distinct path from both of the previous two: the ledger (#1636,
+proven) and Gemini's V2 host/session/attempt autonomous adapter+driver
+(#1639/#1642, proven). The interactive CLI drives the *same* V2
+host/session/attempt system as Gemini's adapter, but through a human/IDE-agent
+manually running commands rather than an autonomous API loop — and it has
+never been exercised by anyone, for any actor, real or synthetic.
+
+**What a direct DB query found (Sep 30, 2026):** every `coordination_v2_sessions`
+row that has ever existed (16 total, all from #1639/#1642 verification
+scripts) was bound to a disposable per-test-run host created just for that
+script (`task-1639-gemini-live-<ts>-<hash>-host`, etc.), never to the one real
+enrolled host, LITTLENEMO (`b28c5081-1a1d-4390-a720-36be0ce71cb7`). Zero
+sessions, zero attempts, ever bound to the real host. Every
+`coordination_v2_operator_grants` row ever issued is now revoked/expired (all
+were single-test-run fixtures); there is currently no live founder-approved
+policy + operator grant combination at all, for any actor.
+
+**Why:** the host-credential reauthorization (separate work, same day) only
+satisfies one of the interactive-CLI's documented prerequisites (a
+DPAPI-protected credential for the host). It does not create a policy, grant,
+or task-artifact-bound session — those are independent gates and none
+currently exist for a real LITTLENEMO run.
+
+**How to apply:** don't treat "the host credential works" or "Gemini's V2
+adapter is proven" as evidence that #1614 is closer to done — check
+`coordination_v2_sessions.enrolled_host_id` against the real host's id
+directly before crediting any claim that a V2-system run touched real
+hardware. Real "done" for #1614 additionally needs a live policy+grant scoped
+to the real host, and Antigravity itself invoking the CLI from Windows
+(LITTLENEMO) — the CLI's real dependency factory throws `windows_required`
+off win32, and the task's acceptance criteria requires no other agent driving
+it, so this cannot be attempted or simulated from the Replit container.
+
