@@ -22,6 +22,7 @@ import {
   reportRuntimeSourceSnapshotFailure,
   resolveCoordinationV2RuntimeSourceSnapshot,
   publishCoordinationV2RuntimeRelease,
+  CoordinationV2RuntimeError,
   type RuntimeArtifactInput,
   type RuntimeClosureFile,
   type RuntimeProvenanceEvidence,
@@ -700,4 +701,22 @@ test('default source snapshot wrapper logs only a closed label and preserves the
   );
   assert.deepEqual(messages, ['[CoordinationV2Runtime] source snapshot unavailable: unknown']);
   assert.doesNotMatch(messages[0], /secret|stderr|private|key|path/);
+});
+
+test('source snapshot unavailable error carries the closed diagnostic label for founder-facing surfacing', async () => {
+  await assert.rejects(
+    () => resolveCoordinationV2RuntimeSourceSnapshot({
+      repositoryIdentity: 'github:davidwmcintosh/holahola',
+      promotedCommitSha: 'c'.repeat(40),
+      fixedPaths: ['package-lock.json'],
+    }, {
+      resolve: async () => {
+        throw new Error('HOLAHOLA_GITHUB_APP_ID is unavailable.');
+      },
+      warn: () => {},
+    }),
+    (error: unknown) => error instanceof CoordinationV2RuntimeError
+      && error.code === 'V2_RUNTIME_SOURCE_SNAPSHOT_UNAVAILABLE'
+      && error.detail === 'github_app_credentials_missing',
+  );
 });

@@ -105,9 +105,18 @@ function errorStatus(code: string): number {
   return 422;
 }
 
+/**
+ * `detail` is only ever one of the fixed, non-secret
+ * RuntimeSourceSnapshotDiagnostic labels (e.g. `github_app_credentials_missing`,
+ * `git_operation_failed`) attached by resolveCoordinationV2RuntimeSourceSnapshot.
+ * It is already written server-side via console.warn; surfacing it to the
+ * founder-gated response too turns an opaque V2_RUNTIME_SOURCE_SNAPSHOT_UNAVAILABLE
+ * into something a founder can act on without needing production log access.
+ */
 function replyError(res: Response, error: unknown): void {
   const code = errorCode(error);
-  res.status(errorStatus(code)).json({ error: { code } });
+  const detail = error instanceof CoordinationV2RuntimeError ? error.detail : undefined;
+  res.status(errorStatus(code)).json({ error: { code, ...(detail ? { detail } : {}) } });
 }
 
 function rowOf(result: unknown): Record<string, unknown> | undefined {

@@ -323,7 +323,7 @@ export type RuntimeManifest = {
 };
 
 export class CoordinationV2RuntimeError extends Error {
-  constructor(readonly code: string) {
+  constructor(readonly code: string, readonly detail?: string) {
     super(code);
     this.name = 'CoordinationV2RuntimeError';
   }
@@ -394,8 +394,8 @@ export function reportRuntimeSourceSnapshotFailure(
   return diagnostic;
 }
 
-function fail(code: string): never {
-  throw new CoordinationV2RuntimeError(code);
+function fail(code: string, detail?: string): never {
+  throw new CoordinationV2RuntimeError(code, detail);
 }
 
 function record(value: unknown): Record<string, unknown> {
@@ -463,8 +463,8 @@ export async function resolveCoordinationV2RuntimeSourceSnapshot(input: {
       fixedPaths: input.fixedPaths,
     });
   } catch (error) {
-    reportRuntimeSourceSnapshotFailure(error, dependencies.warn);
-    fail('V2_RUNTIME_SOURCE_SNAPSHOT_UNAVAILABLE');
+    const diagnostic = reportRuntimeSourceSnapshotFailure(error, dependencies.warn);
+    fail('V2_RUNTIME_SOURCE_SNAPSHOT_UNAVAILABLE', diagnostic);
   }
 }
 
