@@ -170,3 +170,11 @@ http.https://github.com/.extraheader || true` immediately before that push
 persisted default token for read access). Prefer this targeted unset over
 `persist-credentials: false` on checkout when earlier steps in the same job
 need read access via the default token.
+
+## Slim-image Git HTTPS trust
+
+Git installed with Debian's --no-install-recommends does not itself guarantee a system CA trust bundle: ca-certificates is a recommendation, not a dependency. Node HTTPS success does not prove Git HTTPS works; they can use different trust sources.
+
+**Why:** A production-only snapshot failure persisted after source-file repair. The runtime used the slim Debian Node base and omitted Git's recommended packages. The failure wrapper also concealed the underlying Git stderr, so a TLS hypothesis could not be confirmed from the founder response.
+
+**How to apply:** For slim deployment images, explicitly include system trust for HTTPS clients and preserve TLS verification. Diagnose Git with closed non-secret failure labels; do not infer an SSH problem from a generic Git failure when the actual transport is HTTPS. Treat the certificate cause as unconfirmed until production evidence confirms it.
