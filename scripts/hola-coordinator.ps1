@@ -400,7 +400,7 @@ function Assert-ManifestPath {
     $segments = $normalized -split '\\'
     if ([string]::IsNullOrWhiteSpace($Path) -or [IO.Path]::IsPathRooted($normalized) -or
         $normalized.StartsWith('\') -or $normalized -match '^[A-Za-z]:' -or
-        $segments.Count -eq 0 -or ($segments | Where-Object { $_ -eq '' -or $_ -eq '.' -or $_ -eq '..' }).Count -gt 0 -or
+        $segments.Count -eq 0 -or @($segments | Where-Object { $_ -eq '' -or $_ -eq '.' -or $_ -eq '..' }).Count -gt 0 -or
         $normalized -match '[:\x00-\x1f]' -or $normalized -match '[\x00-\x1f]' -or
         $normalized -match '[\*?"<>|]') {
         Fail-Safe $FailureCode
