@@ -33,10 +33,87 @@ $CurrentUserScope = [System.Security.Cryptography.DataProtectionScope]::CurrentU
 $ApprovedNode = $null
 
 function Fail-Safe {
-    param([Parameter(Mandatory = $true)][string]$Code)
+    param(
+        [Parameter(Mandatory = $true)][string]$Code,
+        [Parameter(Mandatory = $false)][AllowEmptyString()][string]$Detail = ''
+    )
     $safeCode = ($Code -replace '[^a-zA-Z0-9_-]', '_')
     $safeCode = $safeCode.Substring(0, [Math]::Min(80, $safeCode.Length))
-    throw ('hola_coordinator_' + $safeCode)
+    $message = 'hola_coordinator_' + $safeCode
+    if (-not [string]::IsNullOrWhiteSpace($Detail)) {
+        $safeDetail = ([string]$Detail -replace '[\x00-\x1f\x7f]+', ' ').Trim()
+        $safeDetail = $safeDetail.Substring(0, [Math]::Min(300, $safeDetail.Length))
+        if ($safeDetail.Length -gt 0) { $message = $message + ' :: ' + $safeDetail }
+    }
+    throw $message
+}
+
+function Get-HolaCoordinatorTransportFailureDetail {
+    # Best-effort, never-throwing extraction of the HTTP status code and the
+    # server's own (already-safe) JSON error body from a failed
+    # Invoke-RestMethod call, so an operator can tell a rejected request
+    # (bad fingerprint, idempotency conflict, validation failure) apart from
+    # a genuine network/TLS failure instead of seeing one fixed generic code
+    # either way. A failure inside this diagnostic capture is swallowed so
+    # it can never mask or replace the real error.
+    param([Parameter(Mandatory = $true)]$ErrorRecord)
+    try {
+        $response = $null
+        $exceptionProperty = $ErrorRecord.PSObject.Properties['Exception']
+        if ($null -ne $exceptionProperty -and $null -ne $exceptionProperty.Value) {
+            $responseProperty = $exceptionProperty.Value.PSObject.Properties['Response']
+            if ($null -ne $responseProperty) { $response = $responseProperty.Value }
+        }
+        $statusCode = $null
+        if ($null -ne $response) {
+            $statusCodeProperty = $response.PSObject.Properties['StatusCode']
+            if ($null -ne $statusCodeProperty -and $null -ne $statusCodeProperty.Value) {
+                $statusCode = [int]$statusCodeProperty.Value
+            }
+        }
+        $bodyText = $null
+        $errorDetailsProperty = $ErrorRecord.PSObject.Properties['ErrorDetails']
+        if ($null -ne $errorDetailsProperty -and $null -ne $errorDetailsProperty.Value) {
+            $messageProperty = $errorDetailsProperty.Value.PSObject.Properties['Message']
+            if ($null -ne $messageProperty -and -not [string]::IsNullOrWhiteSpace([string]$messageProperty.Value)) {
+                $bodyText = [string]$messageProperty.Value
+            }
+        }
+        if ([string]::IsNullOrWhiteSpace($bodyText) -and $null -ne $response) {
+            # Older Windows PowerShell surfaces the failure as a WebException
+            # without populating ErrorDetails; read the response body once
+            # directly as a fallback.
+            $streamMethod = $response.PSObject.Methods['GetResponseStream']
+            if ($null -ne $streamMethod) {
+                $stream = $response.GetResponseStream()
+                if ($null -ne $stream) {
+                    $reader = New-Object IO.StreamReader($stream)
+                    try { $bodyText = $reader.ReadToEnd() } finally { $reader.Dispose() }
+                }
+            }
+        }
+        $segments = @()
+        if ($null -ne $statusCode) { $segments += ('http_status=' + $statusCode) }
+        if (-not [string]::IsNullOrWhiteSpace($bodyText)) {
+            $flatBody = ([string]$bodyText -replace '[\x00-\x1f\x7f]+', ' ').Trim()
+            if ($flatBody.Length -gt 0) {
+                $segments += ('response=' + $flatBody.Substring(0, [Math]::Min(300, $flatBody.Length)))
+            }
+        }
+        if ($segments.Count -eq 0) {
+            $messageText = [string]$ErrorRecord.Exception.Message
+            if (-not [string]::IsNullOrWhiteSpace($messageText)) {
+                $flatMessage = ($messageText -replace '[\x00-\x1f\x7f]+', ' ').Trim()
+                if ($flatMessage.Length -gt 0) {
+                    $segments += ('error=' + $flatMessage.Substring(0, [Math]::Min(300, $flatMessage.Length)))
+                }
+            }
+        }
+        if ($segments.Count -eq 0) { return 'no_diagnostic_available' }
+        return ($segments -join ' ')
+    } catch {
+        return 'diagnostic_capture_failed'
+    }
 }
 
 function Resolve-ApprovedNode {
@@ -1561,9 +1638,12 @@ function Register-HolaCoordinatorHost {
             if ($bootstrap -notmatch '^[A-Za-z0-9_-]{43}$') {
                 Fail-Safe 'initial_bootstrap_unavailable'
             }
-            $request = Invoke-RestMethod -Method Post -Uri ($endpointBase + '/api/coordination/v2/host-enrollment-requests') `
-                -Headers @{ 'x-coordination-initial-bootstrap' = $bootstrap } `
-                -ContentType 'application/json' -Body ([string]$requestState.body) -UseBasicParsing
+            try {
+                $request = Invoke-RestMethod -Method Post -Uri ($endpointBase + '/api/coordination/v2/host-enrollment-requests') `
+                    -Headers @{ 'x-coordination-initial-bootstrap' = $bootstrap } `
+                    -ContentType 'application/json' -Body ([string]$requestState.body) -UseBasicParsing `
+                    -ErrorAction Stop
+            } catch { Fail-Safe 'enrollment_transport' -Detail (Get-HolaCoordinatorTransportFailureDetail -ErrorRecord $_) }
             if ([string]$request.requestId -notmatch '^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}$') {
                 Fail-Safe 'enrollment_response_invalid'
             }
@@ -1599,7 +1679,9 @@ function Register-HolaCoordinatorHost {
         $deadline = [DateTime]::UtcNow.AddMinutes(15)
         while ([DateTime]::UtcNow -lt $deadline) {
             Start-Sleep -Seconds 2
-            $status = Invoke-RestMethod -Method Get -Uri ($endpointBase + '/api/coordination/v2/host-enrollment-requests/' + $requestState.requestId + '/status?requestKey=' + [Uri]::EscapeDataString([string]$requestState.requestKey)) -UseBasicParsing
+            try {
+                $status = Invoke-RestMethod -Method Get -Uri ($endpointBase + '/api/coordination/v2/host-enrollment-requests/' + $requestState.requestId + '/status?requestKey=' + [Uri]::EscapeDataString([string]$requestState.requestKey)) -UseBasicParsing -ErrorAction Stop
+            } catch { Fail-Safe 'enrollment_transport' -Detail (Get-HolaCoordinatorTransportFailureDetail -ErrorRecord $_) }
             $challengeProperty = $status.PSObject.Properties['challenge']
             if ($null -ne $challengeProperty -and $null -ne $challengeProperty.Value) {
                 $challenge = $challengeProperty.Value
@@ -1611,8 +1693,11 @@ function Register-HolaCoordinatorHost {
                 }
                 $signature = $rsa.SignData([Text.Encoding]::UTF8.GetBytes([string]$challenge.nonce), [Security.Cryptography.CryptoConfig]::MapNameToOID('SHA256'))
                 $proof = @{ challengeId = $challenge.id; nonce = $challenge.nonce; signature = [Convert]::ToBase64String($signature) } | ConvertTo-Json -Compress
-                $issued = Invoke-RestMethod -Method Post -Uri ($endpointBase + '/api/coordination/v2/host-enrollment-requests/' + $requestState.requestId + '/proof') `
-                    -ContentType 'application/json' -Body $proof -UseBasicParsing
+                try {
+                    $issued = Invoke-RestMethod -Method Post -Uri ($endpointBase + '/api/coordination/v2/host-enrollment-requests/' + $requestState.requestId + '/proof') `
+                        -ContentType 'application/json' -Body $proof -UseBasicParsing `
+                        -ErrorAction Stop
+                } catch { Fail-Safe 'enrollment_transport' -Detail (Get-HolaCoordinatorTransportFailureDetail -ErrorRecord $_) }
                 if ([string]$issued.accessToken -notmatch '^v2h_[A-Za-z0-9_-]{32,}$') {
                     Fail-Safe 'host_credential_invalid'
                 }
@@ -1866,7 +1951,7 @@ function Restore-HolaCoordinatorHostCredential {
                 $endpointBase + '/api/coordination/v2/host/reauthorization-requests') `
                 -ContentType 'application/json' -Body ([string]$state.body) -UseBasicParsing `
                 -MaximumRedirection 0 -ErrorAction Stop
-            } catch { Fail-Safe 'host_reauthorization_transport' }
+            } catch { Fail-Safe 'host_reauthorization_transport' -Detail (Get-HolaCoordinatorTransportFailureDetail -ErrorRecord $_) }
             Assert-ExactPropertySet -Value $request -Names @(
                 'requestId', 'status', 'approvalUrl'
             ) -FailureCode 'host_reauthorization_response_shape'
@@ -1894,7 +1979,7 @@ function Restore-HolaCoordinatorHostCredential {
                 [Uri]::EscapeDataString([string]$state.requestId) + '/status') `
                 -Headers @{ 'x-hola-reauthorization-key' = [string]$state.requestKey } -UseBasicParsing `
             -MaximumRedirection 0 -ErrorAction Stop
-        } catch { Fail-Safe 'host_reauthorization_transport' }
+        } catch { Fail-Safe 'host_reauthorization_transport' -Detail (Get-HolaCoordinatorTransportFailureDetail -ErrorRecord $_) }
         Assert-StrictUuid -Value ([string]$status.requestId) -FailureCode 'host_reauthorization_status_invalid'
         if ([string]$status.requestId -ne [string]$state.requestId) {
             Fail-Safe 'host_reauthorization_status_mismatch'
@@ -1976,7 +2061,7 @@ function Restore-HolaCoordinatorHostCredential {
             [Uri]::EscapeDataString([string]$state.requestId) + '/proof') `
             -ContentType 'application/json' -Body $proof -UseBasicParsing `
             -MaximumRedirection 0 -ErrorAction Stop
-        } catch { Fail-Safe 'host_reauthorization_transport' }
+        } catch { Fail-Safe 'host_reauthorization_transport' -Detail (Get-HolaCoordinatorTransportFailureDetail -ErrorRecord $_) }
         Assert-ExactPropertySet -Value $issued -Names @('accessToken', 'expiresAt') `
             -FailureCode 'host_reauthorization_credential_shape'
         if ([string]$issued.accessToken -notmatch '^v2h_[A-Za-z0-9_-]{32,}$') {
