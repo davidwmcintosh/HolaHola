@@ -25,6 +25,7 @@ type Seen = {
 const seen: Seen = {};
 let publishCreated = true;
 let publishFailure: Error | undefined;
+let issueFailure: unknown;
 let server: Server;
 let baseUrl: string;
 
@@ -96,6 +97,7 @@ registerCoordinationV2RuntimeBootstrapRoutes(app, {
   },
   issueManifest: async (input) => {
     seen.issue = input as unknown as Json;
+    if (issueFailure) throw issueFailure;
     return {
       created: true,
       issueId: 'issue-1',
@@ -162,6 +164,18 @@ function json(method: string, path: string, value: Json, headers: Record<string,
     headers: { 'content-type': 'application/json', ...headers },
     body: JSON.stringify(value),
   });
+}
+
+async function withCapturedConsoleError<T>(run: () => Promise<T>): Promise<{ result: T; logs: unknown[][] }> {
+  const original = console.error;
+  const logs: unknown[][] = [];
+  console.error = (...args: unknown[]) => { logs.push(args); };
+  try {
+    const result = await run();
+    return { result, logs };
+  } finally {
+    console.error = original;
+  }
 }
 
 test.before(async () => {
@@ -243,6 +257,65 @@ test('issue returns only the signed envelope and host identity is middleware-bou
     keyFingerprint: 'fingerprint',
   });
   assert.equal(JSON.stringify(valid.body).includes('must-not-leak'), false);
+});
+
+test('an unrecognized exception during issuance is logged with its real detail before collapsing to the generic code', async () => {
+  issueFailure = new Error('relation "coordination_v2_runtime_releases" does not exist');
+  try {
+    const { result: response, logs } = await withCapturedConsoleError(() => json(
+      'POST', '/api/coordination/v2/host/runtime-bootstrap/issues',
+      { requestKey: 'request-unexpected', protocolVersion: 1 },
+      { 'x-host-token': 'host-token' },
+    ));
+    assert.equal(response.status, 409);
+    assert.deepEqual(response.body, { error: { code: 'V2_RUNTIME_DATABASE_UNAVAILABLE' } });
+    assert.equal(logs.length, 1);
+    const [label, payload] = logs[0];
+    assert.match(String(label), /V2_RUNTIME_DATABASE_UNAVAILABLE/);
+    const parsed = JSON.parse(String(payload)) as Record<string, unknown>;
+    assert.equal(parsed.recognized, false);
+    assert.equal(parsed.name, 'Error');
+    assert.match(String(parsed.message), /does not exist/);
+    assert.equal(typeof parsed.stack, 'string');
+  } finally {
+    issueFailure = undefined;
+  }
+});
+
+test('a deliberate fail-closed throw of the generic code is logged distinguishably from an unrecognized exception', async () => {
+  issueFailure = new CoordinationV2RuntimeError('V2_RUNTIME_DATABASE_UNAVAILABLE');
+  try {
+    const { result: response, logs } = await withCapturedConsoleError(() => json(
+      'POST', '/api/coordination/v2/host/runtime-bootstrap/issues',
+      { requestKey: 'request-deliberate', protocolVersion: 1 },
+      { 'x-host-token': 'host-token' },
+    ));
+    assert.equal(response.status, 409);
+    assert.deepEqual(response.body, { error: { code: 'V2_RUNTIME_DATABASE_UNAVAILABLE' } });
+    assert.equal(logs.length, 1);
+    const parsed = JSON.parse(String(logs[0][1])) as Record<string, unknown>;
+    assert.equal(parsed.recognized, true);
+    assert.equal(parsed.name, 'CoordinationV2RuntimeError');
+    assert.equal(typeof parsed.stack, 'string');
+  } finally {
+    issueFailure = undefined;
+  }
+});
+
+test('a specific recognized error code during issuance never triggers the generic-code log', async () => {
+  issueFailure = new CoordinationV2RuntimeError('V2_RUNTIME_RELEASE_UNAVAILABLE');
+  try {
+    const { result: response, logs } = await withCapturedConsoleError(() => json(
+      'POST', '/api/coordination/v2/host/runtime-bootstrap/issues',
+      { requestKey: 'request-specific', protocolVersion: 1 },
+      { 'x-host-token': 'host-token' },
+    ));
+    assert.equal(response.status, 409);
+    assert.deepEqual(response.body, { error: { code: 'V2_RUNTIME_RELEASE_UNAVAILABLE' } });
+    assert.equal(logs.length, 0);
+  } finally {
+    issueFailure = undefined;
+  }
 });
 
 test('artifact streaming binds host and returns bytes without storage access', async () => {

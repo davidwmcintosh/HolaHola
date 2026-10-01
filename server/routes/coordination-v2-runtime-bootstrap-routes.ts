@@ -59,8 +59,40 @@ function onlyKeys(value: Record<string, unknown>, allowed: readonly string[]): b
   return Object.keys(value).every((key) => expected.has(key));
 }
 
+/**
+ * `V2_RUNTIME_DATABASE_UNAVAILABLE` is reached two different ways that the
+ * client can never tell apart by design: a deliberate fail-closed check in
+ * the service (a malformed timestamp in dateValue()/iso(), a post-write
+ * row-count mismatch, a release row that vanished between lookups) throws
+ * this exact code on purpose, or a genuinely unexpected exception (a real
+ * database/driver failure, a bug) was never recognized as a
+ * CoordinationV2RuntimeError at all and falls through to the same code by
+ * default. Logging the real error here -- before the collapse -- turns what
+ * used to require manually re-deriving and re-running the service's
+ * internal SQL by hand into a single log read. `recognized` plus the real
+ * name/message/stack is what tells the two situations apart: a deliberate
+ * throw carries name `CoordinationV2RuntimeError` and a stack pointing at
+ * the exact check that fired, while a genuinely unexpected exception
+ * carries whatever shape the real failure had.
+ */
+function logRuntimeBootstrapDatabaseUnavailable(error: unknown): void {
+  console.error(
+    '[CoordinationV2Runtime] Runtime bootstrap request failed with V2_RUNTIME_DATABASE_UNAVAILABLE',
+    JSON.stringify({
+      recognized: error instanceof CoordinationV2RuntimeError,
+      name: error instanceof Error ? error.name : typeof error,
+      message: error instanceof Error ? error.message : String(error),
+      stack: error instanceof Error ? error.stack : undefined,
+    }),
+  );
+}
+
 function errorCode(error: unknown): string {
-  return error instanceof CoordinationV2RuntimeError ? error.code : 'V2_RUNTIME_DATABASE_UNAVAILABLE';
+  if (error instanceof CoordinationV2RuntimeError && error.code !== 'V2_RUNTIME_DATABASE_UNAVAILABLE') {
+    return error.code;
+  }
+  logRuntimeBootstrapDatabaseUnavailable(error);
+  return 'V2_RUNTIME_DATABASE_UNAVAILABLE';
 }
 
 function errorStatus(code: string): number {
