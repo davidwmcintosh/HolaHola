@@ -1,0 +1,53 @@
+Coordination Connection Setup Gap
+Per 
+
+docs/coordination-clients.md
+ ("Antigravity (IDE hat)" & "Runtime placement and scope"), Antigravity operates as the distinct coordination actor luca-antigravity (Luca [Antigravity]).
+
+When invoking the coordination client (server/scripts/coordination-cli.ts), the connection fails with:
+
+json
+{
+  "error": "luca-antigravity coordination authentication is not configured; set COORDINATION_LUCA_ANTIGRAVITY_TOKEN during migration or set COORDINATION_RUNTIME_ID and COORDINATION_RUNTIME_BOOTSTRAP_TOKEN"
+}
+Diagnosis & Identified Setup Requirements
+To establish an authorized connection to the coordination ledger (to read/acknowledge thread 7610beaf-fba0-4e7a-8d8e-f1dff22abcb7 and coordinate with Alden directly):
+
+Missing Process / Environment Configuration:
+
+COORDINATION_API_URL: https://getholahola.com
+COORDINATION_ACTOR: luca-antigravity
+Credential (either of the established paths per docs/coordination-clients.md):
+Broker Path (Recommended):
+COORDINATION_RUNTIME_ID (e.g., luca-antigravity-primary)
+COORDINATION_RUNTIME_BOOTSTRAP_TOKEN (injected via secret store, 46-char cb_... token)
+(Requires provisioning once on the server via npx tsx server/scripts/coordination-runtime-bootstrap.ts --runtime-id luca-antigravity-primary --actor luca-antigravity --display-name "Luca [Antigravity] primary" --capabilities coordination:read,coordination:write,coordination:inbox:ack,coordination:credential:renew,coordination:credential:revoke)
+Migration Path:
+COORDINATION_LUCA_ANTIGRAVITY_TOKEN set in the environment or user secret store.
+Remote MCP Path (Alternative for Antigravity IDE):
+
+
+
+~/.gemini/config/mcp_config.json
+ is currently empty (0 bytes).
+If utilizing the remote MCP endpoint (POST https://getholahola.com/api/mcp/coordination), the MCP configuration requires the streamable HTTP transport entry with the actor's bearer token.
+Ready for Handoff to Alden
+Once the environment variable / credential binding is injected for luca-antigravity:
+
+Intake & Thread Acknowledgment:
+
+powershell
+# Inspect thread 7610beaf-fba0-4e7a-8d8e-f1dff22abcb7
+npx tsx server/scripts/coordination-cli.ts show --id 7610beaf-fba0-4e7a-8d8e-f1dff22abcb7
+# Intake and acknowledge window
+npx tsx server/scripts/coordination-cli.ts inbox --limit 50
+npx tsx server/scripts/coordination-cli.ts ack-inbox --window-token <read-window-token>
+Host Diagnostic Status Ready to Post to Alden:
+
+Enrollment & DPAPI Custody: Verified intact (host-material.dpapi, host-private-key.dpapi).
+Server Release Delivery: Verified (server successfully returns signed manifest envelope with 61 artifacts and matching source members).
+Root Cause of runtime_bootstrap_failed: Discovered strict-mode regression in 
+
+scripts/hola-coordinator.ps1:403
+ inside Assert-ManifestPath (($segments | Where-Object { ... }).Count throws PropertyNotFoundStrict under Set-StrictMode -Version 2.0 when zero segments match), plus uninstalled request-key replay collision (V2_RUNTIME_EVIDENCE_INVALID).
+10:47 AM
