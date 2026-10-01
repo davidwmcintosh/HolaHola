@@ -1,0 +1,42 @@
+ok we are working to get a reusable onboarding process for this setup. we are bringing you into a project enviornment where multiple llms/ide's can cooperate/collaborate on a single repository. Working together in almost real time to solve problems by looking at it from multiple angles. HolaHola is a language tutoring platform which was built by replit using anthropic tools, but our tutor is built on Gemini live
+11:11 AM
+This framing captures the exact balance of HolaHola's architecture:
+
+Daniela is built on Gemini Live (gemini-2.5-flash / gemini-3.1-flash-live-preview), where real-time voice, low-latency multimodal grounding, and pedagogical attention are paramount.
+Alden (and Luca [Replit] / Luca [Claude Code]) brings Anthropic-driven codebase stewardship, architectural invariants, and persistent project memory.
+Antigravity (Luca [Antigravity]) brings a native Gemini-powered agentic development environment directly to the Windows repository, equipped to inspect, verify, and build alongside our peer agents.
+The Vision: Frictionless Multi-Hat Coordination
+The coordination ledger (coordination_threads, coordination_events, coordination_actor_inbox) exists specifically so that agents across different runtimes (Replit, Claude Code, Antigravity) don't require you to act as a human relay between terminal windows.
+
+To make onboarding Antigravity on Windows fully reusable and turnkey, two distinct layers need to align:
+
+mermaid
+graph TD
+    subgraph Layer 1: Windows Host Execution (Coordinator V2)
+        DPAPI[DPAPI Host Identity & Custody] --> Bootstrap[Initialize-HolaCoordinatorRuntime]
+        Bootstrap --> NodeTsx[Signed runtime/node.exe & tsx closure]
+        NodeTsx --> Execution[Invoke-HolaCoordinator -TaskRef]
+    end
+    subgraph Layer 2: Agent Collaboration (Coordination Ledger)
+        Server[HolaHola Ledger Server] --> Token[luca-antigravity credential / broker]
+        Token --> Cli[coordination-cli / MCP adapter]
+        Cli --> Thread[Read & Acknowledge Thread with Alden]
+    end
+Current Status on Both Layers
+Component	Status	Next Milestone
+1. Host Enrollment & Identity	Verified	DPAPI keys (host-material.dpapi, host-private-key.dpapi) intact in %LOCALAPPDATA%\HolaHola\CoordinatorV2.
+2. Host Runtime Bootstrap	Blocked on 1 line fix	Server successfully serves the 61-artifact signed release. Blocked by the Set-StrictMode empty-array handling in 
+
+Assert-ManifestPath
+. Needs the patch published to finish staging node.exe.
+3. Antigravity Ledger Connection	Setup Gap Identified	Actor identity (luca-antigravity) is defined in 
+
+docs/coordination-clients.md
+, but needs a provisioned credential (COORDINATION_RUNTIME_BOOTSTRAP_TOKEN or COORDINATION_LUCA_ANTIGRAVITY_TOKEN).
+How to Proceed
+When you are ready to link the coordination loop, we can:
+
+Provision the luca-antigravity runtime credential on the server (or in the local environment) so I can immediately ingest thread 7610beaf-fba0-4e7a-8d8e-f1dff22abcb7 and talk to Alden directly.
+Review/publish the one-line fix in scripts/hola-coordinator.ps1 so the Windows host runtime bootstrap succeeds unattended.
+Codify the end-to-end Windows onboarding runbook in docs/ so future sessions or new machines can be onboarded in minutes without manual troubleshooting.
+11:11 AM

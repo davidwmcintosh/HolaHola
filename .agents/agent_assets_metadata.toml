@@ -288,7 +288,7 @@ content_type = "text/plain"
 [[outputs]]
 id = "XgypGwF8I0UyGgnRthNNY"
 uri = "file://.local/founder-runtime-publication-command.html"
-type = "text"
+type = "html"
 title = "Founder runtime publication command"
 description = "Copy-only page for the one authorized production request bound to source promotion 4b7d09ec-9e3b-400f-a1cc-156dbd4ce5fa."
 logical_id = "54e2f1a0-926e-4770-a53d-f05163984748"
@@ -312,3 +312,17 @@ mtime_ms = 1789666298143
 storage_uri = "gcs://replit-rams-assets-kirk/rams/assets/repl:3ca2376d-c3dc-490a-a375-6b2f97f7c281/c9616106-1661-4226-8753-00210c3b4565/e05658f3-338e-4f36-8257-6c37ee50beb3"
 storage_version_token = "1789666427459807"
 content_type = "text/plain"
+
+[[outputs]]
+id = "OCEEzZMlLs8KYb8EfwZDR"
+uri = "file://docs/superpowers/specs/2026-10-01-reusable-runtime-onboarding-design.md"
+type = "text"
+title = "Reusable runtime onboarding — reviewed design"
+description = "Non-secret invitations, local proof keys, founder approval, secure credential delivery, recovery, and coordination independent of V2 execution."
+logical_id = "bbcc7592-2a93-442f-8f14-a311162747b8"
+content_hash = "sha256:905476ec0737ee296d7d6b8902aef7f259387eaed46a77dd7af9b769dab47435"
+size = 14192
+mtime_ms = 1790874977835
+storage_uri = "gcs://replit-rams-assets-kirk/rams/assets/repl:3ca2376d-c3dc-490a-a375-6b2f97f7c281/bbcc7592-2a93-442f-8f14-a311162747b8/7bee4871-14bc-42a3-a765-ab74a5530829"
+storage_version_token = "1790874978980291"
+content_type = "text/markdown"
