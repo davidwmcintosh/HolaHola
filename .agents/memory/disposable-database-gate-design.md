@@ -66,3 +66,11 @@ Also add a self-check test in the same file that reads its own source
 `_REQUIRE_DATABASE_TESTS === '1'` branch and `_FORBIDDEN_SHARED_URL` check are both
 still present, so a future edit can't silently regress the guard.
 
+
+## Focused runs do not reproduce accumulated suite state
+
+A freshly cloned, focused database test does not reproduce all the state accumulated by a long migration gate. Global housekeeping totals are database-wide results, not counts of the current test's fixtures.
+
+**Why:** Earlier suites can leave nonterminal fixtures that become eligible for a later global sweep. A fresh focused run passed unchanged, while adding one eligible unrelated fixture reproduced the full gate's count-assumption failure. At least three extra rows were traced to earlier suites by their generated ID prefixes and timestamps; the remaining row's origin was not proven. Source: conversation_memories `7b1d6e38-73f4-4748-8a53-ffdd8d117a30`.
+
+**How to apply:** Compare stable generated-ID prefixes and embedded timestamps with the gate start and producer tests; an absent literal UUID in source proves nothing about provenance. Reproduce accumulated state deliberately in a disposable database. Assert exact owned-session outcomes and protection of live fixtures rather than deleting unrelated rows or treating a global sweep total as a fixture count.

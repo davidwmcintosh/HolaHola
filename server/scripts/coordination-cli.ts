@@ -161,12 +161,19 @@ function required(options: Options, name: string): string {
   return value;
 }
 
+export const SUPPORTED_COORDINATION_CLI_ACTORS: readonly CoordinationClientActor[] = [
+  'luca-replit', 'luca-claude-code', 'luca-gemini', 'luca-antigravity', 'luca-holahola',
+  'luca-cursor', 'luca-openai-agents', 'alden', 'daniela', 'david',
+];
+
+export const SUPPORTED_COORDINATION_CLI_RECIPIENTS: readonly Exclude<
+  CoordinationActorId,
+  'coordination-system'
+>[] = SUPPORTED_COORDINATION_CLI_ACTORS;
+
 function requiredRecipient(options: Options): Exclude<CoordinationActorId, 'coordination-system'> {
   const value = required(options, 'recipient');
-  const supportedRecipients: readonly Exclude<CoordinationActorId, 'coordination-system'>[] = [
-    'luca-replit', 'luca-claude-code', 'luca-antigravity', 'luca-holahola', 'alden', 'daniela', 'david',
-  ];
-  if (!supportedRecipients.includes(value as Exclude<CoordinationActorId, 'coordination-system'>)) {
+  if (!SUPPORTED_COORDINATION_CLI_RECIPIENTS.includes(value as Exclude<CoordinationActorId, 'coordination-system'>)) {
     fail(`Unsupported --recipient: ${value}`);
   }
   return value as Exclude<CoordinationActorId, 'coordination-system'>;
@@ -218,12 +225,9 @@ async function main(): Promise<void> {
   }
   const apiUrl = typeof options.url === 'string' ? options.url : process.env.COORDINATION_API_URL;
   const actorValue = process.env.COORDINATION_ACTOR;
-  const supportedActors: readonly CoordinationClientActor[] = [
-    'luca-replit', 'luca-claude-code', 'luca-antigravity', 'luca-holahola', 'alden', 'daniela', 'david',
-  ];
   if (!apiUrl) fail('COORDINATION_API_URL is required (or provide --url)');
   if (!actorValue) fail('COORDINATION_ACTOR is required; set it to the identity running this client');
-  if (!supportedActors.includes(actorValue as CoordinationClientActor)) {
+  if (!SUPPORTED_COORDINATION_CLI_ACTORS.includes(actorValue as CoordinationClientActor)) {
     fail(`Unsupported COORDINATION_ACTOR: ${actorValue}`);
   }
   const actor = actorValue as CoordinationClientActor;

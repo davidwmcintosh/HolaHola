@@ -17,6 +17,8 @@ import { canCoordinationActorPerform } from '../services/coordination-ledger-ser
 import {
   assertExplicitCoordinationCommentIntent,
   coordinationCliDeliverySummary,
+  SUPPORTED_COORDINATION_CLI_ACTORS,
+  SUPPORTED_COORDINATION_CLI_RECIPIENTS,
   unsupportedCoordinationCliOptions,
 } from './coordination-cli';
 
@@ -31,18 +33,26 @@ const TOKENS = {
   'luca-replit': 'r'.repeat(40),
   'luca-claude-code': 'c'.repeat(40),
   'luca-gemini': 'g'.repeat(40),
+  'luca-antigravity': 'v'.repeat(40),
   'luca-holahola': 'h'.repeat(40),
+  'luca-cursor': 'u'.repeat(40),
+  'luca-openai-agents': 'o'.repeat(40),
   alden: 'a'.repeat(40),
   daniela: 'd'.repeat(40),
-} as const;
+  david: 'f'.repeat(40),
+} as const satisfies Record<CoordinationClientActor, string>;
 
 const ENVIRONMENT = {
   COORDINATION_LUCA_REPLIT_TOKEN: TOKENS['luca-replit'],
   COORDINATION_LUCA_CLAUDE_CODE_TOKEN: TOKENS['luca-claude-code'],
   COORDINATION_LUCA_GEMINI_TOKEN: TOKENS['luca-gemini'],
+  COORDINATION_LUCA_ANTIGRAVITY_TOKEN: TOKENS['luca-antigravity'],
   COORDINATION_LUCA_HOLAHOLA_TOKEN: TOKENS['luca-holahola'],
+  COORDINATION_LUCA_CURSOR_TOKEN: TOKENS['luca-cursor'],
+  COORDINATION_LUCA_OPENAI_AGENTS_TOKEN: TOKENS['luca-openai-agents'],
   COORDINATION_ALDEN_TOKEN: TOKENS.alden,
   COORDINATION_DANIELA_TOKEN: TOKENS.daniela,
+  COORDINATION_DAVID_TOKEN: TOKENS.david,
   COORDINATION_API_TOKEN: 'shared-token-must-never-be-used'.repeat(2),
 };
 
@@ -182,9 +192,13 @@ test('actor clients send only the selected actor dedicated credential', async ()
     TOKENS['luca-replit'],
     TOKENS['luca-claude-code'],
     TOKENS['luca-gemini'],
+    TOKENS['luca-antigravity'],
     TOKENS['luca-holahola'],
+    TOKENS['luca-cursor'],
+    TOKENS['luca-openai-agents'],
     TOKENS.alden,
     TOKENS.daniela,
+    TOKENS.david,
   ]);
   assert.equal(observed.every((request) => request.url.includes('cursor=4&limit=10')), true);
 });
@@ -658,6 +672,41 @@ test('direct clients and server enforce the same least-privilege lifecycle profi
   assert.equal(canCoordinationActorPerform('luca-holahola', 'completed'), false);
   assert.equal(canCoordinationActorPerform('alden', 'reassigned'), true);
   assert.equal(canCoordinationActorPerform('daniela', 'reassigned'), false);
+});
+
+test('Cursor and OpenAI Agents use independent credentials and the generic Luca lifecycle client', async () => {
+  const seen: Array<{ token: string | null; url: string }> = [];
+  const fetchImpl = async (input: string | URL, init?: RequestInit): Promise<Response> => {
+    seen.push({
+      token: new Headers(init?.headers).get('x-coordination-token'),
+      url: String(input),
+    });
+    return new Response(JSON.stringify({ ok: true }), { status: 200 });
+  };
+
+  for (const actor of ['luca-cursor', 'luca-openai-agents'] as const) {
+    const client = createCoordinationActorClient(actor, {
+      apiUrl: 'https://coordination.example',
+      environment: ENVIRONMENT,
+      fetchImpl,
+    });
+    await client.listFeed();
+    await client.complete('thread-1', { expectedSequence: 1, idempotencyKey: `${actor}:complete` });
+  }
+
+  assert.deepEqual(seen.map((request) => request.token), [
+    TOKENS['luca-cursor'], TOKENS['luca-cursor'],
+    TOKENS['luca-openai-agents'], TOKENS['luca-openai-agents'],
+  ]);
+  assert.equal(seen[0].url, 'https://coordination.example/api/coordination/threads');
+  assert.equal(seen[1].url, 'https://coordination.example/api/coordination/threads/thread-1/events');
+  assert.equal(seen[2].url, 'https://coordination.example/api/coordination/threads');
+  assert.equal(seen[3].url, 'https://coordination.example/api/coordination/threads/thread-1/events');
+});
+
+test('coordination CLI exposes every non-system actor as both a caller and recipient', () => {
+  assert.deepEqual([...SUPPORTED_COORDINATION_CLI_ACTORS].sort(), Object.keys(TOKENS).sort());
+  assert.deepEqual([...SUPPORTED_COORDINATION_CLI_RECIPIENTS].sort(), Object.keys(TOKENS).sort());
 });
 
 test('CLI rejects obsolete or irrelevant options instead of silently dropping them', () => {

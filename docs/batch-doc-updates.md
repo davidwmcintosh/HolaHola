@@ -7440,3 +7440,29 @@ holds; it just needed sturdier proof than the first pass gave it. The
 "no autonomous turn-driver" finding above is unaffected and still stands.
 Detail in the `hat-onboarding-sequencing` and
 `coordination-v2-consolidated-lessons` memory topic files.
+
+## Reusable runtime onboarding implementation notes — October 1, 2026
+
+Recorded the client/operator contract in `docs/runtime-onboarding-clients.md`
+and a separate implementation/release gate review in
+`docs/runtime-onboarding-implementation-review.md`. The standalone builder
+(`scripts/build-runtime-onboarding-package.mjs`) produces a Node 20+ bundle
+(`bin/holahola-onboarding.mjs`), the importable OpenAI Responses adapter
+(`lib/runtime-onboarding-sdk.mjs`), the Windows native-store script, package
+metadata/readme, and a source-revision/hash manifest. Destination use needs no
+`tsx`, `npm install`, or Coordinator V2 execution closure.
+
+The docs distinguish the authenticated onboarding/MCP client from V2 execution,
+explain scoped OS key custody, founder approval, mandatory OpenAI remote-tool
+approval, and the injected host-owned OpenAI SDK/API key boundary. They also
+record the historical server-derived ledger-read evidence and that inbox ack,
+renewal, and `lastUsedAt` are not current-connection or V2 evidence.
+
+**Verification boundary:** Main's final code/test/typecheck pass is still
+pending. The Linux `flock` mixed-XDG fixture is the only native-store
+verification reported here; real Windows/macOS/Linux Secret Service and actual
+Cursor/OpenAI Agents client checks remain outstanding. The generated schema
+migration has not been applied and requires a passing isolated gate first.
+There has been no source/runtime publication and no invitation or real
+credential issuance. No Alden review or notification is claimed; the
+generated `docs/alden-agent-handoff.md` snapshot was not edited directly.

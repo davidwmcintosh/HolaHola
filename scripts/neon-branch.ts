@@ -395,6 +395,17 @@ async function cmdGate(flags: Record<string, string | boolean>) {
   }
 
   if (!failureReason) {
+    console.log('[gate] Running secure runtime-onboarding PostgreSQL proofs against the branch...');
+    const onboardingProofs = await runCommand(
+      'npx tsx --test server/services/runtime-onboarding-postgres.test.ts',
+      branchEnv,
+    );
+    if (onboardingProofs.code !== 0) {
+      failureReason = `runtime-onboarding PostgreSQL proofs exited ${onboardingProofs.code}`;
+    }
+  }
+
+  if (!failureReason) {
     console.log('[gate] Running persisted coordination-runtime parity against the branch...');
     const runtimeParity = await runCommand(
       'npx tsx --test server/scripts/test-coordination-runtime-postgres-repository.test.ts',

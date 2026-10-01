@@ -53,7 +53,26 @@ function extractAllCoordinationActors(sourcePath: string): string[] {
   return matches;
 }
 
+function extractOperationBlock(source: string, operationId: string): string {
+  const start = source.indexOf(`id: '${operationId}'`);
+  assert.ok(start >= 0, `Could not find operation ${operationId} in operations catalog`);
+  const close = source.indexOf('\n  },', start);
+  assert.ok(close >= 0, `Could not find the end of operation ${operationId} in operations catalog`);
+  return source.slice(start, close);
+}
+
+function extractActorScope(block: string, operationId: string): string[] {
+  const marker = 'actorScope: [';
+  const start = block.indexOf(marker);
+  assert.ok(start >= 0, `Could not find a literal actorScope for ${operationId}`);
+  const bodyStart = start + marker.length;
+  const close = block.indexOf(']', bodyStart);
+  assert.ok(close >= 0, `Could not find the end of actorScope for ${operationId}`);
+  return [...block.slice(bodyStart, close).matchAll(/'([a-z0-9-]+)'/g)].map((match) => match[1]);
+}
+
 function main() {
+  const catalogSource = readFileSync(CATALOG_PATH, 'utf8');
   const declared = extractAllCoordinationActors(CATALOG_PATH);
   const declaredSet = new Set(declared);
   const canonicalSet = new Set<string>(COORDINATION_ACTOR_IDS);
@@ -82,6 +101,42 @@ function main() {
     COORDINATION_ACTOR_IDS.length,
     `ALL_COORDINATION_ACTORS in ${CATALOG_PATH} has ${declared.length} entries but COORDINATION_ACTOR_IDS has ` +
       `${COORDINATION_ACTOR_IDS.length} -- likely a duplicate entry.`,
+  );
+
+  // These operations are intentionally available to ordinary runtime Luca
+  // hats which can use the shared repository/coordination protocol. Keep
+  // cursor and OpenAI Agents peers aligned with the Replit and Claude Code
+  // executor scope without widening exceptional surfaces such as the
+  // Replit-only canonical capture endpoint or admin-only tools.
+  const ordinaryLucaExecutorOperations = [
+    'system.verify-health',
+    'production.uptime-monitor',
+    'source.status',
+    'source.synchronize',
+    'source.candidate-drift',
+    'learning.actfl-audit',
+    'learning.curriculum-audit',
+    'learning.lesson-audit',
+    'learning.textbook-audit',
+    'capture.episode-integrity',
+  ];
+  for (const operationId of ordinaryLucaExecutorOperations) {
+    const scope = extractActorScope(extractOperationBlock(catalogSource, operationId), operationId);
+    for (const actor of ['luca-cursor', 'luca-openai-agents']) {
+      assert.ok(
+        scope.includes(actor),
+        `Operation ${operationId} is missing ${actor} from its scoped Luca executor access`,
+      );
+    }
+  }
+  const captureHealthScope = extractActorScope(
+    extractOperationBlock(catalogSource, 'capture.health'),
+    'capture.health',
+  );
+  assert.equal(
+    captureHealthScope.includes('luca-cursor') || captureHealthScope.includes('luca-openai-agents'),
+    false,
+    'Canonical capture health is intentionally narrower than generic Luca executor operations.',
   );
 
   console.log(

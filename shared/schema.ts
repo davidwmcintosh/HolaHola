@@ -8357,6 +8357,8 @@ export const COORDINATION_ACTOR_IDS = [
   'luca-claude-code',
   'luca-gemini',
   'luca-antigravity',
+  'luca-cursor',
+  'luca-openai-agents',
   'alden',
   'daniela',
   'david',
@@ -8668,6 +8670,125 @@ export const coordinationCredentialAuditEvents = pgTable("coordination_credentia
   index("idx_coordination_credential_audit_actor").on(table.actor, table.createdAt),
   index("idx_coordination_credential_audit_failures").on(table.success, table.createdAt),
 ]);
+
+// Reusable runtime enrollment is deliberately provider-neutral and separate
+// from the Coordinator V2 host enrollment state machine. Invitation scope is
+// immutable; founder decisions and proof challenges are durable lifecycle
+// facts, while the broker continues to own runtime credentials.
+export const RUNTIME_ONBOARDING_CLIENT_TYPES = ['mcp-stdio', 'openai-http', 'http-cli'] as const;
+export type RuntimeOnboardingClientType = typeof RUNTIME_ONBOARDING_CLIENT_TYPES[number];
+export const runtimeOnboardingClientTypeEnum = pgEnum(
+  'runtime_onboarding_client_type',
+  RUNTIME_ONBOARDING_CLIENT_TYPES,
+);
+export const RUNTIME_ONBOARDING_STATES = [
+  'prepared', 'requested', 'approved', 'denied', 'cancelled', 'expired', 'enrolled', 'revoked',
+] as const;
+export type RuntimeOnboardingState = typeof RUNTIME_ONBOARDING_STATES[number];
+export const runtimeOnboardingStateEnum = pgEnum('runtime_onboarding_state', RUNTIME_ONBOARDING_STATES);
+export const RUNTIME_ONBOARDING_CHALLENGE_PURPOSES = ['enroll', 'recover'] as const;
+export type RuntimeOnboardingChallengePurpose = typeof RUNTIME_ONBOARDING_CHALLENGE_PURPOSES[number];
+export const runtimeOnboardingChallengePurposeEnum = pgEnum(
+  'runtime_onboarding_challenge_purpose',
+  RUNTIME_ONBOARDING_CHALLENGE_PURPOSES,
+);
+
+export const coordinationRuntimeOnboardingInvitations = pgTable("coordination_runtime_onboarding_invitations", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  actor: varchar("actor", { length: 80 }).notNull(),
+  runtimeId: varchar("runtime_id", { length: 120 }).notNull(),
+  displayName: varchar("display_name", { length: 200 }).notNull(),
+  capabilities: text("capabilities").array().notNull(),
+  provider: varchar("provider", { length: 40 }),
+  model: varchar("model", { length: 80 }),
+  clientType: runtimeOnboardingClientTypeEnum("client_type").notNull().default('mcp-stdio'),
+  preparedByActor: varchar("prepared_by_actor", { length: 80 }).notNull(),
+  state: runtimeOnboardingStateEnum("state").notNull().default('prepared'),
+  expiresAt: timestamp("expires_at").notNull(),
+  cancelledAt: timestamp("cancelled_at"),
+  completedAt: timestamp("completed_at"),
+  completedRequestId: varchar("completed_request_id"),
+  createdAt: timestamp("created_at").notNull().defaultNow(),
+  updatedAt: timestamp("updated_at").notNull().defaultNow(),
+}, (table) => [
+  uniqueIndex("uq_coord_runtime_onboarding_invite_runtime").on(table.runtimeId),
+  index("idx_coord_runtime_onboarding_invite_state_expiry").on(table.state, table.expiresAt),
+  index("idx_coord_runtime_onboarding_invite_actor_created").on(table.actor, table.createdAt),
+  check("coord_runtime_onboarding_invite_runtime_nonempty", sql`length(trim(${table.runtimeId})) > 0`),
+  check("coord_runtime_onboarding_invite_display_nonempty", sql`length(trim(${table.displayName})) > 0`),
+  check("coord_runtime_onboarding_invite_capabilities_nonempty", sql`cardinality(${table.capabilities}) > 0`),
+  check("coord_runtime_onboarding_invite_expiry_after_create", sql`${table.expiresAt} > ${table.createdAt}`),
+]);
+
+export const coordinationRuntimeOnboardingRequests = pgTable("coordination_runtime_onboarding_requests", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  invitationId: varchar("invitation_id", { length: 120 }).notNull()
+    .references(() => coordinationRuntimeOnboardingInvitations.id, { onDelete: 'restrict' }),
+  actor: varchar("actor", { length: 80 }).notNull(),
+  runtimeId: varchar("runtime_id", { length: 120 }).notNull(),
+  displayName: varchar("display_name", { length: 200 }).notNull(),
+  capabilities: text("capabilities").array().notNull(),
+  provider: varchar("provider", { length: 40 }),
+  model: varchar("model", { length: 80 }),
+  publicKeyPem: text("public_key_pem").notNull(),
+  keyFingerprint: varchar("key_fingerprint", { length: 64 }).notNull(),
+  verificationCode: varchar("verification_code", { length: 32 }).notNull(),
+  state: runtimeOnboardingStateEnum("state").notNull().default('requested'),
+  decisionActor: varchar("decision_actor", { length: 80 }),
+  decisionAt: timestamp("decision_at"),
+  registrationId: varchar("registration_id", { length: 120 })
+    .references(() => coordinationRuntimeRegistrations.id, { onDelete: 'restrict' }),
+  createdAt: timestamp("created_at").notNull().defaultNow(),
+  updatedAt: timestamp("updated_at").notNull().defaultNow(),
+  expiresAt: timestamp("expires_at").notNull(),
+}, (table) => [
+  uniqueIndex("uq_coord_runtime_onboarding_request_invite").on(table.invitationId),
+  uniqueIndex("uq_coord_runtime_onboarding_request_fingerprint").on(table.keyFingerprint),
+  index("idx_coord_runtime_onboarding_request_state_expiry").on(table.state, table.expiresAt),
+  index("idx_coord_runtime_onboarding_request_runtime").on(table.runtimeId, table.createdAt),
+  check("coord_runtime_onboarding_request_key_nonempty", sql`length(trim(${table.publicKeyPem})) > 0`),
+  check("coord_runtime_onboarding_request_fingerprint_sha256", sql`${table.keyFingerprint} ~ '^SHA256:[A-Za-z0-9+/]{43}$'`),
+  check("coord_runtime_onboarding_request_verification_code", sql`${table.verificationCode} ~ '^[0-9]{6}$'`),
+  check("coord_runtime_onboarding_request_expiry_after_create", sql`${table.expiresAt} > ${table.createdAt}`),
+  check("coord_runtime_onboarding_request_decision_pairing", sql`
+    (${table.decisionActor} IS NULL AND ${table.decisionAt} IS NULL)
+    OR (${table.decisionActor} IS NOT NULL AND ${table.decisionAt} IS NOT NULL)
+  `),
+  check("coord_runtime_onboarding_request_registration_state", sql`
+    (${table.registrationId} IS NULL AND ${table.state} <> 'enrolled' AND ${table.state} <> 'revoked')
+    OR (${table.registrationId} IS NOT NULL AND ${table.state} IN ('enrolled', 'revoked'))
+  `),
+]);
+
+export const coordinationRuntimeOnboardingChallenges = pgTable("coordination_runtime_onboarding_challenges", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  requestId: varchar("request_id", { length: 120 }).notNull()
+    .references(() => coordinationRuntimeOnboardingRequests.id, { onDelete: 'cascade' }),
+  purpose: runtimeOnboardingChallengePurposeEnum("purpose").notNull(),
+  // A nonce is not a bearer credential: it is returned to the local helper
+  // and is stored alongside its digest so the exact signed payload can be
+  // recomputed server-side without trusting client-supplied bytes.
+  nonce: varchar("nonce", { length: 128 }).notNull(),
+  nonceHash: varchar("nonce_hash", { length: 64 }).notNull(),
+  endpoint: varchar("endpoint", { length: 512 }).notNull(),
+  expiresAt: timestamp("expires_at").notNull(),
+  consumedAt: timestamp("consumed_at"),
+  createdAt: timestamp("created_at").notNull().defaultNow(),
+}, (table) => [
+  index("idx_coord_runtime_onboarding_challenge_request_expiry").on(table.requestId, table.expiresAt),
+  uniqueIndex("uq_coord_runtime_onboarding_challenge_nonce_hash").on(table.nonceHash),
+  check("coord_runtime_onboarding_challenge_nonce_format", sql`${table.nonce} ~ '^[A-Za-z0-9_-]{43}$'`),
+  check("coord_runtime_onboarding_challenge_nonce_hash_sha256", sql`${table.nonceHash} ~ '^[0-9a-f]{64}$'`),
+  check("coord_runtime_onboarding_challenge_endpoint_nonempty", sql`length(trim(${table.endpoint})) > 0`),
+  check("coord_runtime_onboarding_challenge_expiry_after_create", sql`${table.expiresAt} > ${table.createdAt}`),
+]);
+
+export type CoordinationRuntimeOnboardingInvitation =
+  typeof coordinationRuntimeOnboardingInvitations.$inferSelect;
+export type CoordinationRuntimeOnboardingRequest =
+  typeof coordinationRuntimeOnboardingRequests.$inferSelect;
+export type CoordinationRuntimeOnboardingChallenge =
+  typeof coordinationRuntimeOnboardingChallenges.$inferSelect;
 
 // ===== Coordinator V2 control plane =====
 

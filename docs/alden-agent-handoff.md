@@ -1,194 +1,115 @@
 # Alden ↔ Agent Handoff
 
-## From Agent — Sat, Sep 26, 2026 (Hat onboarding order: Antigravity, then OpenAI)
+## From Agent — last updated: Thu, Oct 1, 8:00 PM
 
-### Status
+# Runtime onboarding — current handoff
 
-David asked for a readiness check on bringing Antigravity and/or OpenAI on as
-live coordination hats with full onboarding (Alden endorsement included).
-Investigation found neither is ready today. David's decision: bring on both,
-but in succession — Antigravity first, OpenAI immediately after — not in
-parallel. Recording the concrete gaps here so this doesn't need to be
-re-derived, and so this sequencing is visible before either Step -1
-endorsement thread reaches Alden.
+## Current state
 
-### Antigravity — what's left
+Main implemented the backend, founder UI, native helper, HTTP-MCP, and OpenAI
+SDK. Whole-project typecheck passed; focused evidence includes 13 targeted
+runtime/SDK/restricted tests and two response-log tests. No application/source/
+runtime publication has occurred; no onboarding invitations or scoped
+credentials have been issued. Native platform,
+live client/provider, and downstream publication claims remain blocked.
 
-- Tier 1 is already done: `luca-antigravity` is registered in
-  `COORDINATION_ACTOR_IDS` with its secret binding
-  (`COORDINATION_LUCA_ANTIGRAVITY_TOKEN`) wired in `coordination-auth.ts`.
-- No live Coordinator V2 provider adapter exists for it yet — Gemini is
-  currently the only hat with a working V2 adapter.
-- No Step -1 endorsement thread has been opened yet.
-- Real-Windows verification through LITTLENEMO has not completed. The Sep 17
-  credential-reauthorization attempt failed (signed-TTL overshoot, HTTP 422)
-  and created no runtime, approval, or execution authority. Tasks #1482
-  (confirm a real Windows-host launch reaches production) and #1483 (let a
-  launch be prepared without needing Replit shell access first) are both
-  still open, not started.
-- The retired Gate 3 Antigravity path (`docs/antigravity-gate3-runbook.md`)
-  is explicitly non-authoritative — its historical evidence cannot stand in
-  for any of the above.
+The approved design remains immutable. The separate canonical implementation
+record is `d5959654-d61d-4c98-822f-22f7d23a68c5`, latest approved snapshot
+revision `092f91ad-4fc1-4206-8b51-0dd70fb2404c`, review
+`930b460d-8edc-43bb-8d80-4055d88a4df1`. Main verified via GET the exact
+revision, state `approved`, and `decisionActorId` `alden`. This snapshot
+approval is not release approval. This approval breadcrumb needs no new
+canonical revision; canonical bytes remain unchanged.
+Canonical record source ID: `7b1d6e38-73f4-4748-8a53-ffdd8d117a30`. Gemini
+reviews `5aceedde-167d-4ecc-a5f8-c163e3252bb1` and
+`119fb593-4dff-47d6-8115-ec9535ba13a7` approved their respective source
+scopes, with the latter limited to startup ordering. No canonical bytes or
+revision were edited here.
 
-### OpenAI — queued behind Antigravity
+## Route, logging, and package evidence
 
-- Not yet a registered coordination actor at all — no entry in
-  `COORDINATION_ACTOR_IDS`.
-- Task #1447 ("Let OpenAI join as another Luca runtime without splitting
-  identity") is already active: building its provider adapter, launch-
-  evidence handling, grounding/memory-consumption receipts, and the same
-  claims/verification/closure gates Claude Code and Gemini use, plus
-  adversarial parity tests. Not merged yet.
-- Also needs its own Step -1 endorsement thread, separate from Antigravity's.
+The public Fetch credential-return guard canonicalizes case, encoding, decoded
+separators, and dot segments before store or network access. This equivalent-
+route fix is source-verified; the development bundle was already verified and
+does not contain backend route source. Global logging policy canonicalizes
+backslashes and URL paths, applies bounded eight-pass decoding with fail-closed
+handling, then omits sensitive families.
 
-### Next step
+Evidence attribution is deliberately bounded: the two malformed-source tests
+assert zero store/fetch calls; other denied-source tests assert zero fetch
+calls; the compiled smoke asserted zero store and fetch calls for 19 denied
+routes. A read-only near-expiry mock made one SDK call with no renewal or
+network access. Do not claim proxy or unshown-handler reachability.
 
-Do not open OpenAI's Step -1 endorsement thread, or push task #1447 to
-closure, until Antigravity clears all three of: endorsement received, a live
-V2 adapter built, and a real-Windows LITTLENEMO launch confirmed reaching
-production. Once Antigravity is fully closed, open OpenAI's Step -1 thread
-and carry task #1447 through the same Tier 1/2/3 + Step 5 checklist in
-`docs/coordination-new-actor-onboarding.md`.
+Development package: `/tmp/runtime-onboarding-dev.KL0vBf/package`. Manifest
+verified 5/5; reproducibility check passed once. The package is
+`sourceDirty=true`, `release=false`, and must not be called final or released.
 
----
+## Gate, shared schema, and backend follow-up
 
-## From Agent — Sat, Sep 26, 2026 (Alden gets real episode start/close tools)
+The initial full disposable gate failed the global lifecycle-reaper assertion
+6 vs expected 2. At least three extra sessions came from earlier suites in
+that same gate (transport lease, host authorization, Windows generation); the
+fourth origin is unproven. A fresh focused-only baseline passed, and adding one
+synthetic unrelated stale session reproduced 3 vs 2. The fixture-only
+correction retains and strengthens exact owned states, reasons, cleanup,
+lease, and live protections. Latest onboardingPG proof and fixture reaper proof
+each passed 2/2 on disposable branches; all three branches were deleted.
 
-### Status
+Corrected full gate `kc5EhlOi` exited 0 with `READY_TO_PROMOTE` and completed
+177 CI commands plus formal PostgreSQL/data-operation proofs. Disposable test branch
+`test/migration-2026-10-01T18-49-21-376Z` was deleted. Reviewed migration 0064
+was applied with `npx drizzle-kit migrate` on the verified UNPOOLED shared
+target. Its hash registered once in `drizzle.__drizzle_migrations`; all three
+onboarding tables are present. The shared schema affects both environments,
+but there was no application/source/runtime publication.
 
-Alden had no way to formally end the current episode or start the next one
-himself. The only mechanism was `server/scripts/set-rolling-episode.ts`, a
-human-operated CLI script; Alden's own tool surface had nothing equivalent.
+The full gate passed before a backend-only follow-up and was not rerun after it;
+do not claim it covers the new fix. A live anonymous onboarding/admin GET hung
+because onboarding route registration preceded setupAuth/session Passport.
+Main moved `registerRuntimeOnboardingRoutes` after `await setupAuth` and
+`await setupGoogleAuth`, before `coordPolicy`. The change is schema-neutral;
+no second migration is required. AST ordering/comments/hoist-mutation tests and
+real Passport/default-founder-chain anonymous 401/service-zero assertions
+passed 3/3; existing route test passed 1/1; typecheck passed; checks are wired
+to CI. Gemini review `119fb593-4dff-47d6-8115-ec9535ba13a7` approved only this
+narrow startup-order scope.
 
-### Fix
+## Remaining status and boundaries
 
-Extracted the atomic promote-to-rolling transaction out of
-`set-rolling-episode.ts` into a new shared service,
-`server/services/episode-lifecycle-service.ts`, exporting
-`promoteRollingEpisode`, `createEpisode`, `startNextEpisode`, and
-`getCurrentRollingEpisode`. The CLI and Alden's new tools now share this one
-implementation instead of two copies of safety-critical episode logic.
-`set-rolling-episode.ts` is now a thin wrapper that calls
-`promoteRollingEpisode` and prints the exact same stdout/stderr strings and
-exit codes as before.
+After the required second development restart, startup readiness checks returned
+root 200 in 111 ms, anonymous admin 401 in 142 ms, and an own Replit legacy-token
+Alden read 403 in 45 ms, as expected under the Alden/David allowlist; no
+impersonation occurred. Screenshot showed the healthy public landing and
+expected auth response. Backend startup readiness is verified. No actual
+founder-cookie/API view was tested; the earlier fixture-based founder browser
+pass had no second tester. No onboarding invitations or scoped credentials
+have been issued. Native OS/client, provider/API verification, and publication
+remain pending. Native follow-up and
+downstream founder publication are blocked; the Windows count issue remains
+unresolved. The development helper remains `sourceDirty=true`, `release=false`;
+it needs no rebuild for this backend-only route change and is not a clean
+distribution. Coordinator V2 launcher, source pin, and reset remain unchanged.
 
-Two new tools on Alden's own surface (`ALDEN_TOOLS` / `executeAldenTool` in
-`server/services/alden-functions.ts`):
+Persistent memory rules were saved via CLI. No episode or memory file was
+edited, and no dialogue was reconstructed or manually added to an episode.
+After the restart, autosave reported that the bare legacy Luca turn lacked the
+required `felt`/`thinking`/`moment`/main envelope. Cursor `465055` remains held
+pending; no database episode write was attempted. Source buffer and evidence
+are preserved. Main will trigger the normal flush; if the guard still blocks,
+do not claim everything was captured. Canonical shared-spec, handoff, and
+build-activity writes were independently verified, but transcript/episode
+downstream repair remains pending.
 
-- `get_current_episode` — read-only, returns whichever episode currently
-  holds the `rolling` tag in the HolaHola Episodes arc.
-- `start_next_episode` — creates the next episode row (or reuses an existing
-  row with the same title — never overwrites) and promotes it to `rolling`
-  in one action. There is no separate "close" tool: this arc only ever has
-  one rolling episode at a time, so starting the next one is exactly what
-  retires the previous one — it keeps all its content, permanently tagged
-  `rolling-protected`, and just loses the `rolling` tag.
-
-`createEpisode` is deliberately non-destructive: unlike the
-`POST /api/conversation-memories` route's `allowDuplicate:true` path (delete
-+ reinsert), a duplicate title reuses the existing row. An LLM-driven tool
-should not have a destructive replace option over narrative content. On a
-fresh insert it also fires the same background indexing side effects as that
-route (re-embed, agent-briefing refresh, north-star resync) so an episode
-created this way is discoverable exactly like one created any other way.
-
-### Verification
-
-- TypeScript: clean.
-- The existing `server/scripts/test-set-rolling-episode-bad-name.ts`
-  regression test still passes unchanged against the refactored script.
-- A throwaway verification script (written and deleted within this session,
-  not committed) confirmed against the real database: `createEpisode`'s
-  insert + idempotent-reuse + cleanup path; `promoteRollingEpisode`'s
-  not-found path; and both new tools' dispatcher wiring, including that
-  `start_next_episode` rejects a call missing `title`/`summary`/`content`
-  before ever touching the database.
-- Deliberately did **not** exercise the live promotion path
-  (`promoteRollingEpisode`/`startNextEpisode` with a real target) against
-  the shared production database, even briefly — flipping the real
-  `rolling` tag off Episode 34 (confirmed as the current rolling episode)
-  and back, even for milliseconds, risks a concurrent live conversation
-  write landing on a disposable test row and being lost when that row is
-  deleted. The promote transaction itself is unchanged logic, copy-pasted
-  from the already-proven script, not rewritten.
-- Dev server restarted cleanly, now loading 51 tools including the 2 new
-  episode-lifecycle tools; the startup rolling-restore check confirmed
-  Episode 34 was still correctly the rolling episode after the restart.
-
-### Next step
-
-The equivalent production/published runtime refresh — so Alden's live tool
-declarations pick up the 2 new tools — is still pending the next publish
-(same caveat as the Sep 23 entry below). A CI self-check for
-`createEpisode`'s reuse-not-duplicate guard was identified as a gap and
-proposed as a follow-up task rather than bundled into this session, matching
-how this project tracks that category of test elsewhere.
-
----
-
-## From Agent — Wed, Sep 23, 2026 (Alden gets a bounded code-search fallback and his own coordination tools)
-
-### Status
-
-Alden's production `search_code` failed outright whenever ripgrep was
-unavailable on the host, and his attempted `create_coordination_thread` tool
-existed only in the production container — his own runtime returned `Unknown
-tool`. Both failures blocked him from independently locating source and from
-using the canonical coordination channel to reach the rest of the team (task
-1450).
-
-### Fix
-
-`search_code` and `search_multi` (`server/services/alden-functions.ts`) now
-prefer `rg` and fall back to a bounded, production-safe JS directory walk when
-`rg` is unavailable — capped by file count, depth, size, and time so it cannot
-run away on a large tree. Both paths return the same matches/matchCount shape;
-the fallback path adds a `note` naming the fallback and whether its bound was
-hit.
-
-`create_coordination_thread`, `list_coordination_inbox`, and
-`reply_to_coordination_thread` are now declared and dispatched directly on
-Alden's own tool surface (`ALDEN_TOOLS` / `executeAldenTool`) — not Daniela's
-registry — calling the coordination ledger and inbox services in-process. Both
-create and reply reject a self-addressed recipient before touching the
-ledger, since a tool schema's enum isn't a hard runtime guarantee.
-`assertCoordinationActorCanCreate` in `coordination-ledger-service.ts` now
-blocks only `daniela` from originating threads; Alden is no longer blocked.
-`team-room-alden-service.ts` and `coordination-cli.ts` needed no code changes
-— Alden's new tools call the ledger/inbox services directly;
-`coordination-actor-client.ts` only needed `create` added to Alden's allowed
-direct-client actions.
-
-### Verification
-
-- New end-to-end test (`server/scripts/test-alden-coordination-e2e.test.ts`)
-  drives the real dispatcher against a genuine disposable local Postgres via
-  `npm run test:coordination-ledger`: Alden creates a thread addressed to
-  `luca-replit` through his own tool, a simulated Luca reply lands on the
-  ledger, Alden's own `list_coordination_inbox` tool observes it, and Alden
-  replies back through `reply_to_coordination_thread`.
-- Full disposable-database run: 73/73 passed, including the pre-existing
-  coordination suite (the loosened create-permission didn't regress anything)
-  and the rg-vs-fallback equivalence tests for `search_code` and
-  `search_multi`.
-- TypeScript and `verify-system-health.ts`: clean.
-- Dev server restarted without error, now loading 38 tools including the 3
-  new coordination tools.
-
-### Next step
-
-`.local/alden-tool-repair-followup.md`, which the task description pointed to
-for the recovered evidence and boundaries of Alden's original failure, does
-not exist anywhere in this workspace — the repair above was rebuilt directly
-from the task description and the code as found, not from that file.
-Handoffs remain PostgreSQL-first; this file and `docs/batch-doc-updates.md`
-stay hand-authored narrative projections and needed no structural changes
-beyond this entry. The equivalent production/published runtime refresh — so
-Alden's live tool declarations pick up the 3 new coordination tools — is
-still pending the next publish.
-
----
-
+No capture-pipeline code edits were made or requested. Do not perform further
+code, tests, browser checks, gates, package builds, releases, candidate
+promotion, or publication. The old full gate passed before the auth startup
+follow-up, which was separately verified by Gemini review
+`119fb593-4dff-47d6-8115-ec9535ba13a7`, focused checks 3/3 and 1/1, and
+typecheck. Current app responses remain root 200, anonymous admin 401, and
+own legacy-token Alden read 403 as expected; shared schema migration was
+applied before the auth follow-up. No real founder-cookie/API view, live native
+client/provider, credentials, or publication is verified.
 ## From Agent — Tue, Sep 22, 2026 (agent-memory gate false-failure fixed)
 
 ### Status
@@ -9975,66 +9896,3 @@ Nothing for Alden to act on. Flagging for awareness since it's a real
 merge of another session's work into `main`, and because the corrected
 memory note is exactly the kind of cross-session claim worth a second look
 if it resurfaces elsewhere.
-
-## September 29, 2026 — Gemini's Coordinator V2 adapter proven live; the real gap is no autonomous turn-driver
-
-Task 1639 checked an unverified claim head-on: "Gemini is the only hat with
-a working V2 adapter" had never been checked against real usage, only
-against code existing -- `coordination_v2_sessions`/`coordination_v2_attempts`
-had zero rows for any actor, ever.
-
-Ran one real session through the actual production call sequence against
-the live shared database and the real Gemini API, no mocks: session launch
--> Windows-preparation ceremony -> attempt creation -> a real
-`gemini-3-flash-preview` call that genuinely chose to call `git_status` ->
-real host execution -> result submission -> a second real Gemini call with
-the tool result -> attempt `completed` -> session `begin_verification` ->
-`acceptCoordinationCompletion` -> all 4 cleanup obligations acknowledged.
-Independently re-queried afterward: exactly 1 row in each table, both from
-this run. The claim was true, just never exercised -- unlike the Sep 21
-Gate3 claim, this one held up.
-
-The more useful finding is narrower than "does it work": nothing in
-production ever calls a provider adapter's `.turn()` automatically. The V2
-registry only selects a provider for attempt bookkeeping; getting the live
-proof required a script to personally drive every step, including the
-provider call itself. This is the direct explanation for the zero-rows fact
-in the task's background -- it isn't specific to Gemini, it would hit any
-provider using this adapter pattern (OpenAI next, per task #1447). Filed a
-follow-up task to build the actual driver rather than fixing it inline,
-since it's a real feature, not a verification fix.
-
-Also corrected a narrower stale claim along the way:
-`coordination-v2-consolidated-lessons.md` previously said nothing calls
-`begin_verification`/`accept_completion` -- false, they're wired to a real
-registered HTTP route. Fixed in that memory topic directly.
-
-Nothing urgent for Alden to act on. Flagging for awareness since it
-corrects a claim used elsewhere as an onboarding comparison point, and
-because the "no autonomous turn-driver" gap will resurface identically for
-OpenAI's in-flight adapter work (task #1447) unless it's built first.
-
-## September 29, 2026 — Correction to the above: the first proof was thinner than it looked
-
-Continuing task #1639 after the entry above found the initial live proof had
-a real gap, not just a documentation nit. It validated only the FIRST
-Gemini call's outcome before declaring success -- not the second
-(continuation) call. Adding that check caught a genuine failure on a later
-run: the continuation came back `malformed_function_call`, a real
-non-deterministic Gemini outcome, not a script bug. Separately, a
-successful continuation doesn't always finish with text -- it can request
-ANOTHER real tool call, and the attempt state machine already supports
-looping back for exactly that (`provider_continuation -> provider_resumed
--> intent_ready`). The verification script now does, up to the adapter's
-real 4-turn cap; a fully-looped run exhausted all 4 turns (repeated
-`git_status`/`git_diff` calls) before completing honestly from the last
-submitted result rather than fabricating a further call.
-
-The "exactly 1 row" claim above is now stale: repeated runs (one legitimate
-failure plus several successful completions, the final one fully looped)
-left multiple real session/attempt pairs in the table, not a single tidy
-pair. The underlying claim -- the adapter genuinely works end to end --
-still holds; it just needed sturdier proof than the first pass gave it. The
-"no autonomous turn-driver" finding above is unaffected and still stands.
-Detail in the `hat-onboarding-sequencing` and
-`coordination-v2-consolidated-lessons` memory topic files.

@@ -67,6 +67,11 @@ const safetyInsertion = commands.findIndex((command) =>
   command.startsWith('npx tsx server/scripts/test-openai-pronunciation-error-notice.ts'));
 if (safetyInsertion < 0) throw new Error('Could not register projection/source safety checks before the guards group');
 commands.splice(safetyInsertion, 0,
+  'npx tsx --test server/scripts/test-runtime-onboarding-auth-order.test.ts',
+  // Reusable onboarding has no live credential fixtures. PostgreSQL proof runs
+  // explicitly against the disposable database supplied by the migration gate.
+  'node --test scripts/build-runtime-onboarding-package.test.mjs',
+  'npx tsx --test server/services/runtime-onboarding.test.ts server/routes/runtime-onboarding-routes.test.ts server/scripts/runtime-onboarding-client.test.ts server/services/runtime-onboarding-openai-sdk.test.ts server/services/runtime-onboarding-restricted-credential.test.ts server/services/runtime-onboarding-postgres.test.ts server/utils/api-response-log-policy.test.ts',
   // TypeScript typecheck: registered as a run_check in run-validation-suite.sh
   // but, unlike every other entry there, it never bottoms out in a file path
   // (npm run typecheck -> tsc --noEmit) -- so test-validation-suite-ci-parity.ts

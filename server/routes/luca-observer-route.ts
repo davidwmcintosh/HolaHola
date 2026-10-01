@@ -11,7 +11,10 @@ export function registerLucaObserverRoute({
   app.get("/api/admin/luca/observe", loadAuthenticatedUser(storage), requireFounderOrCoordinationCapability(
     requireFounder,
     'observation:read',
-    ['luca-replit', 'luca-claude-code', 'luca-gemini', 'luca-antigravity', 'luca-holahola'],
+    [
+      'luca-replit', 'luca-claude-code', 'luca-gemini', 'luca-antigravity', 'luca-holahola',
+      'luca-cursor', 'luca-openai-agents',
+    ],
   ), async (req: any, res: Response) => {
     try {
       const {

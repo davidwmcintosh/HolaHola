@@ -18,6 +18,7 @@ import {
   acknowledgeCoordinationInbox,
   listCoordinationInbox,
 } from '../services/coordination-inbox-service';
+import { recordOnboardedRuntimeLedgerRead } from '../services/runtime-onboarding-service';
 import type {
   CoordinationActorId,
   CoordinationEventType,
@@ -51,6 +52,26 @@ function actorFrom(req: CoordinationAuthenticatedRequest): CoordinationActorId {
     throw new CoordinationError('Coordination actor missing after authentication', 500, 'auth_invariant');
   }
   return req.coordinationActor;
+}
+
+function recordLedgerReadAfterSuccessfulResponse(
+  req: CoordinationAuthenticatedRequest,
+  res: Response,
+): void {
+  const credential = req.coordinationCredential;
+  if (!credential) return;
+  const identity = {
+    runtimeId: credential.runtimeId,
+    actor: credential.actor,
+    credentialId: credential.credentialId,
+  };
+  res.once('finish', () => {
+    if (res.statusCode !== 200) return;
+    void recordOnboardedRuntimeLedgerRead(identity).catch((error: unknown) => {
+      const message = error instanceof Error ? error.message : 'unknown audit write failure';
+      console.error('[Coordination] Failed to persist successful onboarding ledger-read evidence:', message);
+    });
+  });
 }
 
 function positiveInteger(value: unknown, field: string, fallback?: number): number {
@@ -187,11 +208,13 @@ export function registerCoordinationRoutes(app: Application): void {
           ? undefined
           : positiveInteger(req.query.after, 'after');
         const limit = positiveInteger(req.query.limit, 'limit', 50);
-        res.json(await listCoordinationInbox(actor, {
+        const inbox = await listCoordinationInbox(actor, {
           ...(typeof req.query.token === 'string' ? { token: req.query.token } : {}),
           ...(after !== undefined ? { after } : {}),
           limit,
-        }));
+        });
+        recordLedgerReadAfterSuccessfulResponse(req, res);
+        res.json(inbox);
       } catch (error) {
         sendError(res, error);
       }
@@ -289,7 +312,9 @@ export function registerCoordinationRoutes(app: Application): void {
           ? undefined
           : positiveInteger(sinceValue, 'cursor');
         const limit = positiveInteger(req.query.limit, 'limit', 50);
-        res.json({ actor, ...(await listCoordinationFeed(actor, since, limit)) });
+        const feed = await listCoordinationFeed(actor, since, limit);
+        recordLedgerReadAfterSuccessfulResponse(req, res);
+        res.json({ actor, ...feed });
       } catch (error) {
         sendError(res, error);
       }

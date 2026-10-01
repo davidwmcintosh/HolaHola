@@ -22,6 +22,8 @@ const TOKEN_ENV_BY_ACTOR: Record<string, string> = {
   'luca-gemini': 'COORDINATION_LUCA_GEMINI_CODE_TOKEN',
   'luca-antigravity': 'COORDINATION_LUCA_ANTIGRAVITY_TOKEN',
   'luca-holahola': 'COORDINATION_LUCA_HOLAHOLA_TOKEN',
+  'luca-cursor': 'COORDINATION_LUCA_CURSOR_TOKEN',
+  'luca-openai-agents': 'COORDINATION_LUCA_OPENAI_AGENTS_TOKEN',
 };
 
 function clientFor(appUrl: string, actor: string): TaskOwnershipHttpClient {

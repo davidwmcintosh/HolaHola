@@ -244,12 +244,11 @@ test('lifecycle reaper terminalizes abandoned sessions, including ones with a re
       (error: unknown) => (error as { code?: string }).code === 'SESSION_GRANT_INVALID',
     );
 
-    // The batch sweep should reap exactly the two genuinely abandoned sessions
-    // (past-expiry with a revoked grant, and stale-but-not-expired with a live
-    // grant) and skip the still-live, already-terminal, and
-    // stale-session-but-active-underneath ones.
-    const sweep = await sweepStaleCoordinationSessions(100, staleThresholdMs);
-    assert.equal(sweep.reaped, 2, `expected exactly 2 reaped, got ${JSON.stringify(sweep)}`);
+    // The batch sweep intentionally scans the whole database, so its aggregate
+    // reaped count also includes unrelated eligible sessions from a snapshot or
+    // earlier suites on the same disposable branch. Assert this test's own
+    // fixtures below instead.
+    await sweepStaleCoordinationSessions(100, staleThresholdMs);
 
     const afterSweep = await client.query(
       `SELECT s.id, s.state, s.terminal_reason,
@@ -259,51 +258,63 @@ test('lifecycle reaper terminalizes abandoned sessions, including ones with a re
       [allSessionIds],
     );
     const byId = new Map(afterSweep.rows.map((row) => [row.id, row]));
+    assert.equal(byId.size, allSessionIds.length, 'every owned session fixture must remain queryable after the sweep');
 
     const expiredRow = byId.get(expiredGrantRevoked.sessionId);
+    assert.ok(expiredRow);
     assert.equal(expiredRow.state, 'expired');
     assert.equal(expiredRow.terminal_reason, 'session expired');
     assert.equal(expiredRow.obligations, 4);
     assert.equal(expiredRow.active_leases, 0);
 
     const staleRow = byId.get(staleGrantLive.sessionId);
+    assert.ok(staleRow);
     assert.equal(staleRow.state, 'failed');
     assert.match(staleRow.terminal_reason, /reaped after \d+m with no forward progress/);
     assert.equal(staleRow.obligations, 4);
     assert.equal(staleRow.active_leases, 0);
 
     const freshRow = byId.get(freshLive.sessionId);
+    assert.ok(freshRow);
     assert.equal(freshRow.state, 'running');
+    assert.equal(freshRow.terminal_reason, null);
+    assert.equal(freshRow.obligations, 0);
     assert.equal(freshRow.active_leases, 1);
 
     const terminalRow = byId.get(alreadyTerminal.sessionId);
+    assert.ok(terminalRow);
     assert.equal(terminalRow.state, 'expired');
+    assert.equal(terminalRow.terminal_reason, 'session expired');
     assert.equal(terminalRow.obligations, 0);
+    assert.equal(terminalRow.active_leases, 0);
 
     // Both stale-session-but-active-underneath rows must survive untouched:
     // no state change, no cleanup obligations created.
     const recentAttemptRow = byId.get(staleSessionRecentAttempt.sessionId);
+    assert.ok(recentAttemptRow);
     assert.equal(recentAttemptRow.state, 'running');
+    assert.equal(recentAttemptRow.terminal_reason, null);
     assert.equal(recentAttemptRow.obligations, 0);
+    assert.equal(recentAttemptRow.active_leases, 0);
 
     const recentReceiptRow = byId.get(staleSessionRecentLeaseReceipt.sessionId);
+    assert.ok(recentReceiptRow);
     assert.equal(recentReceiptRow.state, 'waiting_for_host');
+    assert.equal(recentReceiptRow.terminal_reason, null);
     assert.equal(recentReceiptRow.obligations, 0);
     assert.equal(recentReceiptRow.active_leases, 1);
 
-    // Re-running the sweep is a safe no-op: both reaped sessions are now
-    // terminal, so neither is re-selected, and no duplicate cleanup rows appear.
-    const secondSweep = await sweepStaleCoordinationSessions(100, staleThresholdMs);
-    assert.equal(secondSweep.reaped, 0);
-    const reapedIds = new Set([expiredGrantRevoked.sessionId, staleGrantLive.sessionId]);
-    const obligationCountAfter = await client.query(
-      `SELECT session_id, count(*)::int AS n FROM coordination_v2_cleanup_obligations
-       WHERE session_id = ANY($1::text[]) GROUP BY session_id`,
+    // Re-running the global sweep must not change any owned fixture outcome
+    // or duplicate its cleanup obligations, regardless of unrelated sessions.
+    await sweepStaleCoordinationSessions(100, staleThresholdMs);
+    const afterSecondSweep = await client.query(
+      `SELECT s.id, s.state, s.terminal_reason,
+              (SELECT count(*)::int FROM coordination_v2_cleanup_obligations o WHERE o.session_id = s.id) AS obligations,
+              (SELECT count(*)::int FROM coordination_v2_transport_leases l WHERE l.session_id = s.id AND l.state = 'active') AS active_leases
+       FROM coordination_v2_sessions s WHERE s.id = ANY($1::text[]) ORDER BY s.id`,
       [allSessionIds],
     );
-    for (const row of obligationCountAfter.rows) {
-      if (reapedIds.has(row.session_id)) assert.equal(row.n, 4);
-    }
+    assert.deepEqual(afterSecondSweep.rows, afterSweep.rows, 'a repeated global sweep must leave all owned session invariants unchanged');
   } finally {
     // Deliberately NOT wrapped in a single BEGIN/COMMIT: coordination_v2_session_events
     // is evidence-immutable (a DB trigger rejects any DELETE against it -- see
@@ -476,17 +487,30 @@ test('lifecycle reaper sweep is not starved by a batch of live-but-stale-row ses
     // regression exists to catch, the decoys alone would fill this page
     // (sorted first by raw session.updated_at) and the target would never be
     // selected, no matter how many sweeps ran.
-    const sweep = await sweepStaleCoordinationSessions(decoyCount, staleThresholdMs);
-    assert.equal(sweep.reaped, 1, `expected exactly 1 reaped (the target, not a decoy), got ${JSON.stringify(sweep)}`);
+    await sweepStaleCoordinationSessions(decoyCount, staleThresholdMs);
 
     const after = await client.query(
-      `SELECT id, state FROM coordination_v2_sessions WHERE id = ANY($1::text[])`,
+      `SELECT s.id, s.state, s.terminal_reason,
+              (SELECT count(*)::int FROM coordination_v2_cleanup_obligations o WHERE o.session_id = s.id) AS obligations,
+              (SELECT count(*)::int FROM coordination_v2_transport_leases l WHERE l.session_id = s.id AND l.state = 'active') AS active_leases
+       FROM coordination_v2_sessions s WHERE s.id = ANY($1::text[])`,
       [allSessionIds],
     );
-    const byId = new Map(after.rows.map((row) => [row.id as string, row.state as string]));
-    assert.equal(byId.get(target.sessionId), 'failed', 'the genuinely abandoned target must be reaped despite sorting behind every decoy by raw session.updated_at');
+    const byId = new Map(after.rows.map((row) => [row.id as string, row]));
+    assert.equal(byId.size, allSessionIds.length, 'every owned pagination fixture must remain queryable after the sweep');
+    const targetRow = byId.get(target.sessionId);
+    assert.ok(targetRow);
+    assert.equal(targetRow.state, 'failed', 'the genuinely abandoned target must be reaped despite sorting behind every decoy by raw session.updated_at');
+    assert.match(targetRow.terminal_reason, /reaped after \d+m with no forward progress/);
+    assert.equal(targetRow.obligations, 4);
+    assert.equal(targetRow.active_leases, 0);
     for (const decoy of decoys) {
-      assert.equal(byId.get(decoy.sessionId), 'running', `decoy ${decoy.sessionId} has live attempt activity underneath and must be left alone`);
+      const decoyRow = byId.get(decoy.sessionId);
+      assert.ok(decoyRow);
+      assert.equal(decoyRow.state, 'running', `decoy ${decoy.sessionId} has live attempt activity underneath and must be left alone`);
+      assert.equal(decoyRow.terminal_reason, null);
+      assert.equal(decoyRow.obligations, 0);
+      assert.equal(decoyRow.active_leases, 0);
     }
   } finally {
     // See the note in the previous test's finally block: no shared BEGIN/COMMIT

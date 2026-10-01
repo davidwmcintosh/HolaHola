@@ -66,6 +66,7 @@ const CurriculumBuilder = lazyWithRetry(() => import("@/pages/curriculum-builder
 const CurriculumLibrary = lazyWithRetry(() => import("@/pages/curriculum-library"));
 const ClassCreationHub = lazyWithRetry(() => import("@/pages/class-creation-hub"));
 const CommandCenter = lazyWithRetry(() => import("@/pages/admin/CommandCenter"));
+const RuntimeOnboarding = lazyWithRetry(() => import("@/pages/admin/RuntimeOnboarding"));
 const MissionControl = lazyWithRetry(() => import("@/pages/admin/MissionControl"));
 const AdminVoiceConsole = lazyWithRetry(() => import("@/pages/admin/VoiceConsole"));
 const AdminNorthStar = lazyWithRetry(() => import("@/pages/admin/NorthStar"));
@@ -287,6 +288,7 @@ function Router() {
         <Route path="/student/assignments" component={StudentAssignments} />
         
         {/* Admin Routes - specific paths before /admin catch-all */}
+        <Route path="/admin/runtime-onboarding" component={RuntimeOnboarding} />
         <Route path="/admin/mission" component={MissionControl} />
         <Route path="/admin/voices" component={AdminVoiceConsole} />
         <Route path="/admin/north-star" component={AdminNorthStar} />

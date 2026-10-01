@@ -871,3 +871,11 @@ Coordination V2's ordinary transition path (`transitionCoordinationSession`) req
 
 **How to apply:** when a resource's normal authority-gated transition path can end up permanently unreachable because the thing that would grant transition authority is exactly what already went missing (revoked grant, expired lease, crashed owner), don't try to route around it inside the authorized path. Give the terminal write its own authority-independent entry point and call it from a separate, narrowly-scoped path (a timeout sweep, a revocation cascade, etc.) whose own preconditions (staleness threshold, terminal-state check, "only non-terminal to terminal") are the real safety boundary instead of caller identity. A periodic sweep alone only catches an abandoned resource on its next poll -- consider also triggering the same terminal path immediately at the moment authority is revoked, so it doesn't sit stuck until the next cycle.
 
+
+## Communication enrollment and execution remain separate
+
+Communication enrollment must remain independent of Coordinator V2 execution authorization. Connecting a platform client is not a reason to replace, reset, bypass, or re-pin the approved launcher.
+
+**Why:** Collaboration credentials establish attributed communication; they do not establish an execution lease, approved runtime release, inbox acknowledgement, or completed V2 task. Keeping those facts separate also lets clients communicate about launcher failures without first making the launcher work. Source: conversation_memories `4a9773d8-f532-4c21-b0d7-7f64257f0183` (independent architecture and lifecycle review).
+
+**How to apply:** Extend the client enrollment path for new platforms while preserving V2's existing authority gates. Report invitation, approval, enrollment, authenticated ledger activity, acknowledgement, and execution as separately evidenced facts.

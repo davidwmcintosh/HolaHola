@@ -24,3 +24,11 @@ workflow restart is what makes the *running* server agree with it. Don't
 interpret a live check that used pre-restart behavior as evidence the edit
 is wrong.
 
+
+## Assembled protected API readiness is separate from fixture UI proof
+
+Verify the assembled application's protected API after a restart, not just its public landing page or fixture-intercepted UI. Injected test middleware and intercepted authentication can hide failures in the real middleware stack.
+
+**Why:** The landing page, fixture browser check, route tests, and typecheck passed while the actual anonymous founder API hung. Its route was registered before Passport/session initialization; Express 4 did not forward the resulting rejected async middleware promise. This was deterministic request-time middleware ordering, not a startup race. Source: conversation_memories `119fb593-4dff-47d6-8115-ec9535ba13a7`.
+
+**How to apply:** After changing protected route wiring, check a real anonymous request returns a prompt 401/403, and verify a permitted read separately when authorized. Keep an assembled-stack check alongside injected-middleware tests. A public health or landing response is not proof that protected routes work.

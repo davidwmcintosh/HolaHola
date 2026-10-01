@@ -2488,6 +2488,15 @@ export default function CommandCenter() {
                 <ExternalLink className="h-3 w-3 ml-2 opacity-60" />
               </Link>
             </Button>
+            {isFounder && (
+              <Button asChild variant="outline" size="sm" data-testid="button-runtime-onboarding">
+                <Link href="/admin/runtime-onboarding">
+                  <KeyRound className="h-4 w-4 mr-2" />
+                  Runtime Onboarding
+                  <ExternalLink className="h-3 w-3 ml-2 opacity-60" />
+                </Link>
+              </Button>
+            )}
           </div>
         </div>
 

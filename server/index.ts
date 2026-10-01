@@ -1,4 +1,5 @@
 import express, { type Request, Response, NextFunction } from "express";
+import { apiResponseBodyForLogging } from "./utils/api-response-log-policy";
 import { createServer } from "http";
 import fs from "fs";
 import { Server as SocketIOServer } from "socket.io";
@@ -436,7 +437,7 @@ app.use((req, res, next) => {
 
   const originalResJson = res.json;
   res.json = function (bodyJson, ...args) {
-    capturedJsonResponse = bodyJson;
+    capturedJsonResponse = apiResponseBodyForLogging(path, bodyJson);
     return originalResJson.apply(res, [bodyJson, ...args]);
   };
 

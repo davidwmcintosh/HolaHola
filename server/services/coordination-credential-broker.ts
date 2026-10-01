@@ -133,6 +133,22 @@ async function audit(input: {
   });
 }
 
+/** Narrow audit bridge for enrollment state changes that must commit with the
+ * broker registration/credential transaction. Source IP is HMAC-hashed by the
+ * same existing audit convention; callers never persist proof payloads. */
+export async function auditRuntimeOnboardingEventInExecutor(input: {
+  eventType: string;
+  success: boolean;
+  runtimeId?: string;
+  actor?: string;
+  credentialId?: string;
+  reason?: string;
+  sourceIp?: string;
+  metadata?: Record<string, unknown>;
+}, executor: ReturnType<typeof getSharedDb>): Promise<void> {
+  await audit(input, executor);
+}
+
 /**
  * Detects a duplicate `id` insert into coordination_runtime_registrations
  * (see shared/schema.ts) -- the natural failure when a human re-runs
@@ -237,6 +253,44 @@ export async function registerCoordinationRuntime(input: {
   }
   await audit({ eventType: 'runtime_registered', success: true, runtimeId: input.runtimeId, actor: input.actor });
   return { bootstrapToken };
+}
+
+/**
+ * Onboarding-only registration constructor. Unlike legacy bootstrap
+ * registration it creates no bootstrap credential; the random verifier is
+ * intentionally unavailable to every client and the caller immediately
+ * issues the first broker credential in the same transaction.
+ */
+export async function registerCoordinationRuntimeForOnboardingInExecutor(input: {
+  runtimeId: string;
+  actor: CoordinationActorId;
+  displayName: string;
+  capabilities: CoordinationCredentialCapability[];
+  provider?: string | null;
+  model?: string | null;
+}, executor: ReturnType<typeof getSharedDb>): Promise<typeof coordinationRuntimeRegistrations.$inferSelect> {
+  validateRuntimeRegistrationInput({ ...input, tokenTtlSeconds: 900 });
+  await executor.insert(coordinationRuntimeRegistrations).values({
+    id: input.runtimeId,
+    actor: input.actor,
+    displayName: input.displayName,
+    bootstrapHash: hashCoordinationSecret(`runtime-onboarding:${input.runtimeId}:${crypto.randomUUID()}`),
+    capabilities: input.capabilities,
+    tokenTtlSeconds: 900,
+    provider: input.provider ?? null,
+    model: input.model ?? null,
+  });
+  const [registration] = await executor.select().from(coordinationRuntimeRegistrations)
+    .where(eq(coordinationRuntimeRegistrations.id, input.runtimeId));
+  if (!registration) throw new Error('onboarding runtime registration was not persisted');
+  await audit({
+    eventType: 'runtime_registered',
+    success: true,
+    runtimeId: input.runtimeId,
+    actor: input.actor,
+    metadata: { registrationMode: 'runtime_onboarding' },
+  }, executor);
+  return registration;
 }
 
 export type PrehashedRuntimeRegistration = {
@@ -849,6 +903,23 @@ async function issueForRegistration(
   };
 }
 
+/**
+ * The runtime-onboarding ceremony calls this only while holding the same
+ * database transaction that consumes its proof challenge and binds the key.
+ * Keeping the executor explicit prevents a partially committed registration
+ * from minting a credential through the public broker endpoints.
+ */
+export async function mintCoordinationCredentialForOnboardingInExecutor(
+  registration: typeof coordinationRuntimeRegistrations.$inferSelect,
+  executor: ReturnType<typeof getSharedDb>,
+  sourceIp?: string,
+): Promise<{ accessToken: string; credential: BrokerCredential }> {
+  if (!registration.enabled || registration.revokedAt || !validCapabilities(registration.capabilities)) {
+    throw new Error('runtime registration is unavailable for onboarding credential issuance');
+  }
+  return issueForRegistration(registration, 'issued', sourceIp, undefined, executor);
+}
+
 function hashesMatch(a: string, b: string): boolean {
   return a.length === b.length && crypto.timingSafeEqual(Buffer.from(a), Buffer.from(b));
 }
@@ -1320,48 +1391,61 @@ export async function adminRevokeRuntimeCredentials(
   revokedByActor: CoordinationActorId,
   sourceIp?: string,
 ): Promise<boolean> {
-  return getSharedDb().transaction(async (tx) => {
-    await tx.execute(sql`
-      SELECT id FROM coordination_runtime_registrations
-      WHERE id = ${runtimeId}
-      FOR UPDATE
-    `);
-    const [registration] = await tx.select().from(coordinationRuntimeRegistrations)
-      .where(eq(coordinationRuntimeRegistrations.id, runtimeId));
-    if (!registration) {
-      await audit({
-        eventType: 'admin_revocation_failed',
-        success: false,
-        runtimeId,
-        actor: revokedByActor,
-        reason: 'unknown_runtime',
-        sourceIp,
-        metadata: { revokedBy: revokedByActor },
-      }, tx as unknown as ReturnType<typeof getSharedDb>);
-      return false;
-    }
-    await tx.update(coordinationRuntimeRegistrations)
-      .set({ enabled: false, revokedAt: new Date(), updatedAt: new Date() })
-      .where(eq(coordinationRuntimeRegistrations.id, runtimeId));
-    await tx.update(coordinationRuntimeCredentials)
-      .set({ revokedAt: new Date() })
-      .where(and(
-        eq(coordinationRuntimeCredentials.runtimeId, runtimeId),
-        isNull(coordinationRuntimeCredentials.revokedAt),
-      ));
-    await audit(
-      {
-        eventType: 'runtime_revoked',
-        success: true,
-        runtimeId,
-        actor: registration.actor as CoordinationActorId,
-        sourceIp,
-        metadata: { revokedBy: revokedByActor, adminAction: true },
-      },
+  return getSharedDb().transaction(async (tx) =>
+    adminRevokeRuntimeCredentialsInExecutor(
+      runtimeId,
+      revokedByActor,
       tx as unknown as ReturnType<typeof getSharedDb>,
-    );
-    return true;
-  });
+      sourceIp,
+    ));
+}
+
+/** Transaction-aware form used when runtime revocation must invalidate other
+ * durable proof state atomically with the broker's credentials. */
+export async function adminRevokeRuntimeCredentialsInExecutor(
+  runtimeId: string,
+  revokedByActor: CoordinationActorId,
+  executor: ReturnType<typeof getSharedDb>,
+  sourceIp?: string,
+): Promise<boolean> {
+  await executor.execute(sql`
+    SELECT id FROM coordination_runtime_registrations
+    WHERE id = ${runtimeId}
+    FOR UPDATE
+  `);
+  const [registration] = await executor.select().from(coordinationRuntimeRegistrations)
+    .where(eq(coordinationRuntimeRegistrations.id, runtimeId));
+  if (!registration) {
+    await audit({
+      eventType: 'admin_revocation_failed',
+      success: false,
+      runtimeId,
+      actor: revokedByActor,
+      reason: 'unknown_runtime',
+      sourceIp,
+      metadata: { revokedBy: revokedByActor },
+    }, executor);
+    return false;
+  }
+  const now = new Date();
+  await executor.update(coordinationRuntimeRegistrations)
+    .set({ enabled: false, revokedAt: now, updatedAt: now })
+    .where(eq(coordinationRuntimeRegistrations.id, runtimeId));
+  await executor.update(coordinationRuntimeCredentials)
+    .set({ revokedAt: now })
+    .where(and(
+      eq(coordinationRuntimeCredentials.runtimeId, runtimeId),
+      isNull(coordinationRuntimeCredentials.revokedAt),
+    ));
+  await audit({
+    eventType: 'runtime_revoked',
+    success: true,
+    runtimeId,
+    actor: registration.actor as CoordinationActorId,
+    sourceIp,
+    metadata: { revokedBy: revokedByActor, adminAction: true },
+  }, executor);
+  return true;
 }
 
 export type CoordinationRuntimeRegistrationSummary = {

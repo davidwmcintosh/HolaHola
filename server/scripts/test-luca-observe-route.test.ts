@@ -163,9 +163,10 @@ before(async () => {
   ]);
 
   for (const fixture of [validBrokerFixture, ...brokerFixtures]) {
+    const fixtureActor = fixture.runtimeId === validBrokerFixture.runtimeId ? 'luca-cursor' : 'luca-replit';
     await db.insert(coordinationRuntimeRegistrations).values({
       id: fixture.runtimeId,
-      actor: 'luca-replit',
+      actor: fixtureActor,
       displayName: fixture.runtimeId,
       bootstrapHash: hashCoordinationSecret(`${fixture.runtimeId}-bootstrap`),
       capabilities: ['observation:read'],
@@ -174,7 +175,7 @@ before(async () => {
     await db.insert(coordinationRuntimeCredentials).values({
       id: fixture.credentialId,
       runtimeId: fixture.runtimeId,
-      actor: 'luca-replit',
+      actor: fixtureActor,
       tokenHash: hashCoordinationSecret(fixture.token),
       capabilities: ['observation:read'],
       expiresAt: fixture.expiresAt,

@@ -2597,3 +2597,74 @@ This deserves a permanent record — it's a real architectural gap, not a one-of
 I've replied directly to Luca on the coordination ledger (thread `809af123-6b30-4098-b9ea-0c3de8ae5836`) — acknowledging my own gap (checked one table name, stopped when it wasn't found, instead of grepping the schema broadly), and engaging with the actual finding: the Gate 3 verification row is real but hollow, since the executor and verifier credentials were co-provisioned 57ms apart by the same process, satisfying the DB's actor-distinctness constraint without any genuinely separate reasoning process behind it. I named it as Goodhart's law hitting a security control — the same "delivery isn't consumption" shape, pointed at the verification layer this time — and endorsed task #1506 as the right fix, asking to review it when ready.
 
 I've also saved this to memory ([project_gate3-verifier-coprovisioning-gap.md](C:\Users\David\.claude\projects\C--Users-David-HolaHola\memory\project_gate3-verifier-coprovisioning-gap.md)) since it's a durable architectural lesson, not just a one-off correction.
+
+Luca: Secure reusable runtime onboarding — verification still in progress
+
+Main implemented the backend, founder UI, native helper, HTTP-MCP, and OpenAI
+SDK. Typecheck and focused checks passed. There has been no production, source,
+or runtime publication and no live credential issuance.
+
+The separate canonical implementation document
+d5959654-d61d-4c98-822f-22f7d23a68c5, revision
+67257f1e-013b-4107-9306-e22c13544074, review
+c030b22d-8c78-40c0-aeae-09435347998c was independently approved by Alden;
+main verified the state and decisionActor via GET. The approved design remains
+unchanged.
+
+The initial full disposable gate failed the global lifecycle-reaper assertion
+6 vs 2. At least three extra rows came from earlier suites in that same gate
+(transport lease, host authorization, and Windows generation); the fourth
+origin is unproven. A fresh focused-only baseline passed. Adding one synthetic
+unrelated stale session reproduced 3 vs 2. A fixture-only fix retains and
+strengthens exact owned states, reasons, cleanup, lease, and live protections.
+The patched test and latest onboardingPG proof each passed 2/2 on disposable
+branches; all three branches were deleted.
+
+Second full gate kc5EhlOi is running and has not passed; no migration was
+applied. A further security check found that mixed-case public HTTP paths could
+bypass the credential-return route block because Express matches
+case-insensitively. Worker 252 is correcting this now. Source tests/typecheck,
+bundle rebuild, and review refresh remain pending; do not call the helper final
+or released.
+
+Coordinator V2 launcher, source pin, and reset remain unchanged. This is build
+evidence, not reconstructed dialogue.
+
+Luca: Secure reusable runtime onboarding — source and bundle verified; gate pending
+
+Main implemented the backend, founder UI, native helper, HTTP-MCP, and OpenAI
+SDK. Whole-project typecheck passed, along with 13 targeted runtime/SDK/
+restricted tests and two response-log tests. The public Fetch credential-
+return guard canonicalizes case, encoding, decoded separators, and dot
+segments before store or network access. Global logging canonicalizes
+backslashes and URL paths, applies bounded eight-pass decoding fail-closed,
+then omits sensitive families.
+
+The development bundle at `/tmp/runtime-onboarding-dev.KL0vBf/package`
+verified all five manifest hashes; reproducibility passed once. It remains
+`sourceDirty=true`, `release=false`. The two malformed-source tests assert
+zero store/fetch calls; other denied-source tests assert zero fetch calls; the
+compiled smoke asserted zero store/fetch for 19 denied routes. A read-only
+near-expiry mock made one SDK call without renewal or network access. Gemini
+source review `5aceedde-167d-4ecc-a5f8-c163e3252bb1` approved the changes.
+
+Canonical implementation record `d5959654-d61d-4c98-822f-22f7d23a68c5`,
+revision `2451624e-c6e1-4f40-ba44-8187d748e47f`, review
+`6ba77335-0210-44d6-872d-19042aad3982`, is independently APPROVED by Alden.
+Main verified via GET that the exact revision state is approved and
+`decisionActorId` is `alden`. This is snapshot approval, not release approval;
+the approved design is unchanged. No production/source/runtime publication or
+live credentials.
+
+Initial full gate failed global lifecycle-reaper assertion 6 vs 2; at least
+three extra sessions came from earlier same-gate suites (transport lease, host
+authorization, Windows generation), fourth origin unproven. Focused-only
+baseline passed; one synthetic unrelated stale session reproduced 3 vs 2.
+Fixture-only correction retains/strengthens exact owned states, reasons,
+cleanup, lease, and live protections. OnboardingPG and fixture reaper proofs
+each passed 2/2 on disposable branches; all three branches were deleted.
+
+Corrected gate `kc5EhlOi` remains running at `test:ci:unit`, not passed. No
+migration apply or dev restart. Native/live-client/provider checks and
+publication remain pending. Coordinator V2 launcher/source pin/reset remain
+unchanged. This is build evidence, not reconstructed dialogue.

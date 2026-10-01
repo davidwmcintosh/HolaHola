@@ -284,11 +284,9 @@ test('search_multi also falls back cleanly when rg is unavailable', async () => 
   assert.match(result.data.results[0].note ?? '', /rg unavailable.*JS fallback/);
 });
 
-// Follow-up to task 1600 review feedback: Alden's own standing
-// coordination:runtime:admin authority (docs/coordination-v2-architecture.md,
-// "Runtime onboarding delegation") exposed as conversational tools, mirroring
-// the HTTP routes in coordination-credential-routes.ts and their existing
-// admin-routes HTTP test coverage.
+// Runtime-admin onboarding tools are non-secret. The old registration tool
+// name remains in the registry for compatibility, but model conversations
+// cannot use it to mint or receive bootstrap credentials.
 test('runtime-admin tools are registered on Alden\'s own registry', () => {
   const names = ALDEN_TOOLS.map((t) => t.name);
   assert.ok(names.includes('register_coordination_runtime'));
@@ -296,74 +294,20 @@ test('runtime-admin tools are registered on Alden\'s own registry', () => {
   assert.ok(names.includes('list_coordination_runtimes'));
 });
 
-test('register_coordination_runtime and revoke_coordination_runtime reject missing required fields before touching the database', async () => {
+test('revoke_coordination_runtime rejects a missing runtime ID before touching the database', async () => {
   const missingRuntimeId = await executeAldenTool('revoke_coordination_runtime', {});
   assert.match(missingRuntimeId.data.error, /runtime_id is required/);
-
-  const missingFields = await executeAldenTool('register_coordination_runtime', { actor: 'luca-replit' });
-  assert.match(missingFields.data.error, /runtime_id and display_name are required/);
 });
 
-test('register_coordination_runtime requires explicit capabilities for a non-Luca actor and rejects unknown capabilities or actors', async () => {
-  const runtimeId = `alden-tool-validation-${runId}`;
-
-  const missingCapabilities = await executeAldenTool('register_coordination_runtime', {
-    runtime_id: runtimeId, actor: 'daniela', display_name: 'Should fail without capabilities',
+test('legacy register_coordination_runtime cannot create a runtime or expose bootstrap credentials', async () => {
+  const result = await executeAldenTool('register_coordination_runtime', {
+    runtime_id: `alden-tool-validation-${runId}`,
+    actor: 'luca-replit',
+    display_name: 'Must not be registered through model tools',
   });
-  assert.match(missingCapabilities.data.error, /capabilities is required for non-Luca-hat actors/);
-
-  const unknownCapability = await executeAldenTool('register_coordination_runtime', {
-    runtime_id: runtimeId, actor: 'daniela', display_name: 'Should fail', capabilities: ['not-a-real-capability'],
-  });
-  assert.match(unknownCapability.data.error, /capabilities contains an unknown value/);
-
-  const systemActor = await executeAldenTool('register_coordination_runtime', {
-    runtime_id: runtimeId, actor: 'coordination-system', display_name: 'Should fail',
-  });
-  assert.match(systemActor.data.error, /valid, non-system coordination actor id/);
-
-  const badActor = await executeAldenTool('register_coordination_runtime', {
-    runtime_id: runtimeId, actor: 'not-a-real-actor', display_name: 'Should fail',
-  });
-  assert.match(badActor.data.error, /valid, non-system coordination actor id/);
-});
-
-databaseTest('register_coordination_runtime defaults a luca-* actor to the standard Luca capability set, and list/revoke work through Alden\'s own tools', async () => {
-  const runtimeId = `alden-tool-luca-${runId}`;
-
-  const registered = await executeAldenTool('register_coordination_runtime', {
-    runtime_id: runtimeId,
-    actor: 'luca-antigravity',
-    display_name: 'Alden-tool e2e Luca hat',
-  });
-  assert.equal(registered.data.error, undefined, `register_coordination_runtime failed: ${registered.data.error}`);
-  assert.equal(registered.data.runtimeId, runtimeId);
-  assert.equal(registered.data.actor, 'luca-antigravity');
-  assert.deepEqual(
-    [...registered.data.capabilities].sort(),
-    ['coordination:read', 'coordination:write', 'coordination:inbox:ack', 'coordination:credential:renew', 'coordination:credential:revoke', 'observation:read'].sort(),
-  );
-  assert.ok(typeof registered.data.bootstrapToken === 'string' && registered.data.bootstrapToken.length > 0);
-  assert.match(registered.data.note, /shown only this once/);
-
-  const listed = await executeAldenTool('list_coordination_runtimes', {});
-  assert.equal(listed.data.error, undefined, `list_coordination_runtimes failed: ${listed.data.error}`);
-  const entry = listed.data.runtimes.find((r: any) => r.runtimeId === runtimeId);
-  assert.ok(entry, 'newly registered runtime must appear in the listing');
-  assert.equal(entry.enabled, true);
-  assert.equal(
-    JSON.stringify(listed.data).match(/bootstrapHash|accessToken/i),
-    null,
-    'listing must never include secret material',
-  );
-
-  const revoked = await executeAldenTool('revoke_coordination_runtime', { runtime_id: runtimeId });
-  assert.equal(revoked.data.error, undefined, `revoke_coordination_runtime failed: ${revoked.data.error}`);
-  assert.equal(revoked.data.revoked, true);
-
-  const listedAfterRevoke = await executeAldenTool('list_coordination_runtimes', {});
-  const afterEntry = listedAfterRevoke.data.runtimes.find((r: any) => r.runtimeId === runtimeId);
-  assert.equal(afterEntry?.enabled, false, 'the revoked runtime must show enabled: false afterward');
+  assert.match(result.data.error, /Direct bootstrap issuance through model tools is disabled/);
+  assert.equal('bootstrapToken' in result.data, false);
+  assert.equal('accessToken' in result.data, false);
 });
 
 databaseTest('revoke_coordination_runtime reports a clean error for an unknown runtime', async () => {

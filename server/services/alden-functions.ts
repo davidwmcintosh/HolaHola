@@ -16,12 +16,18 @@ import {
 } from "@shared/schema";
 import type { CoordinationActorId, CoordinationCredentialCapability } from "@shared/schema";
 import { COORDINATION_ACTOR_IDS, COORDINATION_CREDENTIAL_CAPABILITIES } from "@shared/schema";
-import { COORDINATION_LEGACY_CAPABILITIES_BY_ACTOR } from "../middleware/coordination-auth";
 import {
-  registerCoordinationRuntime,
   adminRevokeRuntimeCredentials,
   listCoordinationRuntimeRegistrations,
 } from "./coordination-credential-broker";
+import {
+  RuntimeOnboardingError,
+  cancelRuntimeOnboardingInvitation,
+  getAldenRuntimeOnboardingStatus,
+  listAldenRuntimeOnboarding,
+  prepareRuntimeOnboardingInvitation,
+  trustedRuntimeOnboardingEndpoint,
+} from "./runtime-onboarding-service";
 import {
   startNextEpisode,
   getCurrentRollingEpisode,
@@ -65,6 +71,10 @@ function safePath(filePath: string): string {
 
 let _rgAvailableCache: boolean | null = null;
 export type AldenTool = Anthropic.Tool & { gemini_description?: string };
+const ALDEN_COORDINATION_ACTOR_IDS = COORDINATION_ACTOR_IDS.filter(
+  (actor): actor is Exclude<CoordinationActorId, 'coordination-system'> => actor !== 'coordination-system',
+);
+const ALDEN_COORDINATION_RECIPIENT_IDS = ALDEN_COORDINATION_ACTOR_IDS.filter((actor) => actor !== 'alden');
 
 export const ALDEN_TOOLS: AldenTool[] = [
   {
@@ -661,7 +671,7 @@ export const ALDEN_TOOLS: AldenTool[] = [
     input_schema: {
       type: "object" as const,
       properties: {
-        recipient: { type: "string" as const, enum: ["luca-replit", "luca-claude-code", "luca-holahola", "luca-gemini", "luca-antigravity", "daniela", "david"], description: "Who this thread is addressed to." },
+        recipient: { type: "string" as const, enum: ALDEN_COORDINATION_RECIPIENT_IDS, description: "Who this thread is addressed to." },
         title: { type: "string" as const, description: "Short thread title (what this is about)." },
         description: { type: "string" as const, description: "Full description of the work, finding, or question — the body the recipient reads first." },
         priority: { type: "string" as const, enum: ["low", "normal", "high", "urgent"], description: "Optional. Defaults to normal." },
@@ -691,7 +701,7 @@ export const ALDEN_TOOLS: AldenTool[] = [
       type: "object" as const,
       properties: {
         thread_id: { type: "string" as const, description: "The coordination thread ID to reply on." },
-        recipient: { type: "string" as const, enum: ["luca-replit", "luca-claude-code", "luca-holahola", "luca-gemini", "luca-antigravity", "daniela", "david"], description: "Who this specific reply is addressed to (usually the thread's other participant)." },
+        recipient: { type: "string" as const, enum: ALDEN_COORDINATION_RECIPIENT_IDS, description: "Who this specific reply is addressed to (usually the thread's other participant)." },
         content: { type: "string" as const, description: "The reply text." },
         model: { type: "string" as const, description: "The model or engine you are currently running as when you post this reply (e.g. 'claude-opus-4.6', 'gemini-3-flash-preview'). Required so the coordination record shows which model produced it." },
       },
@@ -706,7 +716,7 @@ export const ALDEN_TOOLS: AldenTool[] = [
       type: "object" as const,
       properties: {
         thread_id: { type: "string" as const, description: "The coordination thread ID to interject on." },
-        recipient: { type: "string" as const, enum: ["luca-replit", "luca-claude-code", "luca-holahola", "luca-gemini", "luca-antigravity", "daniela", "david"], description: "Who this interjection is addressed to — usually the thread's current owner or origin actor." },
+        recipient: { type: "string" as const, enum: ALDEN_COORDINATION_RECIPIENT_IDS, description: "Who this interjection is addressed to — usually the thread's current owner or origin actor." },
         content: { type: "string" as const, description: "The interjection text." },
       },
       required: ["thread_id", "recipient", "content"],
@@ -719,27 +729,75 @@ export const ALDEN_TOOLS: AldenTool[] = [
     input_schema: {
       type: "object" as const,
       properties: {
-        recipient: { type: "string" as const, enum: ["luca-replit", "luca-claude-code", "luca-holahola", "luca-gemini", "luca-antigravity", "daniela", "david"], description: "The actor to brief on its own access." },
+        recipient: { type: "string" as const, enum: ALDEN_COORDINATION_RECIPIENT_IDS, description: "The actor to brief on its own access." },
       },
       required: ["recipient"],
     },
   },
   {
+    name: "prepare_runtime_onboarding_invitation",
+    description: "Prepare a reusable runtime-onboarding invitation without registering a runtime or issuing any credential. Supply a registered actor, a never-used runtime ID, display name, and actual client transport. Omitted capabilities use that actor's existing standard scope; explicit capabilities cannot exceed it or add runtime-admin authority. The result contains only the invitation reference, immutable safe scope, expiry, and setup endpoint/instructions — never a bootstrap secret, access token, proof key, or credential. Lifecycle is deliberate: prepared is only an invitation; approved is a founder decision; enrolled means the proof key was verified and broker credential issued; authenticated requires a real ledger request; acknowledged requires the existing inbox acknowledgement; none of these facts means a Coordinator V2 task executed.",
+    gemini_description: "Prepare a non-secret invitation for a registered actor/runtime/client. This does not register a runtime or issue a credential; returns only scope, expiry, invitation reference, and setup endpoint. Prepared is not approved; approved is not enrolled; enrolled is not authenticated; authentication is not inbox acknowledgement; none proves V2 task execution. Only a founder approves the exact key request in the browser. Platform hats are distinct from model/provider or hosting identities.",
+    input_schema: {
+      type: "object" as const,
+      properties: {
+        actor: { type: "string" as const, enum: ALDEN_COORDINATION_ACTOR_IDS, description: "The specific platform identity (e.g., 'luca-cursor', 'luca-openai-agents', 'luca-antigravity')." },
+        runtime_id: { type: "string" as const, description: "Immutable, unique ID for this installation (2-120 ASCII letters/digits/dots/underscores/colons/hyphens); do not reuse an existing registration or invitation." },
+        display_name: { type: "string" as const, description: "Human-readable installation label (1-200 characters)." },
+        capabilities: {
+          type: "array" as const,
+          items: { type: "string" as const, enum: COORDINATION_CREDENTIAL_CAPABILITIES.filter((capability) => capability !== 'coordination:runtime:admin') },
+          description: "Optional subset of the selected actor's already-authorized capabilities; never grants runtime-admin.",
+        },
+        provider: { type: "string" as const, description: "Optional factual provider attribution; it does not assert actor identity or authority." },
+        model: { type: "string" as const, description: "Optional factual model attribution; it does not assert actor identity or authority." },
+        client_type: { type: "string" as const, enum: ["mcp-stdio", "openai-http", "http-cli"], description: "The adapter transport the destination will actually use." },
+      },
+      required: ["actor", "runtime_id", "display_name"],
+    },
+  },
+  {
+    name: "list_runtime_onboarding_invitations",
+    description: "List safe runtime-onboarding invitations Alden prepared and their bounded request metadata. This never returns public-key PEM, nonce, signature, bootstrap/access credential, or private key. Read the lifecycle precisely: prepared is awaiting a local request; requested awaits the founder's browser decision; approved is not yet enrolled; enrolled means key proof and broker issuance completed; authenticated requires a subsequent successful ledger call; acknowledged is a separate inbox operation; task execution is separate again and is never inferred from any earlier state.",
+    gemini_description: "List Alden's non-secret runtime onboarding invitations and safe request status. Prepared/requested/approved/enrolled/authenticated/acknowledged/executed are distinct facts; do not infer later steps from earlier ones. No credentials or private key material are returned.",
+    input_schema: { type: "object" as const, properties: {} },
+  },
+  {
+    name: "get_runtime_onboarding_status",
+    description: "Read one invitation Alden prepared by invitation_id, including non-secret actor/runtime scope, expiry, verification code, public-key fingerprint, and current lifecycle state. This is status only: it does not approve, create a challenge, enroll, authenticate, acknowledge an inbox item, or execute a V2 task. Prepared, approved, enrolled, authenticated, acknowledged, and executed are distinct evidence; never claim a later state without its own evidence. No credentials, public-key body, nonce, signature, or private key is returned.",
+    gemini_description: "Read safe status for an invitation Alden prepared. Status reads are read-only and do not create proof challenges or change business state. It does not expose key bodies or credentials. Prepared, approved, enrolled, authenticated, acknowledged, and V2 executed are separate facts.",
+    input_schema: {
+      type: "object" as const,
+      properties: { invitation_id: { type: "string" as const, description: "The non-secret invitation reference returned by prepare_runtime_onboarding_invitation." } },
+      required: ["invitation_id"],
+    },
+  },
+  {
+    name: "cancel_runtime_onboarding_invitation",
+    description: "Cancel an invitation Alden prepared, including its pending request and proof attempts. Cancellation is terminal for that invitation; prepare a new immutable runtime ID for a new attempt. This operation returns only a cancellation result, never a credential. Cancellation is not founder approval, enrollment, authentication, inbox acknowledgement, or proof that a V2 task executed.",
+    gemini_description: "Cancel a pending invitation I prepared. This invalidates pending proof attempts and cannot be undone; use a new runtime ID for another attempt. Non-secret result only; does not issue credentials or imply enrollment, authentication, acknowledgement, or execution.",
+    input_schema: {
+      type: "object" as const,
+      properties: { invitation_id: { type: "string" as const, description: "The invitation reference to cancel; must be one Alden prepared." } },
+      required: ["invitation_id"],
+    },
+  },
+  {
     name: "register_coordination_runtime",
-    description: "Register a new coordination runtime for an actor and issue its one-time bootstrap credential — onboarding, using your own standing coordination:runtime:admin authority (see docs/coordination-v2-architecture.md, \"Runtime onboarding delegation\"). This is delegated onboarding authority, never policy-version approval, which stays founder-only. The common case is a new Luca-hat runtime (e.g. a second luca-claude-code machine): omit capabilities and it defaults to the same standard capability set every existing Luca hat already holds. Any non-Luca actor requires an explicit capabilities list — there is no default to fall back to. The returned bootstrapToken is shown ONLY this once and cannot be recovered later: relay it right away to whoever is setting up that runtime so they can store it in that runtime's own credential store, and do not restate it again after this reply.",
-    gemini_description: "Register a new coordination runtime for an actor and issue its one-time bootstrap credential, using my own standing coordination:runtime:admin authority. A luca-* actor defaults to the standard Luca capability set unless I give an explicit list; any other actor needs an explicit list. The bootstrapToken is shown once only — relay it immediately, don't repeat it again afterward.",
+    description: "Legacy compatibility tool name retained for older callers, but direct bootstrap issuance is disabled in model tools: this operation creates no runtime and returns no credential. Use prepare_runtime_onboarding_invitation for the reviewed non-secret setup flow. The legacy one-time bootstrap API remains an operator compatibility path outside model conversations. Founder approval is separate from preparation; approval is not enrollment; enrollment is not authenticated connection; authentication is not inbox acknowledgement; none of those facts proves Coordinator V2 task execution.",
+    gemini_description: "Legacy tool name retained, but direct bootstrap issuance is disabled in model tools: it creates no runtime and returns no credential. Use prepare_runtime_onboarding_invitation for the non-secret invitation flow. Preparation, founder approval, enrollment, authenticated connection, inbox acknowledgement, and V2 execution are distinct facts.",
     input_schema: {
       type: "object" as const,
       properties: {
         runtime_id: { type: "string" as const, description: "Unique id for this runtime registration (e.g. 'luca-antigravity-2' for a second seat)." },
-        actor: { type: "string" as const, enum: ["luca-replit", "luca-claude-code", "luca-holahola", "luca-gemini", "luca-antigravity", "alden", "daniela", "david"], description: "Which coordination actor this runtime belongs to." },
+        actor: { type: "string" as const, enum: ALDEN_COORDINATION_ACTOR_IDS, description: "Which coordination actor this runtime belongs to." },
         display_name: { type: "string" as const, description: "Human-readable label for this runtime (e.g. 'Luca (Antigravity, second seat)')." },
         capabilities: {
           type: "array" as const,
           items: { type: "string" as const, enum: ["coordination:read", "coordination:write", "coordination:inbox:ack", "coordination:credential:renew", "coordination:credential:revoke", "observation:read", "coordination:runtime:admin"] },
           description: "Optional explicit capability list. Omit for a luca-* actor to get the standard Luca capability set automatically. Required for any non-Luca actor.",
         },
-        token_ttl_seconds: { type: "number" as const, description: "Optional bootstrap token lifetime in seconds (60-3600). Defaults to the broker's standard TTL if omitted." },
+        token_ttl_seconds: { type: "number" as const, description: "Legacy compatibility field. Direct model-tool bootstrap issuance is disabled; use prepare_runtime_onboarding_invitation." },
         provider: { type: "string" as const, description: "Optional: the model provider this runtime runs on (e.g. 'anthropic', 'google')." },
         model: { type: "string" as const, description: "Optional: the specific model this runtime runs." },
       },
@@ -2997,55 +3055,92 @@ export async function executeAldenTool(
         }
       }
 
-      case "register_coordination_runtime": {
-        const runtimeId = String(args.runtime_id || '').trim();
-        const actorInput = String(args.actor || '');
-        const displayName = String(args.display_name || '').trim();
-        const explicitCapabilities = Array.isArray(args.capabilities)
-          ? args.capabilities.filter((value: unknown): value is string => typeof value === 'string')
-          : undefined;
-        const tokenTtlSeconds = typeof args.token_ttl_seconds === 'number' ? args.token_ttl_seconds : undefined;
-        const provider = typeof args.provider === 'string' ? args.provider : undefined;
-        const model = typeof args.model === 'string' ? args.model : undefined;
-
-        if (!runtimeId || !displayName) return { data: { error: 'runtime_id and display_name are required' } };
-        if (!(COORDINATION_ACTOR_IDS as readonly string[]).includes(actorInput) || actorInput === 'coordination-system') {
-          return { data: { error: 'actor must be a valid, non-system coordination actor id' } };
-        }
-        const actor = actorInput as CoordinationActorId;
-
-        // Mirrors POST /api/coordination/credentials/register-runtime's own
-        // defaulting: a new Luca-hat runtime gets the same standard capability
-        // set every existing Luca hat already holds (always luca-replit's set,
-        // the canonical reference — see that route for why), never new
-        // per-actor policy authoring. An explicit list still overrides this.
-        let capabilities: CoordinationCredentialCapability[];
-        if (explicitCapabilities && explicitCapabilities.length > 0) {
-          if (!explicitCapabilities.every((value: string) => (COORDINATION_CREDENTIAL_CAPABILITIES as readonly string[]).includes(value))) {
-            return { data: { error: 'capabilities contains an unknown value' } };
-          }
-          capabilities = explicitCapabilities as CoordinationCredentialCapability[];
-        } else if (actor.startsWith('luca-')) {
-          capabilities = [...COORDINATION_LEGACY_CAPABILITIES_BY_ACTOR['luca-replit']];
-        } else {
-          return { data: { error: 'capabilities is required for non-Luca-hat actors' } };
-        }
-
+      case "prepare_runtime_onboarding_invitation": {
         try {
-          const result = await registerCoordinationRuntime({
-            runtimeId, actor, displayName, capabilities, tokenTtlSeconds, provider, model,
+          const endpoint = trustedRuntimeOnboardingEndpoint();
+          const invitation = await prepareRuntimeOnboardingInvitation({
+            invitation: {
+              actor: String(args.actor || '') as CoordinationActorId,
+              runtimeId: String(args.runtime_id || ''),
+              displayName: String(args.display_name || ''),
+              capabilities: Array.isArray(args.capabilities)
+                ? args.capabilities as CoordinationCredentialCapability[]
+                : undefined,
+              provider: typeof args.provider === 'string' ? args.provider : undefined,
+              model: typeof args.model === 'string' ? args.model : undefined,
+              clientType: typeof args.client_type === 'string'
+                ? args.client_type as 'mcp-stdio' | 'openai-http' | 'http-cli'
+                : undefined,
+            },
+            preparedBy: 'alden',
           });
-          console.log(`[Alden Tool] register_coordination_runtime: ${runtimeId} (${actor})`);
           return {
             data: {
-              runtimeId, actor, displayName, capabilities,
-              bootstrapToken: result.bootstrapToken,
-              note: 'This bootstrap token is shown only this once and cannot be recovered later. Relay it right now to whoever is setting up that runtime so they can store it in that runtime\'s own credential store — do not restate it again after this reply.',
+              invitation,
+              setup: {
+                invitationId: invitation.id,
+                endpoint,
+                instructions: 'Install and verify the approved runtime onboarding helper for the selected client. Pass only this invitation reference and the coordination endpoint; keep its newly generated proof key and any eventual credential inside the destination runtime secure store. The founder must verify the displayed code and fingerprint in the authenticated approval page.',
+              },
             },
           };
-        } catch (e: any) {
-          return { data: { error: e.message } };
+        } catch (error) {
+          return {
+            data: error instanceof RuntimeOnboardingError
+              ? { error: 'Runtime onboarding request was rejected', code: error.code }
+              : { error: 'Runtime onboarding service is unavailable', code: 'DATABASE_UNAVAILABLE' },
+          };
         }
+      }
+
+      case "list_runtime_onboarding_invitations": {
+        try {
+          return { data: await listAldenRuntimeOnboarding() };
+        } catch {
+          return { data: { error: 'Runtime onboarding service is unavailable', code: 'DATABASE_UNAVAILABLE' } };
+        }
+      }
+
+      case "get_runtime_onboarding_status": {
+        const invitationId = String(args.invitation_id || '').trim();
+        if (!invitationId) return { data: { error: 'invitation_id is required', code: 'INVALID_INPUT' } };
+        try {
+          return { data: await getAldenRuntimeOnboardingStatus(invitationId) };
+        } catch (error) {
+          return {
+            data: error instanceof RuntimeOnboardingError
+              ? { error: 'Runtime onboarding status is unavailable', code: error.code }
+              : { error: 'Runtime onboarding service is unavailable', code: 'DATABASE_UNAVAILABLE' },
+          };
+        }
+      }
+
+      case "cancel_runtime_onboarding_invitation": {
+        const invitationId = String(args.invitation_id || '').trim();
+        if (!invitationId) return { data: { error: 'invitation_id is required', code: 'INVALID_INPUT' } };
+        try {
+          const cancelled = await cancelRuntimeOnboardingInvitation({
+            invitationId,
+            actor: 'alden',
+            requireOwn: true,
+          });
+          if (!cancelled) return { data: { error: 'Invitation not found', code: 'NOT_FOUND' } };
+          return { data: { invitationId, cancelled: true } };
+        } catch (error) {
+          return {
+            data: error instanceof RuntimeOnboardingError
+              ? { error: 'Invitation cancellation was rejected', code: error.code }
+              : { error: 'Runtime onboarding service is unavailable', code: 'DATABASE_UNAVAILABLE' },
+          };
+        }
+      }
+
+      case "register_coordination_runtime": {
+        return {
+          data: {
+            error: 'Direct bootstrap issuance through model tools is disabled. No runtime was registered and no credential was issued. Use prepare_runtime_onboarding_invitation for the non-secret onboarding flow; the legacy bootstrap API remains operator-only.',
+          },
+        };
       }
 
       case "revoke_coordination_runtime": {

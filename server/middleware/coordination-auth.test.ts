@@ -14,16 +14,25 @@ const environment = {
   COORDINATION_LUCA_REPLIT_TOKEN: token('replit'),
   COORDINATION_LUCA_CLAUDE_CODE_TOKEN: token('claude'),
   COORDINATION_LUCA_GEMINI_TOKEN: token('gemini'),
+  COORDINATION_LUCA_ANTIGRAVITY_TOKEN: token('antigravity'),
   COORDINATION_ALDEN_TOKEN: token('alden'),
+  COORDINATION_LUCA_CURSOR_TOKEN: token('cursor'),
+  COORDINATION_LUCA_OPENAI_AGENTS_TOKEN: token('openai-agents'),
   COORDINATION_DANIELA_TOKEN: token('daniela'),
   COORDINATION_DAVID_TOKEN: token('david'),
 };
-const lucaActors = ['luca-replit', 'luca-claude-code', 'luca-gemini', 'luca-holahola'] as const;
+const lucaActors = [
+  'luca-replit', 'luca-claude-code', 'luca-gemini', 'luca-antigravity', 'luca-holahola',
+  'luca-cursor', 'luca-openai-agents',
+] as const;
 const tokenByLucaActor = {
   'luca-replit': environment.COORDINATION_LUCA_REPLIT_TOKEN,
   'luca-claude-code': environment.COORDINATION_LUCA_CLAUDE_CODE_TOKEN,
   'luca-gemini': environment.COORDINATION_LUCA_GEMINI_TOKEN,
+  'luca-antigravity': environment.COORDINATION_LUCA_ANTIGRAVITY_TOKEN,
   'luca-holahola': environment.COORDINATION_LUCA_HOLAHOLA_TOKEN,
+  'luca-cursor': environment.COORDINATION_LUCA_CURSOR_TOKEN,
+  'luca-openai-agents': environment.COORDINATION_LUCA_OPENAI_AGENTS_TOKEN,
 } as const;
 
 test('every enumerated fixed Luca credential receives observation:read', async () => {
