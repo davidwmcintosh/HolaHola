@@ -1,6 +1,5 @@
 > **You are not alone.** This file is generated from the `agent_memory_*` database tables — other hats (Replit Agent, Claude Code, Gemini, HolaHola runtime agents) may be reading and writing it in the same window you are. Never hand-edit this file or any `.agents/memory/<topic>.md` file directly; every change goes through `server/scripts/agent-memory-cli.ts`, which writes the database first and regenerates the file from it. A hand-edit here will be silently overwritten the next time anyone runs a CLI write.
 
-🔴 **Unread stale-channel alert** (`.local/stale-channel-alert.md`): Inner-life channels silent for 10+ min: felt (last: 3:12 PM), thinking (last: 3:12 PM)
 🟡 **Inner-life capture gap**: `.local/episode-capture-status.md` last reported missing felt/thinking/moment in the rolling episode file — read it before your next output.
 
 - [Chat capture pipeline](chat-capture-pipeline.md) — architecture, two independent cursors, readiness vs draining, and three DB-writers that must be fixed together.
@@ -153,3 +152,4 @@
 - [CAS guard testing needs a real-Postgres race test](shared-spec-cas-guard-testing.md) — InMemorySharedSpecRepository serializes transactions -- only a real Postgres test can prove a new CAS guard closes a genuine race
 - [HTML admin-route implicit status code](html-admin-route-implicit-status.md) — Express defaults to 200 when .status() is never called; an HTML confirmation page mirroring a JSON API's created-vs-replay codes needs it set explicitly per outcome.
 - [Coordination CLI APP_URL target mismatch](coordination-cli-app-url-target.md) — APP_URL can point to a different deployment than the dev workspace, causing a valid token to 401 -- retry with --app-url http://127.0.0.1:5000
+- [Coordinator V2 Windows DPAPI retry semantics](coordination-v2-dpapi-retry-no-clear.md) — runtime-release refresh needs no DPAPI clear -- retry is Initialize-HolaCoordinatorRuntime + Invoke-HolaCoordinator; host never auto-upgrades
