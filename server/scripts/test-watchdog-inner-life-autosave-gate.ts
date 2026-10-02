@@ -48,7 +48,8 @@ function runDriver(bypassGate: boolean): { exitCode: number | null; output: stri
     fs.writeFileSync(path.join(tempCwd, 'shared/schema.ts'), 'export {};');
     const run = spawnSync(
       'npx',
-      ['tsx', path.join(workspace, 'server/scripts/test-watchdog-inner-life-autosave-gate.ts'), '--driver'],
+      ['tsx', '--tsconfig', path.join(workspace, 'tsconfig.json'),
+        path.join(workspace, 'server/scripts/test-watchdog-inner-life-autosave-gate.ts'), '--driver'],
       {
         cwd: tempCwd,
         env: {

@@ -28,10 +28,12 @@ let getSharedDb: typeof import('../db').getSharedDb;
 const DOCS_DIR  = join(process.cwd(), 'docs');
 // Per-run identity inside a private cluster, never a guessed unused episode.
 const TEST_ID = randomUUID();
-const TEST_NUMBER = 100 + parseInt(TEST_ID.replace(/-/g, '').slice(0, 10), 16);
-const TEST_FILE  = `episode-${TEST_NUMBER}.md`;
+// Stable names are safe only because the wrapper owns a fresh database and
+// temporary workspace per run; the row identity remains random. Literal paths
+// also let the fail-closed source-mutation scanner resolve these writes.
+const TEST_FILE  = 'episode-100.md';
 const TEST_PATH  = join(DOCS_DIR, TEST_FILE);
-const TEST_TITLE = `Episode ${TEST_NUMBER}`;
+const TEST_TITLE = 'Episode 100';
 const SOURCE_ROOT = resolve(dirname(fileURLToPath(import.meta.url)), '../..');
 const require = createRequire(import.meta.url);
 function runRestore(scriptPath: string): string {
