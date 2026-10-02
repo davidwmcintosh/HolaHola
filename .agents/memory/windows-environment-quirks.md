@@ -61,3 +61,11 @@ Native PowerShell error classifiers must tolerate wrapped text and must never tr
 **Why:** A real execution-policy rejection split “running scripts is disabled” across lines and reported `SecurityError` / `UnauthorizedAccess` without the literal `PSSecurityException`. A phrase-based classifier consequently returned a false negative and delayed diagnosis.
 
 **How to apply:** Normalize whitespace when classifying captured errors, retain an explicit unknown outcome, and make sanitized process output available when a script exits before its own error handler. Do not change security policy or ACLs based on a negative text match.
+
+## PowerShell null-string binding to .NET
+
+Windows PowerShell can coerce `$null` to an empty string when binding a .NET string parameter. Use `[NullString]::Value` when the method requires a genuine null string; preserve atomic file operations rather than replacing them with delete-then-write sequences.
+
+**Why:** A real Windows test failed during atomic file replacement because the optional backup path was not of a legal form. Changing only that argument from `$null` to `[NullString]::Value` in the temporary adapter made replacement, readback, and cleanup pass.
+
+**How to apply:** Check PowerShell-to-.NET string binding when a valid-path operation fails on an optional null argument. Distinguish successful storage testing under a temporary process execution policy from readiness of a runner that still uses the machine's default policy.
