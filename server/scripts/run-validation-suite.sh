@@ -180,6 +180,12 @@ run_check "Memory-decay startup schema guard" bash -c 'npx tsx server/scripts/te
 run_check "Application startup recovery" bash server/scripts/test-start-application-recovery.sh
 run_check "Application startup recovery self-check" bash server/scripts/test-start-application-recovery.sh --self-check
 run_check "Infra-mutation ownership guard (Cloudflare DNS, GitHub spec publish)" npx tsx --test server/scripts/test-infra-mutation-ownership-guard.test.ts
+run_check "Infra-mutation ownership guard (Neon branch create/delete)" npx tsx --test scripts/neon-branch.test.ts
+run_check "Infra-mutation ownership guard (cross-tool-promote dispatch)" npx tsx --test scripts/cross-tool-promote.test.ts
+run_check "Infra-mutation ownership guard (reconciliation archive upload/replicate)" npx tsx --test scripts/reconciliation-history-object-storage.test.ts
+run_check "Infra-mutation ownership guard (reconciliation archive wrapper script)" npx tsx --test scripts/archive-reconciliation-history.test.ts
+run_check "Infra-mutation ownership guard (source-control-cli sync)" npx tsx --test server/scripts/test-source-control-cli-sync-ownership-guard.test.ts
+run_check "Infra-mutation ownership guard (source-promotion sync)" npx tsx --test server/scripts/test-source-promotion-sync-ownership-guard.test.ts
 run_check "Source-mutation write guard (server/scripts writes stay out of client/src, server/, shared/)" npx tsx --test server/scripts/scan-source-mutation-writes.test.ts
 run_check "Cross-hat skill discovery symlink" bash -c 'npx tsx server/scripts/test-agent-skills-symlink.ts && npx tsx server/scripts/test-agent-skills-symlink.ts --self-check'
 # Meta-guard: every run_check line above must also be reachable from

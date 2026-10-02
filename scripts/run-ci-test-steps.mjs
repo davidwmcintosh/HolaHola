@@ -124,6 +124,12 @@ commands.splice(safetyInsertion, 0,
   // matching entry appearing somewhere in this CI command set.
   'npx tsx server/scripts/test-validation-suite-ci-parity.ts',
   'npx tsx server/scripts/test-validation-suite-ci-parity.ts --self-check',
+  'npx tsx --test scripts/neon-branch.test.ts',
+  'npx tsx --test scripts/cross-tool-promote.test.ts',
+  'npx tsx --test scripts/reconciliation-history-object-storage.test.ts',
+  'npx tsx --test scripts/archive-reconciliation-history.test.ts',
+  'npx tsx --test server/scripts/test-source-control-cli-sync-ownership-guard.test.ts',
+  'npx tsx --test server/scripts/test-source-promotion-sync-ownership-guard.test.ts',
 
   // Source-bridge and GitHub transport safety.
   'bash scripts/test-github-sync-guards.sh',

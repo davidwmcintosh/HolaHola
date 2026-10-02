@@ -4,10 +4,18 @@
  * replace an existing key with different content.
  *
  * Usage:
- *   npx tsx scripts/reconciliation-history-object-storage.ts upload <bundle> <manifest>
+ *   npx tsx scripts/reconciliation-history-object-storage.ts upload <bundle> <manifest> --task-ref <ref>
  *   npx tsx scripts/reconciliation-history-object-storage.ts download <directory>
  *   npx tsx scripts/reconciliation-history-object-storage.ts download-replica <directory>
- *   npx tsx scripts/reconciliation-history-object-storage.ts replicate
+ *   npx tsx scripts/reconciliation-history-object-storage.ts replicate --task-ref <ref>
+ *
+ * `upload` and `replicate` write to credentialed external storage, so both
+ * require --task-ref and are refused (no S3 call attempted) when
+ * `assertOwnershipForInfraMutation` resolves that task to `unknown_stop` --
+ * the same gate the Cloudflare DNS path uses. See
+ * server/services/infra-mutation-guard.ts and
+ * .agents/memory/task-ownership-guard-scope.md. `download` and
+ * `download-replica` are read-only and are not gated.
  */
 
 import { createHash } from "node:crypto";
@@ -25,6 +33,7 @@ import {
   S3Client,
   UploadPartCommand,
 } from "@aws-sdk/client-s3";
+import { assertOwnershipForInfraMutation, type OwnershipProbe } from "../server/services/infra-mutation-guard";
 
 const ARCHIVE_ID = "reconciliation-2026-08-21";
 const partSize = 32 * 1024 * 1024;
@@ -304,12 +313,21 @@ async function downloadAndCheck(
   };
 }
 
-async function upload(
+export async function upload(
   client: S3Client,
   config: ArchiveStorageConfig,
   bundlePath: string,
   manifestPath: string,
+  taskRef: string,
+  probeOwnership?: OwnershipProbe,
 ) {
+  // Refuse before any S3 call when task ownership is unknown_stop -- same
+  // gate as the Cloudflare DNS path. See infra-mutation-guard.ts.
+  await assertOwnershipForInfraMutation(
+    taskRef,
+    `s3:reconciliation_archive_upload:${config.accountLabel}`,
+    probeOwnership,
+  );
   const keys = objectKeys(config);
   if (basename(bundlePath) !== `${ARCHIVE_ID}.bundle`) {
     fail(`bundle file must be named ${ARCHIVE_ID}.bundle`);
@@ -391,7 +409,12 @@ export function receiptContent(
   ].join("\n");
 }
 
-async function replicate() {
+export async function replicate(taskRef: string, probeOwnership?: OwnershipProbe) {
+  // Gate up front, before the primary download or either upload -- the
+  // receipt write below calls uploadImmutableFile() directly rather than
+  // through upload(), so this is the only check that covers it.
+  await assertOwnershipForInfraMutation(taskRef, "s3:reconciliation_archive_replicate", probeOwnership);
+
   const primary = primaryConfig();
   const replica = replicaConfig();
   assertIndependentReplica(primary, replica);
@@ -407,7 +430,7 @@ async function replicate() {
     const sourceBundlePath = join(sourceDir, `${ARCHIVE_ID}.bundle`);
     const sourceManifestPath = join(sourceDir, "manifest.txt");
 
-    await upload(replicaClient, replica, sourceBundlePath, sourceManifestPath);
+    await upload(replicaClient, replica, sourceBundlePath, sourceManifestPath, taskRef, probeOwnership);
 
     const replicaChecks = await downloadArchive(replicaClient, replica, replicaDir);
     if (
@@ -438,21 +461,44 @@ async function replicate() {
   }
 }
 
+function extractTaskRef(rawArgs: string[]): { taskRef: string; rest: string[] } {
+  const rest: string[] = [];
+  let taskRef: string | undefined;
+  for (let i = 0; i < rawArgs.length; i++) {
+    if (rawArgs[i] === "--task-ref") {
+      taskRef = rawArgs[++i];
+    } else {
+      rest.push(rawArgs[i]);
+    }
+  }
+  if (!taskRef) {
+    fail(
+      "Missing --task-ref <ref> -- required so the ownership guard can verify this archive " +
+      "mutation is authorized (see server/services/infra-mutation-guard.ts).",
+    );
+  }
+  return { taskRef, rest };
+}
+
 const [mode, ...args] = process.argv.slice(2);
 if (basename(process.argv[1] ?? "") === "reconciliation-history-object-storage.ts") {
-  if (mode === "upload" && args.length === 2) {
+  if (mode === "upload") {
+    const { taskRef, rest } = extractTaskRef(args);
+    if (rest.length !== 2) fail("Usage: reconciliation-history-object-storage.ts upload <bundle> <manifest> --task-ref <ref>");
     const config = primaryConfig();
-    await upload(createClient(config), config, args[0], args[1]);
+    await upload(createClient(config), config, rest[0], rest[1], taskRef);
   } else if (mode === "download" && args.length === 1) {
     await download(args[0]);
   } else if (mode === "download-replica" && args.length === 1) {
     await downloadReplica(args[0]);
-  } else if (mode === "replicate" && args.length === 0) {
-    await replicate();
+  } else if (mode === "replicate") {
+    const { taskRef, rest } = extractTaskRef(args);
+    if (rest.length !== 0) fail("Usage: reconciliation-history-object-storage.ts replicate --task-ref <ref>");
+    await replicate(taskRef);
   } else {
     console.error(
-      "Usage: reconciliation-history-object-storage.ts upload <bundle> <manifest> | " +
-      "download <directory> | download-replica <directory> | replicate",
+      "Usage: reconciliation-history-object-storage.ts upload <bundle> <manifest> --task-ref <ref> | " +
+      "download <directory> | download-replica <directory> | replicate --task-ref <ref>",
     );
     process.exitCode = 2;
   }

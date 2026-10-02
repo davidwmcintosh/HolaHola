@@ -5,11 +5,31 @@
  * growing its own habit. Design: docs/superpowers/specs/2026-08-30-neon-branch-migration-workflow-design.md
  *
  * Subcommands:
- *   create <name> [--parent <name|id>] [--expires-at <duration|ISO>] [--schema-only]
+ *   create <name> [--parent <name|id>] [--expires-at <duration|ISO>] [--schema-only] --task-ref <ref>
  *   connection-string <name|id> [--pooled]
  *   list
- *   delete <name|id> [--hard]
+ *   delete <name|id> [--hard] --task-ref <ref>
  *   gate [--expires-at <duration|ISO>] [--keep-on-failure]
+ *
+ * `create` and `delete` mutate billed Neon infrastructure on behalf of a
+ * task, so each requires --task-ref and is refused (no Neon API call
+ * attempted) when ownership cannot be proven (see
+ * server/services/infra-mutation-guard.ts).
+ *
+ * `gate` is deliberately NOT gated the same way. Its only sanctioned real
+ * trigger is `scripts/cross-tool-promote.ts push` (via
+ * .github/workflows/cross-tool-promote.yml running `npm run db:branch --
+ * gate`), which is itself already gated by
+ * `dispatchCrossToolPromote`/`assertOwnershipForInfraMutation` before the
+ * workflow is ever dispatched. A GitHub Actions checkout has no
+ * `.local/tasks/task-*.md` file (that directory is gitignored and never
+ * committed), so requiring --task-ref on `gate` itself would make every
+ * real CI invocation fail closed unconditionally, not just unauthorized
+ * ones -- discovered as a code-review finding on task #1470, 2026-09-19.
+ * The branch `gate` creates is also short-lived (default 6h expiry,
+ * self-deleted on both pass and fail), unlike `create`'s longer-lived
+ * branches, so the residual risk of an unsanctioned direct local `gate`
+ * invocation is bounded.
  *
  * Talks to the Neon Management API directly (not the `neon` CLI) so it has
  * nothing to install across Windows, Codespace Linux, and Replit's container
@@ -20,7 +40,8 @@ import { spawn } from 'node:child_process';
 import { existsSync, readFileSync } from 'node:fs';
 import { mkdtemp } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
-import { join } from 'node:path';
+import { basename, join } from 'node:path';
+import { assertOwnershipForInfraMutation, type OwnershipProbe } from '../server/services/infra-mutation-guard';
 
 // Replit/Codespace inject secrets directly into the process environment, no
 // .env file involved. A local checkout (this repo's own convention, see
@@ -199,36 +220,92 @@ async function fetchConnectionUri(branchId: string, pooled: boolean): Promise<st
   return uri;
 }
 
-async function createBranch(opts: {
+interface CreateBranchOpts {
   name: string;
   parent: string;
   expiresAt?: string;
   schemaOnly: boolean;
+}
+export async function createBranch(opts: CreateBranchOpts & {
+  taskRef: string;
+  probeOwnership?: OwnershipProbe;
 }): Promise<NeonBranch> {
-  const projectId = requireEnv('NEON_PROJECT_ID');
-  const parentId = await resolveParentBranchId(opts.parent);
-  const { branch } = await neonApi<{ branch: NeonBranch }>(`/projects/${projectId}/branches`, {
-    method: 'POST',
-    body: JSON.stringify({
-      branch: {
-        name: opts.name,
-        parent_id: parentId,
-        expires_at: opts.expiresAt,
-        ...(opts.schemaOnly ? { init_source: 'schema-only' } : {}),
-      },
-      endpoints: [{ type: 'read_write' }],
-    }),
-  });
-  await waitUntilReady(branch.id);
-  return branch;
+  // Same fail-closed gate as the Cloudflare DNS path: refuse to create a
+  // Neon branch (a real, billed, credentialed mutation against the Neon
+  // control plane) unless task ownership can be proven. See
+  // server/services/infra-mutation-guard.ts and
+  // .agents/memory/task-ownership-guard-scope.md.
+  await assertOwnershipForInfraMutation(
+    opts.taskRef,
+    `neon:create_branch:${opts.name}`,
+    opts.probeOwnership,
+  );
+  return createBranchCore(opts);
 }
 
-async function deleteBranch(branchId: string, hard: boolean): Promise<void> {
+/**
+ * Unguarded Neon API call for deleting a branch by its already-resolved ID.
+ * Not exported -- every real caller outside this module must go through
+ * `deleteBranch` or `deleteBranchByNameOrId`, both of which add the
+ * ownership gate. The one exception inside this module is `cmdGate`'s own
+ * disposable migration-test branch; see the module header comment for why.
+ */
+async function deleteBranchCore(branchId: string, hard: boolean): Promise<void> {
   const projectId = requireEnv('NEON_PROJECT_ID');
   const params = hard ? '?hard_delete=true' : '';
   await neonApi(`/projects/${projectId}/branches/${branchId}${params}`, { method: 'DELETE' });
 }
+export async function deleteBranch(
+  branchId: string,
+  hard: boolean,
+  taskRef: string,
+  probeOwnership?: OwnershipProbe,
+): Promise<void> {
+  await assertOwnershipForInfraMutation(taskRef, `neon:delete_branch:${branchId}`, probeOwnership);
+  await deleteBranchCore(branchId, hard);
+}
 
+/**
+ * CLI entry point for `delete <name|id>`. Resolving a name to a branch ID is
+ * itself a Neon API call (a list/GET) -- ownership must be proven before
+ * that lookup runs too, not just before the final DELETE, or an
+ * `unknown_stop` task could still cause a credentialed request against the
+ * Neon control plane. (Fixed as part of task #1470's review: the original
+ * `cmdDelete` called `resolveBranch` before the gate in `deleteBranch` ever
+ * ran.)
+ */
+export async function deleteBranchByNameOrId(
+  nameOrId: string,
+  hard: boolean,
+  taskRef: string,
+  probeOwnership?: OwnershipProbe,
+): Promise<NeonBranch> {
+  await assertOwnershipForInfraMutation(taskRef, `neon:delete_branch:${nameOrId}`, probeOwnership);
+  const branch = await resolveBranch(nameOrId);
+  if (branch.default) {
+    throw new Error(`Refusing to delete "${branch.name}" — it is the project's default branch`);
+  }
+  if (branch.protected) {
+    throw new Error(`Refusing to delete "${branch.name}" — it is marked protected in Neon`);
+  }
+  await deleteBranchCore(branch.id, hard);
+  return branch;
+}
+/**
+ * `create` and `delete` must attribute their mutation to a task so
+ * `assertOwnershipForInfraMutation` can verify it before touching the Neon
+ * API. `gate` does not use this -- see the module header comment.
+ */
+export function requireTaskRef(flags: Record<string, string | boolean>): string {
+  const taskRef = flags['task-ref'];
+  if (!taskRef || typeof taskRef !== 'string') {
+    throw new Error(
+      'Missing --task-ref <ref> -- required so the ownership guard can verify this Neon branch '
+      + 'mutation is authorized (see server/services/infra-mutation-guard.ts).',
+    );
+  }
+  return taskRef;
+}
 function runCommand(command: string, env: NodeJS.ProcessEnv): Promise<{ code: number | null }> {
   return new Promise((resolve) => {
     const child = spawn(command, {
@@ -265,18 +342,19 @@ function parseFlags(args: string[]): { positional: string[]; flags: Record<strin
 async function cmdCreate(positional: string[], flags: Record<string, string | boolean>) {
   const name = positional[0] ?? flags.name;
   if (!name || typeof name !== 'string') {
-    throw new Error('Usage: neon-branch.ts create <name> [--parent <name|id>] [--expires-at <duration>] [--schema-only]');
+    throw new Error('Usage: neon-branch.ts create <name> [--parent <name|id>] [--expires-at <duration>] [--schema-only] --task-ref <ref>');
   }
+  const taskRef = requireTaskRef(flags);
   const parent = (flags.parent as string) ?? 'production';
   const expiresAt = parseExpiresAt((flags['expires-at'] as string) ?? '14d');
-  const branch = await createBranch({ name, parent, expiresAt, schemaOnly: Boolean(flags['schema-only']) });
+  const branch = await createBranch({ name, parent, expiresAt, schemaOnly: Boolean(flags['schema-only']), taskRef });
   const pooled = await fetchConnectionUri(branch.id, true);
   const direct = await fetchConnectionUri(branch.id, false);
   console.log(`Created branch "${branch.name}" (${branch.id}), expires ${expiresAt ?? 'never'}`);
   console.log(`Pooled connection string (general app/dev-server use):\n  ${pooled}`);
   console.log(`Direct connection string (migrations, drizzle-kit):\n  ${direct}`);
   console.log(`\nPoint your environment's NEON_SHARED_DATABASE_URL at the pooled string above to use this branch.`);
-  console.log(`Delete it when done: npx tsx scripts/neon-branch.ts delete ${branch.name}`);
+  console.log(`Delete it when done: npx tsx scripts/neon-branch.ts delete ${branch.name} --task-ref ${taskRef}`);
 }
 
 async function cmdConnectionString(positional: string[], flags: Record<string, string | boolean>) {
@@ -299,16 +377,10 @@ async function cmdList() {
 async function cmdDelete(positional: string[], flags: Record<string, string | boolean>) {
   const nameOrId = positional[0];
   if (!nameOrId) {
-    throw new Error('Usage: neon-branch.ts delete <name|id> [--hard]');
+    throw new Error('Usage: neon-branch.ts delete <name|id> [--hard] --task-ref <ref>');
   }
-  const branch = await resolveBranch(nameOrId);
-  if (branch.default) {
-    throw new Error(`Refusing to delete "${branch.name}" — it is the project's default branch`);
-  }
-  if (branch.protected) {
-    throw new Error(`Refusing to delete "${branch.name}" — it is marked protected in Neon`);
-  }
-  await deleteBranch(branch.id, Boolean(flags.hard));
+  const taskRef = requireTaskRef(flags);
+  const branch = await deleteBranchByNameOrId(nameOrId, Boolean(flags.hard), taskRef);
   console.log(`Deleted branch "${branch.name}" (${branch.id})`);
 }
 
@@ -323,7 +395,9 @@ async function cmdGate(flags: Record<string, string | boolean>) {
   const expiresAt = parseExpiresAt((flags['expires-at'] as string) ?? '6h');
 
   console.log(`[gate] Creating branch "${branchName}" from production...`);
-  const branch = await createBranch({ name: branchName, parent: 'production', expiresAt, schemaOnly: false });
+  // Not routed through the task-ownership gate -- see the module header
+  // comment for why `gate`'s own disposable branch is excluded.
+  const branch = await createBranchCore({ name: branchName, parent: 'production', expiresAt, schemaOnly: false });
   const directUrl = await fetchConnectionUri(branch.id, false);
 
   // Deliberately never printed: unlike create/connection-string, this
@@ -686,7 +760,7 @@ async function cmdGate(flags: Record<string, string | boolean>) {
 
   if (!flags['keep-on-failure'] || !failureReason) {
     console.log(`[gate] Deleting branch "${branchName}"...`);
-    await deleteBranch(branch.id, false).catch((err) =>
+    await deleteBranchCore(branch.id, false).catch((err) =>
       console.error(`[gate] WARNING: failed to delete branch ${branch.name} (${branch.id}): ${err.message}`),
     );
   } else {
@@ -725,7 +799,39 @@ async function main() {
   }
 }
 
-main().catch((err) => {
-  console.error(err instanceof Error ? err.message : err);
-  process.exitCode = 1;
-});
+// Guard CLI dispatch behind an entrypoint check -- otherwise importing this
+// module (e.g. from scripts/neon-branch.test.ts) would run main() as a side
+// effect of the import and misread the importer's own argv as a subcommand.
+// Mirrors the same guard in scripts/reconciliation-history-object-storage.ts.
+if (basename(process.argv[1] ?? '') === 'neon-branch.ts') {
+  main().catch((err) => {
+    console.error(err instanceof Error ? err.message : err);
+    process.exitCode = 1;
+  });
+}
+
+/**
+ * Unguarded Neon API calls for creating a branch. Not exported -- every real
+ * caller outside this module must go through `createBranch`, which adds the
+ * ownership gate. The one exception inside this module is `cmdGate`'s own
+ * disposable migration-test branch; see the module header comment for why
+ * that specific internal lifecycle is not gated the same way.
+ */
+async function createBranchCore(opts: CreateBranchOpts): Promise<NeonBranch> {
+  const projectId = requireEnv('NEON_PROJECT_ID');
+  const parentId = await resolveParentBranchId(opts.parent);
+  const { branch } = await neonApi<{ branch: NeonBranch }>(`/projects/${projectId}/branches`, {
+    method: 'POST',
+    body: JSON.stringify({
+      branch: {
+        name: opts.name,
+        parent_id: parentId,
+        expires_at: opts.expiresAt,
+        ...(opts.schemaOnly ? { init_source: 'schema-only' } : {}),
+      },
+      endpoints: [{ type: 'read_write' }],
+    }),
+  });
+  await waitUntilReady(branch.id);
+  return branch;
+}

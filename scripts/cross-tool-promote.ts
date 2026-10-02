@@ -25,8 +25,12 @@
  * here; there was nothing to proxy.
  *
  * Usage:
- *   npx tsx scripts/cross-tool-promote.ts push <branch> [--source <label>]
+ *   npx tsx scripts/cross-tool-promote.ts push <branch> --task-ref <ref> [--source <label>]
  *   npx tsx scripts/cross-tool-promote.ts status <jobId>
+ *
+ * `push` dispatches a GitHub Actions workflow on behalf of a task, so it
+ * requires --task-ref and is refused (no dispatch attempted) when ownership
+ * cannot be proven (see server/services/infra-mutation-guard.ts).
  *
  * Caller responsibility before calling `push`: commit locally, then
  * `git push origin <branch>` normally — pushing a non-main branch needs no
@@ -56,6 +60,7 @@ import { existsSync } from 'node:fs';
 import { randomUUID } from 'node:crypto';
 import { execFileSync } from 'node:child_process';
 import { isDirectCliInvocation } from '../server/scripts/lib/cli-entrypoint';
+import { assertOwnershipForInfraMutation, type OwnershipProbe } from '../server/services/infra-mutation-guard';
 
 if (existsSync('.env')) {
   process.loadEnvFile('.env');
@@ -166,9 +171,13 @@ export function freshenBranchAgainstMain(branch: string, cwd: string = process.c
   return { merged: true };
 }
 
-async function githubApi<T>(apiPath: string, init: RequestInit = {}): Promise<T> {
+async function githubApi<T>(
+  apiPath: string,
+  init: RequestInit = {},
+  fetchImpl: typeof fetch = fetch,
+): Promise<T> {
   const token = requireEnv('GITHUB_ACTIONS_DISPATCH_TOKEN');
-  const res = await fetch(`${GITHUB_API}${apiPath}`, {
+  const res = await fetchImpl(`${GITHUB_API}${apiPath}`, {
     ...init,
     headers: {
       Authorization: `Bearer ${token}`,
@@ -207,6 +216,16 @@ async function resolveRun(jobId: string): Promise<GithubWorkflowRun | undefined>
   return workflow_runs.find((run) => (run.display_title ?? run.name ?? '').includes(jobId));
 }
 
+export function requireTaskRef(flags: Record<string, string | boolean>): string {
+  const taskRef = flags['task-ref'];
+  if (!taskRef || typeof taskRef !== 'string') {
+    throw new Error(
+      'Missing --task-ref <ref> -- required so the ownership guard can verify this promotion '
+      + 'is authorized (see server/services/infra-mutation-guard.ts).',
+    );
+  }
+  return taskRef;
+}
 function parseFlags(args: string[]): { positional: string[]; flags: Record<string, string | boolean> } {
   const positional: string[] = [];
   const flags: Record<string, string | boolean> = {};
@@ -231,11 +250,14 @@ function parseFlags(args: string[]): { positional: string[]; flags: Record<strin
 async function cmdPush(positional: string[], flags: Record<string, string | boolean>) {
   const branch = positional[0];
   if (!branch) {
-    throw new Error('Usage: cross-tool-promote.ts push <branch> [--source <label>]');
+    throw new Error('Usage: cross-tool-promote.ts push <branch> [--source <label>] --task-ref <ref>');
   }
   if (!isValidBranchName(branch)) {
     throw new Error(`Not a valid branch name: ${branch}`);
   }
+  const taskRef = requireTaskRef(flags);
+  // Freshening can push a merge commit, so check before it as well as dispatch.
+  await assertOwnershipForInfraMutation(taskRef, `github:cross_tool_promote_push:${branch}`);
   const source = (flags.source as string) ?? 'claude-code';
   const jobId = randomUUID();
 
@@ -247,10 +269,7 @@ async function cmdPush(positional: string[], flags: Record<string, string | bool
       : `[cross-tool-promote] "${branch}" already includes the latest main — nothing to merge.`,
   );
 
-  await githubApi(`/repos/${OWNER}/${REPO}/actions/workflows/${WORKFLOW_FILE}/dispatches`, {
-    method: 'POST',
-    body: JSON.stringify({ ref: 'main', inputs: { branch, jobId } }),
-  });
+  await dispatchCrossToolPromote(branch, taskRef, jobId);
   console.log(`[cross-tool-promote] Dispatched by ${source} — job ${jobId}`);
 
   for (;;) {
@@ -307,4 +326,29 @@ if (isDirectCliInvocation('cross-tool-promote.ts')) {
     console.error(err instanceof Error ? err.message : err);
     process.exitCode = 1;
   });
+}
+
+/**
+ * The actual live-codebase mutation: asking GitHub Actions to fast-forward
+ * `main` to `branch`. Gated the same way the Cloudflare DNS path is --
+ * refuse (InfraMutationBlockedError, no dispatch call attempted) when task
+ * ownership resolves to `unknown_stop`. See
+ * .agents/memory/task-ownership-guard-scope.md for why this exists.
+ */
+export async function dispatchCrossToolPromote(
+  branch: string,
+  taskRef: string,
+  jobId: string,
+  options: { probeOwnership?: OwnershipProbe; fetchImpl?: typeof fetch } = {},
+): Promise<void> {
+  await assertOwnershipForInfraMutation(
+    taskRef,
+    `github:cross_tool_promote_push:${branch}`,
+    options.probeOwnership,
+  );
+  await githubApi(
+    `/repos/${OWNER}/${REPO}/actions/workflows/${WORKFLOW_FILE}/dispatches`,
+    { method: 'POST', body: JSON.stringify({ ref: 'main', inputs: { branch, jobId } }) },
+    options.fetchImpl,
+  );
 }

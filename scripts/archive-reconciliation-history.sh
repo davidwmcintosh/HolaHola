@@ -6,9 +6,17 @@
 # resets, merges into, or otherwise changes GitHub main.
 #
 # Usage:
-#   bash scripts/archive-reconciliation-history.sh
+#   bash scripts/archive-reconciliation-history.sh --task-ref <ref>
 #   bash scripts/archive-reconciliation-history.sh --verify
-#   bash scripts/archive-reconciliation-history.sh --replicate
+#   bash scripts/archive-reconciliation-history.sh --replicate --task-ref <ref>
+#
+# The default (upload) and --replicate modes mutate credentialed external
+# storage on behalf of a task, so both require --task-ref and are refused
+# (no S3 call attempted) when ownership cannot be proven -- see
+# scripts/reconciliation-history-object-storage.ts and
+# server/services/infra-mutation-guard.ts. --verify only downloads and
+# checks what is already archived, so it carries no mutation risk and needs
+# no task reference.
 
 set -Eeuo pipefail
 
@@ -16,26 +24,60 @@ ARCHIVE_ID="reconciliation-2026-08-21"
 ARCHIVE_PREFIX="${RECONCILIATION_ARCHIVE_PREFIX:-history-archives/${ARCHIVE_ID}}"
 VERIFY_ONLY=false
 REPLICATE=false
+TASK_REF=""
 
-case "${1:-}" in
-  "")
-    ;;
-  --verify)
-    VERIFY_ONLY=true
-    ;;
-  --replicate)
-    REPLICATE=true
-    ;;
-  *)
-    echo "Usage: bash scripts/archive-reconciliation-history.sh [--verify|--replicate]" >&2
-    exit 2
-    ;;
-esac
+usage() {
+  echo "Usage: bash scripts/archive-reconciliation-history.sh --task-ref <ref>" >&2
+  echo "       bash scripts/archive-reconciliation-history.sh --verify" >&2
+  echo "       bash scripts/archive-reconciliation-history.sh --replicate --task-ref <ref>" >&2
+}
+
+while [[ $# -gt 0 ]]; do
+  case "$1" in
+    --verify)
+      VERIFY_ONLY=true
+      shift
+      ;;
+    --replicate)
+      REPLICATE=true
+      shift
+      ;;
+    --task-ref)
+      TASK_REF="${2:-}"
+      if [[ -z "$TASK_REF" ]]; then
+        echo "ERROR: --task-ref requires a value" >&2
+        usage
+        exit 2
+      fi
+      shift 2
+      ;;
+    *)
+      usage
+      exit 2
+      ;;
+  esac
+done
+
+if "$VERIFY_ONLY" && "$REPLICATE"; then
+  echo "ERROR: --verify and --replicate are mutually exclusive" >&2
+  usage
+  exit 2
+fi
+
+# Fail closed before doing any work (no git ref reads, no network calls) when
+# a mutating mode is missing the task reference the ownership guard requires.
+if ! "$VERIFY_ONLY" && [[ -z "$TASK_REF" ]]; then
+  echo "ERROR: --task-ref <ref> is required for this archive mutation -- it is forwarded to" >&2
+  echo "the ownership guard in scripts/reconciliation-history-object-storage.ts, which refuses" >&2
+  echo "the S3 write when task ownership cannot be proven." >&2
+  usage
+  exit 2
+fi
 
 if "$REPLICATE"; then
   # Replication reads the primary archive and writes only to the explicitly
   # configured independent account. It does not need the protected refs locally.
-  npx tsx scripts/reconciliation-history-object-storage.ts replicate
+  npx tsx scripts/reconciliation-history-object-storage.ts replicate --task-ref "$TASK_REF"
   exit 0
 fi
 
@@ -198,7 +240,7 @@ git lfs fsck --pointers "refs/heads/reconcile/github-main-live-lfs-release"
 # The uploader refuses to replace a pre-existing object with different bytes.
 # This makes the archive immutable through this workflow even after reruns.
 RECONCILIATION_ARCHIVE_PREFIX="$ARCHIVE_PREFIX" \
-  npx tsx scripts/reconciliation-history-object-storage.ts upload "$bundle_path" "$manifest_path"
+  npx tsx scripts/reconciliation-history-object-storage.ts upload "$bundle_path" "$manifest_path" --task-ref "$TASK_REF"
 
 verify_dir="$(mktemp -d .git/reconciliation-verify.XXXXXX)"
 trap 'rm -rf -- "$work_dir" "$verify_dir"' EXIT

@@ -8,6 +8,28 @@ import {
   validateSourcePromotionActor,
   validateSourcePromotionIdempotencyKey,
 } from '../services/source-promotion-service';
+import { InfraMutationBlockedError } from '../services/infra-mutation-guard';
+
+const TASK_REF_PATTERN = /^[1-9][0-9]*$/;
+
+/**
+ * Task #1470: `sync` is a real credentialed external mutation (it pushes to
+ * the GitHub `main` branch), so it requires proof of task ownership in
+ * addition to the dedicated bearer token every route on this router already
+ * requires -- matching the Cloudflare DNS / Neon / GitHub Actions dispatch
+ * precedent that a mutation credential alone is not treated as sufficient
+ * authorization. See the `probeOwnership` doc comment on
+ * SourcePromotionServiceOptions in ../services/source-promotion-service.ts.
+ */
+function requireSourcePromotionTaskRef(req: Request): string {
+  const taskRef = req.header('x-source-promotion-task-ref');
+  if (!taskRef || !TASK_REF_PATTERN.test(taskRef)) {
+    throw new SourcePromotionInputError(
+      'x-source-promotion-task-ref must be supplied as a positive decimal task reference to authorize a sync.',
+    );
+  }
+  return taskRef;
+}
 
 function requireSourcePromotionToken(req: Request, res: Response, next: NextFunction): void {
   const supplied = req.header('x-source-promotion-token');
@@ -32,6 +54,10 @@ function sendError(res: Response, error: unknown): void {
   }
   if (error instanceof SourcePromotionConflictError) {
     res.status(409).json({ error: error.message });
+    return;
+  }
+  if (error instanceof InfraMutationBlockedError) {
+    res.status(403).json({ error: error.message, state: error.state });
     return;
   }
   console.error('[SourcePromotion] Request failed:', error);
@@ -84,7 +110,10 @@ export function registerSourcePromotionRoutes(
     requireSourcePromotionToken,
     async (req: Request, res: Response) => {
       try {
-        const result = await service.sync(requestIdentity(req));
+        const result = await service.sync({
+          ...requestIdentity(req),
+          taskRef: requireSourcePromotionTaskRef(req),
+        });
         res.status(result.replayed && result.request.status !== 'running' ? 200 : 202).json({
           ...result,
           next: 'Poll the request URL until it reaches a terminal state.',

@@ -22,9 +22,9 @@ This tool is the opposite shape on purpose: stateless, caller-agnostic, works fr
 1. Commit locally, then `git push origin <branch>` normally — pushing a non-`main` branch needs no special credential, the ruleset only protects `main` itself.
 2. Run:
    ```bash
-   npx tsx scripts/cross-tool-promote.ts push <branch>
+   npx tsx scripts/cross-tool-promote.ts push <branch> --task-ref <ref>
    ```
-   This calls the GitHub Actions API **directly** — no HolaHola server involved at all — to dispatch `.github/workflows/cross-tool-promote.yml`, then polls until it finishes.
+   `--task-ref` is required — the ownership guard (`server/services/infra-mutation-guard.ts`) refuses to dispatch the workflow when it can't prove the calling task owns the change (e.g. a task at `unknown_stop`). This calls the GitHub Actions API **directly** — no HolaHola server involved at all — to dispatch `.github/workflows/cross-tool-promote.yml`, then polls until it finishes.
 3. That workflow run does the real work: refuses if `main` isn't an ancestor of the branch (diverged — no automatic reconciliation, ever), then runs the same validation a human PR gets (`npm run check`, `npm run build`, the three `test:ci:*` groups) via an ephemeral Neon branch (`npm run db:branch -- gate`, see `.agents/skills/neon-branch/SKILL.md`), and only on a full pass fast-forwards `main` and pushes using the existing deploy key over SSH — that key lives only in GitHub Actions secrets, never touched by this script or by any caller.
 4. `scripts/cross-tool-promote.ts push` prints the terminal result: `SYNCED` (main now includes the branch) or `FAILED` (with the run URL to inspect — nothing was pushed).
 

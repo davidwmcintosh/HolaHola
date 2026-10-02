@@ -8,6 +8,7 @@ import {
 import { createHash, randomUUID, timingSafeEqual } from 'node:crypto';
 import { isAbsolute, join, resolve } from 'node:path';
 import { SourceControlService } from './source-control-service';
+import { assertOwnershipForInfraMutation, type OwnershipProbe } from './infra-mutation-guard';
 
 const REQUEST_SCHEMA_VERSION = 1;
 const MAX_CAPTURE_BYTES = 8_192;
@@ -89,6 +90,21 @@ export interface SourcePromotionServiceOptions {
     options: { cwd: string; env: NodeJS.ProcessEnv },
   ) => Promise<ExecResult>;
   sourceControlService?: SourceControlService;
+  /**
+   * Task #1470: `sync` is the one action on this HTTP-reachable service that
+   * performs a real credentialed external mutation (pushing to the GitHub
+   * `main` branch, via `SourceControlService.sync()`). Unlike the CLI
+   * (server/scripts/source-control-cli.ts), this service runs *inside* the
+   * already-trusted main server process, so a "checkout kind" signal is
+   * meaningless here -- it would always read `primary_worktree` regardless
+   * of who sent the HTTP request. `SOURCE_PROMOTION_TOKEN` proves the caller
+   * holds a dedicated credential, not that a specific task is authorized to
+   * push right now -- the same reasoning that already gates the Cloudflare
+   * DNS, Neon, and GitHub Actions dispatch call sites despite each of those
+   * also being protected by their own credential. Defaults to the real
+   * `TaskOwnershipService` probe; tests inject a stub.
+   */
+  probeOwnership?: OwnershipProbe;
 }
 
 function digest(value: string): string {
@@ -197,6 +213,7 @@ export class SourcePromotionService {
   private readonly bridgeStatusPath: string;
   private readonly execBridge: SourcePromotionServiceOptions['execBridge'];
   private readonly sourceControlService: SourceControlService;
+  private readonly probeOwnership: OwnershipProbe | undefined;
   private readonly active = new Map<string, Promise<void>>();
   private currentOperationId: string | undefined;
 
@@ -223,6 +240,7 @@ export class SourcePromotionService {
       now: this.now,
       uuid: this.uuid,
     });
+    this.probeOwnership = options.probeOwnership;
   }
 
   async getStatus(): Promise<{ bridge: SourceBridgeStatus | null; requests: SourcePromotionRequest[] }> {
@@ -246,7 +264,12 @@ export class SourcePromotionService {
   async sync(input: {
     idempotencyKey: string;
     actor: string;
+    taskRef: string;
   }): Promise<{ request: SourcePromotionRequest; replayed: boolean }> {
+    // Refuse before any side effect -- including the local idempotency-record
+    // write `start()` performs -- the same "gate first" order used by every
+    // other task #1470/#1455 call site.
+    await assertOwnershipForInfraMutation(input.taskRef, 'source-promotion:sync', this.probeOwnership);
     return this.start('sync', {}, input.idempotencyKey, input.actor);
   }
 

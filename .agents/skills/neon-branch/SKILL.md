@@ -21,13 +21,15 @@ Branches are ephemeral by default — create one when you need it, delete it whe
 
 **Sandbox** — starting real coding work that needs its own database:
 ```bash
-npm run db:branch -- create <name> [--parent production] [--expires-at 14d] [--schema-only]
+npm run db:branch -- create <name> [--parent production] [--expires-at 14d] [--schema-only] --task-ref <ref>
 ```
 Prints a pooled and a direct (unpooled) connection string. Point your environment's `NEON_SHARED_DATABASE_URL` at the **pooled** one for that session only — never overwrite `.env` without saying so first. Name the branch after the git branch/feature it's for. Delete it when that work merges or is abandoned:
 ```bash
-npm run db:branch -- delete <name>
+npm run db:branch -- delete <name> --task-ref <ref>
 ```
 Use `--schema-only` instead of a normal branch when you need structure but the data itself is sensitive.
+
+`--task-ref` is required on `create` and `delete` — the ownership guard (`server/services/infra-mutation-guard.ts`) refuses to call the Neon API when it can't prove the calling task owns the change (e.g. a task at `unknown_stop`). `gate` does not take `--task-ref`: its only sanctioned trigger (`cross-tool-promote.ts push` via CI) is already gated upstream, and a CI checkout can never carry the local task artifact this guard checks for — see the header comment in `scripts/neon-branch.ts` for the full reasoning.
 
 **Migration gate** — after `drizzle-kit generate` and human review of the SQL, before the real `drizzle-kit migrate`:
 ```bash

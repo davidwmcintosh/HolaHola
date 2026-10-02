@@ -44,6 +44,36 @@ export interface TaskOwnershipServiceOptions {
 const TASK_REF = /^[1-9][0-9]*$/;
 const MAX_TASK_ARTIFACT_BYTES = 256 * 1024;
 
+/**
+ * Reads whether `rootDir` is the primary Git checkout or a linked worktree,
+ * without requiring a task ref. Exported standalone (not just the
+ * `TaskOwnershipService.probe()` path) because some callers need to
+ * distinguish "am I the primary checkout" before they even have a task ref
+ * to probe with -- see server/scripts/source-control-cli.ts's conditional
+ * gate on `sync`, which lets the already-trusted primary-worktree caller
+ * (Alden Build Guardian, `npm run source-control:sync`) through unchanged
+ * while requiring a proven task ref from any other checkout.
+ *
+ * This is a much weaker signal than a verified ownership receipt --
+ * `.git` file contents are local and not tamper-proof -- but it costs
+ * nothing to check and closes the realistic case this project's task
+ * ownership model targets (a task continuing work it should have stopped),
+ * not a fully adversarial sandbox escape.
+ */
+export async function readCheckoutKind(rootDir: string): Promise<CheckoutKind> {
+  const gitMetadataPath = join(rootDir, '.git');
+  try {
+    const info = await lstat(gitMetadataPath);
+    if (info.isDirectory()) return 'primary_worktree';
+    if (!info.isFile()) return 'malformed_git_metadata';
+    const content = await readFile(gitMetadataPath, 'utf8');
+    return /^gitdir:\s+\S+/m.test(content) ? 'linked_worktree' : 'malformed_git_metadata';
+  } catch (error: any) {
+    if (error?.code === 'ENOENT') return 'not_a_git_worktree';
+    throw error;
+  }
+}
+
 /** Canonical JSON used by the challenge/proof protocol. */
 export function canonicalJson(value: unknown): string {
   if (value === undefined) throw new Error('Canonical JSON cannot contain undefined.');
@@ -173,17 +203,6 @@ export class TaskOwnershipService {
 
   private async readCheckout(): Promise<TaskOwnershipEvidence['checkout']> {
     const gitMetadataPath = join(this.rootDir, '.git');
-    try {
-      const info = await lstat(gitMetadataPath);
-      if (info.isDirectory()) return { kind: 'primary_worktree', gitMetadataPath };
-      if (!info.isFile()) return { kind: 'malformed_git_metadata', gitMetadataPath };
-      const content = await readFile(gitMetadataPath, 'utf8');
-      return /^gitdir:\s+\S+/m.test(content)
-        ? { kind: 'linked_worktree', gitMetadataPath }
-        : { kind: 'malformed_git_metadata', gitMetadataPath };
-    } catch (error: any) {
-      if (error?.code === 'ENOENT') return { kind: 'not_a_git_worktree', gitMetadataPath };
-      throw error;
-    }
+    return { kind: await readCheckoutKind(this.rootDir), gitMetadataPath };
   }
 }
