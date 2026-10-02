@@ -1,32 +1,16 @@
 ---
 name: tsx path alias resolution depends on spawn cwd
-description: A spawned `npx tsx <file>` process fails to resolve this project's `@shared/*` (and similar) TS path aliases when its `cwd` is outside the checkout, even though the file being run lives inside it.
+description: Explicit tsconfig selection preserves temporary-cwd isolation while resolving project TypeScript path aliases.
 ---
 
 ## The quirk
 
-`npx tsx <path-to-file>` resolves TS path aliases (e.g. `@shared/schema` ->
-`shared/schema.ts`) by walking up from the spawned process's **cwd** to find
-the nearest `tsconfig.json`, not from the location of the file actually being
-executed. A hermetic test driver spawned with `cwd` pointed at an isolated
-temp directory (the common pattern for proving path-portability code, e.g.
-`HOLAHOLA_WORKSPACE_ROOT`-style tests) will throw
-`ERR_MODULE_NOT_FOUND: Cannot find package '@shared/...'` at import time,
-even though the driver file itself sits inside the real checkout and would
-import fine if run directly.
+By default, tsx discovers tsconfig from the spawned process's cwd, not the location of the source file being executed. A driver stored in the real checkout but run from a temporary directory can therefore fail to resolve project aliases such as @shared/schema.
 
-**Why:** discovered building a portability regression test that spawned a
-driver with `cwd: tempRoot` to prove a service resolves paths via an env var
-instead of `process.cwd()`. The driver imported a module that (transitively)
-imports `@shared/schema`, and the spawn failed purely from the cwd change --
-nothing to do with the code under test.
+**Why:** a module-loading failure can stop a hermetic test before its actual safety guard runs. Checking only for a nonzero exit can then falsely certify that guard.
 
-**How to apply:** when spawning `npx tsx` for a hermetic driver/self-check
-test, keep `cwd` at the real repo root so tsx's tsconfig discovery works
-normally. Pass whatever "pretend you're elsewhere" signal the code under test
-actually reads (e.g. `HOLAHOLA_WORKSPACE_ROOT`) through `env` instead --
-`resolveWorkspaceRoot`-style helpers treat an absolute env value as
-authoritative regardless of cwd, so this fully preserves the test's intent.
-Reserve a cwd change for tests that specifically need to prove cwd-based
-fallback behavior itself (and in that case, keep the imports in the spawned
-file free of path-aliased modules).
+**How to apply:** pass an absolute path to the real project's tsconfig with tsx --tsconfig when a subprocess must retain a temporary cwd. This preserves project alias resolution without changing its filesystem isolation.
+
+Keeping cwd at the checkout and selecting a temporary workspace through an environment variable is valid only if the test does not require cwd itself to be temporary. Do not use that alternative when a containment guard deliberately requires cwd to match the configured temporary workspace.
+
+Negative-path subprocess checks must require both a nonzero exit and the intended refusal message. An import failure or launch timeout is not evidence that the safety guard executed.

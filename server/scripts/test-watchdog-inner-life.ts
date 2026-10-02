@@ -31,6 +31,7 @@ import { createHash } from 'crypto';
 import { workspaceResolution } from '../services/workspace-root';
 
 const WORKSPACE = workspaceResolution.root;
+const PROJECT_TSCONFIG = path.join(WORKSPACE, 'tsconfig.json');
 const MARKER = `wdtest-${Date.now()}`;
 const SELF_CHECK = process.argv.includes('--self-check');
 
@@ -54,7 +55,12 @@ function runDriver(bypassCollisionCleanup: boolean): DriverRun {
   fs.writeFileSync(path.join(tmp, 'package.json'), '{}');
   fs.writeFileSync(path.join(tmp, 'drizzle.config.ts'), 'export default {};');
   fs.writeFileSync(path.join(tmp, 'shared/schema.ts'), 'export {};');
-  const run = spawnSync('npx', ['tsx', path.join(WORKSPACE, 'server/scripts/test-watchdog-inner-life-driver.ts')], {
+  const run = spawnSync('npx', [
+    'tsx',
+    '--tsconfig',
+    PROJECT_TSCONFIG,
+    path.join(WORKSPACE, 'server/scripts/test-watchdog-inner-life-driver.ts'),
+  ], {
     cwd: tmp,
     env: {
       ...process.env,
@@ -427,27 +433,41 @@ function cleanupDriverRun(driverRun: DriverRun): void {
     // Sub-case A: no HOLAHOLA_WORKSPACE_ROOT at all -- the realistic accident
     // (a dev running the driver directly without the wrapper's env setup).
     const { HOLAHOLA_WORKSPACE_ROOT: _dropped, ...envWithoutRoot } = process.env;
-    const runA = spawnSync('npx', ['tsx', driverPath], {
+    const runA = spawnSync('npx', ['tsx', '--tsconfig', PROJECT_TSCONFIG, driverPath], {
       cwd: negativeFixtureRoot,
       env: { ...envWithoutRoot, WD_TEST_MARKER: MARKER },
       encoding: 'utf8',
       timeout: 30_000,
     });
-    check('sandbox guard: refuses to run with no HOLAHOLA_WORKSPACE_ROOT set', runA.status !== 0);
+    const outputA = (runA.stdout ?? '') + (runA.stderr ?? '');
+    check(
+      'sandbox guard: refuses to run with no HOLAHOLA_WORKSPACE_ROOT set',
+      runA.status !== 0 && runA.status !== null && outputA.includes(
+        'REFUSING TO RUN: HOLAHOLA_WORKSPACE_ROOT must be set and match process.cwd() exactly.',
+      ),
+      outputA,
+    );
     check('sandbox guard: no .local dir created when env var is missing (case A)',
       !fs.existsSync(path.join(negativeFixtureRoot, '.local')));
 
     // Sub-case B: HOLAHOLA_WORKSPACE_ROOT set and matching cwd exactly, but
     // cwd is a real on-disk directory outside the OS temp dir -- proves the
     // env-var check alone isn't the whole guard.
-    const runB = spawnSync('npx', ['tsx', driverPath], {
+    const runB = spawnSync('npx', ['tsx', '--tsconfig', PROJECT_TSCONFIG, driverPath], {
       cwd: negativeFixtureRoot,
       env: { ...envWithoutRoot, HOLAHOLA_WORKSPACE_ROOT: negativeFixtureRoot, WD_TEST_MARKER: MARKER },
       encoding: 'utf8',
       timeout: 30_000,
     });
-    check('sandbox guard: refuses to run when HOLAHOLA_WORKSPACE_ROOT matches cwd but cwd is outside the OS temp dir',
-      runB.status !== 0);
+    const outputB = (runB.stdout ?? '') + (runB.stderr ?? '');
+    check(
+      'sandbox guard: refuses to run when HOLAHOLA_WORKSPACE_ROOT matches cwd but cwd is outside the OS temp dir',
+      runB.status !== 0 && runB.status !== null && outputB.includes(
+        `REFUSING TO RUN: cwd (${negativeFixtureRoot}) is not inside the OS temp directory (${path.resolve(os.tmpdir())}). ` +
+        'Setting HOLAHOLA_WORKSPACE_ROOT alone is not enough -- it must point at a real hermetic sandbox, never the actual checkout, even if the env var matches cwd.',
+      ),
+      outputB,
+    );
     check('sandbox guard: no .local dir created outside the temp dir even with a matching env var (case B)',
       !fs.existsSync(path.join(negativeFixtureRoot, '.local')));
 

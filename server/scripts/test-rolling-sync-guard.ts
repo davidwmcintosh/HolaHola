@@ -9,40 +9,40 @@
  * Run: npx tsx server/scripts/test-rolling-sync-guard.ts
  */
 
-import {
-  clearEpisodeRollingCacheForTest,
-  syncEpisodeFile,
-  setRollingReplicaRestoreEnabledForTest,
-} from '../services/agent-session-autosave';
-import { getSharedDb } from '../db';
+import { getVerifiedCiDatabaseUrl } from '../ci-database';
+import { runRollingSyncSandbox } from './rolling-sync-guard-sandbox';
+import { randomUUID } from 'crypto';
+import { tmpdir } from 'os';
+import { createRequire } from 'module';
+import { fileURLToPath } from 'url';
 import { sql } from 'drizzle-orm';
 import { writeFileSync, readFileSync, unlinkSync, existsSync } from 'fs';
-import { execSync } from 'child_process';
-import { join } from 'path';
+import { execFileSync } from 'child_process';
+import { join, relative, isAbsolute, resolve, dirname } from 'path';
+
+let clearEpisodeRollingCacheForTest: typeof import('../services/agent-session-autosave').clearEpisodeRollingCacheForTest;
+let syncEpisodeFile: typeof import('../services/agent-session-autosave').syncEpisodeFile;
+let setRollingReplicaRestoreEnabledForTest: typeof import('../services/agent-session-autosave').setRollingReplicaRestoreEnabledForTest;
+let getSharedDb: typeof import('../db').getSharedDb;
 
 const DOCS_DIR  = join(process.cwd(), 'docs');
-// Filename must match EPISODE_RE (/^episode-(\d+)\.md$/) so episodeTitleFromFilename
-// returns the correct title ("Episode 99") used in the DB lookup. This has to be a real
-// docs/ path rather than a temp dir because syncEpisodeFile() always reads/writes
-// DOCS_DIR, a hardcoded module constant in agent-session-autosave.ts with no per-test
-// override seam.
-//
-// "docs/episode-99.md" is listed verbatim in .gitignore AND deliberately untracked from
-// the git index (`git rm --cached`) — not merely gitignored while still tracked, which
-// has no effect on a path git already knows about. That combination is what makes this
-// fixture safe: if a failure path below ever calls process.exit() before reaching its
-// wrapping try/finally and skips cleanup() (see cleanup() just below), the leftover file
-// is invisible to `git status` instead of being swept into an unrelated commit's `git add
-// -A`. That exact false positive (a routine create/delete of this fixture being read as
-// permanent content loss by detect-episode-dialogue-loss.ts) happened at least twice.
-// Never `git add -f` or otherwise force-track this path back in.
-const TEST_FILE  = 'episode-99.md';
+// Per-run identity inside a private cluster, never a guessed unused episode.
+const TEST_ID = randomUUID();
+const TEST_NUMBER = 100 + parseInt(TEST_ID.replace(/-/g, '').slice(0, 10), 16);
+const TEST_FILE  = `episode-${TEST_NUMBER}.md`;
 const TEST_PATH  = join(DOCS_DIR, TEST_FILE);
-const TEST_ID    = '99000000-0000-4000-8000-000000000099';
-const TEST_TITLE = 'Episode 99';
+const TEST_TITLE = `Episode ${TEST_NUMBER}`;
+const SOURCE_ROOT = resolve(dirname(fileURLToPath(import.meta.url)), '../..');
+const require = createRequire(import.meta.url);
+function runRestore(scriptPath: string): string {
+  return execFileSync(process.execPath, [
+    require.resolve('tsx/cli'), '--tsconfig', join(SOURCE_ROOT, 'tsconfig.json'),
+    scriptPath, '--force-push', `--episode-id=${TEST_ID}`,
+  ], { encoding: 'utf8', env: process.env, timeout: 30_000 });
+}
 
-const LONG_CONTENT  = '# Episode 99\n\n' + 'A'.repeat(8000);
-const SHORT_CONTENT = '# Episode 99\n\n' + 'B'.repeat(3000);
+const LONG_CONTENT  = `# ${TEST_TITLE}\n\n` + 'A'.repeat(8000);
+const SHORT_CONTENT = `# ${TEST_TITLE}\n\n` + 'B'.repeat(3000);
 
 const failures: string[] = [];
 
@@ -63,8 +63,8 @@ async function cleanup(db: ReturnType<typeof getSharedDb>) {
  *   removed, syncEpisodeFile falls through to the legacy Markdown→DB upsert,
  *   where a longer file IS promoted into the canonical record.
  *
- * With the seam disabled, LONGER_CONTENT (8037) overwrites LONG_CONTENT (8014)
- * in DB — exactly the promotion Pass 3 exists to catch.
+ * With the seam disabled, LONGER_CONTENT overwrites LONG_CONTENT in DB —
+ * exactly the promotion Pass 3 exists to catch.
  */
 async function runSelfCheck(db: ReturnType<typeof getSharedDb>): Promise<void> {
   console.log('\n=== SELF-CHECK: verifying Pass 3 fails when the replica-restore path is removed ===\n');
@@ -136,9 +136,7 @@ async function main() {
   console.log('\n=== ROLLING sync guard regression test ===\n');
   const db = getSharedDb();
 
-  // Pre-cleanup: remove any leftover record from a previous failed run so the
-  // episode-99 'rolling' row doesn't pollute getCurrentRollingEpisodeFilename()
-  // for other CI tests (e.g. luca-reflection-episode-ci) that run after this one.
+  // Cleanup is restricted to this invocation's private fixture identity.
   await cleanup(db);
 
   if (SELF_CHECK) {
@@ -257,7 +255,7 @@ async function main() {
   }
 
   // ── Pass 4: --force-push path (restore-rolling-episodes-from-db.ts) ─────────
-  // Inserts EP99 with long content in DB, writes a shorter .md, runs the
+  // Inserts the private fixture with long content, writes a shorter .md, runs the
   // generalised restore script with --force-push, then verifies the DB was
   // updated to match the shorter .md — proving the flag bypasses the length guard.
   console.log('\n  ── Pass 4: force-push path (restore-rolling-episodes-from-db.ts --force-push) ──');
@@ -287,15 +285,11 @@ async function main() {
     writeFileSync(TEST_PATH, SHORT_CONTENT, 'utf-8');
     console.log(`  Setup: .md file at ${SHORT_CONTENT.length} chars (short)`);
 
-    // Run restore-rolling-episodes-from-db.ts --force-push restricted to EP99
-    // only. The --episode-id filter prevents the script from touching any real
-    // rolling episodes (EP27, EP28) in the shared DB.
-    const scriptPath = join(process.cwd(), 'server', 'scripts', 'restore-rolling-episodes-from-db.ts');
+    // Exercise the actual restore CLI against the private database and files.
+    // Isolation, not --episode-id alone, prevents touching real records.
+    const scriptPath = join(SOURCE_ROOT, 'server', 'scripts', 'restore-rolling-episodes-from-db.ts');
     try {
-      const output = execSync(
-        `npx tsx ${scriptPath} --force-push --episode-id=${TEST_ID}`,
-        { encoding: 'utf8', env: process.env },
-      );
+      const output = runRestore(scriptPath);
       console.log('  Script output (truncated to 800 chars):');
       console.log(output.slice(0, 800).split('\n').map(l => '    ' + l).join('\n'));
     } catch (err: any) {
@@ -328,10 +322,7 @@ async function main() {
     writeFileSync(TEST_PATH, CONFLICTED_CONTENT, 'utf-8');
     let conflictRejected = false;
     try {
-      execSync(
-        `npx tsx ${scriptPath} --force-push --episode-id=${TEST_ID}`,
-        { encoding: 'utf8', env: process.env },
-      );
+      runRestore(scriptPath);
       // If we reach here the script exited 0 — that is wrong
       failures.push(
         `Pass 4b (conflict-marker guard): script exited 0 despite conflict markers in .md — should have rejected.`
@@ -374,7 +365,25 @@ async function main() {
   process.exit(0);
 }
 
-main().catch((err) => {
+async function isolatedMain(): Promise<void> {
+  if (!process.argv.includes('--isolated-driver')) {
+    process.exitCode = await runRollingSyncSandbox(process.argv.slice(2));
+    return;
+  }
+  // Refuse before importing any application DB/capture modules.
+  const root = resolve(process.cwd());
+  const fromTmp = relative(tmpdir(), root);
+  if (!getVerifiedCiDatabaseUrl() || !fromTmp || fromTmp.startsWith('..') ||
+      isAbsolute(fromTmp) || resolve(process.env.HOLAHOLA_WORKSPACE_ROOT ?? '') !== root) {
+    throw new Error('REFUSING TO RUN: rolling-sync driver requires verified local CI DB and temporary workspace');
+  }
+  ({ clearEpisodeRollingCacheForTest, syncEpisodeFile, setRollingReplicaRestoreEnabledForTest } =
+    await import('../services/agent-session-autosave'));
+  ({ getSharedDb } = await import('../db'));
+  await main();
+}
+
+isolatedMain().catch((err) => {
   console.error('[test-rolling-sync-guard] Fatal error:', err);
   process.exit(1);
 });

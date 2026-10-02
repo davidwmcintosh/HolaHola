@@ -44,6 +44,8 @@
 import { readFileSync, existsSync } from 'fs';
 import { join } from 'path';
 import { neon } from '@neondatabase/serverless';
+import { Pool } from 'pg';
+import { getVerifiedCiDatabaseUrl } from '../ci-database';
 import { writeProjectionAtomically } from '../services/projection-receipts';
 
 const G = (s: string) => `\x1b[32m${s}\x1b[0m`;
@@ -321,13 +323,22 @@ async function main() {
     process.exit(1);
   }
 
-  const DATABASE_URL = process.env.NEON_SHARED_DATABASE_URL;
+  const ciDatabaseUrl = getVerifiedCiDatabaseUrl();
+  const DATABASE_URL = ciDatabaseUrl ?? process.env.NEON_SHARED_DATABASE_URL;
   if (!DATABASE_URL) {
     console.error(R('FATAL: NEON_SHARED_DATABASE_URL is not set'));
     process.exit(1);
   }
 
-  const sql = neon(DATABASE_URL);
+  // Keep the normal Neon HTTP path unchanged. Integration tests run this same
+  // CLI against explicitly verified, job-local PostgreSQL (no Neon endpoint).
+  const ciPool = ciDatabaseUrl ? new Pool({ connectionString: ciDatabaseUrl }) : null;
+  const sql = ciPool
+    ? (async (strings: TemplateStringsArray, ...values: unknown[]) => {
+        const text = strings.reduce((query, part, i) => query + (i ? `$${i}` : '') + part, '');
+        return (await ciPool.query(text, values)).rows;
+      }) as unknown as NeonSqlFn
+    : neon(DATABASE_URL);
 
   if (forcePush) {
     if (episodeIdFilter) {
@@ -390,7 +401,7 @@ async function main() {
         OR 'rolling-protected' = ANY(tags)
       )
     ORDER BY created_at ASC
-  `;
+  ` as EpisodeRow[];
 
   if (rows.length === 0) {
     console.log(Y('[rolling-restore] No rolling episodes found in DB — nothing to restore.'));
