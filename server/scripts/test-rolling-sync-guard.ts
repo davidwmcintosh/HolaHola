@@ -28,6 +28,7 @@ let getSharedDb: typeof import('../db').getSharedDb;
 const DOCS_DIR  = join(process.cwd(), 'docs');
 // Per-run identity inside a private cluster, never a guessed unused episode.
 const TEST_ID = randomUUID();
+let fixtureOwned = false;
 // Stable names are safe only because the wrapper owns a fresh database and
 // temporary workspace per run; the row identity remains random. Literal paths
 // also let the fail-closed source-mutation scanner resolve these writes.
@@ -51,7 +52,10 @@ const failures: string[] = [];
 const SELF_CHECK = process.argv.includes('--self-check');
 
 async function cleanup(db: ReturnType<typeof getSharedDb>) {
-  await db.execute(sql`DELETE FROM conversation_memories WHERE id = ${TEST_ID}`);
+  if (fixtureOwned) {
+    await db.execute(sql`DELETE FROM conversation_memories WHERE id = ${TEST_ID}`);
+    fixtureOwned = false;
+  }
   if (existsSync(TEST_PATH)) unlinkSync(TEST_PATH);
 }
 
@@ -89,11 +93,8 @@ async function runSelfCheck(db: ReturnType<typeof getSharedDb>): Promise<void> {
       'HolaHola Episodes',
       '2020-01-01 00:00:00+00'
     )
-    ON CONFLICT (id) DO UPDATE
-      SET content  = ${LONG_CONTENT},
-          tags     = ARRAY['episode', 'rolling']::text[],
-          created_at = '2020-01-01 00:00:00+00'
   `);
+  fixtureOwned = true;
   console.log(`  Setup: inserted DB record (${LONG_CONTENT.length} chars)`);
 
   // Warm the ID and rolling cache with a normal sync first
@@ -173,11 +174,8 @@ async function main() {
         'HolaHola Episodes',
         '2020-01-01 00:00:00+00'
       )
-      ON CONFLICT (id) DO UPDATE
-        SET content    = ${LONG_CONTENT},
-            tags       = ARRAY['episode', 'rolling']::text[],
-            created_at = '2020-01-01 00:00:00+00'
     `);
+    fixtureOwned = true;
     console.log(`  Setup: inserted DB record (${LONG_CONTENT.length} chars)`);
 
     // ── Pass 1: cold ID cache — syncEpisodeFile with SHORT content ────────────
@@ -277,11 +275,8 @@ async function main() {
         'HolaHola Episodes',
         '2020-01-01 00:00:00+00'
       )
-      ON CONFLICT (id) DO UPDATE
-        SET content    = ${LONG_CONTENT},
-            tags       = ARRAY['episode', 'rolling']::text[],
-            created_at = '2020-01-01 00:00:00+00'
     `);
+    fixtureOwned = true;
     console.log(`  Setup: DB record at ${LONG_CONTENT.length} chars (long)`);
 
     writeFileSync(TEST_PATH, SHORT_CONTENT, 'utf-8');
@@ -320,7 +315,10 @@ async function main() {
     // Write a .md with unresolved git conflict markers, attempt force-push, and
     // verify (a) the script exits non-zero and (b) the DB content is unchanged.
     console.log('\n  ── Pass 4b: conflict-marker guard (force-push must reject conflicted .md) ──');
-    const CONFLICTED_CONTENT = SHORT_CONTENT + '\n<<<<<<< HEAD\nconflict\n=======\nother\n>>>>>>> branch\n';
+    // Construct the fixture markers at runtime so merge tooling does not
+    // mistake this intentional test data for an unresolved source conflict.
+    const CONFLICTED_CONTENT = SHORT_CONTENT + '\n' + '<'.repeat(7) +
+      ' HEAD\nconflict\n' + '='.repeat(7) + '\nother\n' + '>'.repeat(7) + ' branch\n';
     writeFileSync(TEST_PATH, CONFLICTED_CONTENT, 'utf-8');
     let conflictRejected = false;
     try {

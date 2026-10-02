@@ -14,3 +14,11 @@ By default, tsx discovers tsconfig from the spawned process's cwd, not the locat
 Keeping cwd at the checkout and selecting a temporary workspace through an environment variable is valid only if the test does not require cwd itself to be temporary. Do not use that alternative when a containment guard deliberately requires cwd to match the configured temporary workspace.
 
 Negative-path subprocess checks must require both a nonzero exit and the intended refusal message. An import failure or launch timeout is not evidence that the safety guard executed.
+
+## Required sandbox cwd exception
+
+When a hermetic driver explicitly requires its working directory to be the temporary sandbox, do not move it back into the checkout merely to repair alias resolution. Keep the isolation boundary and pass an absolute TSX_TSCONFIG_PATH pointing at the real checkout's TypeScript configuration. Invoke the checkout's installed tsx executable rather than asking npx to resolve a package from the sandbox.
+
+**Why:** sandbox enforcement can depend on cwd matching the configured workspace exactly; changing cwd to fix imports would weaken that protection.
+
+**How to apply:** use the explicit configuration path for TSX subprocesses that must run outside the checkout, including nested subprocesses that import project modules.

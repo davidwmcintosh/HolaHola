@@ -505,6 +505,24 @@ export class SharedSpecCore {
     });
   }
 
+  /** Only a reviewed current live revision may be projected into a Git reconciliation candidate. */
+  async approvedLiveInstructionByDestination(repository: string, gitPath: string): Promise<string | undefined> {
+    return this.repository.transaction(async tx => {
+      const document = await tx.getDocumentByDestination(repository, gitPath);
+      if (!document?.liveInstructionDocument || document.state !== "approved") return undefined;
+      const revision = await tx.getRevision(document.currentRevisionId);
+      if (!revision) return undefined;
+      const reviews = await tx.listReviews(document.id);
+      if (!reviews.some(review =>
+        review.revisionId === revision.id
+        && review.revisionContentHash === revision.contentHash
+        && review.state === "approved"
+        && !!review.decisionActorId
+      )) return undefined;
+      return revision.markdown;
+    });
+  }
+
   async listDocuments(): Promise<readonly SharedSpecDocument[]> {
     return this.repository.transaction(tx => tx.listDocuments());
   }

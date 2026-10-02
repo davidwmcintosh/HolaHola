@@ -6,6 +6,7 @@ import { tmpdir } from 'node:os';
 import { dirname, join } from 'node:path';
 import { SourceReconciliationService } from '../services/source-reconciliation-service';
 import { renderMailboxMarkdown, serializeMailboxLedger } from '../services/mailbox-ledger';
+import { SharedSpecCore } from '../services/shared-spec-core';
 
 type Policy = { id: string; path: string; kind: 'ordinary' | 'append-only-manual' | 'generated-local' | 'canonical-incoming-subset'; authority: 'replit' | 'shared'; resolution: 'keep-local-in-candidate' | 'manual'; proof: Record<string, unknown>; checks: string[] };
 const git = (cwd: string, ...args: string[]) => execFileSync('git', args, { cwd, encoding: 'utf8', stdio: ['ignore', 'pipe', 'pipe'] }).trim();
@@ -34,6 +35,7 @@ function fixture(policy: Policy[] = []) {
     validator: () => Promise<Record<string, string>> = async () => ({ check: 'passed' }),
     sourceControl: any = lease,
     regenerateAgentMemory?: (cwd: string) => Promise<boolean>,
+    readLiveInstructionDocument?: (path: string) => Promise<string | undefined>,
   ) => new SourceReconciliationService({
     rootDir: root, sourceControl,
     run: async (args, cwd = root) => {
@@ -43,6 +45,7 @@ function fixture(policy: Policy[] = []) {
     },
     validateCandidate: async () => { validations += 1; return validator(); },
     regenerateAgentMemory,
+    readLiveInstructionDocument,
   });
   const diverge = (path: string, localBody: string, remoteBody: string) => {
     git(root, 'checkout', '-b', 'local'); write(path, localBody); const local = commit('local');
@@ -628,6 +631,116 @@ await withFixture(async (f) => {
   const result = await f.service(undefined, undefined, regenerateWith({ [path]: regenerated })).candidate(candidateAudit(f, preflight.packet!.fingerprint));
   assert.equal(result.state, 'candidate_ready', result.error);
   assert.equal(git(f.root, 'show', `${result.candidateSha}:${path}`), regenerated.trim());
+  primaryUnchanged(f, local, remote); noTemporaryMetadata(f);
+});
+
+// Shared-spec live instruction documents are DB-governed, not ordinary docs.
+// The injected revision reader models a real current DB revision; Git remains
+// real and the primary checkout remains unchanged.
+function liveRevisionReader(path: string, markdown: string, documentState: 'approved' | 'draft' | 'ready_for_review', reviewState: 'approved' | 'pending') {
+  const revision = { id: 'revision-1', contentHash: 'hash-1', markdown };
+  const document = { id: 'document-1', currentRevisionId: revision.id, gitPath: path, liveInstructionDocument: true, state: documentState };
+  const review = { revisionId: revision.id, revisionContentHash: revision.contentHash, state: reviewState, decisionActorId: reviewState === 'approved' ? 'reviewer' : undefined };
+  const repository = { transaction: async (work: (tx: any) => Promise<unknown>) => work({
+    getDocumentByDestination: async (_repository: string, requested: string) => requested === path ? document : undefined,
+    getRevision: async (id: string) => id === revision.id ? revision : undefined,
+    listReviews: async () => [review],
+  }) };
+  const core = new SharedSpecCore(repository as any);
+  return (requested: string) => core.approvedLiveInstructionByDestination('davidwmcintosh/HolaHola', requested);
+}
+for (const path of ['docs/coordination-clients.md', 'docs/shared-agent-instructions.md']) {
+  await withFixture(async (f) => {
+    const canonical = '# Instructions\nlocal change\nremote change\n';
+    const { local, remote } = f.diverge(path, '# Instructions\nlocal change\n', '# Instructions\nremote change\n');
+    const preflight = await f.service().preflight(local);
+    assert.equal(preflight.state, 'candidate_ready', preflight.error);
+    const result = await f.service(undefined, undefined, undefined, liveRevisionReader(path, canonical, 'approved', 'approved'))
+      .candidate(candidateAudit(f, preflight.packet!.fingerprint));
+    assert.equal(result.state, 'candidate_ready', result.error);
+    assert.equal(gitRaw(f.root, 'show', `${result.candidateSha}:${path}`), canonical);
+    primaryUnchanged(f, local, remote); noTemporaryMetadata(f);
+  });
+}
+
+for (const [documentState, reviewState] of [
+  ['draft', 'approved'], ['ready_for_review', 'pending'], ['approved', 'pending'],
+] as const) {
+  await withFixture(async (f) => {
+    const path = 'docs/coordination-clients.md';
+    const { local, remote } = f.diverge(path, 'local edit\n', 'remote edit\n');
+    const preflight = await f.service().preflight(local);
+    const result = await f.service(undefined, undefined, undefined,
+      liveRevisionReader(path, 'local edit\nremote edit\n', documentState, reviewState))
+      .candidate(candidateAudit(f, preflight.packet!.fingerprint));
+    assert.equal(result.state, 'generated_regeneration_failed', `${documentState}/${reviewState} must not publish instructions`);
+    primaryUnchanged(f, local, remote); noTemporaryMetadata(f);
+  });
+}
+
+// Non-overlapping edits merge cleanly in Git, but still cannot publish
+// unreviewed instruction text through the candidate branch.
+for (const approved of [false, true]) {
+  await withFixture(async (f) => {
+    const path = 'docs/coordination-clients.md';
+    f.write(path, '# Guide\nfirst\nmiddle\nlast\n');
+    f.commit('live instruction base'); git(f.root, 'push', 'origin', 'main');
+    const { local, remote } = f.diverge(path,
+      '# Guide\nlocal change\nmiddle\nlast\n',
+      '# Guide\nfirst\nmiddle\nremote change\n');
+    const preflight = await f.service().preflight(local);
+    const canonical = '# Guide\nlocal change\nmiddle\nremote change\n';
+    const result = await f.service(undefined, undefined, undefined,
+      liveRevisionReader(path, canonical, approved ? 'approved' : 'draft', approved ? 'approved' : 'pending'))
+      .candidate(candidateAudit(f, preflight.packet!.fingerprint));
+    assert.equal(result.state, approved ? 'candidate_ready' : 'generated_regeneration_failed', result.error);
+    if (approved) assert.equal(gitRaw(f.root, 'show', `${result.candidateSha}:${path}`), canonical);
+    primaryUnchanged(f, local, remote); noTemporaryMetadata(f);
+  });
+}
+
+// One-sided edits also require approval, even when Git never sees a conflict.
+await withFixture(async (f) => {
+  const path = 'docs/coordination-clients.md';
+  const { local, remote } = f.divergeClean();
+  // divergeClean changed unrelated paths on both sides; add an instruction
+  // edit to local and preflight against the new tip.
+  f.write(path, 'one-sided instruction\n');
+  const localWithInstruction = f.commit('instruction edit');
+  const preflight = await f.service().preflight(localWithInstruction);
+  const result = await f.service(undefined, undefined, undefined, async () => undefined)
+    .candidate(candidateAudit(f, preflight.packet!.fingerprint));
+  assert.equal(result.state, 'generated_regeneration_failed');
+  primaryUnchanged(f, localWithInstruction, remote); noTemporaryMetadata(f);
+});
+
+await withFixture(async (f) => {
+  const path = 'docs/coordination-clients.md';
+  const { local, remote } = f.diverge(path, 'local edit\n', 'remote edit\n');
+  const preflight = await f.service().preflight(local);
+  const result = await f.service(undefined, undefined, undefined, async () => 'local edit\n')
+    .candidate(candidateAudit(f, preflight.packet!.fingerprint));
+  assert.equal(result.state, 'generated_regeneration_failed', 'an unrecorded remote edit must not be discarded');
+  primaryUnchanged(f, local, remote); noTemporaryMetadata(f);
+});
+
+await withFixture(async (f) => {
+  const path = 'docs/coordination-clients.md';
+  const { local, remote } = f.diverge(path, 'local edit\n', 'remote edit\n');
+  const preflight = await f.service().preflight(local);
+  const result = await f.service(undefined, undefined, undefined, async () => undefined)
+    .candidate(candidateAudit(f, preflight.packet!.fingerprint));
+  assert.equal(result.state, 'generated_regeneration_failed', 'missing shared-spec document must fail closed');
+  primaryUnchanged(f, local, remote); noTemporaryMetadata(f);
+});
+
+await withFixture(async (f) => {
+  const path = 'docs/ordinary.md';
+  const { local, remote } = f.diverge(path, 'local edit\n', 'remote edit\n');
+  const preflight = await f.service().preflight(local);
+  const result = await f.service(undefined, undefined, undefined, async () => 'local edit\nremote edit\n')
+    .candidate(candidateAudit(f, preflight.packet!.fingerprint));
+  assert.equal(result.state, 'unclassified_conflict');
   primaryUnchanged(f, local, remote); noTemporaryMetadata(f);
 });
 

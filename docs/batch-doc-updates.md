@@ -60,6 +60,40 @@ runtime, or application publication was performed.
   ignored/tracked, ignored/untracked, unignored/untracked, and the blanket PEM
   rule with and without the public-key exception. No live index or DB writes.
 
+## 2026-09-30 — Reconcile DB-governed live instruction documents
+
+- Source reconciliation now recognizes the two shared-spec live instruction
+  documents as DB-governed paths, even when Git merges their edits cleanly.
+  A candidate uses the current shared-spec revision only when the document
+  and its matching review are approved and it contains both Git sides'
+  additions since the merge base; missing records, pending reviews, unreadable
+  DB state, and unrecorded edits fail closed rather than silently publishing
+  or discarding instructions.
+- Hermetic real-Git fixtures cover both documents, clean merges, unrecorded
+  changes, missing revisions, and the ordinary-document boundary. Focused reconciliation and
+  stripped-environment checks plus TypeScript passed.
+- The approved CI-only repairs isolate rolling-sync fixtures in temporary
+  workspaces with fresh row identities and resolve watchdog-driver aliases
+  through the checkout's TypeScript configuration without weakening its
+  sandbox boundary. Normal and mutation self-checks pass; the authored
+  Episode 99 record was verified unchanged. System health reported no failures;
+  its two app-route warnings came from running before the dev server started.
+
+## 2026-10-01 — Windows onboarding child-session policy (native check pending)
+
+- Founder authorized `RemoteSigned` only for the native onboarding helper's
+  PowerShell child. No saved execution-policy settings are changed, and
+  organizational policies and downloaded-script restrictions still apply.
+- Store launch now uses the fixed `-ExecutionPolicy RemoteSigned -File` options.
+  DPAPI/ACL/reparse/atomic replacement code is unchanged; there is no bypass,
+  unblocking or weaker fallback.
+- The focused source guard and dummy-only Windows smoke cover source and
+  packaged default invocations. The standalone runner verifies the development
+  manifest, owns only a random three-purpose scope, checks failure handling and
+  cleanup, and compares execution-policy scopes without changing them.
+- Linux checks pass, but native Windows evidence is pending. This is not a
+  claim of released/helper compatibility, enrollment or publication.
+
 ## 2026-09-26 — Alden gets real episode start/close tools
 
 - Alden had no way to formally end the current episode or start the next one

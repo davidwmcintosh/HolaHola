@@ -55,8 +55,7 @@ function runDriver(bypassCollisionCleanup: boolean): DriverRun {
   fs.writeFileSync(path.join(tmp, 'package.json'), '{}');
   fs.writeFileSync(path.join(tmp, 'drizzle.config.ts'), 'export default {};');
   fs.writeFileSync(path.join(tmp, 'shared/schema.ts'), 'export {};');
-  const run = spawnSync('npx', [
-    'tsx',
+  const run = spawnSync(path.join(WORKSPACE, 'node_modules/.bin/tsx'), [
     '--tsconfig',
     PROJECT_TSCONFIG,
     path.join(WORKSPACE, 'server/scripts/test-watchdog-inner-life-driver.ts'),

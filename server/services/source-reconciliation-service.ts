@@ -76,7 +76,7 @@ export interface ReconciliationInspectionResult extends ReconciliationResult {
     outputLimit: number;
   };
 }
-export interface ReconciliationOptions { rootDir?: string; run?: (args: string[], cwd?: string) => Promise<{ code: number; stdout: string; stderr: string }>; sourceControl?: Pick<SourceControlService, 'acquireReconciliationLease' | 'runReconciliationGit'>; validateCandidate?: (cwd: string) => Promise<Record<string, string>>; regenerateAgentMemory?: (cwd: string) => Promise<boolean> }
+export interface ReconciliationOptions { rootDir?: string; run?: (args: string[], cwd?: string) => Promise<{ code: number; stdout: string; stderr: string }>; sourceControl?: Pick<SourceControlService, 'acquireReconciliationLease' | 'runReconciliationGit'>; validateCandidate?: (cwd: string) => Promise<Record<string, string>>; regenerateAgentMemory?: (cwd: string) => Promise<boolean>; readLiveInstructionDocument?: (path: string) => Promise<string | undefined> }
 
 const stable = (value: unknown): string => JSON.stringify(value, (_key, item) => item && typeof item === 'object' && !Array.isArray(item) ? Object.fromEntries(Object.keys(item).sort().map((key) => [key, item[key]])) : item);
 const hash = (value: string) => createHash('sha256').update(value).digest('hex');
@@ -92,6 +92,9 @@ const policyMatches = (policy: Policy, path: string) => policy.path === path;
 // classifyProjectedChange() below) because topic files are created
 // dynamically and can't be enumerated in the manifest in advance.
 const AGENT_MEMORY_PATH = /^\.agents\/memory\/[^/]+\.md$/;
+// Only these paths can be liveInstructionDocument records in SharedSpecCore.
+// Do not treat arbitrary shared-spec documents as generated Git projections.
+const LIVE_INSTRUCTION_PATHS = new Set(['docs/coordination-clients.md', 'docs/shared-agent-instructions.md']);
 // Trimmed, non-blank lines of arbitrary file content, for the agent-memory
 // conflict proof below -- distinct from `lines()` above, which parses Git
 // plumbing command output (one path/SHA per line), not free-form document text.
@@ -178,6 +181,7 @@ export class SourceReconciliationService {
   private sourceControl?: Pick<SourceControlService, 'acquireReconciliationLease' | 'runReconciliationGit'>;
   private readonly validateCandidate: (cwd: string) => Promise<Record<string, string>>;
   private readonly regenerateAgentMemory: (cwd: string) => Promise<boolean>;
+  private readonly readLiveInstructionDocument: (path: string) => Promise<string | undefined>;
   constructor(options: ReconciliationOptions = {}) {
     this.root = options.rootDir || process.cwd();
     this.sourceControl = options.sourceControl;
@@ -236,6 +240,15 @@ export class SourceReconciliationService {
       } catch {
         return false;
       }
+    });
+    this.readLiveInstructionDocument = options.readLiveInstructionDocument || (async (path) => {
+      // Keep DB imports lazy: the hermetic reconciliation self-check has no
+      // database environment, and non-document candidates never need the DB.
+      const [{ getSharedDb }, { SharedSpecCore }, { PostgresSharedSpecRepository }] = await Promise.all([
+        import('../db'), import('./shared-spec-core'), import('./shared-spec-postgres-repository'),
+      ]);
+      return new SharedSpecCore(new PostgresSharedSpecRepository(getSharedDb()))
+        .approvedLiveInstructionByDestination('davidwmcintosh/HolaHola', path);
     });
   }
 
@@ -565,6 +578,7 @@ export class SourceReconciliationService {
           const policy = manifest.policies.find((item) => policyMatches(item, path));
           if (!policy) {
             if (AGENT_MEMORY_PATH.test(path)) { agentMemoryConflicts.push(path); continue; }
+            if (LIVE_INSTRUCTION_PATHS.has(path)) continue; // checked for every touched path below
             return finish('unclassified_conflict', `No protected-path policy permits resolution of ${path}.`);
           }
           if (policy.kind === 'append-only-manual') return finish('candidate_conflicts_manual', `Manual resolution required for ${path}.`);
@@ -574,6 +588,14 @@ export class SourceReconciliationService {
         }
         if (agentMemoryConflicts.length && !(await this.resolveAgentMemory(worktree, agentMemoryConflicts, packet))) {
           return finish('generated_regeneration_failed', `Agent-memory regeneration proof failed for ${agentMemoryConflicts.join(', ')}.`);
+        }
+      }
+      // A clean Git merge (including a one-sided edit) is not a shared-spec
+      // approval. Reproject every touched live instruction from its reviewed
+      // DB revision, not just paths with textual conflict markers.
+      for (const path of new Set([...packet.localPaths, ...packet.remotePaths].filter(path => LIVE_INSTRUCTION_PATHS.has(path)))) {
+        if (!(await this.resolveLiveInstructionDocument(worktree, path, packet))) {
+          return finish('generated_regeneration_failed', `Shared-spec revision proof failed for ${path}.`);
         }
       }
       if (lines((await this.git(['ls-files', '-u'], worktree)).stdout).length) return finish('candidate_conflicts_manual', 'Candidate index has unmerged entries.');
@@ -764,6 +786,29 @@ export class SourceReconciliationService {
       if (!localUnique.every((line) => regeneratedLines.has(line)) || !remoteUnique.every((line) => regeneratedLines.has(line))) return false;
     }
     return (await this.git(['add', '-A', '--', '.agents/memory'], cwd)).code === 0;
+  }
+  private async resolveLiveInstructionDocument(cwd: string, path: string, packet: ReconciliationPacket): Promise<boolean> {
+    try {
+      const canonical = await this.readLiveInstructionDocument(path);
+      if (canonical === undefined || CONFLICT_MARKER.test(canonical)) return false;
+      const [local, remote, base] = await Promise.all([
+        this.git(['show', `${packet.localSha}:${path}`]),
+        this.git(['show', `${packet.remoteSha}:${path}`]),
+        this.git(['show', `${packet.mergeBase}:${path}`]),
+      ]);
+      if (local.code || remote.code) return false;
+      const baseLines = base.code === 0 ? contentLines(base.stdout) : new Set<string>();
+      const canonicalLines = contentLines(canonical);
+      for (const side of [local, remote]) {
+        if ([...contentLines(side.stdout)].some((line) => !baseLines.has(line) && !canonicalLines.has(line))) return false;
+      }
+      await writeFile(join(cwd, path), canonical);
+      if ((await this.git(['add', '--', path], cwd)).code) return false;
+      const staged = await this.git(['show', `:${path}`], cwd);
+      return staged.code === 0 && staged.stdout === canonical;
+    } catch {
+      return false; // Missing DB, revision or read failure cannot authorize data loss.
+    }
   }
   private async manifest(): Promise<Manifest> { return JSON.parse(await readFile(resolve(this.root, 'config/source-reconciliation-policies.json'), 'utf8')) as Manifest; }
   private validateManifest(manifest: Manifest): string | undefined {
