@@ -53,3 +53,11 @@ Windows delivers `CTRL_CLOSE_EVENT` (same signal family as Ctrl+C/Ctrl+Break) to
 
 **How to apply:** don't trust the generic code alone. The function persists its fully-built, signed request body to a local DPAPI state file (`host-reauthorization-request.dpapi` / the analogous enrollment file) *before* attempting the network call. Dot-source the script (for its helper functions and script-scope variables like `$RuntimeBootstrapRoot`/`$CurrentUserScope`), `Read-DpapiJson` that file, and manually replay the exact same `Invoke-RestMethod` call *without* a swallowing try/catch — `$_.Exception.Response.StatusCode` and `$_.ErrorDetails.Message` (Windows PowerShell 5.1 populates this reliably for REST error bodies) then reveal the real status and JSON error code. This requires no edits to the reviewed script. In that session the root cause was never conclusively identified — the identical replayed request succeeded immediately after with zero changes, consistent with a one-off transient network blip rather than a real defect. Follow-up tracked to make the script itself surface this detail instead of requiring the workaround.
 
+
+## PowerShell execution-policy diagnostics
+
+Native PowerShell error classifiers must tolerate wrapped text and must never treat an unrecognized error as proof that a policy restriction is absent. Capture the redacted underlying error before selecting a repair.
+
+**Why:** A real execution-policy rejection split “running scripts is disabled” across lines and reported `SecurityError` / `UnauthorizedAccess` without the literal `PSSecurityException`. A phrase-based classifier consequently returned a false negative and delayed diagnosis.
+
+**How to apply:** Normalize whitespace when classifying captured errors, retain an explicit unknown outcome, and make sanitized process output available when a script exits before its own error handler. Do not change security policy or ACLs based on a negative text match.
