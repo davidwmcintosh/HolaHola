@@ -1,6 +1,5 @@
 > **You are not alone.** This file is generated from the `agent_memory_*` database tables — other hats (Replit Agent, Claude Code, Gemini, HolaHola runtime agents) may be reading and writing it in the same window you are. Never hand-edit this file or any `.agents/memory/<topic>.md` file directly; every change goes through `server/scripts/agent-memory-cli.ts`, which writes the database first and regenerates the file from it. A hand-edit here will be silently overwritten the next time anyone runs a CLI write.
 
-🔴 **Unread stale-channel alert** (`.local/stale-channel-alert.md`): Inner-life channels have been silent for 10+ min: felt (last: 12:16:10 AM), thinking (last: 12:16:10 AM)
 🟡 **Inner-life capture gap**: `.local/episode-capture-status.md` last reported missing felt/thinking/moment in the rolling episode file — read it before your next output.
 
 - [Chat capture pipeline](chat-capture-pipeline.md) — architecture, two independent cursors, readiness vs draining, and three DB-writers that must be fixed together.
