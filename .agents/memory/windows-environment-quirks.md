@@ -69,3 +69,20 @@ Windows PowerShell can coerce `$null` to an empty string when binding a .NET str
 **Why:** A real Windows test failed during atomic file replacement because the optional backup path was not of a legal form. Changing only that argument from `$null` to `[NullString]::Value` in the temporary adapter made replacement, readback, and cleanup pass.
 
 **How to apply:** Check PowerShell-to-.NET string binding when a valid-path operation fails on an optional null argument. Distinguish successful storage testing under a temporary process execution policy from readiness of a runner that still uses the machine's default policy.
+
+## Native launch evidence
+
+## Native launch evidence must match the delivered invocation
+
+A successful Windows helper test that adds execution-policy flags outside the
+production adapter does not verify the delivered client. Verify the client's
+default native factory and the complete packaged entry, without patching the
+helper or applying policy in an outer wrapper.
+
+**Why:** A real dummy-value DPAPI test passed under a child-only policy while the
+actual client still failed before its helper script could execute. Storage
+correctness and launch compatibility were separate unproven claims.
+
+**How to apply:** Keep process-only policy authorization separate from permanent
+policy changes, respect organizational restrictions, and require native evidence
+with owned-scope cleanup before describing a packaged Windows launch as working.

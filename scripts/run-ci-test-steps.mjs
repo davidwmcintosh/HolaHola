@@ -79,6 +79,8 @@ commands.splice(safetyInsertion, 0,
   // not left to the parity guard's Replit-only allowlist, because typecheck has
   // no live-DB or live-server dependency and can run in any CI environment.
   'npm run typecheck',
+  'npx tsx server/scripts/check-required-runtime-sources.ts',
+  'npx tsx server/scripts/check-required-runtime-sources.ts --self-check',
   'npx tsx server/scripts/test-context-lineage-migration-guard-selfcheck.ts',
   'npx tsx server/scripts/test-projection-receipts.ts',
   'npx tsx server/scripts/test-projection-writer-coverage.ts',

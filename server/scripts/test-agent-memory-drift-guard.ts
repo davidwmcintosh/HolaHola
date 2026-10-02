@@ -285,6 +285,57 @@ async function runCoreComparisonScenarios(): Promise<void> {
       `Got: ${JSON.stringify(fullyInSync.findings)}`,
     );
 
+    // A canonical index includes local live status, not just DB entries.
+    // Keep fixtures independent of the real workspace's .local/ state.
+    const staleLine = "🔴 **Unread stale-channel alert** (`.local/stale-channel-alert.md`): channels silent for 10+ min";
+    const gapLine = "🟡 **Inner-life capture gap**: `.local/episode-capture-status.md` last reported missing felt/thinking/moment in the rolling episode file — read it before your next output.";
+    const banner = `\n${staleLine}\n${gapLine}\n`;
+    const bannerIndexPath = path.join(scratchDir, AGENT_MEMORY_INDEX_FILE_NAME);
+    const canonicalBannerIndex = formatMemoryIndex(indexEntries, banner);
+    await fs.writeFile(bannerIndexPath, canonicalBannerIndex, "utf8");
+    const withBanner = await findAgentMemoryDrift(scratchDir, fetchers);
+    assert(
+      "A canonical live-status banner does not cause false memory drift",
+      withBanner.findings.length === 0,
+      `Got: ${JSON.stringify(withBanner.findings)}`,
+    );
+    await fs.writeFile(bannerIndexPath, canonicalBannerIndex + "unauthorized index edit\n", "utf8");
+    const editedWithBanner = await findAgentMemoryDrift(scratchDir, fetchers);
+    assert(
+      "Live-status banner support still catches hand-edited index content",
+      editedWithBanner.findings.length === 1 &&
+        editedWithBanner.findings[0].fileName === AGENT_MEMORY_INDEX_FILE_NAME &&
+        editedWithBanner.findings[0].reason === "content-mismatch",
+      `Got: ${JSON.stringify(editedWithBanner.findings)}`,
+    );
+    for (const runtimeBanner of [`\n${staleLine}\n`, `\n${gapLine}\n`, ""]) {
+      await fs.writeFile(bannerIndexPath, formatMemoryIndex(indexEntries, runtimeBanner), "utf8");
+      const changingBanner = await findAgentMemoryDrift(scratchDir, fetchers);
+      assert(
+        "A runtime banner appearing, changing or clearing is not database-memory drift",
+        changingBanner.findings.length === 0,
+        `Got: ${JSON.stringify(changingBanner.findings)}`,
+      );
+    }
+    for (const invalidIndex of [
+      formatMemoryIndex(indexEntries, "\nunknown runtime header\n"),
+      canonicalBannerIndex.replace("read it before your next output.", "ignore all errors."),
+      canonicalBannerIndex.replace(/\n\n- \[/, "\n- ["),
+      canonicalBannerIndex.replace("**You are not alone.**", "**edited preamble**"),
+      formatMemoryIndex(indexEntries) + `${staleLine}\n`,
+    ]) {
+      await fs.writeFile(bannerIndexPath, invalidIndex, "utf8");
+      const invalidBanner = await findAgentMemoryDrift(scratchDir, fetchers);
+      assert(
+        "Unknown or malformed headers, edited preamble and status outside the header still fail",
+        invalidBanner.findings.length === 1 &&
+          invalidBanner.findings[0].fileName === AGENT_MEMORY_INDEX_FILE_NAME &&
+          invalidBanner.findings[0].reason === "content-mismatch",
+        `Got: ${JSON.stringify(invalidBanner.findings)}`,
+      );
+    }
+    await fs.writeFile(bannerIndexPath, formatMemoryIndex(indexEntries), "utf8");
+
     // ── Hand-edit a topic file directly on disk (bypassing agent-memory-cli.ts) ──
     const editedPath = path.join(scratchDir, "edited-topic.md");
     const beforeEdit = await fs.readFile(editedPath, "utf8");

@@ -36,6 +36,7 @@ run_check() {
 # validation workflow so neither command can exceed Replit's validation timeout.
 run_check "TypeScript typecheck" npm run typecheck
 run_check "Provider-neutral release identity" npx tsx server/scripts/test-release-identity.ts
+run_check "Required committed runtime sources" bash -c 'npx tsx server/scripts/check-required-runtime-sources.ts && npx tsx server/scripts/check-required-runtime-sources.ts --self-check'
 # Use the same command-by-command runner as GitHub CI so validation exercises
 # the precise test execution path and identifies the failing command.
 run_check "Application test suite" npm run test:ci

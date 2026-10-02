@@ -8,3 +8,11 @@ The banner is recomputed on every DB-triggered index regeneration (`writeMemoryI
 
 **How to apply:** any future live-state file added to this pattern should follow the same shape — read-only, wrap each file read in its own try/catch that swallows ENOENT (missing file is the healthy/expected case, not an error), and short-circuit the whole function to `""` under `AGENT_MEMORY_TEST_FILES_DIR` (the live-state files live under this checkout's real `.local/`, with no parallel scratch location — leaking real workspace state into a hermetic DB test's content-equality assertions would be a silent test-isolation break). When adding a new trigger call site, call `refreshMemoryIndexBestEffort(callerLabel)` right after the write/clear, and check any existing test-path-override variable at that call site first — a test redirecting the file to a scratch path must never also cause a live DB read + write against the real MEMORY.md.
 
+
+## Runtime projections and canonical integrity
+
+Runtime-status projections must not be treated as database-backed memory content when checking integrity. Preserve exact comparisons for the canonical preamble, memory entries and topic prose; distinguish only the narrowly recognized generated status header.
+
+**Why:** A long validation run can change or clear local status after the index was generated. Comparing against the current status caused false drift even immediately after database regeneration; including the current banner in expected output fixed only the short-lived case.
+
+**How to apply:** When validating mixed canonical/runtime documents, separate their authority domains explicitly. Test both legitimate projection changes and unauthorized canonical-content edits; never repair or rewrite a file inside an integrity check to make it pass.

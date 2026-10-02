@@ -36,7 +36,7 @@
 import { promises as fs } from "node:fs";
 import path from "node:path";
 import type { AgentMemoryEntry, AgentMemoryTopicBlock } from "@shared/schema";
-import { formatMemoryIndex, formatTopicFile } from "./agent-memory-core";
+import { AGENT_MEMORY_PREAMBLE, formatMemoryIndex, formatTopicFile } from "./agent-memory-core";
 
 export const AGENT_MEMORY_INDEX_FILE_NAME = "MEMORY.md";
 
@@ -156,6 +156,23 @@ export async function findAgentMemoryDriftInWorkingTree(
   return { findings, filesExpected: full.filesExpected, ignoredAsUnsynced };
 }
 
+/**
+ * The generated index's live header is a local runtime projection, not DB
+ * memory. Its asynchronous refresh may lag status changes during validation.
+ * Recognize only the writer's two exact line shapes, in header order, with
+ * the writer's separating blank line. All other bytes remain checked.
+ */
+function withoutLiveStatusBanner(content: string): string {
+  const prefix = `${AGENT_MEMORY_PREAMBLE}\n\n`;
+  if (!content.startsWith(prefix)) return content;
+  const lines = content.slice(prefix.length).split("\n");
+  let count = 0;
+  if (/^🔴 \*\*Unread stale-channel alert\*\* \(`\.local\/stale-channel-alert\.md`\): .{1,200}$/.test(lines[count] ?? "")) count++;
+  if (/^🟡 \*\*Inner-life capture gap\*\*: `\.local\/episode-capture-status\.md` last reported missing \w+(?:\/\w+)* in the rolling episode file — read it before your next output\.$/.test(lines[count] ?? "")) count++;
+  if (count === 0 || lines[count] !== "") return content;
+  return prefix + lines.slice(count + 1).join("\n");
+}
+
 export async function findAgentMemoryDrift(
   memoryDir: string,
   fetchers: AgentMemoryDriftFetchers,
@@ -173,7 +190,7 @@ export async function findAgentMemoryDrift(
   ]);
   if (onDiskIndexContent === null) {
     findings.push({ fileName: AGENT_MEMORY_INDEX_FILE_NAME, topicSlug: null, reason: "missing-from-disk" });
-  } else if (onDiskIndexContent !== expectedIndexContent) {
+  } else if (withoutLiveStatusBanner(onDiskIndexContent) !== expectedIndexContent) {
     findings.push({ fileName: AGENT_MEMORY_INDEX_FILE_NAME, topicSlug: null, reason: "content-mismatch" });
   }
 

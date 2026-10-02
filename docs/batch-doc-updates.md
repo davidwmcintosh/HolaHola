@@ -1,3 +1,14 @@
+## 2026-10-02 — Memory drift check matches canonical live-status banners
+
+- The drift check recognizes only the two canonical runtime-status lines in
+  the generated index header. Their asynchronous appearance/change/clearing
+  no longer creates false database-memory drift; all DB entries and the
+  preamble remain byte-for-byte checked.
+- Hermetic self-checks cover both/single/cleared status banners, edited index
+  content, unknown/malformed headers, edited preamble and status text outside
+  the header. The required-runtime-files guard is unchanged; this focused fix
+  was authorized to unblock completion validation.
+
 ## 2026-10-02 — Canonical-save validation owns its complete sandbox
 
 Canonical-save no longer contacts the ordinary development server or shared
@@ -36,6 +47,18 @@ Primary files: `server/routes/luca-chat-post-route.ts`,
 This completes the directly assigned isolation work, not the separate
 required-runtime-files validation retry. That guard was not edited. No source,
 runtime, or application publication was performed.
+
+## 2026-10-01 — Required runtime source Git guard
+
+- Validation and GitHub CI now check the runtime member array, provenance
+  snapshot paths (including `package-lock.json`), and both Windows launcher
+  source allowlists for ignored or untracked required files.
+- `server/scripts/check-required-runtime-sources.ts` reads declarations without
+  loading application services. It uses `git check-ignore --no-index` so a
+  newly ignored tracked file fails too, and `git ls-files --error-unmatch`.
+- Its `--self-check` exercises every required path in disposable Git indexes:
+  ignored/tracked, ignored/untracked, unignored/untracked, and the blanket PEM
+  rule with and without the public-key exception. No live index or DB writes.
 
 ## 2026-09-26 — Alden gets real episode start/close tools
 
