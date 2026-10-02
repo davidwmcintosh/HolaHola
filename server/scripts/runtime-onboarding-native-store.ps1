@@ -181,7 +181,8 @@ try {
             }
         } elseif ([IO.File]::Exists($target)) {
             Assert-PrivateAcl -Path $target -Directory $false
-            [IO.File]::Replace($temporary, $target, $null)
+            # Preserve a true null backup path across PowerShell's string binding.
+            [IO.File]::Replace($temporary, $target, [NullString]::Value)
         } else {
             [IO.File]::Move($temporary, $target)
         }
