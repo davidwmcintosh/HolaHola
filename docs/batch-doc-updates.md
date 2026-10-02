@@ -1,3 +1,42 @@
+## 2026-10-02 — Canonical-save validation owns its complete sandbox
+
+Canonical-save no longer contacts the ordinary development server or shared
+application database. Its existing command now creates a disposable named
+PostgreSQL database, applies the full project migration journal, creates a
+temporary capture workspace, and starts a focused private Express server.
+Production and fixture routing share the extracted Luca POST handler; its
+executable statements and prompt text were verified unchanged.
+
+The fixture uses real authentication, SQL persistence, and production
+re-embedding. Only external completion/vector HTTP responses are deterministic
+local fixtures, with dummy credentials and unexpected outbound fetches rejected.
+Inherited application credentials and database endpoints are not passed through.
+
+Driver checks run before application imports: unverified/mismatched DB targets,
+non-owned databases, connection-string host/database overrides, real checkout
+workspaces, and foreign server identities are refused. Missing/wrong auth is
+rejected without provider calls or writes. The original archive/embedding
+assertions remain, with exact speaker text, both chat-history rows, and stored
+768-dimensional vectors additionally checked. Broad sentinel deletion is gone.
+
+Commands:
+- `npx tsx server/scripts/test-luca-chat-canonical-save.ts` — isolated integration.
+- Add `--self-check` — offline broken-payload assertion checks.
+- Add `--sandbox-self-check` — genuine post-write driver failure, followed by
+  verification that the owned database and temporary workspace were removed.
+
+Both self-checks are registered beside the normal capture-group CI command.
+Focused verification passed: normal integration; nine assertion self-checks;
+failure cleanup; unrelated memory/note/embedding/file preservation; typecheck;
+source-write scanner 32/32; shell syntax and diff whitespace checks.
+
+Primary files: `server/routes/luca-chat-post-route.ts`,
+`server/scripts/luca-chat-canonical-{isolation,sandbox,fixture-server}.ts`,
+`server/scripts/test-luca-chat-canonical-save.ts`, and the capture CI group.
+This completes the directly assigned isolation work, not the separate
+required-runtime-files validation retry. That guard was not edited. No source,
+runtime, or application publication was performed.
+
 ## 2026-09-26 — Alden gets real episode start/close tools
 
 - Alden had no way to formally end the current episode or start the next one

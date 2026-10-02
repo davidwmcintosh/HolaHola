@@ -6,15 +6,16 @@
  *   1. conversation_memories with tag 'david-luca-chat' and both speaker lines
  *   2. memory_embeddings (parent + chunk arms stable)
  *
- * The route returns the exact IDs of every artifact it creates
- * (noteIds.davidNoteId, noteIds.lucaNoteId, memId).  Cleanup deletes only
- * those specific rows — no time-window queries, no pattern matches that could
- * hit unrelated live data.
+ * Normal execution owns a disposable migrated PostgreSQL database, temporary
+ * workspace, and private application/provider HTTP server. Production routing,
+ * authentication, persistence, and re-embedding run unchanged. Only outbound
+ * completion/vector responses are deterministic fixtures. No live-server or
+ * shared-database fallback is permitted; the owner tears everything down.
  *
  * ─────────────────────────────────────────────────────────────────────────────
  * Normal mode
  * ─────────────────────────────────────────────────────────────────────────────
- *   0. Poll /api/health until the server is ready (max 60 s)
+ *   0. Create the sandbox; verify its private server identity (max 15 s)
  *   1. POST a uniquely-sentinel-marked message to /api/admin/luca/chat
  *   2. Assert response shape: { reply, savedAt, noteIds }
  *   3. Immediately query conversation_memories by sentinel (synchronous insert)
@@ -35,17 +36,21 @@
  * Usage:
  *   npx tsx server/scripts/test-luca-chat-canonical-save.ts
  *   npx tsx server/scripts/test-luca-chat-canonical-save.ts --self-check
+ *   npx tsx server/scripts/test-luca-chat-canonical-save.ts --sandbox-self-check
  */
 
 import http from 'http';
-import { getMonitoringDb } from '../db';
+import { randomUUID } from 'crypto';
+import { assertCanonicalSaveIsolation } from './luca-chat-canonical-isolation';
+import { runCanonicalSaveSandbox } from './luca-chat-canonical-sandbox';
 import { sql } from 'drizzle-orm';
-import { getAgentAuthHeaders } from '../services/agent-auth';
+
+let getMonitoringDb: typeof import('../db').getMonitoringDb;
 
 // ─── Config ──────────────────────────────────────────────────────────────────
-const PORT       = process.env.PORT ?? '5000';
-const HOST       = 'localhost';
-const AUTH_HEADERS = getAgentAuthHeaders() ?? {};
+const PORT       = process.env.CANONICAL_SAVE_SERVER_PORT ?? '';
+const HOST       = '127.0.0.1';
+let AUTH_HEADERS: Record<string, string> = {};
 const SELF_CHECK = process.argv.includes('--self-check');
 
 // ─── Colour helpers ──────────────────────────────────────────────────────────
@@ -118,13 +123,20 @@ function post(path: string, body: unknown): Promise<{ status: number; body: any 
 }
 
 /** Poll GET /api/health until the server responds 200 or timeout elapses. */
-async function waitForServer(maxMs = 60_000, intervalMs = 2_000): Promise<boolean> {
+async function waitForServer(maxMs = 15_000, intervalMs = 250): Promise<boolean> {
   const deadline = Date.now() + maxMs;
   while (Date.now() < deadline) {
     try {
       const r = await httpGet('/api/health');
-      if (r.status === 200) return true;
-    } catch { /* still booting */ }
+      if (r.status === 200) {
+        if (r.body?.canonicalSaveRunId !== process.env.CANONICAL_SAVE_RUN_ID) {
+          throw new Error('REFUSING TO RUN: canonical-save server is not owned by this invocation');
+        }
+        return true;
+      }
+    } catch (error) {
+      if (error instanceof Error && error.message.startsWith('REFUSING TO RUN:')) throw error;
+    }
     await new Promise((r) => setTimeout(r, intervalMs));
   }
   return false;
@@ -216,6 +228,11 @@ function assertResponseShape(resp: { status: number; body: any }): void {
     `savedAt: ${JSON.stringify(resp.body?.savedAt)}`,
   );
   assert(
+    'Response has canonical memory ID',
+    typeof resp.body?.memId === 'string' && resp.body.memId.length > 0,
+    `memId: ${JSON.stringify(resp.body?.memId)}`,
+  );
+  assert(
     'Response has noteIds (davidNoteId + lucaNoteId)',
     typeof resp.body?.noteIds?.davidNoteId === 'string' &&
     typeof resp.body?.noteIds?.lucaNoteId  === 'string',
@@ -287,7 +304,6 @@ async function cleanup(
   memId: string | null,
   davidNoteId: string | null,
   lucaNoteId: string | null,
-  sentinel: string,
 ): Promise<void> {
   console.log(Y('\nCleanup: removing CI test artifacts by exact ID...'));
 
@@ -305,14 +321,6 @@ async function cleanup(
   if (memId) {
     await db.execute(sql`DELETE FROM conversation_memories WHERE id = ${memId}`);
     console.log(Y(`  deleted conversation_memories row ${memId}`));
-  } else {
-    // Fallback: sentinel-based delete when memId was never populated.
-    await db.execute(sql`
-      DELETE FROM conversation_memories
-      WHERE content LIKE ${'%' + sentinel + '%'}
-        AND arc_name = 'david-luca-chat'
-    `);
-    console.log(Y(`  deleted conversation_memories by sentinel (memId unknown)`));
   }
 
   // 3. Delete the two agent_notes rows by the exact IDs the route returned.
@@ -335,7 +343,7 @@ async function runSelfCheck(): Promise<void> {
     },
     {
       label: 'Sub-test B: missing noteIds in response',
-      fn: () => assertResponseShape({ status: 200, body: { reply: 'hi', savedAt: 'x' } }),
+      fn: () => assertResponseShape({ status: 200, body: { reply: 'hi', savedAt: 'x', memId: 'fake-memory' } }),
     },
     {
       label: 'Sub-test C: missing conversation_memories row (null)',
@@ -376,6 +384,13 @@ async function runSelfCheck(): Promise<void> {
         'fake-id',
       ),
     },
+    {
+      label: 'Sub-test I: missing canonical memory ID only',
+      fn: () => assertResponseShape({
+        status: 200,
+        body: { reply: 'hi', savedAt: 'x', noteIds: { davidNoteId: 'fake-david', lucaNoteId: 'fake-luca' } },
+      }),
+    },
   ];
 
   for (const { label, fn } of tests) {
@@ -413,14 +428,14 @@ async function main(): Promise<void> {
   console.log(B('\n── Luca Chat Canonical Save CI ──────────────────────────────\n'));
 
   // ── 0. Wait for server ────────────────────────────────────────────────────
-  console.log('Step 0: Waiting for server to be ready (max 60 s)...');
-  if (!await waitForServer(60_000, 2_000)) {
-    console.error(R('FATAL: server did not become ready within 60 s'));
+  console.log('Step 0: Verifying the invocation-owned fixture server...');
+  if (!await waitForServer()) {
+    console.error(R('FATAL: owned fixture server did not become ready'));
     process.exit(1);
   }
   console.log('  Server is ready.\n');
 
-  const sentinel    = `CI-save-${Date.now()}`;
+  const sentinel    = `CI-save-${randomUUID()}`;
   const db          = getMonitoringDb();
   let memId: string | null        = null;
   let davidNoteId: string | null  = null;
@@ -445,6 +460,18 @@ async function main(): Promise<void> {
     console.log(`  memId:       ${memId}`);
     console.log(`  davidNoteId: ${davidNoteId}`);
     console.log(`  lucaNoteId:  ${lucaNoteId}`);
+    if (process.env.CANONICAL_SAVE_INJECT_FAILURE === 'after-post') {
+      throw new Error('CANONICAL_SAVE_EXPECTED_DRIVER_FAILURE');
+    }
+    const noteRows = await db.execute(sql`
+      SELECT id, from_agent, to_agent, body FROM agent_notes
+      WHERE id IN (${davidNoteId}, ${lucaNoteId})
+    `);
+    const notes = ((noteRows as any).rows ?? noteRows) as any[];
+    assert('Both exact chat-history rows persisted',
+      notes.length === 2 &&
+      notes.some(n => n.id === davidNoteId && n.from_agent === 'david' && n.to_agent === 'luca' && n.body === testMessage) &&
+      notes.some(n => n.id === lucaNoteId && n.from_agent === 'luca' && n.to_agent === 'david' && n.body === resp.body.reply));
 
     // ── 2. Query conversation_memories (synchronous insert in route) ────────
     console.log('\nStep 2: Querying conversation_memories...');
@@ -464,6 +491,9 @@ async function main(): Promise<void> {
       raw ? { id: raw.id as string, tags: (raw.tags as string[] | null) ?? null, content: raw.content as string } : null,
       sentinel,
     );
+    assert('Returned memory ID matches the canonical stored row', typeof memId === 'string' && raw?.id === memId);
+    assert('Canonical speaker text preserves both exact turns',
+      raw?.content === `David: ${testMessage}\n\nLuca: ${resp.body?.reply}`);
     console.log(`  memory id: ${memId ?? '(not found)'}`);
 
     // ── 3. Poll embeddings until stable, then assert each arm type ─────────
@@ -471,6 +501,15 @@ async function main(): Promise<void> {
       console.log('\nStep 3: Polling memory_embeddings until stable (max 30 s)...');
       const armCounts = await pollForEmbeddingStable(db, memId, 30_000, 2_000, 2);
       assertEmbeddingArms(armCounts, memId);
+      const vectors = await db.execute(sql`
+        SELECT embedding, content_hash FROM memory_embeddings
+        WHERE memory_id = ${memId} OR memory_id LIKE ${memId + ':chunk:%'}
+      `);
+      const storedVectors = ((vectors as any).rows ?? vectors) as any[];
+      assert('All embedding arms contain actual 768-dimensional vectors and hashes',
+        storedVectors.length >= 3 &&
+        storedVectors.every(row => Array.isArray(row.embedding) && row.embedding.length === 768 &&
+          typeof row.content_hash === 'string' && row.content_hash.length === 64));
     } else {
       assert('memory_embeddings check (skipped — row not found)', false, 'cannot check embeddings without a memory id');
     }
@@ -478,7 +517,7 @@ async function main(): Promise<void> {
   } finally {
     // Cleanup uses only exact IDs — never touches unrelated live data.
     // Throws on failure so orphaned rows fail CI.
-    await cleanup(db, memId, davidNoteId, lucaNoteId, sentinel);
+    await cleanup(db, memId, davidNoteId, lucaNoteId);
   }
 
   console.log('\n── Results ──────────────────────────────────────────────────\n');
@@ -491,7 +530,28 @@ async function main(): Promise<void> {
   }
 }
 
-main().catch((err) => {
+async function isolatedMain(): Promise<void> {
+  if (SELF_CHECK) {
+    await runSelfCheck();
+    return;
+  }
+  if (!process.argv.includes('--isolated-driver')) {
+    process.exitCode = await runCanonicalSaveSandbox(process.argv.slice(2));
+    return;
+  }
+  assertCanonicalSaveIsolation();
+  if (!/^\d+$/.test(PORT) || PORT_NUM < 1 || PORT_NUM > 65535) {
+    throw new Error('REFUSING TO RUN: canonical-save driver requires its invocation-owned server port');
+  }
+  // Check server identity before loading application database modules.
+  if (!await waitForServer()) throw new Error('Owned canonical-save server unavailable');
+  ({ getMonitoringDb } = await import('../db'));
+  const { getAgentAuthHeaders } = await import('../services/agent-auth');
+  AUTH_HEADERS = getAgentAuthHeaders() ?? {};
+  await main();
+}
+
+isolatedMain().catch((err) => {
   console.error(R('FATAL:'), err.message ?? err);
   process.exit(1);
 });

@@ -114,3 +114,11 @@ set all three of `CI=true`, `CI_DATABASE_URL`, and `NEON_SHARED_DATABASE_URL`
 (the latter two identical, loopback host) in the same invocation — not just
 `NEON_SHARED_DATABASE_URL`.
 
+
+## Connection-string query overrides defeat apparent isolation
+
+PostgreSQL connection-string query arguments can override the URL hostname and database path. Validating only the URL's apparent authority/path is not proof of the driver's actual target.
+
+**Why:** node-postgres' connection-string parser gives query arguments precedence; a loopback-looking URL or private-looking database path can still resolve to a different host or database.
+
+**How to apply:** fail closed on target-changing URL parameters before opening even an administrative connection in a disposable-database harness. Verify both the driver's effective target and invocation ownership, not just that CI is enabled.

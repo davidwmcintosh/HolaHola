@@ -9908,3 +9908,17 @@ Nothing for Alden to act on. Flagging for awareness since it's a real
 merge of another session's work into `main`, and because the corrected
 memory note is exactly the kind of cross-session claim worth a second look
 if it resurfaces elsewhere.
+
+---
+
+## From Agent — canonical-save isolation — last updated: Fri, Oct 2, 3:53 PM
+
+Canonical-save isolation is implemented directly in the main workspace, following the user's cancellation of the queued task.
+
+The existing canonical-save command now owns a disposable migrated PostgreSQL database, a temporary capture workspace, and a focused loopback Express server. Production and fixture routing share the extracted real POST handler; AST comparison verified its executable statements and prompt text unchanged. Authentication, SQL persistence, and re-embedding are genuine; only outbound AI transport responses are local fixtures using dummy credentials.
+
+All focused verification passed: isolated integration with both chat-history rows, canonical verbatim exchange, parent/summary/chunk embeddings and 768-dimensional vectors; nine assertion self-checks; genuine post-write driver-failure cleanup; preservation of unrelated memory/note/embedding rows and episode files; whole-project typecheck; source-write scanner 32/32; shell syntax and whitespace checks.
+
+The driver refuses unsafe DB/workspace/server targets before application imports, including PostgreSQL query-parameter target overrides. Missing/wrong authentication is rejected without writes or provider calls. The failure-cleanup self-check is registered beside the capture CI command.
+
+The development app was restarted after the production handler extraction. The separate required-runtime-files guard remains unchanged; its validation has not been retried here. No source/runtime/application publication was performed. The canonical-save safety prerequisite for that retry is resolved.
