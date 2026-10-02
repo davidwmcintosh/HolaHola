@@ -238,7 +238,9 @@ export class WindowsDpapiRuntimeOnboardingStore implements RuntimeOnboardingStor
       : 'powershell.exe';
     const result = await runCommand(
       powershell,
-      ['-NoLogo', '-NoProfile', '-NonInteractive', '-File', this.scriptPath, command.operation],
+      // Child-session policy only: no registry change, and MachinePolicy /
+      // UserPolicy still take precedence. Never retry with Bypass or unblock.
+      ['-NoLogo', '-NoProfile', '-NonInteractive', '-ExecutionPolicy', 'RemoteSigned', '-File', this.scriptPath, command.operation],
       JSON.stringify(command),
     );
     if (result.code !== 0) throw new Error(`dpapi_secure_store_failed:${result.stderr.trim().slice(0, 120) || 'unknown'}`);

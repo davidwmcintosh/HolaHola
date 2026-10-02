@@ -3,12 +3,46 @@ import { execFileSync } from 'node:child_process';
 import { mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
+import { fileURLToPath } from 'node:url';
 import test from 'node:test';
+import { createNativeRuntimeOnboardingStore } from '../services/runtime-onboarding-store';
+import { RuntimeOnboardingClient } from '../services/runtime-onboarding-client';
+// @ts-expect-error Standalone native smoke runner intentionally has no TS dependency.
+import { runWindowsNativeSmoke } from '../../scripts/test-runtime-onboarding-windows.mjs';
 
 const nativeStoreSource = readFileSync(
   new URL('./runtime-onboarding-native-store.ps1', import.meta.url),
   'utf8',
 );
+
+function assertProcessPolicyLaunch(source: string): void {
+  const code = source.replace(/\/\*[\s\S]*?\*\//g, '').replace(/^\s*\/\/.*$/gm, '');
+  const windows = code.slice(code.indexOf('export class WindowsDpapiRuntimeOnboardingStore'), code.indexOf('const KEYCHAIN_SCRIPT'));
+  assert.match(windows, /'-NonInteractive',\s*'-ExecutionPolicy',\s*'RemoteSigned',\s*'-File',\s*this\.scriptPath,\s*command\.operation/);
+  assert.doesNotMatch(windows, /Bypass|Unrestricted|Unblock-File|Set-ExecutionPolicy|EncodedCommand/);
+}
+
+test('Windows production launch uses only child-session RemoteSigned with the fixed script', () => {
+  const source = readFileSync(new URL('../services/runtime-onboarding-store.ts', import.meta.url), 'utf8');
+  assertProcessPolicyLaunch(source);
+  for (const mutated of [
+    source.replace("'-ExecutionPolicy', 'RemoteSigned', ", ''),
+    source.replace("'RemoteSigned'", "'Bypass'"),
+    source.replace("'-File', this.scriptPath", "'-Command', this.scriptPath"),
+  ]) {
+    assert.throws(() => assertProcessPolicyLaunch(mutated));
+  }
+});
+
+test('Windows unmodified source factory and CLI pass owned-scope native smoke', {
+  skip: process.platform !== 'win32',
+}, async () => {
+  await runWindowsNativeSmoke({
+    createStore: createNativeRuntimeOnboardingStore,
+    Client: RuntimeOnboardingClient,
+    cliArgs: ['--import', 'tsx', fileURLToPath(new URL('./runtime-onboarding-cli.ts', import.meta.url))],
+  });
+});
 
 function atomicReplacementStatement(source: string): string {
   const code = source.replace(/<#[\s\S]*?#>/g, '').replace(/^\s*#.*$/gm, '');
@@ -70,7 +104,7 @@ test('Windows PowerShell executes the source replacement statement against dispo
       : 'powershell.exe';
     const output = execFileSync(powershell, [
       '-NoLogo', '-NoProfile', '-NonInteractive',
-      // Test-child policy only; the production adapter's launch policy is unchanged.
+      // Test-child policy only; no saved Windows policy changes.
       '-ExecutionPolicy', 'RemoteSigned', '-File', fixture, root,
     ], { encoding: 'utf8', timeout: 30_000 });
     assert.equal(output.trim(), 'atomic-replace-ok');

@@ -1,3 +1,18 @@
+## 2026-10-01 — Windows onboarding child-session policy (native check pending)
+
+- Founder authorized `RemoteSigned` only for the native onboarding helper's
+  PowerShell child. No saved execution-policy settings are changed, and
+  organizational policies and downloaded-script restrictions still apply.
+- Store launch now uses the fixed `-ExecutionPolicy RemoteSigned -File` options.
+  DPAPI/ACL/reparse/atomic replacement code is unchanged; there is no bypass,
+  unblocking or weaker fallback.
+- The focused source guard and dummy-only Windows smoke cover source and
+  packaged default invocations. The standalone runner verifies the development
+  manifest, owns only a random three-purpose scope, checks failure handling and
+  cleanup, and compares execution-policy scopes without changing them.
+- Linux checks pass, but native Windows evidence is pending. This is not a
+  claim of released/helper compatibility, enrollment or publication.
+
 ## 2026-09-26 — Alden gets real episode start/close tools
 
 - Alden had no way to formally end the current episode or start the next one

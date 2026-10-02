@@ -225,7 +225,15 @@ The helper has no plaintext or repository-file fallback:
   restrictive owner-only ACLs, protected ACL inheritance, and reparse-point
   validation. This is separate from Coordinator V2 and Gate 3 storage.
   PowerShell receives secret values over stdin; command arguments contain only
-  the fixed operation and adapter path.
+  the fixed operation, adapter path, and fixed launch options. With explicit
+  founder authorization, the helper launches its child with
+  `-ExecutionPolicy RemoteSigned -File`. This applies only to that child
+  session; it never writes CurrentUser/LocalMachine policy. MachinePolicy and
+  UserPolicy (organizational Group Policy) still take precedence. A blocked
+  helper fails closed: no `Bypass`, encoded/inlined helper, `Unblock-File`,
+  or policy-changing retry. Internet-marked unsigned helpers may still be
+  blocked under RemoteSigned; use an independently approved signed distribution
+  or ask the organization for approval, not an automatic unblock.
 - **macOS:** Generic passwords in the OS Keychain, accessed through the
   installed Swift toolchain and Security framework. Values go to the helper
   process over stdin, never argv.
@@ -345,6 +353,51 @@ depend on the actual OpenAI SDK and service being available; the hermetic tests
 do not make a real OpenAI API call.
 
 ## Verification boundary
+
+### Authorized Windows launch verification
+
+The founder authorized the process-only RemoteSigned strategy on 2026-10-01
+(Denver). The native script's ACL, CurrentUser DPAPI, reparse checks, and atomic
+`[NullString]::Value` replacement are unchanged. This authorization is not
+publication, enrollment, or proof of Windows compatibility.
+
+Build a **development-only** package from the reviewed local source (no
+`--release`, no push or publication), then transfer it and
+`scripts/test-runtime-onboarding-windows.mjs` through an approved local transfer.
+Independently verify the package manifest SHA-256 and smoke-runner SHA-256
+supplied by the builder/operator; a bundled manifest alone is not a trust anchor.
+Keep the package files together and do not patch, unblock, or wrap the helper
+with an extra execution-policy command for the test:
+
+```sh
+node scripts/build-runtime-onboarding-package.mjs --output /secure/staging/onboarding-dev
+```
+
+On native Windows with trusted Node.js 20+, from an ordinary PowerShell prompt:
+
+```powershell
+node .\test-runtime-onboarding-windows.mjs C:\approved-staging\onboarding-dev
+```
+
+This runs the unmodified packaged CLI and SDK's default native factory. It
+uses a random scope at `https://native-smoke.invalid`, dummy values only, and
+no enrollment/network calls. It checks all three purposes, first-write winner
+preservation, DPAPI ciphertext, owner-only protected file ACLs, atomic
+replacement, client/CLI corrupt-state rejection and corrupt-envelope failure.
+It also gives only its dummy file an extra ACL principal and checks that both
+read and adapter delete reject it; owned-path cleanup then removes that file.
+Its `finally` cleanup deletes only three preflight-absent random-scope files;
+it never removes the namespace or other entries. Cleanup failure is a test
+failure, not success; process termination cannot guarantee cleanup. It compares
+execution-policy scopes before/after without writing them. Group Policy or
+download-mark restrictions must result in failure, not an alternate launch.
+
+The source Windows check is part of
+`npx tsx --test server/scripts/runtime-onboarding-native-store.test.ts` and
+uses the same smoke with the default source factory/client/CLI.
+Linux skips native Windows execution; source scans, a package build, and a
+skip are **not** a real Windows pass. Record the native run's source revision,
+manifest hash, checks and cleanup result before calling this launch verified.
 
 The focused server/client test files use isolated fixtures; the client and SDK
 tests use fake endpoints/stores, and no test issues real credentials. The
