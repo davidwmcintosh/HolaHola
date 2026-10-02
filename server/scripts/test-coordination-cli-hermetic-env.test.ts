@@ -29,6 +29,8 @@ import test from 'node:test';
 import { execFile as execFileCallback } from 'node:child_process';
 import { readFileSync } from 'node:fs';
 import { promisify } from 'node:util';
+import { COORDINATION_ACTOR_IDS } from '@shared/schema';
+import { COORDINATION_TOKEN_ENV_BY_ACTOR } from '../middleware/coordination-auth';
 
 const execFile = promisify(execFileCallback);
 
@@ -60,15 +62,30 @@ function hermeticEnv(): NodeJS.ProcessEnv {
   // unrelated reason.
   delete env.COORDINATION_API_URL;
   delete env.COORDINATION_ACTOR;
+  // Every actor's dedicated legacy token, plus the broker runtime identity
+  // and bootstrap token, so a test that DOES set COORDINATION_ACTOR (see the
+  // allowlist-completeness test below) deterministically reaches
+  // CoordinationActorClient's "authentication is not configured" error
+  // instead of picking up this dev sandbox's own real operational
+  // credentials, which are legitimately configured here for normal use.
+  for (const tokenEnvName of Object.values(COORDINATION_TOKEN_ENV_BY_ACTOR)) {
+    delete env[tokenEnvName];
+  }
+  delete env.COORDINATION_RUNTIME_ID;
+  delete env.COORDINATION_RUNTIME_BOOTSTRAP_TOKEN;
+  delete env.COORDINATION_RUNTIME_TOKEN_CACHE_PATH;
   return env;
 }
 
-async function runCli(args: string[]): Promise<{ code: number; output: string }> {
+async function runCli(
+  args: string[],
+  envOverrides: NodeJS.ProcessEnv = {},
+): Promise<{ code: number; output: string }> {
   try {
     const { stdout, stderr } = await execFile(
       'npx',
       ['tsx', 'server/scripts/coordination-cli.ts', ...args],
-      { env: hermeticEnv(), timeout: 60_000 },
+      { env: { ...hermeticEnv(), ...envOverrides }, timeout: 60_000 },
     );
     return { code: 0, output: `${stdout}${stderr}` };
   } catch (error: any) {
@@ -154,4 +171,62 @@ test('the CLI reaches its own configuration validation with no database credenti
     64,
     `expected the CLI's own configuration-validation exit code, not a crash. Output:\n${inbox.output}`,
   );
+});
+
+// ── allowlist completeness (Task 1640) ──────────────────────────────────────
+//
+// coordination-cli.ts used to hand-maintain two separate array literals (one
+// for COORDINATION_ACTOR in main(), one for --recipient in
+// requiredRecipient()) that duplicated COORDINATION_ACTOR_IDS (shared/schema.ts)
+// instead of deriving from it. Both silently fell out of sync with the
+// canonical list: 'luca-antigravity' was fully wired into coordination auth,
+// capabilities, and the actor-client type/permission checks yet still
+// rejected by the CLI with a generic "Unsupported" error (Task #1636), and
+// 'luca-gemini' had independently drifted out of the same two arrays by the
+// time that was fixed.
+//
+// test-coordination-actor-clients.test.ts asserts the exported
+// SUPPORTED_COORDINATION_ACTORS constant itself matches COORDINATION_ACTOR_IDS.
+// This test is deliberately independent of that constant (it never imports
+// it): it spawns the real CLI binary and drives it through argument parsing,
+// command dispatch, and both allowlist checks end to end, so it still catches
+// a regression even if a future change stops main()/requiredRecipient() from
+// actually using that constant.
+test('the CLI accepts every real coordination actor as both COORDINATION_ACTOR and --recipient', async () => {
+  const interactiveActors = COORDINATION_ACTOR_IDS.filter((id) => id !== 'coordination-system');
+  const outcomes = await Promise.all(interactiveActors.map(async (actor) => {
+    // 'create' is the one command that exercises both checks in a single
+    // invocation: COORDINATION_ACTOR is validated in main() before dispatch,
+    // and --recipient is validated by requiredRecipient() inside the create
+    // branch. Using the same actor for both keeps this to one spawn per
+    // actor. COORDINATION_API_URL points at the IANA-reserved .invalid TLD
+    // (RFC 2606), which never resolves, so the CLI always fails past both
+    // allowlist checks -- either at credential exchange (no bootstrap token
+    // configured) or at a role-specific action restriction (e.g. daniela
+    // cannot 'create') -- and never performs a real network request.
+    const result = await runCli(
+      ['create', '--title', 't', '--description', 'd', '--recipient', actor, '--idempotency-key', 'k'],
+      { COORDINATION_API_URL: 'http://coordination.invalid', COORDINATION_ACTOR: actor },
+    );
+    return { actor, result };
+  }));
+  for (const { actor, result } of outcomes) {
+    assert.doesNotMatch(
+      result.output,
+      /Unsupported COORDINATION_ACTOR/,
+      `COORDINATION_ACTOR=${actor} is declared in shared/schema.ts's COORDINATION_ACTOR_IDS and must be ` +
+        `accepted by coordination-cli.ts, not rejected by a stale hand-maintained allowlist. Output:\n${result.output}`,
+    );
+    assert.doesNotMatch(
+      result.output,
+      /Unsupported --recipient/,
+      `--recipient ${actor} is declared in shared/schema.ts's COORDINATION_ACTOR_IDS and must be accepted by ` +
+        `coordination-cli.ts, not rejected by a stale hand-maintained allowlist. Output:\n${result.output}`,
+    );
+    assert.doesNotMatch(
+      result.output,
+      DB_FATAL_PATTERN,
+      `COORDINATION_ACTOR=${actor} must not require a database credential. Output:\n${result.output}`,
+    );
+  }
 });

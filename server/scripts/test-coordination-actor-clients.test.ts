@@ -14,11 +14,14 @@ import {
 } from '../services/coordination-actor-client';
 import { generateCoordinationSecret } from '../services/coordination-credential-broker';
 import { canCoordinationActorPerform } from '../services/coordination-ledger-service';
+import { COORDINATION_ACTOR_IDS } from '@shared/schema';
 import {
   assertExplicitCoordinationCommentIntent,
   coordinationCliDeliverySummary,
   SUPPORTED_COORDINATION_CLI_ACTORS,
   SUPPORTED_COORDINATION_CLI_RECIPIENTS,
+  isSupportedCoordinationActor,
+  SUPPORTED_COORDINATION_ACTORS,
   unsupportedCoordinationCliOptions,
 } from './coordination-cli';
 
@@ -145,6 +148,50 @@ test('coordination CLI makes delivery outcomes explicit', () => {
     { state: 'failed', message: 'Recipient delivery failed.' },
   );
   assert.equal(coordinationCliDeliverySummary('show', { thread: {} }), null);
+});
+
+// Regression guard for Task #1640: coordination-cli.ts used to hand-maintain
+// two separate array literals (one for COORDINATION_ACTOR, one for
+// --recipient) that duplicated COORDINATION_ACTOR_IDS (shared/schema.ts)
+// instead of deriving from it. Both silently fell out of sync with the
+// canonical list -- 'luca-antigravity' was fully wired into coordination
+// auth, capabilities, and the actor-client type/permission checks yet still
+// rejected by the CLI with a generic "Unsupported" error (Task #1636), and
+// 'luca-gemini' had independently drifted out of the same two arrays by the
+// time that was fixed. coordination-cli.ts now derives both allowlists from
+// a single exported SUPPORTED_COORDINATION_ACTORS constant, so this test
+// exercises that exact constant -- not a re-implementation of the intended
+// list -- to fail loudly the moment it and COORDINATION_ACTOR_IDS diverge
+// again, regardless of why.
+test('the CLI\'s supported-actor allowlist exactly matches every real coordination actor', () => {
+  const canonicalInteractiveActors = COORDINATION_ACTOR_IDS.filter(
+    (id) => id !== 'coordination-system',
+  );
+  assert.deepEqual(
+    [...SUPPORTED_COORDINATION_ACTORS].sort(),
+    [...canonicalInteractiveActors].sort(),
+    'coordination-cli.ts\'s SUPPORTED_COORDINATION_ACTORS must contain exactly the actors in ' +
+      'COORDINATION_ACTOR_IDS (shared/schema.ts) other than the internal coordination-system pseudo-actor -- ' +
+      'otherwise a newly onboarded interactive hat (or one that already drifted, like luca-gemini) is silently ' +
+      'rejected by both COORDINATION_ACTOR and --recipient with a generic "Unsupported" error.',
+  );
+  for (const actor of canonicalInteractiveActors) {
+    assert.ok(
+      isSupportedCoordinationActor(actor),
+      `isSupportedCoordinationActor('${actor}') must be true for every actor in COORDINATION_ACTOR_IDS`,
+    );
+  }
+  assert.equal(
+    isSupportedCoordinationActor('coordination-system'),
+    false,
+    'coordination-system is an internal pseudo-actor -- it never runs the CLI and is never a message ' +
+      'recipient, so it must stay excluded from the CLI allowlist',
+  );
+  assert.equal(
+    isSupportedCoordinationActor('not-a-real-actor'),
+    false,
+    'an unrecognized string must never be reported as a supported coordination actor',
+  );
 });
 
 test('remaining actors resolve only from their dedicated credentials', () => {

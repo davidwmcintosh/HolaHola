@@ -5,9 +5,10 @@ import {
 } from '../services/coordination-actor-client';
 import { FileCoordinationCliCredentialCache } from '../services/coordination-cli-credential-cache';
 import { isDirectCliInvocation } from './lib/cli-entrypoint';
-import type {
-  CoordinationEvidenceReference,
-  CoordinationActorId,
+import {
+  COORDINATION_ACTOR_IDS,
+  type CoordinationEvidenceReference,
+  type CoordinationActorId,
 } from '@shared/schema';
 
 type Options = Record<string, string | boolean>;
@@ -161,22 +162,28 @@ function required(options: Options, name: string): string {
   return value;
 }
 
-export const SUPPORTED_COORDINATION_CLI_ACTORS: readonly CoordinationClientActor[] = [
-  'luca-replit', 'luca-claude-code', 'luca-gemini', 'luca-antigravity', 'luca-holahola',
-  'luca-cursor', 'luca-openai-agents', 'alden', 'daniela', 'david',
-];
+// Actor and recipient validation share the canonical registry, excluding only
+// the internal pseudo-actor that cannot run the CLI or receive messages.
+export const SUPPORTED_COORDINATION_ACTORS: readonly CoordinationClientActor[] = COORDINATION_ACTOR_IDS.filter(
+  (id): id is CoordinationClientActor => id !== 'coordination-system',
+);
+export const SUPPORTED_COORDINATION_CLI_ACTORS = SUPPORTED_COORDINATION_ACTORS;
 
 export const SUPPORTED_COORDINATION_CLI_RECIPIENTS: readonly Exclude<
   CoordinationActorId,
   'coordination-system'
 >[] = SUPPORTED_COORDINATION_CLI_ACTORS;
 
+export function isSupportedCoordinationActor(value: string): value is CoordinationClientActor {
+  return SUPPORTED_COORDINATION_ACTORS.includes(value as CoordinationClientActor);
+}
+
 function requiredRecipient(options: Options): Exclude<CoordinationActorId, 'coordination-system'> {
   const value = required(options, 'recipient');
-  if (!SUPPORTED_COORDINATION_CLI_RECIPIENTS.includes(value as Exclude<CoordinationActorId, 'coordination-system'>)) {
+  if (!isSupportedCoordinationActor(value)) {
     fail(`Unsupported --recipient: ${value}`);
   }
-  return value as Exclude<CoordinationActorId, 'coordination-system'>;
+  return value;
 }
 
 function optionalPriority(
@@ -227,10 +234,10 @@ async function main(): Promise<void> {
   const actorValue = process.env.COORDINATION_ACTOR;
   if (!apiUrl) fail('COORDINATION_API_URL is required (or provide --url)');
   if (!actorValue) fail('COORDINATION_ACTOR is required; set it to the identity running this client');
-  if (!SUPPORTED_COORDINATION_CLI_ACTORS.includes(actorValue as CoordinationClientActor)) {
+  if (!isSupportedCoordinationActor(actorValue)) {
     fail(`Unsupported COORDINATION_ACTOR: ${actorValue}`);
   }
-  const actor = actorValue as CoordinationClientActor;
+  const actor = actorValue;
 
   const client = createCoordinationActorClient(actor, {
     apiUrl,
