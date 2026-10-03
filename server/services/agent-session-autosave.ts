@@ -43,6 +43,7 @@ import { join, basename, dirname } from 'path';
 import { getUserDb } from '../db';
 import { sql } from 'drizzle-orm';
 import { projectHistoricalEpisodeMirror } from './historical-attribution-mirror-recovery';
+import { recordHistoricalAttributionPause, clearHistoricalAttributionPause, historicalAttributionRecoveryStatusLines } from './historical-attribution-status';
 import {
   WORKSPACE,
   loadCursor,
@@ -1292,6 +1293,7 @@ function _writeCaptureStatusFile(episodeFilename: string | null, captureMs: numb
     cursorLine,
     acknowledgementLine,
     mirrorOutboxLine,
+    ...historicalAttributionRecoveryStatusLines(),
   ];
 
   // Raw Replit windows are immutable origin data. Their current attribution
@@ -2474,7 +2476,10 @@ export async function checkEpisodeAppend(): Promise<void> {
 let chatCaptureSaveInProgress = false;
 let episodeMirrorOutboxInProgress = false;
 
-async function processPendingEpisodeMirrors(): Promise<void> {
+async function processPendingEpisodeMirrors(
+  paths?: import('./episode-mirror-outbox').EpisodeMirrorOutboxPaths,
+  capturePath = CHAT_CAPTURE_PATH,
+): Promise<void> {
   if (episodeMirrorOutboxInProgress) return;
   episodeMirrorOutboxInProgress = true;
   try {
@@ -2497,8 +2502,15 @@ async function processPendingEpisodeMirrors(): Promise<void> {
         );
         return true;
       }
+      let projectedContent: string;
+      try {
+        projectedContent = projectHistoricalEpisodeMirror(item, capturePath);
+      } catch (error) {
+        recordHistoricalAttributionPause(error, 'episode-mirror', 'autosave');
+        throw error; // The outbox retains the item and acknowledgement.
+      }
       const episodeOk = await appendInnerLifeToEpisodeDb(
-        projectHistoricalEpisodeMirror(item),
+        projectedContent,
         item.liveEpisode,
         { appendMarker: item.appendMarker, allowAppend: true },
       );
@@ -2509,14 +2521,23 @@ async function processPendingEpisodeMirrors(): Promise<void> {
       // means the canonical DB row exists; this one means the episode mirror
       // also completed. Receipts must use the stricter boundary.
       settleCanonicalCaptureReceiptsByTurnId(item.captureIds, acknowledgementOffset);
+      clearHistoricalAttributionPause('episode-mirror', item.captureIds);
       console.log(`[AgentAutosave] Episode mirror completed from outbox: ${item.liveEpisode} ${item.startCursor}→${item.endOffset}`);
       return true;
-    });
+    }, paths);
   } catch (error: any) {
     console.error(`[AgentAutosave] Episode mirror outbox drain failed: ${error?.message ?? error}`);
   } finally {
     episodeMirrorOutboxInProgress = false;
   }
+}
+
+/** Rejection-only fixture seam; always requires isolated queue and source paths. */
+export function processPendingEpisodeMirrorsForTest(
+  paths: import('./episode-mirror-outbox').EpisodeMirrorOutboxPaths,
+  capturePath: string,
+): Promise<void> {
+  return processPendingEpisodeMirrors(paths, capturePath);
 }
 
 async function checkChatCapture(): Promise<void> {
@@ -2765,6 +2786,7 @@ async function checkChatCapture(): Promise<void> {
       console.log(`[AgentAutosave] Chat capture +${includedCount} turn(s) saved (${davidCount}D + ${includedCount - davidCount}L, cursor ${startCursor}→${effectiveCursor})`);
 
       startCursor = effectiveCursor;
+      clearHistoricalAttributionPause('canonical-capture', captureIds);
       remaining = remaining.slice(includedCount);
       remainingOffsets = remainingOffsets.slice(includedCount);
     }
@@ -2781,6 +2803,7 @@ async function checkChatCapture(): Promise<void> {
     }
     await processPendingEpisodeMirrors();
   } catch (err: any) {
+    recordHistoricalAttributionPause(err, 'canonical-capture', 'autosave');
     console.error('[AgentAutosave] Failed to process chat capture:', err.message);
     // chatCaptureLastMtime stays at its old value — next poll will retry
   } finally {

@@ -37770,7 +37770,8 @@ Under 250 words. Write as yourself.`;
   });
 
   // Read-only readiness probe for a remote agent. It intentionally exposes
-  // neither filesystem paths, tokens, dialogue, nor receipt identities.
+  // neither filesystem paths, tokens, nor dialogue. Historical recovery pauses
+  // expose approved source identities and hashes only to these authorized actors.
   // A valid 200 proves the capture workspace is writable AND the in-process
   // drain worker is armed. General /health and /health/readiness intentionally
   // remain separate from this operational capture dimension.
@@ -37805,10 +37806,13 @@ Under 250 words. Write as yourself.`;
       const worker = getCanonicalCaptureWorkerReadiness();
       const workspaceReady = workspace.localDirectoryPresent && workspace.localDirectoryWritable;
       const health = evaluateCanonicalCaptureHealth(workspaceReady, worker);
+      const { historicalAttributionCaptureHealth } = await import('./services/historical-attribution-status');
+      const recoveryHealth = historicalAttributionCaptureHealth(health);
 
-      return res.status(health.status).json({
-        ok: health.ok,
+      return res.status(recoveryHealth.status).json({
+        ok: recoveryHealth.ok,
         capture: {
+          historicalRecovery: recoveryHealth.historicalRecovery,
           worker,
           workspaceSource: workspace.rootSource,
           localDirectoryPresent: workspace.localDirectoryPresent,

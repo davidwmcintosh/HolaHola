@@ -43,6 +43,47 @@ and spoken hashes, retain a completed label-only evidence receipt, and add its
 immutable hash to the approval list. Do not broaden the session or source rule.
 No schema migration or canonical episode rewrite is involved.
 
+## Operator diagnostics and reconciliation
+
+The authenticated `/api/internal/canonical-conversation-health` endpoint exposes
+`capture.historicalRecovery`. A recorded pause returns HTTP 503 and `ok: false`
+even when the worker is armed. `.local/episode-capture-status.md` renders the
+same reasons. No dialogue or credentials are included in these diagnostics.
+
+Stable reason codes:
+
+- `spoken-bytes-changed`: the capture ID is approved, but the exact spoken
+  SHA-256 differs. Compare the retained capture, source row, and approved
+  receipt; preserve both versions. Changed speech needs new explicit approval,
+  never whitespace/case normalization to make an old hash match.
+- `casing-only-bare-evidence`: an approved casing repair does not establish
+  authorship of a bare assistant reply. Obtain complete-turn approval for the
+  exact capture ID and hash; the runtime name is not proof.
+- `mixed-capture-mirror`: preserve the queued mirror and reconcile it into
+  independently source-delimited single-capture items through an audited repair.
+  Rendered speaker headers are not safe boundaries.
+- `source-capture-unavailable`: locate the original length-delimited source
+  range; do not reconstruct it from rendered dialogue.
+- `mirror-evidence-mismatch`: compare the whole queued rendering against the
+  complete original source; a matching suffix does not authorize delivery.
+
+Each reason binds the capture IDs to approved source IDs, evidence kind, and
+exact approved spoken hashes. Changed speech also reports its observed hash.
+Diagnostics persist separately for canonical capture and episode-mirror recovery
+under `.local/historical-attribution-status/`, surviving process restart and
+watchdog/autosave handoff on the same workspace. Unreadable diagnostics report
+unavailable rather than healthy. They are operational state, not authorship
+authority or an acknowledgement.
+
+Never infer an author, alter spoken bytes, delete evidence, or move a cursor or
+acknowledgement to bypass a pause. After source-backed reconciliation, retry the
+same identity. Successful matching recovery clears its lane's diagnostic;
+unrelated success or a different lane cannot clear it. Do not manually delete
+diagnostics as a substitute for resolving the source conflict.
+For a mixed mirror reconciled into separate single-capture deliveries, durable
+completion progress accumulates per original capture ID. The pause stays visible
+until every replacement has completed. A newly recorded failure resets progress.
+
 ## Isolated verification
 
 `npx tsx --test server/scripts/test-historical-attribution-overlay.test.ts`

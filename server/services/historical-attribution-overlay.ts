@@ -23,6 +23,27 @@ interface OverlayEntry {
   evidenceKind: 'complete-turn' | 'explicit-luca-casing';
 }
 
+export type HistoricalAttributionPauseCode =
+  | 'spoken-bytes-changed' | 'casing-only-bare-evidence'
+  | 'mixed-capture-mirror' | 'source-capture-unavailable' | 'mirror-evidence-mismatch';
+
+export interface HistoricalAttributionPauseReason {
+  code: HistoricalAttributionPauseCode;
+  captureIds: string[];
+  approvedSources: OverlayEntry[];
+  observedSpokenSha256?: string;
+  message: string;
+  reconciliation: string;
+}
+
+/** A diagnostic, never an attribution grant. No spoken text is carried here. */
+export class HistoricalAttributionRecoveryPaused extends Error {
+  constructor(readonly reason: HistoricalAttributionPauseReason) {
+    super(reason.message);
+    this.name = 'HistoricalAttributionRecoveryPaused';
+  }
+}
+
 const sha256 = (text: string) => createHash('sha256').update(text, 'utf8').digest('hex');
 
 /**
@@ -72,6 +93,24 @@ export class HistoricalAttributionOverlay {
     return JSON.stringify([captureId, hash]);
   }
 
+  pause(code: HistoricalAttributionPauseCode, captureIds: string[], message: string, observedSpokenSha256?: string): never {
+    const guidance: Record<HistoricalAttributionPauseCode, string> = {
+      'spoken-bytes-changed': 'Compare the original length-delimited capture with the approved source row and receipt by capture ID and exact SHA-256. Retain both versions; a changed reply needs new explicit complete-turn approval, not normalization to an old hash.',
+      'casing-only-bare-evidence': 'Obtain explicit complete-turn authorship approval for this exact capture and spoken SHA-256. A casing-only receipt or runtime name cannot establish bare authorship.',
+      'mixed-capture-mirror': 'Reconcile the queued mirror into independently source-delimited single-capture items through an audited operator repair. Preserve the original queue and source evidence; do not split on rendered speaker headers.',
+      'source-capture-unavailable': 'Locate the original length-delimited capture range for this queued item and verify its capture identity and exact boundaries. Do not reconstruct evidence from rendered dialogue.',
+      'mirror-evidence-mismatch': 'Compare the entire queued rendering with the independently delimited source capture and approved receipt. Preserve mismatching evidence and use an audited source-backed queue repair, not a matching suffix.',
+    };
+    throw new HistoricalAttributionRecoveryPaused({
+      code, captureIds: [...new Set(captureIds)],
+      approvedSources: [...this.entries.values()]
+        .filter(entry => captureIds.includes(entry.captureId)).map(entry => ({ ...entry })),
+      ...(observedSpokenSha256 ? { observedSpokenSha256 } : {}),
+      message,
+      reconciliation: guidance[code] + ' Never infer an author, trim or normalize spoken bytes, delete evidence, or advance a cursor/acknowledgement to bypass this pause. Retry the same source identity after reconciliation.',
+    });
+  }
+
   label(turn: CapturedTurn): 'LUCA [Claude Code]' | undefined {
     if (turn.speaker === 'DAVID' || !turn.captureId || turn.text === undefined) return;
     // The source hash is exact: whitespace is speech too. No trim, prefix,
@@ -79,13 +118,15 @@ export class HistoricalAttributionOverlay {
     const entry = this.entries.get(this.key(turn.captureId, sha256(turn.text)));
     if (!entry) {
       if (this.captureIds.has(turn.captureId)) {
-        throw new Error(`Approved historical capture ${turn.captureId} has different spoken bytes; attribution recovery remains pending`);
+        this.pause('spoken-bytes-changed', [turn.captureId],
+          `Approved historical capture ${turn.captureId} has different spoken bytes; attribution recovery remains pending`, sha256(turn.text));
       }
       return;
     }
     // Casing-only evidence never authorizes changing a bare assistant identity.
     if (turn.speaker === 'CLAUDE_CODE' && entry.evidenceKind !== 'complete-turn') {
-      throw new Error(`Historical capture ${turn.captureId} has casing-only evidence; bare authorship recovery requires explicit complete-turn approval`);
+      this.pause('casing-only-bare-evidence', [turn.captureId],
+        `Historical capture ${turn.captureId} has casing-only evidence; bare authorship recovery requires explicit complete-turn approval`);
     }
     return 'LUCA [Claude Code]';
   }
@@ -103,13 +144,13 @@ export class HistoricalAttributionOverlay {
   projectPendingMirror(content: string, captureIds: string[], sourceTurns?: CapturedTurn[]): string {
     if (!this.hasApprovedCaptures(captureIds)) return content;
     if (captureIds.length !== 1) {
-      throw new Error('Historical attribution mirror mixes capture identities; recovery requires an isolated turn');
+      this.pause('mixed-capture-mirror', captureIds, 'Historical attribution mirror mixes capture identities; recovery requires an isolated turn');
     }
     if (!sourceTurns || sourceTurns.length < 1 || sourceTurns.length > 2 ||
         sourceTurns.some(turn => turn.captureId !== captureIds[0] || turn.text === undefined) ||
         sourceTurns[sourceTurns.length - 1].speaker === 'DAVID' ||
         (sourceTurns.length === 2 && sourceTurns[0].speaker !== 'DAVID')) {
-      throw new Error('Approved historical mirror requires its complete independently delimited source capture');
+      this.pause('source-capture-unavailable', captureIds, 'Approved historical mirror requires its complete independently delimited source capture');
     }
     const originalLabel = (turn: CapturedTurn): string => {
       if (turn.speaker === 'CLAUDE_CODE') return 'Claude Code';
@@ -122,7 +163,7 @@ export class HistoricalAttributionOverlay {
       `**${this.label(turn) ?? originalLabel(turn)}:** ${turn.text}`,
     ).join('\n\n');
     if (content !== original && content !== projected) {
-      throw new Error(`Approved historical mirror ${captureIds[0]} does not match complete spoken evidence`);
+      this.pause('mirror-evidence-mismatch', captureIds, `Approved historical mirror ${captureIds[0]} does not match complete spoken evidence`);
     }
     return projected;
   }

@@ -1,3 +1,16 @@
+## 2026-10-03 — Historical recovery pause diagnostics
+
+- Historical attribution failures now carry stable reason codes, capture IDs,
+  approved source IDs/evidence hashes, and safe source-backed reconciliation
+  guidance, without exposing speech or inferring authorship.
+- Autosave and watchdog persist independent capture/mirror diagnostics.
+  Capture health reports 503 during a pause; capture status shows its cause.
+  Only matching successful recovery clears it.
+- Isolated fixtures cover all reason codes, watchdog failure/retry, real outbox
+  rejection with unchanged queue/acknowledgement, and status/health rendering.
+  No live episode was modified to create a failure.
+- Operator procedure: `docs/historical-attribution-overlay.md`.
+
 ## 2026-10-03 — Attribution repair concurrency proof
 
 - Added `server/scripts/test-episode-attribution-repair-postgres.test.ts` to

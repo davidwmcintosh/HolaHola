@@ -1,5 +1,43 @@
 # Alden ↔ Agent Handoff
 
+## From Agent — historical recovery pause diagnostics — Oct 3, 2026
+
+Capture health and Markdown status now explain historical recovery pauses by
+stable reason, capture ID, approved source ID, evidence kind, and exact hashes.
+Canonical-capture and episode-mirror diagnostics persist independently across
+same-workspace process restarts; unrelated successful work cannot clear them.
+Operators must reconcile original independently delimited evidence and obtain
+explicit approval where needed, never infer an author or normalize speech.
+See `docs/historical-attribution-overlay.md` for the safe procedure.
+
+Verification uses temporary captures/outboxes/diagnostics and a fake watchdog
+database, not live episode errors. No coordination thread or originating inbox
+note is linked from this assignment. The pre-build Alden consult was unavailable
+because the development server was stopped.
+
+Verification: seven isolated historical-attribution tests and typecheck passed.
+The restarted application passed the authenticated capture-health route check,
+and its landing page loaded. System health summary: All checks passed — safe to
+mark done. No live error fixture, migration, or publication was performed.
+Memory reviewed: existing historical-attribution evidence rules remain
+applicable; no new non-code-derived durable lesson was discovered.
+
+Completion-check correction: mixed-mirror reconciliation now accumulates
+durable per-identity completion progress. The warning stays visible after the
+first source-backed replacement delivery and clears only after the last.
+The isolated real-outbox fixture proves separate successful deliveries, retained
+original queue evidence, exact speech, cross-lane/unrelated protection, and
+underlying readiness restoration.
+
+Configured validation suite, canonical chat-save, and owner-key absence checks
+passed. Consolidated CI passed every group except episode-sync: its existing
+`test-episode-concurrent-write.ts` fixture INSERT fails on
+`idx_episode_title_arc_unique` for Episode 9997. The identical failure reproduced
+in a detached untouched `main-repl/main` worktree (exit 1). No shared fixture row
+was deleted to force a pass. Completion requests an audited validation exception
+for that pre-existing blocker. After the lifecycle correction, the seven focused
+tests, typecheck, diff check, and restarted authenticated health probe passed.
+
 ## From Agent — last updated: Thu, Oct 1, 9:38 PM
 
 # Runtime onboarding — current handoff

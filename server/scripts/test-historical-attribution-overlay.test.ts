@@ -1,6 +1,6 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { mkdtempSync, readFileSync, writeFileSync, rmSync } from 'node:fs';
+import { mkdtempSync, readFileSync, writeFileSync, rmSync, unlinkSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import {
@@ -15,7 +15,14 @@ import {
   formatChatCaptureSpeakerLabel, parseChatCaptureFromOffset, type DialogueTurn,
 } from '../services/transcript-parser';
 import { projectHistoricalEpisodeMirror } from '../services/historical-attribution-mirror-recovery';
-import { enqueueEpisodeMirror, processEpisodeMirrorOutbox } from '../services/episode-mirror-outbox';
+import { enqueueEpisodeMirror, processEpisodeMirrorOutbox, advanceEpisodeMirrorAcknowledgement } from '../services/episode-mirror-outbox';
+import {
+  setHistoricalAttributionStatusDirectoryForTest, getHistoricalAttributionRecoveryStatus,
+  historicalAttributionRecoveryStatusLines, clearHistoricalAttributionPause,
+  recordHistoricalAttributionPause,
+  historicalAttributionCaptureHealth,
+} from '../services/historical-attribution-status';
+import { HistoricalAttributionRecoveryPaused } from '../services/historical-attribution-overlay';
 
 const episodeId = 'synthetic-attribution-episode';
 const session = 'synthetic-session';
@@ -135,6 +142,7 @@ test('repair, restart, 21-turn watchdog backfill, and cursor replay preserve rep
   wd.setEpisodeOverrideForTest({ id: episodeId, filename: 'fixture.md' });
   wd.setChatCapturePathsForTest({ capture, cursor });
   wd.setReembedMemoryForTest(async () => {});
+  setHistoricalAttributionStatusDirectoryForTest(join(dir, 'diagnostics'));
   try {
     writeFileSync(liveFlag, '');
     writeFileSync(receiptPath, receiptBytes);
@@ -183,6 +191,25 @@ test('repair, restart, 21-turn watchdog backfill, and cursor replay preserve rep
     assert.equal(readFileSync(cursor, 'utf8'), successfulCursor);
     assert.equal(episodeContent, afterBackfill);
     assert.equal(rows.length, 22);
+    const health = getHistoricalAttributionRecoveryStatus();
+    assert.equal(health.paused, true);
+    assert.equal(health.pauses[0].code, 'spoken-bytes-changed');
+    assert.deepEqual(health.pauses[0].captureIds, [turn.captureId]);
+    assert.equal(health.pauses[0].approvedSources[0].sourceId, 'source-0');
+    assert.equal(health.pauses[0].worker, 'watchdog');
+    assert.match(historicalAttributionRecoveryStatusLines().join('\n'), /Never infer an author/);
+    assert.ok(!JSON.stringify(health).includes(bodies[0]), 'diagnostic must not expose speech');
+    clearHistoricalAttributionPause('canonical-capture', ['genuine-bare']);
+    assert.equal(getHistoricalAttributionRecoveryStatus().paused, true, 'unrelated completion cannot clear a pause');
+    // A source-backed fixture reconciliation replays the same exact identity.
+    // Never perform this operation on a live capture.
+    writeFileSync(capture, raw);
+    appendChatCaptureTurnsAtomic([{
+      speaker: 'Claude Code', source: 'claude-code', captureId: turn.captureId, text: turn.text!,
+    }], capture);
+    await wd.drain();
+    assert.equal(getHistoricalAttributionRecoveryStatus().paused, false);
+    assert.equal(rows.length, 22);
   } finally {
     wd.setDbForTest(null);
     wd.setEpisodePathsForTest(null);
@@ -190,6 +217,7 @@ test('repair, restart, 21-turn watchdog backfill, and cursor replay preserve rep
     wd.setChatCapturePathsForTest(null);
     wd.setReembedMemoryForTest(null);
     setHistoricalAttributionOverlayForTest();
+    setHistoricalAttributionStatusDirectoryForTest();
     rmSync(dir, { recursive: true, force: true });
   }
 });
@@ -238,6 +266,139 @@ test('quoted matching suffix cannot authorize mirror delivery or acknowledgement
       /original capture range is unavailable/);
   } finally {
     setHistoricalAttributionOverlayForTest();
+    rmSync(dir, { recursive: true, force: true });
+  }
+});
+
+test('typed reasons bind all pause cases to approved sources without changing speech', () => {
+  const overlay = reload();
+  const casing = new HistoricalAttributionOverlay();
+  const bytes = JSON.stringify({
+    episodeId, applied: true, replicaParity: true, nonLabelBytesUnchanged: true,
+    edits: [{ ...repair.edits[0], evidenceKind: 'explicit-luca-casing' }],
+  });
+  casing.addApprovedReceipt(bytes, { ...approval, receiptSha256: attributionSha256(bytes) });
+  const cases: Array<[string, () => unknown, string[]]> = [
+    ['spoken-bytes-changed', () => overlay.label({ ...turn, text: turn.text + ' ' }), [turn.captureId!]],
+    ['casing-only-bare-evidence', () => casing.label(turn), [turn.captureId!]],
+    ['mixed-capture-mirror', () => overlay.projectPendingMirror('queued', [turn.captureId!, 'other']), [turn.captureId!, 'other']],
+    ['source-capture-unavailable', () => overlay.projectPendingMirror('queued', [turn.captureId!]), [turn.captureId!]],
+    ['mirror-evidence-mismatch', () => overlay.projectPendingMirror('queued', [turn.captureId!], [turn]), [turn.captureId!]],
+  ];
+  for (const [code, action, ids] of cases) {
+    assert.throws(action, (error: unknown) => {
+      assert.ok(error instanceof HistoricalAttributionRecoveryPaused);
+      assert.equal(error.reason.code, code);
+      assert.deepEqual(error.reason.captureIds, ids);
+      assert.equal(error.reason.approvedSources[0].sourceId, 'source-0');
+      assert.equal(error.reason.approvedSources[0].spokenSha256, attributionSha256(turn.text!));
+      assert.match(error.reason.reconciliation, /Retry the same source identity/);
+      return true;
+    });
+  }
+});
+
+test('autosave pending mirror reports persistent mixed identities and retains queue and acknowledgement', async () => {
+  const dir = mkdtempSync(join(tmpdir(), 'historical-status-'));
+  const capture = join(dir, 'capture');
+  const ack = join(dir, 'ack');
+  const paths = { directory: join(dir, 'outbox'), acknowledgementCursorPath: ack };
+  setHistoricalAttributionOverlayForTest(reload());
+  setHistoricalAttributionStatusDirectoryForTest(join(dir, 'diagnostics'));
+  let resetStatusPath: (() => void) | undefined;
+  try {
+    const autosave = await import('../services/agent-session-autosave');
+    const { processPendingEpisodeMirrorsForTest } = autosave;
+    const statusPath = join(dir, 'capture-status.md');
+    autosave.setCaptureStatusPathOverrideForTest(statusPath);
+    resetStatusPath = () => autosave.setCaptureStatusPathOverrideForTest(null);
+    const queued = enqueueEpisodeMirror({
+      startCursor: 0, endOffset: 500, captureIds: [turn.captureId!, 'other'],
+      liveEpisode: 'synthetic.md', appendMarker: 'synthetic', formattedContent: 'queued evidence unchanged',
+    }, paths);
+    const queueBytes = readFileSync(queued);
+    const ackBytes = readFileSync(ack);
+    await processPendingEpisodeMirrorsForTest(paths, capture);
+    const status = getHistoricalAttributionRecoveryStatus();
+    const health = historicalAttributionCaptureHealth({ ok: true, status: 200 });
+    assert.equal(health.status, 503);
+    assert.equal(health.ok, false);
+    assert.deepEqual(health.historicalRecovery, status);
+    assert.equal(status.pauses[0].code, 'mixed-capture-mirror');
+    assert.equal(status.pauses[0].lane, 'episode-mirror');
+    assert.deepEqual(status.pauses[0].captureIds, [turn.captureId, 'other']);
+    assert.deepEqual(readFileSync(queued), queueBytes);
+    assert.deepEqual(readFileSync(ack), ackBytes);
+    // Non-historical failures do not erase the original actionable reason.
+    recordHistoricalAttributionPause(new Error('unrelated failure'), 'episode-mirror', 'autosave');
+    clearHistoricalAttributionPause('canonical-capture', [turn.captureId!, 'other']);
+    clearHistoricalAttributionPause('episode-mirror', ['unrelated']);
+    assert.deepEqual(getHistoricalAttributionRecoveryStatus(), status);
+    assert.match(historicalAttributionRecoveryStatusLines().join('\n'), /single-capture items/);
+    autosave.writeCaptureStatusDbOnlyForTest();
+    const renderedStatus = readFileSync(statusPath, 'utf8');
+    assert.match(renderedStatus, /Historical attribution recovery — PAUSED/);
+    assert.match(renderedStatus, /mixed-capture-mirror/);
+    assert.match(renderedStatus, /source-0/);
+    assert.match(renderedStatus, /Do not|Never infer an author/);
+    assert.ok(!renderedStatus.includes('queued evidence unchanged'));
+    // Audited source-backed replacement happens only in this temp fixture.
+    // Retain the original mixed evidence, then replace it with two independently
+    // delimited source captures. The real outbox delivers each separately.
+    const retainedOriginal = join(dir, 'retained-original-queue.json');
+    writeFileSync(retainedOriginal, queueBytes);
+    unlinkSync(queued);
+    appendChatCaptureTurnsAtomic([
+      { speaker: 'Claude Code', source: 'claude-code', captureId: turn.captureId, text: turn.text! },
+      { speaker: 'Claude Code', source: 'claude-code', captureId: 'other', text: 'Genuine bare speech  ' },
+    ], capture);
+    const parsed = parseChatCaptureFromOffset(capture, 0);
+    let startCursor = 0;
+    for (let i = 0; i < parsed.turns.length; i++) {
+      const sourceTurn = parsed.turns[i];
+      enqueueEpisodeMirror({
+        startCursor, endOffset: parsed.turnByteOffsets[i], captureIds: [sourceTurn.captureId!],
+        liveEpisode: 'synthetic.md', appendMarker: `synthetic-replacement-${i}`,
+        formattedContent: `**Claude Code:** ${sourceTurn.text}`,
+      }, paths);
+      startCursor = parsed.turnByteOffsets[i];
+    }
+    const delivered: string[] = [];
+    const outcome = await processEpisodeMirrorOutbox(async item => {
+      delivered.push(projectHistoricalEpisodeMirror(item, capture));
+      advanceEpisodeMirrorAcknowledgement(item, paths);
+      clearHistoricalAttributionPause('episode-mirror', item.captureIds);
+      if (delivered.length === 1) {
+        const partial = getHistoricalAttributionRecoveryStatus();
+        assert.equal(partial.paused, true);
+        assert.deepEqual(partial.pauses[0].captureIds, [turn.captureId, 'other']);
+        assert.deepEqual(partial.pauses[0].completedCaptureIds, [turn.captureId]);
+        assert.deepEqual(JSON.parse(readFileSync(join(dir, 'diagnostics', 'episode-mirror.json'), 'utf8')).completedCaptureIds, [turn.captureId]);
+        assert.equal(historicalAttributionCaptureHealth({ ok: true, status: 200 }).status, 503);
+        clearHistoricalAttributionPause('episode-mirror', ['unrelated']);
+        clearHistoricalAttributionPause('canonical-capture', ['other']);
+        assert.deepEqual(getHistoricalAttributionRecoveryStatus(), partial);
+        autosave.writeCaptureStatusDbOnlyForTest();
+        assert.match(readFileSync(statusPath, 'utf8'), /Completed reconciled capture IDs:/);
+      }
+      return true;
+    }, paths);
+    assert.deepEqual(outcome, { processed: 2, pending: 0 });
+    assert.deepEqual(delivered, [`**LUCA [Claude Code]:** ${turn.text}`, '**Claude Code:** Genuine bare speech  ']);
+    assert.equal(getHistoricalAttributionRecoveryStatus().paused, false);
+    assert.equal(historicalAttributionCaptureHealth({ ok: true, status: 200 }).status, 200);
+    assert.equal(historicalAttributionCaptureHealth({ ok: false, status: 503 }).ok, false);
+    autosave.writeCaptureStatusDbOnlyForTest();
+    assert.ok(!readFileSync(statusPath, 'utf8').includes('Historical attribution recovery — PAUSED'));
+    assert.deepEqual(readFileSync(retainedOriginal), queueBytes);
+    assert.equal(JSON.parse(readFileSync(ack, 'utf8')).byteOffset, readFileSync(capture).length);
+    writeFileSync(join(dir, 'diagnostics', 'episode-mirror.json'), '{broken');
+    assert.equal(getHistoricalAttributionRecoveryStatus().diagnosticUnavailable, true);
+    assert.equal(getHistoricalAttributionRecoveryStatus().paused, true);
+  } finally {
+    resetStatusPath?.();
+    setHistoricalAttributionOverlayForTest();
+    setHistoricalAttributionStatusDirectoryForTest();
     rmSync(dir, { recursive: true, force: true });
   }
 });

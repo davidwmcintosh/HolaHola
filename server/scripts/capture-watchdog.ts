@@ -48,6 +48,7 @@ import {
 } from '../services/inner-life-capture.js';
 import { refreshMemoryIndexBestEffort } from '../services/agent-memory-core';
 import { historicalAttributionLabel } from '../services/historical-attribution-overlay';
+import { recordHistoricalAttributionPause, clearHistoricalAttributionPause } from '../services/historical-attribution-status';
 
 // ─── Config ───────────────────────────────────────────────────────────────────
 
@@ -469,6 +470,7 @@ export async function drain(): Promise<void> {
         byteOffset: group.endByteOffset,
         lastSavedTurnFingerprint: chatCaptureTurnFingerprint(group.turns[group.turns.length - 1]),
       });
+      clearHistoricalAttributionPause('canonical-capture', group.turns.flatMap(turn => turn.captureId ? [turn.captureId] : []));
       groupStart = group.endByteOffset;
     }
     console.log(
@@ -476,6 +478,7 @@ export async function drain(): Promise<void> {
       `cursor ${cursor.byteOffset} → ${newByteOffset}`,
     );
   } catch (err: any) {
+    recordHistoricalAttributionPause(err, 'canonical-capture', 'watchdog');
     console.error('[watchdog] drain error:', err.message ?? err);
     // Leave cursor unchanged — autosave service will retry when server recovers
   } finally {
