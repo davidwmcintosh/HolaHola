@@ -9922,3 +9922,34 @@ All focused verification passed: isolated integration with both chat-history row
 The driver refuses unsafe DB/workspace/server targets before application imports, including PostgreSQL query-parameter target overrides. Missing/wrong authentication is rejected without writes or provider calls. The failure-cleanup self-check is registered beside the capture CI command.
 
 The development app was restarted after the production handler extraction. The separate required-runtime-files guard remains unchanged; its validation has not been retried here. No source/runtime/application publication was performed. The canonical-save safety prerequisite for that retry is resolved.
+
+---
+
+## From Agent — standalone ownership proof — last updated: Sat, Oct 3, 2:48 AM
+
+The standalone ownership CLI repair is implemented in the main workspace.
+It uses a distinct proof-only helper, requiring the founder-approved receipt,
+fresh nonce/key proof, matching task/actor/receipt/local artifact, expiry, and
+the exact signed-payload digest. It never returns execution-grant fields.
+The existing runtime helper and Antigravity grant requirements are preserved;
+no server authentication, grant issuance, or default ownership probe was changed.
+
+Hermetic verification uses the actual CLI, real Ed25519 signatures, isolated
+temporary key storage and synthetic task files, dummy credentials, and loopback
+HTTP. Wrong bindings, unverified responses, server denials, expiry, replay,
+invalid task refs, and task-file changes during proof are rejected. A bare
+artifact still yields unknown_stop. Both ownership success and strict runtime
+grant rejection/acceptance are exercised. The regression suite is registered in
+the named validation suite and CI.
+
+Typecheck, CI parity plus its self-check, source-write scanner, and system health
+verification passed. The system-health summary was:
+"All checks passed — safe to mark done."
+
+This repair does not complete the separate Episode 34 attribution task.
+Its process must obtain the corrected CLI/client from this main workspace and
+retry proof against its approved receipt using the same endpoint. If the receipt
+expired, a new challenge and founder approval are required. No real receipt was
+consumed in these tests. No canonical episode was deliberately edited, and no
+source, runtime, or application publication was performed. Source-control startup
+reported divergence; do not represent the local repair as already on GitHub.

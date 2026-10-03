@@ -44,3 +44,22 @@ Related facts from the same investigation, all evidence-checked (Sep 18 2026):
   COORDINATION_V2_PROTECTED_RECEIPT_PATH, COORDINATION_V2_ALLOW_M13_BACKFILL=1) not found
   configured anywhere searched in this Repl — likely meant to live on a separate protected
   host outside the Replit workspace, consistent with the Gate3 secret-minimal-host design.
+
+## Standalone ownership and execution authority
+
+Treat founder-approved ownership and broker-issued execution authority as
+different permissions. A successful ownership proof without an execution grant
+can be intentional; check the credential's authority before diagnosing a stale
+server or recommending publication.
+
+**Why:** The founder-approved standalone task flow was blocked because its
+client expected an execution grant that fixed credentials deliberately cannot
+receive. The approved repair kept receipt/key verification for ownership and
+preserved the additional grant requirement for runtime execution. Merely
+publishing the same credential-dependent contract would not resolve that mismatch.
+
+**How to apply:** Preserve this separation when sharing adapters across
+standalone task tooling and executable runtimes. Never turn ownership approval
+into runtime capability, or require unrelated runtime capability just to verify
+ownership. A receipt expiring or a private key being lost still requires fresh
+approval; chat permission is not a substitute.

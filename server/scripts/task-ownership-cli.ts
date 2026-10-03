@@ -2,7 +2,7 @@ import { TaskOwnershipService } from '../services/task-ownership-service';
 import { createHash } from 'node:crypto';
 import { readFile } from 'node:fs/promises';
 import { ensureTaskAgentKey } from '../services/task-ownership-key-custody';
-import { TaskOwnershipHttpClient, proveTaskOwnership } from '../services/task-ownership-client';
+import { TaskOwnershipHttpClient, proveStandaloneTaskOwnership } from '../services/task-ownership-client';
 
 const MACHINE_PREFIX = 'TASK_OWNERSHIP_RESULT_JSON:';
 
@@ -81,7 +81,10 @@ async function main(): Promise<void> {
     const actor = option('--actor');
     const receiptId = option('--receipt-id');
     if (!appUrl || !actor || !receiptId) throw new Error('--actor, --receipt-id, and --app-url (or APP_URL) are required.');
-    const response: any = await proveTaskOwnership(clientFor(appUrl, actor), taskRef, actor, receiptId);
+    if (!/^[1-9][0-9]*$/.test(taskRef)) throw new Error('Task ref must be positive decimal digits.');
+    const artifact = await readFile(`${process.cwd()}/.local/tasks/task-${taskRef}.md`);
+    const artifactSha256 = createHash('sha256').update(artifact).digest('hex');
+    const response = await proveStandaloneTaskOwnership(clientFor(appUrl, actor), taskRef, actor, receiptId, artifactSha256);
     const result = await new TaskOwnershipService({
       verifyActiveIsolatedProof: async (ref, artifactSha256) => (
         response?.verified === true

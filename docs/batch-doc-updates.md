@@ -9,6 +9,32 @@
   the header. The required-runtime-files guard is unchanged; this focused fix
   was authorized to unblock completion validation.
 
+## 2026-10-02 — Standalone ownership proof does not require a runtime grant
+
+The ownership CLI now uses a proof-only client path for founder-approved
+receipt/key verification. Fixed coordination credentials already receive this
+proof from the server; requiring a separate Gate3 execution grant incorrectly
+rejected it as a malformed grant response.
+
+The standalone path checks nonce and receipt expiry, exact task/actor/receipt/key
+and local artifact bindings, and the digest of the signed payload. It returns
+only ownership proof fields, never a runtime grant. The runtime helper retains
+its existing grant requirement, and Antigravity's parser and execution checks
+are unchanged. A task artifact alone still returns `unknown_stop`.
+
+Hermetic tests run the actual CLI with real signatures and private synthetic
+state. Coverage includes wrong identities/digests, expired or denied receipts,
+replay refusal, grant stripping, and strict runtime grant acceptance/rejection.
+The tests are registered in the validation suite and CI.
+
+Files: `server/services/task-ownership-client.ts`,
+`server/scripts/task-ownership-cli.ts`, and
+`server/services/task-ownership-client.test.ts`.
+The approved design is in
+`docs/superpowers/specs/2026-10-02-standalone-ownership-proof-design.md`.
+No server authentication/grant rules, canonical episode content, schema,
+task assignment, or publication was changed.
+
 ## 2026-10-02 — Canonical-save validation owns its complete sandbox
 
 Canonical-save no longer contacts the ordinary development server or shared
