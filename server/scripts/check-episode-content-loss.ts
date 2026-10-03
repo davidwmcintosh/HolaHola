@@ -44,7 +44,7 @@
  */
 
 import { execFileSync } from 'child_process';
-import { writeFileSync, mkdirSync, rmSync } from 'fs';
+import { writeFileSync, mkdirSync, rmSync, symlinkSync } from 'fs';
 import { join } from 'path';
 import { tmpdir } from 'os';
 import {
@@ -57,6 +57,7 @@ import {
   type GitRunner,
   type TreeEntry,
 } from '../services/episode-content-loss-guard';
+import { attributionSha256 } from '../services/episode-claude-attribution-repair';
 
 const G = (s: string) => `\x1b[32m${s}\x1b[0m`;
 const R = (s: string) => `\x1b[31m${s}\x1b[0m`;
@@ -531,6 +532,102 @@ async function runSelfCheck(): Promise<void> {
       growLoseResult.blocked !== noopBlocked,
       'The real check must actively detect this case, not just structurally resemble a detector.',
     );
+
+    // All receipt scenarios are synthetic and confined to this disposable repo.
+    const attributionBefore = '# Synthetic dialogue\n\nDavid [Claude Code]: Preserve this question.\n\nClaude Code: Exact words — punctuation! 🙂\nSecond line must survive.\n';
+    const attributionAfter = attributionBefore.replace('Claude Code: Exact', 'LUCA [Claude Code]: Exact');
+    const attributionPath = join(docsDir, 'episode-34.md');
+    const otherEpisodePath = join(docsDir, 'episode-35.md');
+    const receiptRelPath = 'docs/episode-34-attribution-repair-evidence.json';
+    const receiptPath = join(repoDir, receiptRelPath);
+    const receipt = {
+      episodeId: '41200170-1c49-4660-838c-9d397aff5d27',
+      applied: true, replicaParity: true,
+      beforeSha256: attributionSha256(attributionBefore),
+      afterSha256: attributionSha256(attributionAfter),
+      edits: [{
+        offset: attributionBefore.indexOf('Claude Code: Exact'),
+        oldLabel: 'Claude Code:', newLabel: 'LUCA [Claude Code]:',
+        sourceId: 'synthetic-source',
+        captureId: 'cc-c52bede8-dd68-4804-8f77-59290f60b9e2-900001',
+        spokenSha256: attributionSha256('Exact words — punctuation! 🙂\nSecond line must survive.\n'),
+      }],
+    };
+    const commitFixture = (message: string): string => {
+      git(repoDir, ['add', '-A']);
+      git(repoDir, ['commit', '--allow-empty', '-qm', message]);
+      return git(repoDir, ['rev-parse', 'HEAD']);
+    };
+    writeFileSync(attributionPath, attributionBefore);
+    writeFileSync(otherEpisodePath, attributionBefore);
+    const attributionBase = commitFixture('seed synthetic attribution snapshots');
+    writeFileSync(attributionPath, attributionAfter);
+    const noReceiptSha = commitFixture('repair without evidence');
+    assert('Label changes without receipts remain blocked',
+      (await checkEpisodeContentLoss(runGit, attributionBase, noReceiptSha)).blocked);
+    writeFileSync(receiptPath, JSON.stringify(receipt));
+    assert('An uncommitted valid receipt cannot authorize the incoming commit',
+      (await checkEpisodeContentLoss(runGit, attributionBase, noReceiptSha)).blocked);
+    const verifiedSha = commitFixture('commit exact repair evidence');
+    const verified = await checkEpisodeContentLoss(runGit, attributionBase, verifiedSha);
+    assert('Exact committed label-only repair passes without an override',
+      !verified.blocked && Object.keys(verified.violations).length === 0 &&
+      verified.overrideDocsPresent.length === 0);
+    writeFileSync(attributionPath, attributionAfter + '\nDaniela: Newly appended content.\n');
+    assert('Verified repair plus appended dialogue passes',
+      !(await checkEpisodeContentLoss(runGit, attributionBase, commitFixture('append synthetic dialogue'))).blocked);
+    for (const [label, changed] of [
+      ['lost words', attributionAfter.replace('Second line must survive.', '')],
+      ['changed punctuation', attributionAfter.replace('punctuation!', 'punctuation?')],
+      ['changed other speaker', attributionAfter.replace('David [Claude Code]:', 'Daniela:')],
+      ['reordered dialogue', attributionAfter.split('\n').reverse().join('\n')],
+      ['whole episode deletion', null],
+    ] as const) {
+      if (changed === null) rmSync(attributionPath);
+      else writeFileSync(attributionPath, changed);
+      assert(`A valid receipt cannot authorize ${label}`,
+        (await checkEpisodeContentLoss(runGit, attributionBase, commitFixture(label))).blocked);
+    }
+    writeFileSync(attributionPath, attributionAfter);
+    for (const [label, invalid] of [
+      ['malformed JSON', '{'],
+      ['wrong old hash', JSON.stringify({ ...receipt, beforeSha256: '0'.repeat(64) })],
+      ['wrong repaired hash', JSON.stringify({ ...receipt, afterSha256: '0'.repeat(64) })],
+      ['wrong episode ID', JSON.stringify({ ...receipt, episodeId: 'synthetic-wrong-episode' })],
+      ['unapplied receipt', JSON.stringify({ ...receipt, applied: false })],
+      ['missing replica parity', JSON.stringify({ ...receipt, replicaParity: false })],
+      ['forged speaker span', JSON.stringify({ ...receipt, edits: [{ ...receipt.edits[0], newLabel: 'Daniela:' }] })],
+    ]) {
+      writeFileSync(receiptPath, invalid);
+      assert(`${label} cannot suppress loss detection`,
+        (await checkEpisodeContentLoss(runGit, attributionBase, commitFixture(label))).blocked);
+    }
+    rmSync(receiptPath);
+    symlinkSync(JSON.stringify(receipt), receiptPath);
+    assert('Even a symlink blob containing valid JSON cannot authorize a repair',
+      (await checkEpisodeContentLoss(runGit, attributionBase, commitFixture('symlink receipt'))).blocked);
+    rmSync(receiptPath);
+    writeFileSync(receiptPath, JSON.stringify(receipt));
+    const goodReceiptSha = commitFixture('restore regular receipt');
+    for (const command of ['ls-tree', 'show']) {
+      const failingReceiptRunner: GitRunner = async (args) =>
+        args[0] === command && args.some(arg => arg === receiptRelPath || arg.endsWith(`:${receiptRelPath}`))
+          ? { stdout: '', exitCode: 1 } : runGit(args);
+      let rejected = false;
+      try {
+        await checkEpisodeContentLoss(failingReceiptRunner, attributionBase, goodReceiptSha);
+      } catch { rejected = true; }
+      assert(`Receipt ${command} failure refuses to guess`, rejected);
+    }
+    rmSync(receiptPath);
+    assert('Deleted committed evidence does not authorize a repair',
+      (await checkEpisodeContentLoss(runGit, attributionBase, commitFixture('delete receipt'))).blocked);
+    writeFileSync(receiptPath, JSON.stringify(receipt));
+    writeFileSync(otherEpisodePath, attributionAfter);
+    const scoped = await checkEpisodeContentLoss(runGit, attributionBase, commitFixture('repair another episode'));
+    assert('Episode 34 evidence cannot authorize the identical change in another episode',
+      scoped.blocked && !scoped.violations['docs/episode-34.md'] &&
+      (scoped.violations['docs/episode-35.md']?.length ?? 0) > 0);
   } finally {
     try { rmSync(repoDir, { recursive: true, force: true }); } catch { /* non-fatal */ }
   }

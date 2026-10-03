@@ -44,6 +44,8 @@
  * hermetic temp repo in a self-check.
  */
 
+import { verifyEpisodeClaudeAttributionReceipt } from './episode-claude-attribution-repair';
+
 /** Matches exactly `docs/episode-<digits>.md` — not gap-analysis docs, not
  *  prequel episodes, not the attribution taxonomy, not `docs/episodes/*`.
  *  Captures the digits so isProtectedEpisodeFile can apply the fixture-range
@@ -255,6 +257,40 @@ export interface EpisodeContentLossResult {
 }
 
 /**
+ * Only the approved historical Episode 34 repair qualifies. Read evidence
+ * from the resolved incoming commit, never from mutable working-tree files.
+ * Missing/malformed evidence leaves ordinary loss detection intact; unknown
+ * Git state must throw rather than authorize a repair.
+ */
+async function hasVerifiedAttributionRepair(
+  runGit: GitRunner,
+  newSha: string,
+  path: string,
+  oldContent: string,
+  newContent: string,
+): Promise<boolean> {
+  if (path !== 'docs/episode-34.md') return false;
+  const receiptPaths = [
+    'docs/episode-34-attribution-repair-evidence.json',
+    'docs/episode-34-attribution-repair-backfill-evidence.json',
+    'docs/episode-34-attribution-repair-post-merge-evidence.json',
+    'docs/episode-34-attribution-repair-validation-startup-evidence.json',
+  ];
+  for (const receiptPath of receiptPaths) {
+    if (!isRegularFileEntry(await lsTreeEntry(runGit, newSha, receiptPath))) continue;
+    const content = await readFileAtRef(runGit, newSha, receiptPath);
+    let receipt: unknown;
+    try {
+      receipt = JSON.parse(content);
+    } catch {
+      continue;
+    }
+    if (verifyEpisodeClaudeAttributionReceipt(oldContent, newContent, receipt)) return true;
+  }
+  return false;
+}
+
+/**
  * Orchestrates the full check for one old/new ref pair: resolves both refs
  * to commits (throws rather than silently passing if either is invalid),
  * finds changed protected episode files, diffs each for content loss, and
@@ -288,7 +324,8 @@ export async function checkEpisodeContentLoss(
       readFileAtRef(runGit, newSha, path),
     ]);
     const fileViolations = findContentLossViolations(oldContent, newContent);
-    if (fileViolations.length > 0) {
+    if (fileViolations.length > 0 &&
+        !await hasVerifiedAttributionRepair(runGit, newSha, path, oldContent, newContent)) {
       violations[path] = fileViolations;
     }
   }
