@@ -52,6 +52,11 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
 # weakening a deliberately strict guard to work around a packaging shortcut.
 COPY . .
 
+# These approvals are required runtime assets, not optional documentation.
+# Explicit copies make accidental .dockerignore exclusions fail packaging.
+COPY docs/episode-34-attribution-repair-evidence.json ./docs/episode-34-attribution-repair-evidence.json
+COPY docs/episode-34-attribution-repair-backfill-evidence.json ./docs/episode-34-attribution-repair-backfill-evidence.json
+
 # Carry over the build stage's full node_modules rather than reinstalling
 # with --omit=dev. server/vite.ts statically imports the real `vite` package
 # (for local-dev HMR) at module load time -- ESM imports aren't lazy, so
@@ -62,6 +67,7 @@ COPY . .
 # devDependency one at a time.
 COPY --from=build /app/node_modules ./node_modules
 COPY --from=build /app/dist ./dist
+RUN node dist/check-historical-attribution-release.mjs
 RUN npx playwright install chromium
 
 # The app reads PORT itself (server/index.ts) and defaults to 5000; Render

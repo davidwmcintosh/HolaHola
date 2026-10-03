@@ -11,6 +11,20 @@
   No live episode was modified to create a failure.
 - Operator procedure: `docs/historical-attribution-overlay.md`.
 
+## 2026-10-03 — Historical attribution release approvals
+
+- Release builds bundle and run the database-free production approval loader.
+  The Docker runtime stage explicitly copies both pinned evidence files and
+  runs that bundled probe after its final source/dist copies; an ignored,
+  missing, or byte-changed approval now blocks packaging.
+- `node --test scripts/test-historical-attribution-release-package.test.mjs`
+  is registered in canonical CI. It checks packaging hooks and starts the
+  bundle in a minimal relocated workspace without source dependencies or
+  database credentials, covering both workspace-resolution modes and
+  independent missing/changed cases for each receipt.
+- No receipt hashes, evidence bytes, or rolling episode are changed. The
+  isolated check does not claim a full container boot or live recovery test.
+
 ## 2026-10-03 — Attribution repair concurrency proof
 
 - Added `server/scripts/test-episode-attribution-repair-postgres.test.ts` to

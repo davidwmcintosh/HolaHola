@@ -38,6 +38,36 @@ was deleted to force a pass. Completion requests an audited validation exception
 for that pre-existing blocker. After the lifecycle correction, the seven focused
 tests, typecheck, diff check, and restarted authenticated health probe passed.
 
+## Historical attribution release packaging — 2026-10-03
+
+Both approved historical-attribution receipts are now explicit required Docker
+runtime copies. `npm run build` bundles/runs the DB-free approval probe, and
+the final Docker stage executes it after source/dist assembly. Canonical CI
+runs `node --test scripts/test-historical-attribution-release-package.test.mjs`:
+fresh relocated Node processes load both exact files and reject deletion or
+byte changes independently. No live rolling episode or receipt pins changed.
+This is isolated packaging/loader proof, not a full production container boot.
+
+Verification: focused release-package tests, bundled probe, `npm run typecheck`,
+and `npm run build` passed. `verify-system-health.ts` exited 0; Summary:
+2 warning(s), both app-route checks skipped while the dev server was stopped.
+The server was subsequently started and its anonymous landing page rendered.
+A broader CI runner invocation stopped at the shell's five-minute timeout;
+that partial run is not claimed as a complete suite pass. Receipt hashes
+still match the existing pins. No linked coordination thread was supplied in
+the assignment; the optional pre-build Alden request could not connect while
+the server was stopped and created no known consultation/thread.
+
+Completion verification: the configured validation suite, canonical chat-save
+check, and owner-key absence check all passed; completion code review approved
+the change. Consolidated CI passed every group except `episode-sync`.
+`test-episode-concurrent-write.ts` failed inserting its Episode 9997 fixture
+with `idx_episode_title_arc_unique`. Running that exact test in a detached,
+unmodified parent checkout reproduced the same failure (exit 1). No conflicting
+row was removed to bypass the constraint. Completion is requested with an
+audited validation exception for that confirmed pre-existing blocker; the
+release-packaging implementation and focused checks are complete.
+
 ## From Agent — last updated: Thu, Oct 1, 9:38 PM
 
 # Runtime onboarding — current handoff
