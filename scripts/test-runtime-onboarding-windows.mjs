@@ -7,6 +7,38 @@ import { fileURLToPath, pathToFileURL } from 'node:url';
 
 const purposes = ['proof-key', 'attempt-state', 'access-credential'];
 
+const diagnosticCategories = new Set([
+  'execution_policy_blocked', 'signature_rejected', 'executable_unavailable',
+  'invalid_helper_response', 'unknown',
+]);
+const smokePhases = new Set([
+  'cli-empty-status', 'dpapi-roundtrip-and-acl', 'client-cli-corrupt-state',
+  'corrupt-credential-and-envelope', 'unsafe-owned-file-acl',
+  'cleanup-or-policy-verification', 'preflight',
+]);
+
+function fixedCategory(value) {
+  return diagnosticCategories.has(value) ? value : 'unknown';
+}
+
+/** Consume only the CLI's fixed diagnostic line, never echo captured output. */
+export function cliStoreDiagnostic(result) {
+  if (result.error?.code === 'ENOENT') return 'executable_unavailable';
+  const stderr = typeof result.stderr === 'string' ? result.stderr.slice(0, 8192) : '';
+  const matches = [...stderr.matchAll(/^runtime_onboarding_store_diagnostic: ([a-z_]+)\r?$/gm)];
+  return matches.length === 1 ? fixedCategory(matches[0][1]) : 'unknown';
+}
+
+export function windowsNativeSmokeFailureReport(error, platform = process.platform) {
+  return {
+    result: 'windows_native_smoke_failed',
+    ownedScopeCleanup: error instanceof AggregateError ? 'unverified' : 'completed-or-store-not-started',
+    nativeWindows: platform === 'win32',
+    failedPhase: smokePhases.has(error?.nativeSmokePhase) ? error.nativeSmokePhase : 'preflight',
+    storeDiagnostic: fixedCategory(error?.diagnosticCategory),
+  };
+}
+
 function assertNoLinks(path) {
   for (let current = resolve(path); ; current = dirname(current)) {
     if (existsSync(current)) assert.equal(lstatSync(current).isSymbolicLink(), false, 'unsafe cleanup path');
@@ -20,7 +52,9 @@ function powershell(command, input = '') {
     : 'powershell.exe';
   // Read-only policy/ACL inspection, not a substitute launch for the helper.
   return execFileSync(executable, ['-NoLogo', '-NoProfile', '-NonInteractive', '-Command', command], {
-    input, encoding: 'utf8', timeout: 30_000,
+    // Explicit pipes prevent execFileSync from forwarding raw stderr on failure.
+    input, encoding: 'utf8', timeout: 30_000, maxBuffer: 1024 * 1024,
+    stdio: ['pipe', 'pipe', 'pipe'],
   }).trim();
 }
 
@@ -43,12 +77,22 @@ export async function runWindowsNativeSmoke({ createStore, Client, cliArgs }) {
   let phase = 'cli-empty-status';
   const cli = () => spawnSync(process.execPath, [
     ...cliArgs, 'status', '--endpoint', scope.endpoint, '--actor', scope.actor, '--runtime-id', scope.runtimeId,
-  ], { encoding: 'utf8', timeout: 30_000 });
+  ], { encoding: 'utf8', timeout: 30_000, maxBuffer: 1024 * 1024 });
   let failure;
   try {
     const initial = cli();
-    assert.equal(initial.status, 0, 'unmodified CLI must launch the native helper');
-    assert.deepEqual(JSON.parse(initial.stdout), { configured: false });
+    if (initial.status !== 0) {
+      const error = new Error('native_smoke_cli_launch_failed');
+      error.diagnosticCategory = cliStoreDiagnostic(initial);
+      throw error;
+    }
+    try {
+      assert.deepEqual(JSON.parse(initial.stdout), { configured: false });
+    } catch {
+      const error = new Error('native_smoke_cli_response_invalid');
+      error.diagnosticCategory = 'invalid_helper_response';
+      throw error;
+    }
     checks.push('unmodified-cli-empty-status');
     phase = 'dpapi-roundtrip-and-acl';
     for (const [index, purpose] of purposes.entries()) {
@@ -140,6 +184,7 @@ export async function runWindowsNativeSmoke({ createStore, Client, cliArgs }) {
     if (cleanupFailures.length) {
       const error = new AggregateError([...(failure ? [failure] : []), ...cleanupFailures], 'native smoke failed; owned-scope cleanup or policy verification failed');
       error.nativeSmokePhase = 'cleanup-or-policy-verification';
+      error.diagnosticCategory = fixedCategory(failure?.diagnosticCategory);
       throw error;
     }
   }
@@ -176,14 +221,7 @@ async function main(packageDirectory) {
 if (process.argv[1] && resolve(process.argv[1]) === fileURLToPath(import.meta.url)) {
   main(process.argv[2]).catch((error) => {
     // Never print credential/store bytes or arbitrary child diagnostics.
-    const cleanupUnverified = error instanceof AggregateError;
-    process.stderr.write(JSON.stringify({
-      result: 'windows_native_smoke_failed',
-      ownedScopeCleanup: cleanupUnverified ? 'unverified' : 'completed-or-store-not-started',
-      nativeWindows: process.platform === 'win32',
-      failedPhase: error.nativeSmokePhase ?? 'preflight',
-      // No raw error: assertions can contain store values and child output.
-    }) + '\n');
+    process.stderr.write(JSON.stringify(windowsNativeSmokeFailureReport(error)) + '\n');
     process.exitCode = 1;
   });
 }

@@ -104,3 +104,11 @@ enabled the actual packaged smoke without changing saved execution policy.
 before choosing a remedy. Never silently unblock or switch to Bypass. Any manual
 trust exception needs explicit authorization and independent hash verification;
 success afterward proves only that approved copy, not untouched future downloads.
+
+## Secret-safe child-process capture
+
+Native diagnostic capture must use explicit piped stdio for synchronous child launches. Node's execFileSync can forward child stderr automatically on a failed command when stdio is left implicit, even if the caller catches the exception and only prints an allowlisted report.
+
+**Why:** A secret-safe outer failure handler does not protect against a child-process API forwarding raw diagnostics before that handler runs. Arbitrary helper output may contain store data or credentials.
+
+**How to apply:** Audit the subprocess boundary as well as the final serializer. Keep fixed-category reporting separate from captured child output, require positive evidence before classifying a security restriction, and leave unrecognized failures explicitly unknown. This is not authority to change policy or unblock a downloaded file.

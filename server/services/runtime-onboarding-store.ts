@@ -44,6 +44,51 @@ type StoreCommand = {
 
 type CommandResult = { code: number | null; stdout: string; stderr: string };
 
+export type SecureStoreDiagnosticCategory =
+  | 'execution_policy_blocked'
+  | 'signature_rejected'
+  | 'executable_unavailable'
+  | 'invalid_helper_response'
+  | 'unknown';
+
+/** Contains only fixed codes: never retain child output, input, or a cause. */
+export class SecureStoreDiagnosticError extends Error {
+  constructor(
+    message: 'dpapi_secure_store_failed' | 'secure_store_operation_failed'
+      | 'secure_store_response_invalid' | 'secure_store_response_too_large',
+    readonly diagnosticCategory: SecureStoreDiagnosticCategory,
+  ) {
+    super(message);
+    this.name = 'SecureStoreDiagnosticError';
+  }
+}
+
+export function secureStoreDiagnosticCategory(error: unknown): SecureStoreDiagnosticCategory | undefined {
+  if (!(error instanceof SecureStoreDiagnosticError)) return undefined;
+  // Also validate at the serialization boundary; JS callers can mutate fields.
+  switch (error.diagnosticCategory) {
+    case 'execution_policy_blocked':
+    case 'signature_rejected':
+    case 'executable_unavailable':
+    case 'invalid_helper_response':
+    case 'unknown':
+      return error.diagnosticCategory;
+    default:
+      return 'unknown';
+  }
+}
+
+/** Recognize PowerShell's wrapped security error, not arbitrary keyword matches. */
+export function classifyWindowsHelperFailure(stderr: string): SecureStoreDiagnosticCategory {
+  const text = stderr.slice(0, 8192).replace(/\s+/g, ' ');
+  const securityError = /CategoryInfo\s*:\s*SecurityError\b.*\b(?:PSSecurityException|ParentContainsErrorRecordException)\b/i.test(text)
+    && /FullyQualifiedErrorId\s*:\s*UnauthorizedAccess\b/i.test(text);
+  if (!securityError) return 'unknown';
+  if (/\bis not digitally signed\b/i.test(text)) return 'signature_rejected';
+  if (/\brunning scripts is disabled on this system\b/i.test(text)) return 'execution_policy_blocked';
+  return 'unknown';
+}
+
 function runCommand(
   executable: string,
   args: string[],
@@ -51,25 +96,38 @@ function runCommand(
   maxOutputBytes = 1024 * 1024,
 ): Promise<CommandResult> {
   return new Promise((resolvePromise, reject) => {
-    const child = spawn(executable, args, { stdio: ['pipe', 'pipe', 'pipe'], windowsHide: true });
+    let child: ReturnType<typeof spawn>;
+    try {
+      child = spawn(executable, args, { stdio: ['pipe', 'pipe', 'pipe'], windowsHide: true });
+    } catch {
+      reject(new SecureStoreDiagnosticError('secure_store_operation_failed', 'unknown'));
+      return;
+    }
     const stdout: Buffer[] = [];
     const stderr: Buffer[] = [];
     let outputBytes = 0;
-    child.stdout.on('data', (chunk: Buffer) => {
+    child.stdout!.on('data', (chunk: Buffer) => {
       outputBytes += chunk.length;
       if (outputBytes > maxOutputBytes) {
         child.kill();
-        reject(new Error('secure_store_response_too_large'));
+        reject(new SecureStoreDiagnosticError('secure_store_response_too_large', 'invalid_helper_response'));
         return;
       }
       stdout.push(chunk);
     });
-    child.stderr.on('data', (chunk: Buffer) => {
-      if (Buffer.concat(stderr).length < 8192) stderr.push(chunk);
+    let stderrBytes = 0;
+    child.stderr!.on('data', (chunk: Buffer) => {
+      const bounded = chunk.subarray(0, Math.max(0, 8192 - stderrBytes));
+      stderrBytes += bounded.length;
+      if (bounded.length) stderr.push(bounded);
     });
     child.once('error', (error) => {
-      reject(new Error(`secure_store_unavailable:${error.message}`));
+      reject(new SecureStoreDiagnosticError('secure_store_operation_failed',
+        (error as NodeJS.ErrnoException).code === 'ENOENT' ? 'executable_unavailable' : 'unknown'));
     });
+    // A failed launch can close stdin before the command is written. Never
+    // expose EPIPE text or let it become an uncaught stream error.
+    child.stdin!.on('error', () => undefined);
     child.once('close', (code) => {
       resolvePromise({
         code,
@@ -77,7 +135,7 @@ function runCommand(
         stderr: Buffer.concat(stderr).toString('utf8'),
       });
     });
-    child.stdin.end(input, 'utf8');
+    child.stdin!.end(input, 'utf8');
   });
 }
 
@@ -95,12 +153,12 @@ function parseStoreValue(result: CommandResult): string | null {
   try {
     parsed = JSON.parse(result.stdout);
   } catch {
-    throw new Error('secure_store_response_invalid');
+    throw new SecureStoreDiagnosticError('secure_store_response_invalid', 'invalid_helper_response');
   }
-  if (typeof parsed !== 'object' || parsed === null) throw new Error('secure_store_response_invalid');
+  if (typeof parsed !== 'object' || parsed === null) throw new SecureStoreDiagnosticError('secure_store_response_invalid', 'invalid_helper_response');
   const value = (parsed as Record<string, unknown>).value;
   if (value === null) return null;
-  if (typeof value !== 'string') throw new Error('secure_store_response_invalid');
+  if (typeof value !== 'string') throw new SecureStoreDiagnosticError('secure_store_response_invalid', 'invalid_helper_response');
   return value;
 }
 
@@ -110,12 +168,12 @@ function parseSetIfAbsentValue(result: CommandResult): { value: string; created:
   try {
     parsed = JSON.parse(result.stdout);
   } catch {
-    throw new Error('secure_store_response_invalid');
+    throw new SecureStoreDiagnosticError('secure_store_response_invalid', 'invalid_helper_response');
   }
   if (typeof parsed !== 'object' || parsed === null
     || typeof (parsed as Record<string, unknown>).value !== 'string'
     || typeof (parsed as Record<string, unknown>).created !== 'boolean') {
-    throw new Error('secure_store_response_invalid');
+    throw new SecureStoreDiagnosticError('secure_store_response_invalid', 'invalid_helper_response');
   }
   return {
     value: (parsed as Record<string, unknown>).value as string,
@@ -243,7 +301,19 @@ export class WindowsDpapiRuntimeOnboardingStore implements RuntimeOnboardingStor
       ['-NoLogo', '-NoProfile', '-NonInteractive', '-ExecutionPolicy', 'RemoteSigned', '-File', this.scriptPath, command.operation],
       JSON.stringify(command),
     );
-    if (result.code !== 0) throw new Error(`dpapi_secure_store_failed:${result.stderr.trim().slice(0, 120) || 'unknown'}`);
+    if (result.code !== 0) {
+      throw new SecureStoreDiagnosticError('dpapi_secure_store_failed', classifyWindowsHelperFailure(result.stderr));
+    }
+    if (command.operation === 'set' || command.operation === 'delete') {
+      let parsed: unknown;
+      try { parsed = JSON.parse(result.stdout); } catch {
+        throw new SecureStoreDiagnosticError('secure_store_response_invalid', 'invalid_helper_response');
+      }
+      if (typeof parsed !== 'object' || parsed === null
+        || (parsed as Record<string, unknown>).ok !== true) {
+        throw new SecureStoreDiagnosticError('secure_store_response_invalid', 'invalid_helper_response');
+      }
+    }
     return result;
   }
 

@@ -10107,3 +10107,15 @@ failure did not recur in the standalone run.
 
 Completion is submitted with an audited exception for this confirmed
 pre-existing consolidated-CI blocker; no implementation scope was deferred.
+
+---
+
+## From Agent — Windows onboarding diagnostics — last updated: Sat, Oct 3, 10:56 PM
+
+Windows onboarding diagnostics now use fixed categories without retaining raw child stderr or arbitrary spawn text. CLI keeps its existing failure line and adds a stderr-only category; the native smoke adds an allowlisted storeDiagnostic field, preserving it during cleanup-verification failure. Wrapped security metadata plus normalized recognized wording is required for policy/signature classification; all other cases stay unknown. Explicit execFileSync pipes prevent automatic raw-stderr forwarding.
+
+Targeted native-store/client tests: 21 passed, 2 Windows-only skipped. Typecheck passed. System health verifier: zero failures, two warnings for unreachable development app routes before startup. Development workflow subsequently restarted cleanly. No native Windows result, policy change, unblocking, trust exception, source promotion, or runtime publication is claimed. Task 1693 remains separate and unchanged.
+
+Changed files: server/services/runtime-onboarding-store.ts, server/scripts/runtime-onboarding-cli.ts, scripts/test-runtime-onboarding-windows.mjs, server/scripts/runtime-onboarding-native-store.test.ts. No linked coordination threads were supplied in this assignment.
+
+Completion validation: consolidated CI, canonical chat-save, owner-key absence, and completion code review passed. The first validation-suite attempt hit the known live-directory scanner fixture race (ENOENT for __gcs-guard-selftest-tmp__.ts). The complete standalone rerun of bash server/scripts/run-validation-suite.sh passed with exit 0; evidence is /tmp/replit-background-tasks/c844ad69-b033-4803-8ce0-4297a4ea4c02.log (VALIDATION_SUITE_EXIT=0). No code changes were needed for that race. Historical recovery and release-packaging handoff sections were restored verbatim through the canonical shared-spec revision after the refresh initially omitted them. The follow-up is read-only native Windows rejection-diagnostic verification, not authority to alter policy or unblock helpers.

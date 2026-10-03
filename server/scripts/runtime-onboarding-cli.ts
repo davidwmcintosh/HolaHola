@@ -6,6 +6,7 @@ import { fileURLToPath } from 'node:url';
 import { RuntimeOnboardingClient } from '../services/runtime-onboarding-client';
 import {
   createNativeRuntimeOnboardingStore,
+  secureStoreDiagnosticCategory,
 } from '../services/runtime-onboarding-store';
 import {
   createRuntimeOpenAITransport,
@@ -173,10 +174,18 @@ export function safeFailureCode(error: unknown): string {
   if (/^onboarding_(?:request|sdk|sdk_ledger|sdk_ledger_tool)_response_too_large$/.test(message)) {
     return 'onboarding_response_too_large';
   }
-  if (/^dpapi_secure_store_failed:/.test(message) || /^secure_store_unavailable:/.test(message)) {
+  if (message === 'dpapi_secure_store_failed'
+    || /^dpapi_secure_store_failed:/.test(message) || /^secure_store_unavailable:/.test(message)) {
     return 'secure_store_operation_failed';
   }
   return 'runtime_onboarding_operation_failed';
+}
+
+/** Preserve the original failure line; additive diagnostics stay on stderr. */
+export function safeFailureDiagnostics(error: unknown): string {
+  const category = secureStoreDiagnosticCategory(error);
+  return `runtime_onboarding_failed: ${safeFailureCode(error)}\n`
+    + (category ? `runtime_onboarding_store_diagnostic: ${category}\n` : '');
 }
 
 export async function runRuntimeOnboardingCli(argv = process.argv.slice(2)): Promise<void> {
@@ -295,7 +304,7 @@ async function main(): Promise<void> {
       process.exitCode = 2;
       return;
     }
-    console.error(`runtime_onboarding_failed: ${safeFailureCode(error)}`);
+    process.stderr.write(safeFailureDiagnostics(error));
     process.exitCode = 1;
   }
 }

@@ -1,3 +1,31 @@
+## 2026-10-03 — Secret-safe Windows onboarding launch diagnostics
+
+- Native store failures retain only fixed error codes and diagnostic categories:
+  `execution_policy_blocked`, `signature_rejected`, `executable_unavailable`,
+  `invalid_helper_response`, or `unknown`. PowerShell classification requires
+  wrapped security-error metadata plus the recognized policy/signature phrase;
+  whitespace is normalized within an 8 KiB diagnostic capture limit.
+- CLI exit codes, stdout, and the existing `runtime_onboarding_failed` line
+  remain unchanged. A separate stderr-only `runtime_onboarding_store_diagnostic`
+  line reports a fixed category. The native smoke adds `storeDiagnostic` to its
+  failure JSON and retains it if cleanup verification also fails.
+- Store exceptions never retain raw child stderr, invalid response bytes,
+  input credentials, child exception text, or a secret-bearing cause. Smoke
+  inspection commands explicitly pipe stderr to prevent automatic forwarding.
+  Set/delete acknowledgements are validated; failures never become empty stores.
+- Existing native-store CI now includes wrapped-error, unknown, bounded-output,
+  malformed-response, missing-executable, CLI-format, and smoke-report fixtures,
+  with synthetic bearer/private-key canaries. Targeted checks: 21 passed,
+  2 native-Windows-only skips; typecheck passed. System health: zero failures,
+  two app-route warnings because the development server was not yet started.
+- This is diagnostic evidence from Linux fixtures, not a native Windows pass.
+  No policy changes, unblocking, trust exceptions, or publication were performed.
+- Completion validation: consolidated CI, canonical chat-save, owner-key absence,
+  and code review passed. The validation suite's initial scanner-fixture ENOENT
+  race did not recur on a complete standalone rerun (exit 0). Unrelated historical
+  handoff sections omitted by the shared-document refresh were restored verbatim
+  through the canonical shared-spec revision.
+
 ## 2026-10-03 — Approved episode concurrency test isolation repair
 
 - Founder authorized repairing the unrelated Episode 9997 fixture collision
