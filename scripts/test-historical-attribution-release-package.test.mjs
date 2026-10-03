@@ -14,8 +14,8 @@ const receipts = [
 ];
 const success = 'Historical attribution release approvals verified (both pinned receipts).';
 
-test('release image explicitly carries both approval files and executes the bundled probe', async () => {
-  const dockerfile = await readFile(join(root, 'Dockerfile'), 'utf8');
+async function assertReleasePackaging(workspace) {
+  const dockerfile = await readFile(join(workspace, 'Dockerfile'), 'utf8');
   const runtime = dockerfile.split(/^FROM .* AS runtime\s*$/m)[1];
   assert.ok(runtime, 'Dockerfile must have an independently verified runtime stage');
   for (const file of receipts) {
@@ -26,13 +26,92 @@ test('release image explicitly carries both approval files and executes the bund
   }
   const probe = 'RUN node dist/check-historical-attribution-release.mjs';
   assert.ok(runtime.split('\n').includes(probe), 'Runtime stage must execute the real approval loader');
-  assert.ok(runtime.indexOf(probe) > runtime.indexOf('COPY --from=build /app/dist ./dist'));
+  assert.ok(runtime.indexOf(probe) > runtime.indexOf('COPY --from=build /app/dist ./dist'),
+    'Runtime approval probe must run after copying the bundled checker');
   for (const file of receipts) {
-    assert.ok(runtime.indexOf(probe) > runtime.indexOf(`COPY docs/${file}`));
+    assert.ok(runtime.indexOf(probe) > runtime.indexOf(`COPY docs/${file}`),
+      `Runtime approval probe must run after copying ${file}`);
   }
-  const pkg = JSON.parse(await readFile(join(root, 'package.json'), 'utf8'));
+  const pkg = JSON.parse(await readFile(join(workspace, 'package.json'), 'utf8'));
   assert.ok(pkg.scripts.build.split(/\s+&&\s+/).includes('node scripts/build-historical-attribution-release-check.mjs'),
     'Non-Docker release builds must also bundle and execute the probe');
+}
+
+test('release image explicitly carries both approval files and executes the bundled probe', async () => {
+  await assertReleasePackaging(root);
+});
+
+test('packaging contract rejects isolated configuration mutations', async t => {
+  const temporary = await mkdtemp(join(tmpdir(), 'historical-release-contract-'));
+  const probe = 'RUN node dist/check-historical-attribution-release.mjs';
+  const bundleCopy = 'COPY --from=build /app/dist ./dist';
+  const receiptCopies = receipts.map(file => `COPY docs/${file} ./docs/${file}`);
+  const checker = 'node scripts/build-historical-attribution-release-check.mjs';
+  // Synthetic configuration only: broad COPY cannot replace required receipt
+  // copies, and no live release configuration or episode record is rewritten.
+  const dockerfile = [
+    'FROM node:20 AS build',
+    'RUN npm run build',
+    'FROM node:20 AS runtime',
+    'WORKDIR /app',
+    'COPY . .',
+    bundleCopy,
+    ...receiptCopies,
+    probe,
+    '',
+  ].join('\n');
+  const pkg = { scripts: { build: `vite build && ${checker} && node scripts/generate-release-manifest.mjs` } };
+  const removeLine = line => dockerfile.replace(`${line}\n`, '');
+  const before = line => removeLine(probe).replace(`${line}\n`, `${probe}\n${line}\n`);
+  const mutations = [
+    ...receipts.map((file, index) => ({
+      name: `missing explicit receipt COPY: ${file}`,
+      dockerfile: removeLine(receiptCopies[index]),
+      message: `Runtime image needs an explicit required COPY for ${file}`,
+    })),
+    {
+      name: 'missing runtime approval probe',
+      dockerfile: removeLine(probe),
+      message: 'Runtime stage must execute the real approval loader',
+    },
+    {
+      name: 'runtime approval probe before bundled checker COPY',
+      dockerfile: before(bundleCopy),
+      message: 'Runtime approval probe must run after copying the bundled checker',
+    },
+    ...receipts.map((file, index) => ({
+      name: `runtime approval probe before receipt COPY: ${file}`,
+      dockerfile: before(receiptCopies[index]),
+      message: `Runtime approval probe must run after copying ${file}`,
+    })),
+    {
+      name: 'missing bundled checker in scripts.build',
+      pkg: { scripts: { build: pkg.scripts.build.split(' && ').filter(command => command !== checker).join(' && ') } },
+      message: 'Non-Docker release builds must also bundle and execute the probe',
+    },
+  ];
+  const writeFixture = async (workspace, docker, packageJson) => {
+    await mkdir(workspace);
+    await writeFile(join(workspace, 'Dockerfile'), docker);
+    await writeFile(join(workspace, 'package.json'), JSON.stringify(packageJson));
+  };
+  try {
+    const valid = join(temporary, 'valid');
+    await writeFixture(valid, dockerfile, pkg);
+    await assertReleasePackaging(valid);
+    for (const [index, mutation] of mutations.entries()) {
+      await t.test(mutation.name, async () => {
+        const workspace = join(temporary, `mutation-${index}`);
+        await writeFixture(workspace, mutation.dockerfile ?? dockerfile, mutation.pkg ?? pkg);
+        await assert.rejects(() => assertReleasePackaging(workspace), {
+          name: 'AssertionError',
+          message: mutation.message,
+        });
+      });
+    }
+  } finally {
+    await rm(temporary, { recursive: true, force: true });
+  }
 });
 
 test('packaged probe loads relocated approvals and rejects each absent or changed file', async () => {
