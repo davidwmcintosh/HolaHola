@@ -193,3 +193,19 @@ its first line."
 
 **How to apply:** don't annotate a fresh discriminated-union literal with a computed `Omit<Union, K>` type. Leave the literal's type inferred (let TypeScript pick the correct narrowed member from the `type` field), then pass the resulting variable -- not a fresh literal -- into the function expecting the `Omit<...>` type. Passing a variable of the full union type is structurally assignable there; only a *fresh object literal* triggers excess-property checking against the collapsed common-keys-only type.
 
+
+## Portable TypeScript exports need module-format metadata
+
+When exporting TypeScript tooling outside the repository, preserve its package
+module format explicitly with a minimal package.json. Test both the CLI and
+named ESM imports from the extracted location.
+
+**Why:** An exported ownership CLI passed its CLI checks without a package
+marker, but tsx treated its modules as CommonJS outside the repository. Named
+ESM imports then reported missing exports. Restoring type: module made the
+entire extracted-tool suite pass.
+
+**How to apply:** Portable source-transfer bundles should carry their required
+local imports and module-format metadata, but no credentials or private keys.
+For ownership bootstrap, keep the original task checkout as process.cwd() and
+run the extracted tool externally rather than editing an unverified checkout.
