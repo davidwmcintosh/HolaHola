@@ -45,6 +45,7 @@ test('packaging contract rejects isolated configuration mutations', async t => {
   const temporary = await mkdtemp(join(tmpdir(), 'historical-release-contract-'));
   const probe = 'RUN node dist/check-historical-attribution-release.mjs';
   const bundleCopy = 'COPY --from=build /app/dist ./dist';
+  const runtimeStage = 'FROM node:20 AS runtime';
   const receiptCopies = receipts.map(file => `COPY docs/${file} ./docs/${file}`);
   const checker = 'node scripts/build-historical-attribution-release-check.mjs';
   // Synthetic configuration only: broad COPY cannot replace required receipt
@@ -52,7 +53,7 @@ test('packaging contract rejects isolated configuration mutations', async t => {
   const dockerfile = [
     'FROM node:20 AS build',
     'RUN npm run build',
-    'FROM node:20 AS runtime',
+    runtimeStage,
     'WORKDIR /app',
     'COPY . .',
     bundleCopy,
@@ -63,15 +64,31 @@ test('packaging contract rejects isolated configuration mutations', async t => {
   const pkg = { scripts: { build: `vite build && ${checker} && node scripts/generate-release-manifest.mjs` } };
   const removeLine = line => dockerfile.replace(`${line}\n`, '');
   const before = line => removeLine(probe).replace(`${line}\n`, `${probe}\n${line}\n`);
+  const buildOnly = line => removeLine(line).replace(`${runtimeStage}\n`, `${line}\n${runtimeStage}\n`);
   const mutations = [
+    {
+      name: 'missing runtime stage',
+      dockerfile: dockerfile.split(`${runtimeStage}\n`)[0],
+      message: 'Dockerfile must have an independently verified runtime stage',
+    },
     ...receipts.map((file, index) => ({
       name: `missing explicit receipt COPY: ${file}`,
       dockerfile: removeLine(receiptCopies[index]),
       message: `Runtime image needs an explicit required COPY for ${file}`,
     })),
+    ...receipts.map((file, index) => ({
+      name: `receipt COPY only in build stage: ${file}`,
+      dockerfile: buildOnly(receiptCopies[index]),
+      message: `Runtime image needs an explicit required COPY for ${file}`,
+    })),
     {
       name: 'missing runtime approval probe',
       dockerfile: removeLine(probe),
+      message: 'Runtime stage must execute the real approval loader',
+    },
+    {
+      name: 'approval probe only in build stage',
+      dockerfile: buildOnly(probe),
       message: 'Runtime stage must execute the real approval loader',
     },
     {
