@@ -9989,3 +9989,53 @@ that legitimate record is preserved, not manually reverted.
 
 Memory review: no new non-code-derived durable lesson was discovered; the
 existing disposable-database safety rule applies unchanged.
+
+---
+
+## From Agent — historical attribution recovery — last updated: Sat, Oct 3, 3:49 PM
+
+Historical attribution recovery is now source-identity-bound and durable.
+The two original approved Episode 34 receipts are unchanged and pinned by
+exact file hash; no new live historical repair was performed.
+
+Both watchdog and autosave project an approved capture ID plus exact spoken
+SHA-256 to the repaired Luca label, including metadata and pending autosave
+mirror delivery. Unapproved bare Claude Code stays distinct. Conflicting
+spoken bytes and casing-only bare evidence stop recovery without changing
+capture bytes, source rows, or cursor fingerprints.
+
+Isolated fixtures exercised repair, reconstruction from a durable receipt,
+21-turn backfill, cursor reset/replay, genuine bare identity, exact prefix,
+speech, and failed-attribution cursor retention. Focused tests passed;
+`npm run typecheck` passed. System health summary:
+All checks passed — safe to mark done.
+
+The application was started once after testing. Its normal startup restored
+the Episode 34 Markdown replica from the newer canonical DB snapshot; that
+restoration was not a test fixture or a dialogue repair. No source/runtime
+publication was performed. The pre-build Alden consultation could not run
+because the development application was stopped.
+
+Operating rules: docs/historical-attribution-overlay.md.
+No coordination thread or inbox source is linked from the task assignment.
+
+Completion review correction: pending mirrors now identify turn boundaries
+from the original length-delimited capture range, never speaker-looking
+rendered lines. Whole-rendering verification prevents an internal matching
+suffix from authorizing extra speech. A real isolated outbox test proves
+rejection leaves queue bytes and acknowledgement unchanged with no append.
+The consolidated-CI failure was an evidence-file dependency in its temporary
+workspace; historical evidence now loads only for potentially approved capture
+identities, and the existing hermetic watchdog inner-life test passes.
+
+Final verification: completion review APPROVED. The configured validation suite,
+canonical chat-save check, and owner-key absence check passed. Standalone
+consolidated CI passed every group except episode-sync, blocked by
+test-episode-concurrent-write.ts inserting Episode 9997 into the existing
+idx_episode_title_arc_unique title/arc key. The exact same failure reproduced
+in a detached untouched main-repl/main worktree (exit 1). No shared database
+fixture row was deleted to bypass it. Earlier parallel capture-status cleanup
+failure did not recur in the standalone run.
+
+Completion is submitted with an audited exception for this confirmed
+pre-existing consolidated-CI blocker; no implementation scope was deferred.

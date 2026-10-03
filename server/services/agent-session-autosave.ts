@@ -42,6 +42,7 @@ import { tryAcquireInnerLifeLock, releaseInnerLifeLock, waitForInnerLifeLock } f
 import { join, basename, dirname } from 'path';
 import { getUserDb } from '../db';
 import { sql } from 'drizzle-orm';
+import { projectHistoricalEpisodeMirror } from './historical-attribution-mirror-recovery';
 import {
   WORKSPACE,
   loadCursor,
@@ -2497,7 +2498,7 @@ async function processPendingEpisodeMirrors(): Promise<void> {
         return true;
       }
       const episodeOk = await appendInnerLifeToEpisodeDb(
-        item.formattedContent,
+        projectHistoricalEpisodeMirror(item),
         item.liveEpisode,
         { appendMarker: item.appendMarker, allowAppend: true },
       );
@@ -2660,11 +2661,9 @@ async function checkChatCapture(): Promise<void> {
       const batchTurns = remaining.slice(0, includedCount);
       const davidCount = batchTurns.filter(t => t.speaker === 'DAVID').length;
       const sourceLabels = [...new Set(batchTurns.map(turn => turn.source ?? 'legacy'))];
-      const participantLabels = [
-        ...(batchTurns.some(turn => turn.speaker === 'DAVID') ? ['David'] : []),
-        ...(batchTurns.some(turn => turn.speaker === 'LUCA') ? ['Luca [Replit]'] : []),
-        ...(batchTurns.some(turn => turn.speaker === 'CLAUDE_CODE') ? ['Claude Code'] : []),
-      ];
+      const participantLabels = [...new Set(batchTurns.map(turn =>
+        turn.speaker === 'DAVID' ? 'David' : formatChatCaptureSpeakerLabel(turn),
+      ))];
       const participantsArray = `{${participantLabels.map(label => `"${label.replace(/"/g, '\\"')}"`).join(',')}}`;
       const captureIds = [...new Set(batchTurns.flatMap(turn => turn.captureId ? [turn.captureId] : []))].sort();
       if (captureIds.length > 1) {

@@ -47,12 +47,17 @@ import {
   type InnerLifeChannel,
 } from '../services/inner-life-capture.js';
 import { refreshMemoryIndexBestEffort } from '../services/agent-memory-core';
+import { historicalAttributionLabel } from '../services/historical-attribution-overlay';
 
 // ─── Config ───────────────────────────────────────────────────────────────────
 
 const POLL_MS           = 15_000;
 const EPISODE_LIVE_PATH = path.join(WORKSPACE, '.local/.episode_live');
 const DOCS_DIR          = path.join(WORKSPACE, 'docs');
+let episodePathsForTest: { liveFlag: string; docsDirectory: string } | null = null;
+export function setEpisodePathsForTest(paths: { liveFlag: string; docsDirectory: string } | null): void {
+  episodePathsForTest = paths;
+}
 
 const DB_URL = process.env.NEON_SHARED_DATABASE_URL;
 if (!DB_URL) {
@@ -159,9 +164,10 @@ async function appendTextToEpisodeDbFirst(text: string, episode: { id: string; f
   if (typeof newContent !== 'string') {
     throw new Error(`[watchdog] canonical episode row was not readable after UPDATE: ${episode.filename}`);
   }
-  const filePath = path.join(DOCS_DIR, episode.filename);
+  const docsDirectory = episodePathsForTest?.docsDirectory ?? DOCS_DIR;
+  const filePath = path.join(docsDirectory, episode.filename);
   try {
-    fs.mkdirSync(DOCS_DIR, { recursive: true });
+    fs.mkdirSync(docsDirectory, { recursive: true });
     fs.writeFileSync(filePath, newContent, 'utf-8');
     if (fs.readFileSync(filePath, 'utf-8') !== newContent) {
       throw new Error('post-write read-back differs from canonical DB content');
@@ -188,12 +194,13 @@ export function appendToEpisode(
   // Claude Code (speaker) is its own bare assistant identity, distinct from
   // Luca authoring through the Claude Code interface (source) -- see
   // formatChatCaptureSpeakerLabel in transcript-parser.ts for the full model.
-  // This drain path duplicates that formatter's decision (kept separate so a
-  // watchdog-only regression can never touch the primary autosave path), so
-  // any change here must be mirrored there and vice versa.
+  // Apply only explicitly approved capture+speech evidence, never runtime source.
   const lines = turns
     .map(t => {
-      const label = t.speaker === 'DAVID'
+      const historicalLabel = historicalAttributionLabel(t);
+      const label = historicalLabel
+        ? `**${historicalLabel}:**`
+        : t.speaker === 'DAVID'
         ? '**David:**'
         : t.speaker === 'CLAUDE_CODE'
           ? '**Claude Code:**'
@@ -271,8 +278,9 @@ async function writeToDb(
   // claude-code) made the whole row claim "Luca [Claude Code]" in
   // participants/title while its own body correctly said "Claude Code".
   type AssistantKind = 'claude-code' | 'luca-claude-code' | 'luca';
-  function turnAssistantKind(t: Pick<DialogueTurn, 'speaker' | 'source'>): AssistantKind | 'david' {
+  function turnAssistantKind(t: Pick<DialogueTurn, 'speaker' | 'source' | 'captureId' | 'text'>): AssistantKind | 'david' {
     if (t.speaker === 'DAVID') return 'david';
+    if (historicalAttributionLabel(t)) return 'luca-claude-code';
     if (t.speaker === 'CLAUDE_CODE') return 'claude-code';
     return t.source === 'claude-code' ? 'luca-claude-code' : 'luca';
   }
@@ -423,8 +431,9 @@ export async function drain(): Promise<void> {
     // Looked up once per drain (it cannot change mid-loop) and reused for
     // every group below. Live mode requires it -- fail before writing
     // anything rather than accepting turns whose episode effect can't happen.
-    const episode = fs.existsSync(EPISODE_LIVE_PATH) ? await getRollingEpisode() : null;
-    if (fs.existsSync(EPISODE_LIVE_PATH) && !episode) {
+    const liveFlag = episodePathsForTest?.liveFlag ?? EPISODE_LIVE_PATH;
+    const episode = fs.existsSync(liveFlag) ? await getRollingEpisode() : null;
+    if (fs.existsSync(liveFlag) && !episode) {
       throw new Error('Live mode rolling-episode lookup returned no episode');
     }
 

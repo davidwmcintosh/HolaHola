@@ -15,6 +15,7 @@ import { existsSync, statSync, readFileSync, writeFileSync, appendFileSync, read
 import { createHash } from 'crypto';
 import { join } from 'path';
 import { ensureCaptureWorkspaceWritable, workspaceResolution } from './workspace-root';
+import { historicalAttributionLabel } from './historical-attribution-overlay';
 
 export const WORKSPACE        = workspaceResolution.root;
 export const TRANSCRIPT_DIR   = join(WORKSPACE, '.local/state/replit/agent/transcript');
@@ -421,8 +422,10 @@ export function chatCaptureTurnFingerprint(turn: Pick<DialogueTurn, 'speaker' | 
  *     "David [Claude Code]" when David typed through that interface.
  */
 export function formatChatCaptureSpeakerLabel(
-  turn: Pick<DialogueTurn, 'speaker' | 'source'>,
+  turn: Pick<DialogueTurn, 'speaker' | 'source'> & Partial<Pick<DialogueTurn, 'captureId' | 'text'>>,
 ): string {
+  const historicalLabel = historicalAttributionLabel(turn);
+  if (historicalLabel) return historicalLabel;
   if (turn.speaker === 'CLAUDE_CODE') return 'Claude Code';
   if (turn.source === 'claude-code') {
     return turn.speaker === 'DAVID' ? 'David [Claude Code]' : 'Luca [Claude Code]';

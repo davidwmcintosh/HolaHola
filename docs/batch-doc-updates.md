@@ -126,6 +126,32 @@ runtime, or application publication was performed.
   Episode 99 record was verified unchanged. System health reported no failures;
   its two app-route warnings came from running before the dev server started.
 
+## 2026-10-03 — Historical attribution survives recovery
+
+- Added an immutable, explicitly approved capture-ID + exact spoken-hash
+  overlay for the original Episode 34 repair and its 21-reply backfill receipt.
+  Receipt bytes and original source records are unchanged; no session-wide or
+  runtime-only authorship inference is permitted.
+- Watchdog dialogue/episode/title/participants and autosave dialogue/participants/
+  mirror delivery apply the same historical approval. Known mismatches stop
+  recovery rather than reintroduce a generic label; casing-only evidence cannot
+  promote a bare assistant identity.
+- Isolated synthetic repair/restart/backfill coverage uses a fake database and
+  temporary capture, cursor, episode, replica, receipt, and live flag. It retains
+  a genuine bare Claude Code reply and verifies exact speech and repaired prefix.
+- Operating rules and approval extension procedure:
+  `docs/historical-attribution-overlay.md`. No live episode repair or publication.
+- Completion review caught a quoted-header suffix ambiguity in pending mirrors.
+  Recovery now identifies actual turns from the original length-delimited byte
+  range, then verifies the entire queued rendering. The isolated real-outbox
+  negative test proves conflicting quoted text causes no append, queue deletion,
+  or acknowledgement. Unrelated captures do not load historical receipts, so
+  temporary hermetic workspaces remain independent of production evidence.
+- Final review approved. Main validation suite passed. Standalone consolidated
+  CI passed all groups except the pre-existing Episode 9997 concurrent-write
+  fixture title collision, independently reproduced on untouched parent code.
+  No shared row was deleted to bypass the unrelated blocker.
+
 ## 2026-10-02 — Episode 34 historical Claude-hat attribution
 
 - Founder approved two supporting validation repairs after the first full
