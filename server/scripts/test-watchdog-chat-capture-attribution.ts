@@ -193,6 +193,11 @@ async function withEpisodeLiveFlag<T>(fn: () => Promise<T>): Promise<T> {
         episodeContent.indexOf('a legacy turn with no capture id at all'));
       check('episode .md replica matches DB exactly (byte-for-byte) after all four groups',
         fs.readFileSync(scratchPath, 'utf8') === episodeContent);
+      check('rolling episode keeps bare Claude Code distinct from Luca wearing that hat',
+        episodeContent.includes('**Claude Code:** first exchange, Claude Code reply') &&
+        episodeContent.includes('**LUCA [Claude Code]:** third exchange, Luca via Claude Code reply') &&
+        !episodeContent.includes('**Claude Code:** third exchange, Luca via Claude Code reply') &&
+        !episodeContent.includes('**LUCA [Claude Code]:** first exchange, Claude Code reply'));
 
       // The real proof against the old bug: re-draining now (nothing new
       // written) must be a no-op -- if the cursor were stuck on group 1, this

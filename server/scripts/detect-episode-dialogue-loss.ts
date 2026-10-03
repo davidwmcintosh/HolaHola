@@ -106,6 +106,7 @@ import { join } from 'path';
 import { tmpdir } from 'os';
 import { neon } from '@neondatabase/serverless';
 import { LEGACY_RESERVED_FIXTURE_EPISODE_NUMBERS } from '../services/episode-content-loss-guard';
+import { attributionSha256, verifyEpisodeClaudeAttributionReceipt } from '../services/episode-claude-attribution-repair';
 
 const G = (s: string) => `\x1b[32m${s}\x1b[0m`;
 const R = (s: string) => `\x1b[31m${s}\x1b[0m`;
@@ -114,6 +115,27 @@ const Y = (s: string) => `\x1b[33m${s}\x1b[0m`;
 const sep = () => console.log('\n' + '─'.repeat(70));
 
 const REPO_ROOT = process.cwd();
+
+// Explicit receipts for the approved historical repair, never a global
+// Claude Code alias or an exemption by filename/label. The verifier requires
+// complete old/new snapshot hashes and reconstructs every exact label span.
+function readEpisodeAttributionReceipts(repoRoot: string, relPath: string): unknown[] {
+  if (relPath !== 'docs/episode-34.md') return [];
+  const filenames = [
+    'docs/episode-34-attribution-repair-evidence.json',
+    'docs/episode-34-attribution-repair-backfill-evidence.json',
+    'docs/episode-34-attribution-repair-post-merge-evidence.json',
+    'docs/episode-34-attribution-repair-validation-startup-evidence.json',
+  ];
+  return filenames.flatMap(filename => {
+    try {
+      return [JSON.parse(readFileSync(join(repoRoot, filename), 'utf8')) as unknown];
+    } catch {
+      // Missing or malformed evidence never suppresses the ordinary check.
+      return [];
+    }
+  });
+}
 
 /**
  * Minimum normalized length (chars) for a paragraph block to be eligible for
@@ -245,7 +267,8 @@ function extractBlocks(content: string): LostBlock[] {
  * stripping already applied to each `oldContent` block by extractBlocks() —
  * see stripCommentLines() for why this symmetry matters.
  */
-export function findLostBlocks(oldContent: string, newContent: string): LostBlock[] {
+export function findLostBlocks(oldContent: string, newContent: string, attributionReceipts: unknown[] = []): LostBlock[] {
+  if (attributionReceipts.some(receipt => verifyEpisodeClaudeAttributionReceipt(oldContent, newContent, receipt))) return [];
   const oldBlocks = extractBlocks(oldContent);
   const newNorm = norm(stripCommentLines(newContent));
   return oldBlocks.filter(b => !newNorm.includes(b.normalized));
@@ -269,9 +292,9 @@ export function findLostBlocks(oldContent: string, newContent: string): LostBloc
  * diffing the new content against an empty string for the wrong conceptual
  * reason.
  */
-export function findLostBlocksForTransition(oldContent: string | null, newContent: string | null): LostBlock[] {
+export function findLostBlocksForTransition(oldContent: string | null, newContent: string | null, attributionReceipts: unknown[] = []): LostBlock[] {
   if (oldContent === null) return [];
-  return findLostBlocks(oldContent, newContent ?? '');
+  return findLostBlocks(oldContent, newContent ?? '', attributionReceipts);
 }
 
 /**
@@ -640,7 +663,7 @@ async function checkFileGitHistory(relPath: string, fullHistory: boolean, repoRo
       continue;
     }
 
-    const lost = findLostBlocksForTransition(oldContent, newContent);
+    const lost = findLostBlocksForTransition(oldContent, newContent, readEpisodeAttributionReceipts(repoRoot, relPath));
     if (lost.length === 0) continue;
 
     const stillMissing = currentTipContent !== null ? stillMissingAtTip(lost, currentTipContent) : lost;
@@ -663,7 +686,7 @@ async function checkFileGitHistory(relPath: string, fullHistory: boolean, repoRo
   if (headContent !== null && existsSync(wtPath)) {
     const wtContent = readFileSync(wtPath, 'utf8');
     if (wtContent !== headContent) {
-      const lost = findLostBlocks(headContent, wtContent);
+      const lost = findLostBlocks(headContent, wtContent, readEpisodeAttributionReceipts(repoRoot, relPath));
       if (lost.length > 0) {
         reports.push({
           file: relPath,
@@ -1263,8 +1286,37 @@ async function runSelfCheck(): Promise<void> {
   }
   console.log(G('  ✓ the legacy docs/episode-99.md fixture (test-rolling-sync-guard.ts) is excluded from BOTH git-history and DB-row target discovery, while real neighbors (98, 100) remain protected'));
 
+  // A receipt is not an exemption: reconstruct every label span against the
+  // entire old snapshot. Both the absent-receipt and forged-receipt controls
+  // must still report loss, and deletion of the file must remain blocking.
+  const receiptOld = 'Claude Code: Synthetic exact spoken words must remain byte-for-byte.\n\nDavid: An untouched synthetic reply stays here.\n';
+  const receiptNew = receiptOld.replace(/^Claude Code:/, 'LUCA [Claude Code]:');
+  const receipt = {
+    episodeId: '41200170-1c49-4660-838c-9d397aff5d27',
+    applied: true, replicaParity: true,
+    beforeSha256: attributionSha256(receiptOld),
+    afterSha256: attributionSha256(receiptNew),
+    edits: [{
+      offset: 0, oldLabel: 'Claude Code:', newLabel: 'LUCA [Claude Code]:',
+      sourceId: 'synthetic-self-check-source',
+      captureId: 'cc-c52bede8-dd68-4804-8f77-59290f60b9e2-900001',
+      spokenSha256: attributionSha256('Synthetic exact spoken words must remain byte-for-byte.'),
+    }],
+  };
+  const lostWords = receiptNew.replace('exact spoken words ', '');
+  if (!findLostBlocks(receiptOld, receiptNew).length ||
+      findLostBlocks(receiptOld, receiptNew, [receipt]).length ||
+      findLostBlocks(receiptOld, receiptNew + '\nNew appended synthetic content.\n', [receipt]).length ||
+      !findLostBlocks(receiptOld, lostWords, [{ ...receipt, afterSha256: attributionSha256(lostWords) }]).length ||
+      !findLostBlocksForTransition(receiptOld, null, [receipt]).length ||
+      !findLostBlocks(receiptOld, receiptNew, [{ ...receipt, beforeSha256: '0'.repeat(64) }]).length) {
+    console.error(R('SELF-CHECK FAIL: label-only receipt verification suppressed an unproven change or failed to accept its exact byte proof.'));
+    process.exit(1);
+  }
+  console.log(G('  ✓ complete label-only receipts distinguish attribution correction from dialogue loss; missing/forged receipts, actual lost words, and whole-file deletion remain blocking'));
+
   sep();
-  console.log(G('\n  ✓ SELF-CHECK PASSED — detector proven against the real Sep 21 2026 episode-34 incident, a known-safe dedup regression case, a hermetic whole-file-deletion integration case, target-discovery union/fixture-exclusion rules, and committer-date recency filtering.\n'));
+  console.log(G('\n  ✓ SELF-CHECK PASSED — detector proven against the real Sep 21 2026 episode-34 incident, a known-safe dedup regression case, a hermetic whole-file-deletion integration case, target-discovery union/fixture-exclusion rules, committer-date recency filtering, and strict label-only receipts.\n'));
   process.exit(0);
 }
 

@@ -21,3 +21,13 @@ Do not use `getSharedDb()` as the sync mechanism for episode CI checks.
 
 ## Durable principle
 Fabricated attributed dialogue must never be written to episode DB records or conversation_memories as verbatim record. A truth test: did the named person actually say those words in a real session? If not, it does not belong in the record.
+
+## Historical repair versus live capture backfill
+
+## Historical repair versus a live append stream
+
+A historical repair receipt describes one canonical snapshot, not a permanently frozen rolling episode. After restarting capture workers, compare the latest record against the repaired snapshot before declaring parity or embedding freshness.
+
+**Why:** A startup drain can append previously pending, fully source-backed turns using their old labels after an otherwise successful repair. The repaired snapshot may remain an exact prefix while new historical turns reintroduce the same attribution defect; that is not evidence that the repair was overwritten.
+
+**How to apply:** Preserve the original repair receipt, verify exact prefix preservation and new-turn provenance, then make a separate label-only compare-and-swap repair of the appended turns and re-embed the latest snapshot. Never remove backfilled dialogue or globally rename an unrelated bare Claude Code identity.

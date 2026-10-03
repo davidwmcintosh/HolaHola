@@ -67,6 +67,7 @@ const safetyInsertion = commands.findIndex((command) =>
   command.startsWith('npx tsx server/scripts/test-openai-pronunciation-error-notice.ts'));
 if (safetyInsertion < 0) throw new Error('Could not register projection/source safety checks before the guards group');
 commands.splice(safetyInsertion, 0,
+  'npx tsx --test server/scripts/test-episode-claude-attribution-repair.test.ts',
   'npx tsx --test server/scripts/test-runtime-onboarding-auth-order.test.ts',
   // Reusable onboarding has no live credential fixtures. PostgreSQL proof runs
   // explicitly against the disposable database supplied by the migration gate.

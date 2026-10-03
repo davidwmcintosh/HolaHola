@@ -105,6 +105,55 @@ runtime, or application publication was performed.
   Episode 99 record was verified unchanged. System health reported no failures;
   its two app-route warnings came from running before the dev server started.
 
+## 2026-10-02 — Episode 34 historical Claude-hat attribution
+
+- Founder approved two supporting validation repairs after the first full
+  completion attempt was blocked. The dialogue-loss detector now accepts only
+  the fixed Episode 34 receipts whose full before/after hashes and exact
+  ordered label spans reconstruct the complete preserved snapshot. It does
+  not globally alias generic Claude Code or suppress real dialogue loss.
+  New negative controls cover lost words, timestamps, capture markers,
+  other-speaker edits, invalid offsets/provenance, bold delimiters, and
+  inline/fenced examples; its existing deletion self-check remains blocking.
+- The Windows bundle-pin mismatch was reproduced on untouched main. Both
+  approved entry bundles were rebuilt with the launcher's existing command;
+  prepare stayed unchanged, while the runtime pin was refreshed to the
+  rebuilt artifact. All nine DPAPI source-boundary checks pass. This is not
+  native Windows execution evidence or a runtime publication.
+- Receipt output is restricted to the documented audit paths rather
+  than an arbitrary command-line destination. All 32 source-write scanner
+  tests, typecheck, focused receipt tests, and live loss scan pass.
+- Repaired canonical `conversation_memories` first, using Neon HTTP and a
+  content-equality compare-and-swap. Per-turn source records were read only.
+- First pass corrected 76 generic labels and 64 casing variants. The
+  label-span reversal proof preserves every other byte, including dialogue,
+  timestamps, capture markers, punctuation, ordering, and non-Claude labels.
+  Three already-explicit Luca labels used casing-only evidence rather than
+  substituting an older, differing source-body snapshot.
+- A startup capture drain subsequently appended 21 older, source-matched
+  replies. The first repaired snapshot remained an exact byte prefix; a
+  second independent label-only repair corrected those newly appended labels.
+  The required post-merge restart repeated that same recovery batch, so a
+  third receipt preserves another label-only correction without deleting any
+  repeated source-backed dialogue. Full validation then passed every check
+  except the live capture-health probe because the application had stopped.
+  Starting it restored authenticated readiness but re-appended 21 legacy
+  replies. A fourth receipt preserves that independent label-only repair and
+  all earlier receipts. Future replay protection is separate work.
+- Markdown was regenerated from fresh Neon HTTP reads. Re-embedding verified
+  the full-content arm and every chunk against their expected SHA-256 hashes.
+  Separate JSON receipts preserve both repair snapshots and source IDs.
+  Latest verified snapshot has 203 exact `LUCA [Claude Code]` labels, zero
+  generic Claude speaker labels, and 106 verified embedding arms (full plus
+  105 chunks), including the source-backed startup additions.
+- Added hermetic repair tests to the canonical CI runner and explicit rolling
+  episode assertions to the watchdog test. The forward three-way identity
+  distinction remains unchanged: a genuine bare Claude Code author is not
+  silently promoted to Luca.
+- Typecheck, focused repair/watchdog tests, and system-health verification
+  passed. No publishing, source reconciliation, schema change, or validation
+  bypass was performed.
+
 ## 2026-10-01 — Windows onboarding child-session policy (native check pending)
 
 - Founder authorized `RemoteSigned` only for the native onboarding helper's

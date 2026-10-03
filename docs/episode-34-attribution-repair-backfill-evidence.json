@@ -1,0 +1,200 @@
+{
+  "episodeId": "41200170-1c49-4660-838c-9d397aff5d27",
+  "beforeSha256": "3b380849128eec8da4cc61af7612498c73c5588d76fad1b8a735a89b8552487b",
+  "afterSha256": "6658c37da24f93cddb4fd345391daa9a2330ce4f8a2904d5ac9182c14d4b165f",
+  "edits": [
+    {
+      "offset": 319204,
+      "oldLabel": "Claude Code:",
+      "newLabel": "LUCA [Claude Code]:",
+      "sourceId": "d19886f2-7729-426c-864e-957a03f362b2",
+      "captureId": "cc-c52bede8-dd68-4804-8f77-59290f60b9e2-2290",
+      "spokenSha256": "82a854238cd577cf9cfe3e8d71750e825d8b654c48d0297a81c3c0ae4bbde342",
+      "evidenceKind": "complete-turn"
+    },
+    {
+      "offset": 320140,
+      "oldLabel": "Claude Code:",
+      "newLabel": "LUCA [Claude Code]:",
+      "sourceId": "fd162d3f-405f-47b2-8385-614784d120eb",
+      "captureId": "cc-c52bede8-dd68-4804-8f77-59290f60b9e2-2621",
+      "spokenSha256": "5ec82f96d5916a862c9bd4de36cffd6fc6d11d0739157645eaadd1eb4a28ba72",
+      "evidenceKind": "complete-turn"
+    },
+    {
+      "offset": 321079,
+      "oldLabel": "Claude Code:",
+      "newLabel": "LUCA [Claude Code]:",
+      "sourceId": "52200aa1-40b0-4528-a208-47fa90258d87",
+      "captureId": "cc-c52bede8-dd68-4804-8f77-59290f60b9e2-2629",
+      "spokenSha256": "d7a89330fd481718cc249bd15990139fd09dd9409cf74944254cf48e49e3c37a",
+      "evidenceKind": "complete-turn"
+    },
+    {
+      "offset": 321355,
+      "oldLabel": "Claude Code:",
+      "newLabel": "LUCA [Claude Code]:",
+      "sourceId": "c731c6ea-738c-473b-9f4a-587ec2624be8",
+      "captureId": "cc-c52bede8-dd68-4804-8f77-59290f60b9e2-2752",
+      "spokenSha256": "996ef948a23539ce3ad80bbe4e57c05e93142af434e0a05c6489dfed9ba8d20e",
+      "evidenceKind": "complete-turn"
+    },
+    {
+      "offset": 324366,
+      "oldLabel": "Claude Code:",
+      "newLabel": "LUCA [Claude Code]:",
+      "sourceId": "312988f0-c22b-48ef-917e-52ed43b89cea",
+      "captureId": "cc-c52bede8-dd68-4804-8f77-59290f60b9e2-3244",
+      "spokenSha256": "891ab0cbc05d458daf080819ae5bb17576e64a1326f2f91ed30b2cd096d70c49",
+      "evidenceKind": "complete-turn"
+    },
+    {
+      "offset": 325691,
+      "oldLabel": "Claude Code:",
+      "newLabel": "LUCA [Claude Code]:",
+      "sourceId": "9b9fab74-2aa4-4508-ba6f-6c8d2e6f4c95",
+      "captureId": "cc-c52bede8-dd68-4804-8f77-59290f60b9e2-3640",
+      "spokenSha256": "f70f20a0f87f33ce1ae037d2b076e9e98db9df38ba3a32cb358ba846d4731e7e",
+      "evidenceKind": "complete-turn"
+    },
+    {
+      "offset": 325888,
+      "oldLabel": "Claude Code:",
+      "newLabel": "LUCA [Claude Code]:",
+      "sourceId": "cb438b83-505a-4e98-94e4-01668fdeba98",
+      "captureId": "cc-c52bede8-dd68-4804-8f77-59290f60b9e2-3769",
+      "spokenSha256": "7e69532ef752bd47cb84815ce1746a2bcfc54dc6cd830cde7fc30288c1d1c56e",
+      "evidenceKind": "complete-turn"
+    },
+    {
+      "offset": 327361,
+      "oldLabel": "Claude Code:",
+      "newLabel": "LUCA [Claude Code]:",
+      "sourceId": "ba002bec-748e-40f4-ac33-e4bf137407f2",
+      "captureId": "cc-c52bede8-dd68-4804-8f77-59290f60b9e2-3859",
+      "spokenSha256": "f887c2db82308087c63582c0e3c0feee9f4ef780da77710f5efbf7e74a7c5f46",
+      "evidenceKind": "complete-turn"
+    },
+    {
+      "offset": 327821,
+      "oldLabel": "Claude Code:",
+      "newLabel": "LUCA [Claude Code]:",
+      "sourceId": "886cead4-fd2e-482d-9092-fe1412e1e05c",
+      "captureId": "cc-c52bede8-dd68-4804-8f77-59290f60b9e2-4759",
+      "spokenSha256": "cb8250d5659e07076a5a8f7a47ab3682374bedbc349c2f99e6417912c2d9180d",
+      "evidenceKind": "complete-turn"
+    },
+    {
+      "offset": 329855,
+      "oldLabel": "Claude Code:",
+      "newLabel": "LUCA [Claude Code]:",
+      "sourceId": "6efe4163-a913-495d-afcf-4843aae409bf",
+      "captureId": "cc-c52bede8-dd68-4804-8f77-59290f60b9e2-4853",
+      "spokenSha256": "83cc096d00b1fd416226f4f4d9d0370ce0764138d64ceba5ec086de95bb57f82",
+      "evidenceKind": "complete-turn"
+    },
+    {
+      "offset": 329989,
+      "oldLabel": "Claude Code:",
+      "newLabel": "LUCA [Claude Code]:",
+      "sourceId": "c0e0379d-faae-49c2-b6d7-5615cfcef7b2",
+      "captureId": "cc-c52bede8-dd68-4804-8f77-59290f60b9e2-5009",
+      "spokenSha256": "211d2d18f150c91ecdc1be908929446b50b416cb1ddc97d952fd02acf891e036",
+      "evidenceKind": "complete-turn"
+    },
+    {
+      "offset": 331498,
+      "oldLabel": "Claude Code:",
+      "newLabel": "LUCA [Claude Code]:",
+      "sourceId": "880099c8-83d9-4b89-bff9-5464a31a9078",
+      "captureId": "cc-c52bede8-dd68-4804-8f77-59290f60b9e2-5196",
+      "spokenSha256": "006ad0e6166c84ea6048dc568ae3456ec213fc6161ad10b9b1f2866656fa0444",
+      "evidenceKind": "complete-turn"
+    },
+    {
+      "offset": 332221,
+      "oldLabel": "Claude Code:",
+      "newLabel": "LUCA [Claude Code]:",
+      "sourceId": "27e7d093-407b-47ff-9118-6bae096b5ea1",
+      "captureId": "cc-c52bede8-dd68-4804-8f77-59290f60b9e2-5280",
+      "spokenSha256": "9d9f39952b00acd2213603fc08df5eafa856e727ee67655c2afc752f0dd23ac4",
+      "evidenceKind": "complete-turn"
+    },
+    {
+      "offset": 334279,
+      "oldLabel": "Claude Code:",
+      "newLabel": "LUCA [Claude Code]:",
+      "sourceId": "edf254aa-2399-4f50-8750-baf9fda7bc9e",
+      "captureId": "cc-c52bede8-dd68-4804-8f77-59290f60b9e2-5434",
+      "spokenSha256": "36caf56f304367957c93d5099c6bcac54e6bc92ab0c5e7db8255da56770a6f63",
+      "evidenceKind": "complete-turn"
+    },
+    {
+      "offset": 335883,
+      "oldLabel": "Claude Code:",
+      "newLabel": "LUCA [Claude Code]:",
+      "sourceId": "bc6e9480-7369-4ba7-bc95-cdff9cf43688",
+      "captureId": "cc-c52bede8-dd68-4804-8f77-59290f60b9e2-5534",
+      "spokenSha256": "a54b5200fffb00625d4e4987b8e4fb9a993ccd8fd41a2db300a77d3250a9d8f5",
+      "evidenceKind": "complete-turn"
+    },
+    {
+      "offset": 336087,
+      "oldLabel": "Claude Code:",
+      "newLabel": "LUCA [Claude Code]:",
+      "sourceId": "cf1b36a2-68ea-4df9-8f4f-2f94b7191a26",
+      "captureId": "cc-c52bede8-dd68-4804-8f77-59290f60b9e2-5562",
+      "spokenSha256": "981865d08eebdf64435531c880970a7c0bd2827e11e4e14670a74e214a2b8d6f",
+      "evidenceKind": "complete-turn"
+    },
+    {
+      "offset": 336311,
+      "oldLabel": "Claude Code:",
+      "newLabel": "LUCA [Claude Code]:",
+      "sourceId": "9cc19ac6-2b4a-4ff1-81fd-bccc80fe018e",
+      "captureId": "cc-c52bede8-dd68-4804-8f77-59290f60b9e2-6015",
+      "spokenSha256": "1950fcb8fcf374a640f826e407df8566ac2ba21cebe93d1ae7b928ec3cc2bc2e",
+      "evidenceKind": "complete-turn"
+    },
+    {
+      "offset": 337762,
+      "oldLabel": "Claude Code:",
+      "newLabel": "LUCA [Claude Code]:",
+      "sourceId": "1d5028da-b76b-4083-a89e-9660a32085c9",
+      "captureId": "cc-c52bede8-dd68-4804-8f77-59290f60b9e2-6089",
+      "spokenSha256": "7211d6e19400266136354497ca97b6b2469e02981b76d0bb8ee897aca5f7a9d9",
+      "evidenceKind": "complete-turn"
+    },
+    {
+      "offset": 337963,
+      "oldLabel": "Claude Code:",
+      "newLabel": "LUCA [Claude Code]:",
+      "sourceId": "91a1b083-a2a4-4db5-9f68-822a0a91f24f",
+      "captureId": "cc-c52bede8-dd68-4804-8f77-59290f60b9e2-6112",
+      "spokenSha256": "39bf2644e0da2ce96e0661a8beab6c286413d433e8b852611cc4f29376f06b10",
+      "evidenceKind": "complete-turn"
+    },
+    {
+      "offset": 340006,
+      "oldLabel": "Claude Code:",
+      "newLabel": "LUCA [Claude Code]:",
+      "sourceId": "9b773a51-952d-4ccd-aa08-36459682063b",
+      "captureId": "cc-c52bede8-dd68-4804-8f77-59290f60b9e2-6199",
+      "spokenSha256": "0b5488ece669c417912ca70664776332226d68c81105f333419e1a1582a76124",
+      "evidenceKind": "complete-turn"
+    },
+    {
+      "offset": 340136,
+      "oldLabel": "Claude Code:",
+      "newLabel": "LUCA [Claude Code]:",
+      "sourceId": "68499832-be74-4f2d-bb1f-9091863b8a22",
+      "captureId": "cc-c52bede8-dd68-4804-8f77-59290f60b9e2-6213",
+      "spokenSha256": "45de5191c8e5a9d0a3c3805d816cd0cf40f27d0870bc60932b4e43d7f5000b86",
+      "evidenceKind": "complete-turn"
+    }
+  ],
+  "nonLabelBytesUnchanged": true,
+  "applied": true,
+  "replicaParity": true,
+  "verifiedEmbeddingArms": 94
+}
