@@ -22,8 +22,12 @@
  * This test fires two appends simultaneously (Promise.all) and asserts both
  * sentinels appear in the file afterwards.
  *
- * HERMETIC: every step (both modes) runs against a synthetic episode-9998
- * fixture row/file — NEVER the live rolling episode. CI sentinels are test
+ * HERMETIC: the public command owns a migrated disposable local PostgreSQL
+ * database and temporary workspace. Every step (both modes) uses fresh
+ * fixture IDs in private database/file namespaces — NEVER shared data or real docs.
+ * Literal names within those namespaces keep the source-write scanner intact;
+ * they are safe because the entire database/workspace is invocation-owned.
+ * CI sentinels are test
  * harness evidence, not dialogue; they must never enter the canonical rolling
  * DB row (see the CI fixture canonical boundary rule). appendExchangeToEpisode
  * additionally refuses '[CI-CONCURRENT-' content aimed at the live rolling
@@ -38,18 +42,24 @@
  * Run:
  *   npx tsx server/scripts/test-episode-concurrent-write.ts
  *   npx tsx server/scripts/test-episode-concurrent-write.ts --self-check
+ *   npx tsx server/scripts/test-episode-concurrent-write.ts --sandbox-self-check
+ *
+ * The last command injects a failure after real fixture writes; the owner
+ * verifies preservation and destruction of its database/workspace.
  */
 
 import { existsSync, readFileSync, writeFileSync, unlinkSync, statSync, appendFileSync } from 'fs';
 import { join } from 'path';
-import { getSharedDb } from '../db';
+import { randomUUID } from 'crypto';
+import { assertCanonicalSaveIsolation } from './luca-chat-canonical-isolation';
 import { sql } from 'drizzle-orm';
-import {
-  appendExchangeToEpisode,
-  withEpisodeFileLock,
-  syncEpisodeFile,
-  setRollingReplicaRestoreEnabledForTest,
-} from '../services/agent-session-autosave';
+
+// No application imports before the owned-database/workspace assertion.
+let getSharedDb: typeof import('../db').getSharedDb;
+let appendExchangeToEpisode: typeof import('../services/agent-session-autosave').appendExchangeToEpisode;
+let withEpisodeFileLock: typeof import('../services/agent-session-autosave').withEpisodeFileLock;
+let syncEpisodeFile: typeof import('../services/agent-session-autosave').syncEpisodeFile;
+let setRollingReplicaRestoreEnabledForTest: typeof import('../services/agent-session-autosave').setRollingReplicaRestoreEnabledForTest;
 
 // ── Colour helpers ────────────────────────────────────────────────────────────
 const G = (s: string) => `\x1b[32m${s}\x1b[0m`;
@@ -110,17 +120,18 @@ async function runNormalMode(): Promise<void> {
   // in the canonical DB row (observed Aug 19 2026 — 10 leaked sentinel blocks).
   // created_at = 2020-01-01 keeps the fixture below every real rolling episode
   // in ORDER BY created_at DESC lookups.
-  const FIX_ID      = '99970000-0000-4000-8000-000000009997';
-  const FIX_TITLE   = 'Episode 9997';
-  const episodeFilename = 'episode-9997.md';
+  const FIX_ID = randomUUID();
+  const FIX_TITLE = 'Episode 9995';
+  const episodeFilename = 'episode-9995.md';
   const mdPath      = join(DOCS_DIR, episodeFilename);
-  const FIX_CONTENT = '# Episode 9997\n\nFixture baseline for the concurrent-write test.\n';
+  const FIX_CONTENT = `# ${FIX_TITLE}\n\nFixture baseline for the concurrent-write test.\n`;
+  let rowOwned = false;
+  let fileOwned = false;
 
   const fixtureCleanup = async () => {
-    await db.execute(sql`DELETE FROM conversation_memories WHERE id = ${FIX_ID}`);
-    if (existsSync(mdPath)) unlinkSync(mdPath);
+    if (rowOwned) await db.execute(sql`DELETE FROM conversation_memories WHERE id = ${FIX_ID}`);
+    if (fileOwned && existsSync(mdPath)) unlinkSync(mdPath);
   };
-  await fixtureCleanup(); // remove any leftover from a previous failed run
 
   await db.execute(sql`
     INSERT INTO conversation_memories
@@ -137,7 +148,9 @@ async function runNormalMode(): Promise<void> {
       '2020-01-01 00:00:00+00'
     )
   `);
-  writeFileSync(mdPath, FIX_CONTENT, 'utf-8');
+  rowOwned = true;
+  writeFileSync(mdPath, FIX_CONTENT, { encoding: 'utf-8', flag: 'wx' });
+  fileOwned = true;
   console.log(Y(`  ℹ  Synthetic fixture: "${FIX_TITLE}" (${episodeFilename}) — live rolling episode untouched`));
 
   const originalMd = readFileSync(mdPath, 'utf-8');
@@ -160,6 +173,9 @@ async function runNormalMode(): Promise<void> {
       appendExchangeToEpisode(entry1, episodeFilename),
       appendExchangeToEpisode(entry2, episodeFilename),
     ]);
+    if (process.argv.includes('--inject-post-write-failure')) {
+      throw new Error('EPISODE_CONCURRENT_EXPECTED_DRIVER_FAILURE');
+    }
 
     sep();
     console.log(B('STEP 2 — Verify both sentinels appear in the fixture .md and DB'));
@@ -231,10 +247,8 @@ async function runNormalMode(): Promise<void> {
   // syncEpisodeFile must restore the .md from the canonical DB content,
   // erasing the unaudited edit.
   //
-  // HERMETIC: Uses a synthetic episode-9998 row/file (created_at = 2020-01-01 so
-  // it never surfaces as the "current" rolling episode) rather than the real
-  // rolling episode file. A synthetic row gives a stable baseline that cannot
-  // race with the live server.
+  // HERMETIC: Uses a fresh fixture row/file inside the owned database and
+  // workspace. It cannot race with the live server.
   //
   // Mechanism (deterministic — no timing assumptions):
   //   1. Insert synthetic DB row (STEP4_CONTENT) and write matching .md file.
@@ -250,33 +264,32 @@ async function runNormalMode(): Promise<void> {
   sep();
   console.log(B('STEP 4 — Direct .md edit + syncEpisodeFile: DB must stay canonical, .md repaired'));
   console.log(Y('  Rolling episodes are DB→Markdown replicas; file edits are never promoted to DB.'));
-  console.log(Y('  Uses synthetic episode-9998 (hermetic — not affected by live server writes).'));
+  console.log(Y('  Uses a fresh synthetic episode in the owned sandbox.'));
   sep();
 
   // Synthetic episode constants for STEP 4.
-  // created_at = 2020-01-01 keeps episode-9998 below real rolling episodes in
+  // created_at = 2020-01-01 keeps this fixture below unrelated rolling episodes in
   // getCurrentRollingEpisodeFilename() ORDER BY created_at DESC, so it never
   // pollutes the rolling-episode cursor used by other tests.
-  const STEP4_ID      = '99980000-0000-4000-8000-000000009998';
-  const STEP4_TITLE   = 'Episode 9998';
-  const STEP4_FILE    = 'episode-9998.md';
+  const STEP4_ID = randomUUID();
+  const STEP4_TITLE = 'Episode 9996';
+  const STEP4_FILE = 'episode-9996.md';
   const STEP4_PATH    = join(DOCS_DIR, STEP4_FILE);
   // Base canonical content. The direct .md append makes the file longer than
   // the DB row — the exact shape that would have been promoted under the old
   // Markdown→DB upsert, and that must now be repaired away instead.
-  const STEP4_CONTENT = '# Episode 9998\n\n' + 'X'.repeat(5000);
+  const STEP4_CONTENT = `# ${STEP4_TITLE}\n\n` + 'X'.repeat(5000);
+  let step4RowOwned = false;
+  let step4FileOwned = false;
 
   const ts4    = Date.now();
   const id4    = `${ts4}-DB`;
   const entry4 = `[CI-CONCURRENT-${id4}\nSentinel DB — concurrent append+sync test]`;
 
   const step4Cleanup = async () => {
-    await db.execute(sql`DELETE FROM conversation_memories WHERE id = ${STEP4_ID}`);
-    if (existsSync(STEP4_PATH)) unlinkSync(STEP4_PATH);
+    if (step4RowOwned) await db.execute(sql`DELETE FROM conversation_memories WHERE id = ${STEP4_ID}`);
+    if (step4FileOwned && existsSync(STEP4_PATH)) unlinkSync(STEP4_PATH);
   };
-
-  // Pre-cleanup: remove any leftover from a previous failed run.
-  await step4Cleanup();
 
   try {
     // ── Step 1: create synthetic episode ─────────────────────────────────
@@ -295,8 +308,10 @@ async function runNormalMode(): Promise<void> {
         '2020-01-01 00:00:00+00'
       )
     `);
-    writeFileSync(STEP4_PATH, STEP4_CONTENT, 'utf-8');
-    console.log(Y(`  ℹ  Synthetic episode-9998 created: DB=${STEP4_CONTENT.length} chars, .md=${STEP4_CONTENT.length} chars`));
+    step4RowOwned = true;
+    writeFileSync(STEP4_PATH, STEP4_CONTENT, { encoding: 'utf-8', flag: 'wx' });
+    step4FileOwned = true;
+    console.log(Y(`  ℹ  Synthetic ${STEP4_TITLE} created: DB=${STEP4_CONTENT.length} chars, .md=${STEP4_CONTENT.length} chars`));
 
     // ── Step 2: append sentinel directly to the .md (unaudited file edit) ─
     // Done inside the per-filename lock so the write is fully on disk before
@@ -349,11 +364,11 @@ async function runNormalMode(): Promise<void> {
 
   } finally {
     sep();
-    console.log(B('STEP 4 cleanup — remove synthetic episode-9998 from .md and DB'));
+    console.log(B(`STEP 4 cleanup — remove owned ${STEP4_TITLE} from .md and DB`));
     sep();
     try {
       await step4Cleanup();
-      console.log(Y('  ℹ  Synthetic episode-9998 removed from DB and disk'));
+      console.log(Y(`  ℹ  Owned ${STEP4_TITLE} removed from DB and disk`));
     } catch (err: any) {
       console.error(R(`  ✗  STEP 4 cleanup failed: ${err.message}`));
       failed++;
@@ -379,10 +394,11 @@ async function runSelfCheck(): Promise<void> {
   // The racy read-modify-write is simulated against a throwaway fixture file —
   // never the live rolling episode. No DB row is needed: the race under test
   // is purely a file-level read/write interleave.
-  const episodeFilename = 'episode-9997.md';
+  const title = 'Episode 9995';
+  const episodeFilename = 'episode-9995.md';
   const mdPath = join(DOCS_DIR, episodeFilename);
-  const FIX_CONTENT = '# Episode 9997\n\nFixture baseline for the concurrent-write self-check.\n';
-  writeFileSync(mdPath, FIX_CONTENT, 'utf-8');
+  const FIX_CONTENT = `# ${title}\n\nFixture baseline for the concurrent-write self-check.\n`;
+  writeFileSync(mdPath, FIX_CONTENT, { encoding: 'utf-8', flag: 'wx' });
   console.log(Y(`  ℹ  Synthetic fixture file: ${episodeFilename} — live rolling episode untouched`));
 
   const originalMd = readFileSync(mdPath, 'utf-8');
@@ -471,21 +487,21 @@ async function runSelfCheck(): Promise<void> {
   console.log(Y('  The sentinel should reach DB and the edited .md should remain unrepaired.'));
   sep();
 
-  const STEP4_ID      = '99980000-0000-4000-8000-000000009998';
-  const STEP4_TITLE   = 'Episode 9998';
-  const STEP4_FILE    = 'episode-9998.md';
+  const STEP4_ID = randomUUID();
+  const STEP4_TITLE = 'Episode 9996';
+  const STEP4_FILE = 'episode-9996.md';
   const STEP4_PATH    = join(DOCS_DIR, STEP4_FILE);
-  const STEP4_CONTENT = '# Episode 9998\n\n' + 'X'.repeat(5000);
+  const STEP4_CONTENT = `# ${STEP4_TITLE}\n\n` + 'X'.repeat(5000);
+  let step4RowOwned = false;
+  let step4FileOwned = false;
   const ts4            = Date.now();
   const id4            = `${ts4}-SC-STEP4`;
   const entry4         = `[CI-CONCURRENT-${id4}\nSelf-check STEP 4 sentinel]`;
 
   const step4Cleanup = async () => {
-    await db.execute(sql`DELETE FROM conversation_memories WHERE id = ${STEP4_ID}`);
-    if (existsSync(STEP4_PATH)) unlinkSync(STEP4_PATH);
+    if (step4RowOwned) await db.execute(sql`DELETE FROM conversation_memories WHERE id = ${STEP4_ID}`);
+    if (step4FileOwned && existsSync(STEP4_PATH)) unlinkSync(STEP4_PATH);
   };
-
-  await step4Cleanup();
 
   try {
     await db.execute(sql`
@@ -503,7 +519,9 @@ async function runSelfCheck(): Promise<void> {
         '2020-01-01 00:00:00+00'
       )
     `);
-    writeFileSync(STEP4_PATH, STEP4_CONTENT, 'utf-8');
+    step4RowOwned = true;
+    writeFileSync(STEP4_PATH, STEP4_CONTENT, { encoding: 'utf-8', flag: 'wx' });
+    step4FileOwned = true;
 
     await withEpisodeFileLock(STEP4_FILE, () => {
       appendFileSync(STEP4_PATH, '\n' + entry4 + '\n', 'utf-8');
@@ -561,6 +579,21 @@ async function runSelfCheck(): Promise<void> {
 // ─────────────────────────────────────────────────────────────────────────────
 
 async function main(): Promise<void> {
+  if (!process.argv.includes('--isolated-driver')) {
+    const { runCanonicalSaveSandbox } = await import('./luca-chat-canonical-sandbox');
+    process.exit(await runCanonicalSaveSandbox(process.argv.slice(2), 'episode-concurrency'));
+  }
+  assertCanonicalSaveIsolation();
+  // Production persistence uses pg on the verified CI target. This test needs
+  // no external providers; even dummy-key embedding fetches must not leave it.
+  globalThis.fetch = async () => { throw new Error('Episode concurrency fixture forbids outbound fetch'); };
+  ({ getSharedDb } = await import('../db'));
+  ({
+    appendExchangeToEpisode,
+    withEpisodeFileLock,
+    syncEpisodeFile,
+    setRollingReplicaRestoreEnabledForTest,
+  } = await import('../services/agent-session-autosave'));
   if (selfCheckMode) {
     await runSelfCheck();
   } else {

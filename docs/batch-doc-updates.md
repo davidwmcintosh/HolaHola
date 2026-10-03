@@ -1,3 +1,26 @@
+## 2026-10-03 — Approved episode concurrency test isolation repair
+
+- Founder authorized repairing the unrelated Episode 9997 fixture collision
+  blocking Windows task completion, without deleting shared episode data.
+- Both concurrency modes now own a fully migrated, job-local PostgreSQL database
+  and temporary workspace through the existing canonical-save sandbox owner.
+  Database and autosave imports happen only after the isolated-driver assertion;
+  inherited application/provider credentials are not passed to the driver.
+- Fixtures have fresh IDs in private database/file namespaces. Literal fixture
+  names within each invocation keep the source-write scanner fully intact,
+  without new exemptions. Cleanup targets only successfully created owned
+  fixtures; fixed-ID pre-deletes are gone. Outbound provider fetches are refused.
+- The sandbox seeds the old Episode 9997/9998 IDs, titles and files and verifies
+  their complete rows and exact file bytes stay unchanged. Existing unrelated
+  memory, note, embedding and Episode 99 preservation checks also pass.
+- Focused normal mode passed 9/9; mutation self-check passed 7/7. Each run
+  rejected six unsafe database/workspace configurations before DB imports.
+  Injected post-write failure proved preservation, owned-database destruction
+  and temporary-workspace removal. That cleanup check is registered in
+  consolidated CI. The original canonical-save integration also passed.
+- No shared record, production capture path, V2 implementation, live credential,
+  execution policy or publication was changed by this repair.
+
 ## 2026-10-03 — Historical recovery pause diagnostics
 
 - Historical attribution failures now carry stable reason codes, capture IDs,
@@ -228,20 +251,39 @@ runtime, or application publication was performed.
   passed. No publishing, source reconciliation, schema change, or validation
   bypass was performed.
 
-## 2026-10-01 — Windows onboarding child-session policy (native check pending)
+## 2026-10-03 — Founder-run packaged Windows onboarding smoke passed
+
+- The initial downloaded helper was correctly blocked as unsigned under
+  child-only RemoteSigned. All policy scopes were Undefined; the extracted
+  helper had a Zone.Identifier stream.
+- Founder explicitly authorized manual unblock of that helper copy only, gated
+  on SHA-256 matches for helper, runner and manifest. No script bytes or saved
+  policy settings changed; the client contains no automatic unblock.
+- The unmodified packaged CLI and SDK native-store smoke then exited 0:
+  DPAPI roundtrip, first-write winner, atomic replacement and private file ACLs
+  passed for all purposes. Corrupt state/envelope and unsafe-file ACL read/delete
+  were rejected. Owned-scope cleanup and unchanged policy checks both passed.
+- Evidence and exact package hashes are in `docs/runtime-onboarding-clients.md`.
+  The development-only archive is `docs/runtime-onboarding-windows-test.zip`.
+  This proves only the tested package after local trust approval, not an
+  untouched downloaded unsigned install, live enrollment/provider integration,
+  a released package, or publication. V2 was not changed.
+
+## 2026-10-01 — Windows onboarding child-session policy (native check initially pending)
 
 - Founder authorized `RemoteSigned` only for the native onboarding helper's
   PowerShell child. No saved execution-policy settings are changed, and
   organizational policies and downloaded-script restrictions still apply.
 - Store launch now uses the fixed `-ExecutionPolicy RemoteSigned -File` options.
   DPAPI/ACL/reparse/atomic replacement code is unchanged; there is no bypass,
-  unblocking or weaker fallback.
+  automatic unblocking or weaker fallback.
 - The focused source guard and dummy-only Windows smoke cover source and
   packaged default invocations. The standalone runner verifies the development
   manifest, owns only a random three-purpose scope, checks failure handling and
   cleanup, and compares execution-policy scopes without changing them.
-- Linux checks pass, but native Windows evidence is pending. This is not a
-  claim of released/helper compatibility, enrollment or publication.
+- Linux checks passed; native Windows evidence was initially pending and is now
+  recorded above. This is not a claim of released/helper compatibility,
+  enrollment or publication.
 
 ## 2026-09-26 — Alden gets real episode start/close tools
 

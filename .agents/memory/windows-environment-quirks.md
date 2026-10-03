@@ -86,3 +86,21 @@ correctness and launch compatibility were separate unproven claims.
 **How to apply:** Keep process-only policy authorization separate from permanent
 policy changes, respect organizational restrictions, and require native evidence
 with owned-scope cleanup before describing a packaged Windows launch as working.
+
+## Downloaded helpers and process policy
+
+Browser download provenance can survive ZIP extraction as a Zone.Identifier
+stream on an otherwise byte-identical Windows helper. Child-only RemoteSigned
+still rejects that unsigned extracted file. A process-policy option is not a
+signature exemption.
+
+**Why:** Native storage worked under approved local test conditions, yet the
+unmodified browser-downloaded package failed before script execution. Read-only
+policy and alternate-stream inspection distinguished download provenance from
+organizational policy. A separately approved, hash-gated one-file trust exception
+enabled the actual packaged smoke without changing saved execution policy.
+
+**How to apply:** Diagnose both effective policy scopes and download provenance
+before choosing a remedy. Never silently unblock or switch to Bypass. Any manual
+trust exception needs explicit authorization and independent hash verification;
+success afterward proves only that approved copy, not untouched future downloads.

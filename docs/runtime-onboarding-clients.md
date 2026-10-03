@@ -50,8 +50,10 @@ tests, two response-log tests, and the full project typecheck. The helper at
 package (manifest 5/5, reproducibility passed once, `sourceDirty=true`,
 `release=false`). Backend route source is not bundled, so the route-order fix
 did not require a package rebuild. This is not a final/released helper or a
-claim of live-device support. Real native-platform, client, provider, and
-native OS tests remain pending; no onboarding invitation or scoped onboarding
+claim of general live-device support. The founder-run packaged Windows native
+store/CLI smoke subsequently passed under the explicitly approved local-file
+trust exception documented below. Other native-platform, live-client, provider,
+and enrollment tests remain pending; no onboarding invitation or scoped onboarding
 credential has been issued, and no production code or runtime has been
 published. The development
 public endpoint is configured through `COORDINATION_PUBLIC_ENDPOINT` only.
@@ -67,12 +69,13 @@ one SDK call with no renewal or network access. These results do not establish
 proxy or unshown-handler reachability.
 
 The Windows, macOS, and Linux native-store adapters are present. The Linux
-`flock` mixed-XDG fixture has been verified; real Windows DPAPI/ACL, macOS
-Keychain, Linux Secret Service, and concrete client/device smoke tests have
-not. Do not describe any of those live platforms or clients as verified or
-supported based only on source and fake-endpoint tests. Native follow-up and
-downstream founder publication remain blocked; the known Windows count issue
-is unresolved.
+`flock` mixed-XDG fixture has been verified. The founder reported a successful
+real Windows packaged CLI/SDK native-store smoke (see the exact evidence below);
+this is not evidence of actual Cursor enrollment or OpenAI provider integration.
+macOS Keychain, Linux Secret Service, and concrete live client/device checks
+remain unverified. Do not generalize the narrow Windows result into universal
+platform support. Native follow-up and downstream founder publication remain
+separate, explicitly authorized work.
 
 This client implements the following onboarding API contract:
 
@@ -366,8 +369,10 @@ Build a **development-only** package from the reviewed local source (no
 `scripts/test-runtime-onboarding-windows.mjs` through an approved local transfer.
 Independently verify the package manifest SHA-256 and smoke-runner SHA-256
 supplied by the builder/operator; a bundled manifest alone is not a trust anchor.
-Keep the package files together and do not patch, unblock, or wrap the helper
-with an extra execution-policy command for the test:
+Keep the package files together and do not patch, automatically unblock, or
+wrap the helper with an extra execution-policy command for the test. A
+downloaded unsigned helper remains blocked unless a separately authorized,
+hash-verified local-file trust exception is made as described below:
 
 ```sh
 node scripts/build-runtime-onboarding-package.mjs --output /secure/staging/onboarding-dev
@@ -390,7 +395,8 @@ Its `finally` cleanup deletes only three preflight-absent random-scope files;
 it never removes the namespace or other entries. Cleanup failure is a test
 failure, not success; process termination cannot guarantee cleanup. It compares
 execution-policy scopes before/after without writing them. Group Policy or
-download-mark restrictions must result in failure, not an alternate launch.
+download-mark restrictions must result in failure, not an alternate launch or
+an automatic policy/trust-metadata change.
 
 The source Windows check is part of
 `npx tsx --test server/scripts/runtime-onboarding-native-store.test.ts` and
@@ -398,6 +404,55 @@ uses the same smoke with the default source factory/client/CLI.
 Linux skips native Windows execution; source scans, a package build, and a
 skip are **not** a real Windows pass. Record the native run's source revision,
 manifest hash, checks and cleanup result before calling this launch verified.
+
+#### Founder-reported native Windows result — 2026-10-03
+
+The first downloaded-package invocation failed at `cli-empty-status`. An
+unmodified-helper diagnostic then reported the unsigned-script rejection.
+The founder supplied a policy table with all five scopes `Undefined` and a
+`Zone.Identifier` stream on the extracted helper. Thus downloaded-script
+signature enforcement blocked the helper before its own code ran; the
+process-only RemoteSigned option was not a signing exemption.
+
+The founder separately authorized removing the download mark from **only that
+extracted test helper copy**, after verifying SHA-256 pins for the helper,
+smoke runner and manifest. The manual command did not change file bytes,
+execution-policy scopes, Group Policy, signing trust, the archive, or other
+files. The production helper has no automatic unblock or bypass logic.
+
+The subsequent **unmodified packaged** CLI/SDK smoke returned exit code `0`:
+
+- `platform`: `win32`
+- `checks`: `unmodified-cli-empty-status`,
+  `dpapi-roundtrip-first-write-atomic-replace-owner-only-acl-all-purposes`,
+  `client-cli-corrupt-state-and-native-corruption-fail-closed`,
+  `unsafe-owned-file-acl-read-delete-rejected`
+- `ownedScopeCleanup`: `true`
+- `executionPoliciesUnchanged`: `true`
+- `sourceRevision`: `0f9318010690a1a089e79907a7698feae1b86969`
+- `sourceDirty`: `true`; `release`: `false`
+- manifest SHA-256:
+  `f84a1c4d04971cba99fefb67d86d48247936d8c46b16cb673a04304b11965539`
+- helper SHA-256:
+  `04feff0bfaeb5bde6018f02df5fbac94ffff6432b0ff63467cd0f215008d1e4c`
+- smoke-runner SHA-256:
+  `5fc23a98396029645cef1b1f7dd6b2d556c14289603b9bc39722ee9333397cde`
+- development test archive SHA-256:
+  `437327b8730c1b0520785377d1c31e361bed69e3ccf8820a63dd5e0ee4c87f2a`
+
+The development archive is at `docs/runtime-onboarding-windows-test.zip` for
+the founder's requested local download. Its manifest's revision describes the
+base checkout; `sourceDirty=true` means it is not a released source pin. The
+manifest and file hashes identify the actual tested package.
+
+This proves the packaged native-store/client path on this Windows machine
+**after explicit local trust approval**, not an untouched browser-downloaded
+unsigned installation. Future downloaded unsigned copies can still be blocked.
+Reusable signing/distribution, machines with enforced organizational policy,
+live enrollment, concrete IDE/provider integration, macOS/Linux native checks,
+and publication remain outside this evidence. Source Windows tests were skipped
+on Linux; the receipt above is a founder-run package result, not a claimed
+source-checkout Windows test. No invitations or live credentials were issued.
 
 The focused server/client test files use isolated fixtures; the client and SDK
 tests use fake endpoints/stores, and no test issues real credentials. The
@@ -423,10 +478,11 @@ isolation/failure behavior, fixed MCP config, credential renewal, SDK transport
 forwarding and OpenAI Responses tool/approval construction, backend routes and
 durability invariants, and stdio protocol forwarding. These are commands for
 the main verification pass; this document does not assert that the full suite
-has passed. These tests do not perform enrollment or founder approval. Windows
-DPAPI/ACL behavior, macOS Keychain access, Linux Secret Service availability,
-and concrete Cursor/OpenAI clients require separate native-platform/client
-smoke tests before they may be labelled verified.
+has passed. These tests do not perform enrollment or founder approval. The
+specific Windows packaged DPAPI/ACL smoke is documented above. macOS Keychain
+access, Linux Secret Service availability, broader Windows trust-policy
+environments and concrete Cursor/OpenAI clients require separate
+native-platform/client smoke tests before being labelled verified.
 
 The admin ledger-read badge is historical, server-derived evidence only: the
 successful authenticated read routes (threads/inbox) record

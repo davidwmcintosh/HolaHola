@@ -166,9 +166,11 @@ function runDriver(
   environment: NodeJS.ProcessEnv,
   args: string[],
   timeoutMs: number,
+  driverName = 'test-luca-chat-canonical-save.ts',
+  expectedFailureMarker?: string,
 ): number {
   if (!existsSync(tsxCli)) throw new Error(`tsx CLI not found at ${tsxCli}`);
-  const driver = resolve(projectRoot, 'server/scripts/test-luca-chat-canonical-save.ts');
+  const driver = resolve(projectRoot, 'server/scripts', driverName);
   const command = [
     tsxCli, '--tsconfig', resolve(projectRoot, 'tsconfig.json'), driver,
     '--isolated-driver', ...args,
@@ -212,7 +214,7 @@ function runDriver(
     });
     const diagnostic = `${rejected.stdout ?? ''}\n${rejected.stderr ?? ''}`;
     if (rejected.error || rejected.status === null || rejected.status === 0 ||
-        !diagnostic.includes(refusalMessage)) {
+        !diagnostic.includes(refusalMessage) || diagnostic.includes('[DB]')) {
       throw new Error(`Isolation guard did not refuse ${negative.label} with the required diagnostic. Output:\n${diagnostic}`);
     }
     console.log(`PASS — canonical-save driver refuses ${negative.label}`);
@@ -221,12 +223,21 @@ function runDriver(
   const result = spawnSync(process.execPath, command, {
     cwd: workspace,
     env: environment,
-    stdio: 'inherit',
+    encoding: 'utf8',
     timeout: timeoutMs,
   });
+  if (result.stdout) process.stdout.write(result.stdout);
+  if (result.stderr) process.stderr.write(result.stderr);
   if (result.error) throw result.error;
   if (result.status === null) {
     throw new Error(`Canonical-save driver exceeded ${timeoutMs}ms and was terminated by ${result.signal}`);
+  }
+  if (expectedFailureMarker) {
+    if (result.status === 0 || !`${result.stdout}${result.stderr}`.includes(expectedFailureMarker)) {
+      throw new Error('Episode driver did not reach the intentional post-write failure');
+    }
+    console.log('PASS — episode sandbox observed real post-write failure; preservation and teardown follow');
+    return 0;
   }
   return result.status;
 }
@@ -354,7 +365,10 @@ async function createOwnedDatabase(
   return { scopedUrl: finalUrl, name: databaseName, admin, pgCtl, dataDir };
 }
 
-export async function runCanonicalSaveSandbox(args: string[]): Promise<number> {
+export async function runCanonicalSaveSandbox(
+  args: string[],
+  driverKind: 'canonical-save' | 'episode-concurrency' = 'canonical-save',
+): Promise<number> {
   const root = mkdtempSync(join(tmpdir(), 'canonical-save-ci-'));
   const runId = randomUUID().replace(/-/g, '');
   const privateToken = randomUUID().replace(/-/g, '') + randomUUID().replace(/-/g, '');
@@ -366,6 +380,7 @@ export async function runCanonicalSaveSandbox(args: string[]): Promise<number> {
   let fixtureChild: FixtureChild | null = null;
   let nativeClusterStarted = false;
   let sentinelsInstalled = false;
+  let collisionSnapshot: string | undefined;
   const ownership = { admin: null as Client | null, name: '', pgCtl: '', dataDir: '', createdDatabase: false };
   const sandboxSelfCheck = args.includes('--sandbox-self-check');
   let exitCode = 1;
@@ -420,6 +435,35 @@ export async function runCanonicalSaveSandbox(args: string[]): Promise<number> {
     writeFileSync(join(root, 'docs/episode-99.md'), `${fileSentinel}\n`);
     sentinelsInstalled = true;
 
+    if (driverKind === 'episode-concurrency') {
+      // The canonical-save HTTP fixture creates these project markers before
+      // importing capture services. This database-only driver must do the same.
+      writeFileSync(join(root, 'drizzle.config.ts'), '// Owned test workspace marker.\n');
+      writeFileSync(join(root, 'shared/schema.ts'), '// Owned test workspace marker.\n');
+      // Reproduce the old title/ID/file collisions ONLY in the owned database
+      // and workspace. Snapshot every column, not just the source dialogue.
+      for (const [number, id] of [
+        [9997, '99970000-0000-4000-8000-000000009997'],
+        [9998, '99980000-0000-4000-8000-000000009998'],
+      ] as const) {
+        await sentinelDb.query(`
+          INSERT INTO conversation_memories
+            (id, title, summary, content, importance, entry_type, tags, arc_name)
+          VALUES ($1, $2, 'unrelated collision preservation fixture', $3, 9,
+                  'episode', ARRAY['episode', 'rolling'], 'HolaHola Episodes')
+        `, [id, `Episode ${number}`, `Unrelated Episode ${number} — preserve exact bytes.\n`]);
+        writeFileSync(join(root, 'docs', `episode-${number}.md`),
+          `Unrelated Episode ${number} — preserve exact bytes.\n`, { flag: 'wx' });
+      }
+      collisionSnapshot = JSON.stringify((await sentinelDb.query(
+        `SELECT * FROM conversation_memories WHERE title IN ('Episode 9997', 'Episode 9998') ORDER BY title`,
+      )).rows);
+      const marker = sandboxSelfCheck ? 'EPISODE_CONCURRENT_EXPECTED_DRIVER_FAILURE' : undefined;
+      exitCode = runDriver(root, environment, [
+        ...args.filter(arg => arg !== '--sandbox-self-check'),
+        ...(sandboxSelfCheck ? ['--inject-post-write-failure'] : []),
+      ], 150_000, 'test-episode-concurrent-write.ts', marker);
+    } else {
     const fixture = await startFixtureServer(root, environment);
     fixtureChild = fixture.child;
     const driverEnvironment = {
@@ -495,6 +539,7 @@ export async function runCanonicalSaveSandbox(args: string[]): Promise<number> {
       }
       console.log('PASS — real production completion and embedding transports used the private HTTP fixture');
     }
+    }
   } catch (error) {
     console.error('[canonical-save-sandbox] FATAL:', error instanceof Error ? error.message : error);
     exitCode = 1;
@@ -510,6 +555,22 @@ export async function runCanonicalSaveSandbox(args: string[]): Promise<number> {
       try { await verifyPreservation(sentinelDb, root); }
       catch (error) {
         console.error('[canonical-save-sandbox] Preservation verification failed:', error);
+        exitCode = 1;
+      }
+    }
+    if (collisionSnapshot !== undefined && sentinelDb) {
+      try {
+        const after = JSON.stringify((await sentinelDb.query(
+          `SELECT * FROM conversation_memories WHERE title IN ('Episode 9997', 'Episode 9998') ORDER BY title`,
+        )).rows);
+        if (after !== collisionSnapshot || [9997, 9998].some(number =>
+          readFileSync(join(root, 'docs', `episode-${number}.md`), 'utf8') !==
+          `Unrelated Episode ${number} — preserve exact bytes.\n`)) {
+          throw new Error('Episode driver changed a pre-existing collision record or replica');
+        }
+        console.log('PASS — pre-existing Episode 9997/9998 whole rows and files preserved');
+      } catch (error) {
+        console.error('[episode-concurrency-sandbox] Preservation verification failed:', error);
         exitCode = 1;
       }
     }

@@ -205,6 +205,10 @@ group_body_episode_sync() {
   echo ""
   echo "  --- test-episode-concurrent-write.ts --self-check (race reproduced by racy pattern) ---"
   npx tsx server/scripts/test-episode-concurrent-write.ts --self-check
+
+  echo ""
+  echo "  --- test-episode-concurrent-write.ts --sandbox-self-check (post-write cleanup and preservation) ---"
+  npx tsx server/scripts/test-episode-concurrent-write.ts --sandbox-self-check
 }
 
 group_body_episode_28() {
