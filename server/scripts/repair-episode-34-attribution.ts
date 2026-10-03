@@ -7,6 +7,7 @@ import { neon } from '@neondatabase/serverless';
 import { readFileSync, writeFileSync } from 'node:fs';
 import { resolve } from 'node:path';
 import { attributionSha256, repairEpisodeClaudeAttribution } from '../services/episode-claude-attribution-repair';
+import { commitEpisodeAttributionRepair } from '../services/episode-attribution-repair-commit';
 
 const EPISODE_ID = '41200170-1c49-4660-838c-9d397aff5d27';
 const SESSION = 'c52bede8-dd68-4804-8f77-59290f60b9e2';
@@ -39,43 +40,43 @@ async function main(): Promise<void> {
   };
   console.log(JSON.stringify({ ...evidence, edits: evidence.edits.length }));
   if (!evidence.applied) return;
-  if (repair.edits.length) {
-    const updated = await sql`
-      UPDATE conversation_memories SET content = ${repair.content}
-      WHERE id = ${EPISODE_ID} AND content = ${before.content}
-      RETURNING id
-    `;
-    if (updated.length !== 1) throw new Error('Canonical content changed concurrently; retry from a fresh source snapshot');
-  }
-  const [after] = await sql`SELECT content FROM conversation_memories WHERE id = ${EPISODE_ID}`;
-  if (after?.content !== repair.content) throw new Error('Post-update canonical snapshot differs; refusing to overwrite the replica');
-  const replicaPath = resolve('docs/episode-34.md');
-  writeFileSync(replicaPath, after.content, 'utf8');
-  if (normalize(readFileSync(replicaPath, 'utf8')) !== normalize(after.content)) throw new Error('DB-normalized replica parity failed');
-  const { reembedConversationMemory } = await import('./reembed-memory');
-  await reembedConversationMemory(EPISODE_ID);
-  const { splitIntoChunks, reformatSpeakerHeaders } = await import('../services/memory-embedding-indexer');
-  const [memory] = await sql`SELECT title, summary, content FROM conversation_memories WHERE id = ${EPISODE_ID}`;
-  if (memory.content !== after.content) throw new Error('Canonical record changed while embedding; rerun to verify the latest snapshot');
-  const embeddings = await sql`
-    SELECT memory_type, memory_id, content_hash FROM memory_embeddings
-    WHERE (memory_type = 'conversation_memory' AND memory_id = ${EPISODE_ID})
-      OR (memory_type = 'conversation_chunk' AND memory_id LIKE ${`${EPISODE_ID}:chunk:%`})
-  `;
-  const expected = [
-    { type: 'conversation_memory', id: EPISODE_ID, text: [memory.title, memory.summary, memory.content].filter(Boolean).join('\n\n') },
-    ...splitIntoChunks(memory.content).map((chunk, index, chunks) => ({
-      type: 'conversation_chunk', id: `${EPISODE_ID}:chunk:${index}`,
-      text: `[Memory: ${memory.title ?? 'Untitled'} | Part ${index + 1} of ${chunks.length}]\n\n${reformatSpeakerHeaders(chunk)}`,
-    })),
-  ];
-  for (const arm of expected) {
-    const found = embeddings.filter(row => row.memory_type === arm.type && row.memory_id === arm.id);
-    if (!found.length || found.some(row => row.content_hash !== attributionSha256(arm.text))) {
-      throw new Error(`Embedding hash mismatch: ${arm.id}`);
-    }
-  }
-  const receipt = { ...evidence, replicaParity: true, verifiedEmbeddingArms: expected.length };
+  const verifiedEmbeddingArms = await commitEpisodeAttributionRepair(sql, {
+    episodeId: EPISODE_ID, beforeContent: before.content,
+    content: repair.content, editCount: repair.edits.length,
+  }, {
+    writeReplica(content) {
+      const replicaPath = resolve('docs/episode-34.md');
+      writeFileSync(replicaPath, content, 'utf8');
+      if (normalize(readFileSync(replicaPath, 'utf8')) !== normalize(content)) throw new Error('DB-normalized replica parity failed');
+    },
+    async reembed(content) {
+      const { reembedConversationMemory } = await import('./reembed-memory');
+      await reembedConversationMemory(EPISODE_ID);
+      const { splitIntoChunks, reformatSpeakerHeaders } = await import('../services/memory-embedding-indexer');
+      const [memory] = await sql`SELECT title, summary, content FROM conversation_memories WHERE id = ${EPISODE_ID}`;
+      if (memory.content !== content) throw new Error('Canonical record changed while embedding; rerun to verify the latest snapshot');
+      const embeddings = await sql`
+        SELECT memory_type, memory_id, content_hash FROM memory_embeddings
+        WHERE (memory_type = 'conversation_memory' AND memory_id = ${EPISODE_ID})
+          OR (memory_type = 'conversation_chunk' AND memory_id LIKE ${`${EPISODE_ID}:chunk:%`})
+      `;
+      const expected = [
+        { type: 'conversation_memory', id: EPISODE_ID, text: [memory.title, memory.summary, memory.content].filter(Boolean).join('\n\n') },
+        ...splitIntoChunks(memory.content).map((chunk, index, chunks) => ({
+          type: 'conversation_chunk', id: `${EPISODE_ID}:chunk:${index}`,
+          text: `[Memory: ${memory.title ?? 'Untitled'} | Part ${index + 1} of ${chunks.length}]\n\n${reformatSpeakerHeaders(chunk)}`,
+        })),
+      ];
+      for (const arm of expected) {
+        const found = embeddings.filter(row => row.memory_type === arm.type && row.memory_id === arm.id);
+        if (!found.length || found.some(row => row.content_hash !== attributionSha256(arm.text))) {
+          throw new Error(`Embedding hash mismatch: ${arm.id}`);
+        }
+      }
+      return expected.length;
+    },
+  });
+  const receipt = { ...evidence, replicaParity: true, verifiedEmbeddingArms };
   const evidenceIndex = process.argv.indexOf('--evidence');
   if (evidenceIndex >= 0) {
     const output = process.argv[evidenceIndex + 1];
@@ -95,7 +96,7 @@ async function main(): Promise<void> {
       throw new Error('--evidence must name a documented Episode 34 receipt path');
     }
   }
-  console.log(JSON.stringify({ replicaParity: true, verifiedEmbeddingArms: expected.length }));
+  console.log(JSON.stringify({ replicaParity: true, verifiedEmbeddingArms }));
 }
 
 main().catch(error => {

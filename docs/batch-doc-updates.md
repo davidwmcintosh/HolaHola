@@ -1,3 +1,24 @@
+## 2026-10-03 — Attribution repair concurrency proof
+
+- Added `server/scripts/test-episode-attribution-repair-postgres.test.ts` to
+  the canonical CI runner. All persistence work requires the existing
+  verified job-local database gate; ordinary development runs skip it, while
+  CI without a verified target fails. Fixtures use a random schema and record
+  ID, never the canonical rolling episode.
+- The historical Neon HTTP repair now shares its unchanged full-content CAS,
+  independent reread, and replica/embedding ordering through
+  `server/services/episode-attribution-repair-commit.ts`.
+- Two independent PostgreSQL sessions prove that an intervening append and
+  same-length edit reject the stale repair, preserve the other writer's exact
+  bytes, and leave the replica file and both downstream stages untouched.
+  Controls cover successful repair, fresh idempotent retry, an edit after the
+  UPDATE but before reread, and a stale no-edit retry.
+- Disposable PostgreSQL: 7/7 passed, no skips. Existing pure attribution
+  tests: 8/8 passed. Manual negative controls failed as intended when replacing
+  content equality with length equality and when removing the reread equality
+  guard; both safeguards were restored. Typecheck, projection-writer coverage,
+  and validation/CI parity passed.
+
 ## 2026-10-02 — Memory drift check matches canonical live-status banners
 
 - The drift check recognizes only the two canonical runtime-status lines in

@@ -1,38 +1,3 @@
-# Episode 34 attribution repair — 2026-10-02
-
-Canonical DB repair is label-only and source-backed; four receipts are in
-`docs/episode-34-attribution-repair{,-backfill,-post-merge,-validation-startup}-evidence.json`. The first pass
-corrected 140 labels (76 generic, 64 existing Luca casing variants). Restart
-backfill appended 21 more historical replies, with the first repaired snapshot
-preserved as an exact prefix; these received a separate repair and receipt.
-The required post-merge restart repeated that recovery batch; another 21 label
-corrections have a third receipt, without removing the repeated dialogue.
-Latest verified snapshot: 203 exact LUCA [Claude Code] labels, zero generic Claude speaker
-labels, byte-identical DB/Markdown, and all 106 embedding arms hash-verified.
-
-`server/scripts/repair-episode-34-attribution.ts` defaults to dry-run and uses
-Neon HTTP for the canonical CAS, replica refresh, and embedding verification.
-It does not edit source per-turn rows, spoken text, or the forward formatter.
-Watchdog regression now asserts generic Claude Code and LUCA [Claude Code]
-remain distinct in the rolling episode itself. Focused tests, typecheck, and
-system health passed. No publication or source-control reconciliation occurred.
-
-Founder subsequently approved both validation blockers: strict label-only
-receipt verification in the dialogue-loss detector (no generic-label alias or
-file exemption), and a refreshed runtime bundle pin in the Windows launcher.
-The mismatch was independently reproduced on untouched main; rebuilt prepare
-hash stayed unchanged. Nine DPAPI source checks pass, but no native Windows
-compatibility or publication is claimed. Receipt writes are now limited to
-four explicit audit paths; source-write scanner passes 32/32. Negative receipt
-controls and the detector's real-deletion self-check pass. Full completion
-validation is being retried with fresh review of these approved changes.
-The last full suite passed everything except live capture health while the
-application was stopped. Starting the application restored authenticated
-readiness and re-appended 21 legacy replies; the fourth receipt independently
-proves their label-only correction, exact replica parity, and 106 embedding
-arms. Earlier receipts and all repeated dialogue remain intact. The application
-is now running; no startup-replay suppression or publication was performed.
-
 # Alden ↔ Agent Handoff
 
 ## From Agent — last updated: Thu, Oct 1, 9:38 PM
@@ -9988,3 +9953,39 @@ expired, a new challenge and founder approval are required. No real receipt was
 consumed in these tests. No canonical episode was deliberately edited, and no
 source, runtime, or application publication was performed. Source-control startup
 reported divergence; do not represent the local repair as already on GitHub.
+
+---
+
+## From Agent Attribution Concurrency Proof — last updated: Sat, Oct 3, 2:46 PM
+
+Attribution repair concurrency proof is complete. The historical Neon HTTP CLI
+now uses the shared content-equality CAS/reread/stage-ordering helper; SQL,
+conflict errors, protected record identity, and downstream embedding verification
+are unchanged. No historical repair was run against the shared episode.
+
+Disposable PostgreSQL uses two independent sessions, a random synthetic schema
+and UUID, and the verified CI database gate before every mutating setup path.
+Append and same-length conflicts preserve concurrent content byte-for-byte and
+start neither Markdown nor embedding work. Controls prove success, fresh
+idempotent retry without an UPDATE, a writer between UPDATE and reread, and a
+stale no-edit retry. Registered the test in scripts/run-ci-test-steps.mjs.
+
+Verification: combined focused suites 15/15 passed with no skips; disposable
+schema count after teardown is zero. Typecheck, projection-writer coverage,
+validation/CI parity, and git diff whitespace checks passed. Manual mutations
+proved that length-only CAS breaks the same-length test and removing reread
+equality breaks both reread-race tests. Original guards restored and final
+focused tests passed.
+
+System health Summary: 0 red failures, 2 warnings. Both warnings were HTTP
+storage-route checks skipped while the application startup was in progress;
+direct storage reads succeeded. The configured application workflow is now
+running and its landing-page screenshot loaded successfully.
+
+No coordination thread or originating inbox note is linked to this assignment.
+No publication, database migration, rolling-episode test fixture, or canonical
+repair invocation occurred. Background capture appended to docs/episode-34.md;
+that legitimate record is preserved, not manually reverted.
+
+Memory review: no new non-code-derived durable lesson was discovered; the
+existing disposable-database safety rule applies unchanged.
