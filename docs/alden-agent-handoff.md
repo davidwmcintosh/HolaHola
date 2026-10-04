@@ -1,5 +1,36 @@
 # Alden ↔ Agent Handoff
 
+## From Agent — signed Windows download pilot, 2026-10-03
+
+Founder-run marked downloaded signed helper passed the pinned dummy-only native
+smoke with exit 0, all four check groups, owned-scope cleanup, unchanged execution
+policies and preserved download marks. Independent Agent ZIP/file/certificate
+verification preceded the download. Full pins, separate operation approvals,
+packaging failures and honest evidence boundaries are in
+`docs/runtime-onboarding-clients.md`; raw preflight JSON was not supplied.
+
+Pilot is private, same Windows user/machine and stable dedicated signer only.
+The untimestamped certificate expires 2027-01-01T23:35:28Z. Helper/builder source
+is unchanged; future signing must precede re-finalization of manifest hashes.
+No V2 edits, live credentials, enrollment or publication were authorized.
+Uploaded signed ZIPs are Git-ignored, not source release assets. No coordination
+thread or originating inbox note is linked from this assignment.
+
+Completion checks: `npm run typecheck` passed. `verify-system-health.ts` exited
+0 with Summary: `2 warning(s) — review before marking done.` Both warnings are
+R2 application-route checks skipped because the development server is stopped;
+no application code changed. Other health checks passed.
+The dependency's Node 20 support notice concerns January 2027, not a current
+failure. No second native test or app/browser test was run for these doc changes.
+
+The first completion attempt passed consolidated CI, canonical chat-save,
+owner-key absence and code review, but the validation suite's live capture-health
+check could not reach the stopped dev server. The existing development workflow
+was started without changing code or publishing; the authenticated, worker-armed
+read-only capture-health check then passed. Completion validation is retried
+with that service running. The documentation rebase preserved both incoming
+launch-diagnostic notes and this pilot's evidence.
+
 ## From Agent — historical recovery pause diagnostics — Oct 3, 2026
 
 Capture health and Markdown status now explain historical recovery pauses by

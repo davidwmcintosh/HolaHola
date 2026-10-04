@@ -52,7 +52,11 @@ package (manifest 5/5, reproducibility passed once, `sourceDirty=true`,
 did not require a package rebuild. This is not a final/released helper or a
 claim of general live-device support. The founder-run packaged Windows native
 store/CLI smoke subsequently passed under the explicitly approved local-file
-trust exception documented below. Other native-platform, live-client, provider,
+trust exception documented below. A later founder-run, freshly downloaded
+signed-package smoke also passed with download marks retained, under the
+separately approved user-scoped internal signing pilot. This is a bounded
+development-package result, not public distribution or expiry-safe signing.
+Other native-platform, live-client, provider,
 and enrollment tests remain pending; no onboarding invitation or scoped onboarding
 credential has been issued, and no production code or runtime has been
 published. The development
@@ -453,6 +457,524 @@ live enrollment, concrete IDE/provider integration, macOS/Linux native checks,
 and publication remain outside this evidence. Source Windows tests were skipped
 on Linux; the receipt above is a founder-run package result, not a claimed
 source-checkout Windows test. No invitations or live credentials were issued.
+
+#### Selected self-signed internal pilot — founder-reported signed-download pass
+
+The founder subsequently asked for alternatives to paid accounts and approved
+the recommendation to start with a self-signed pilot on founder-controlled
+Windows machines. This supersedes the public-CA route as the current pilot
+direction; the comparison below remains an alternative, not a purchase plan.
+Selecting the pilot does not itself authorize certificate creation, signing,
+trust-store imports, transfer or publication. The separately authorized receipts
+below establish personal-store certificate creation, user-scoped trust, helper
+signing, local archive verification, independent uploaded-byte verification
+and the founder-reported actual signed-download native smoke.
+
+**Certificate-creation authorization.** The founder explicitly authorized
+creation of the dedicated 90-day, non-exportable pilot certificate on
+**LITTLENEMO**, in the signing Windows user's `CurrentUser\My` store.
+No signing, root/publisher imports, policy changes, export/transfer or
+publication is authorized by this creation approval. The founder subsequently
+reported successful creation using the commands below on native Windows;
+this is founder-provided evidence, not an Agent-run Windows verification.
+
+Run the following directly in an ordinary interactive **Windows PowerShell**
+console on LITTLENEMO, as the Windows user who will own the signing key. Do not
+save/download this block as a script requiring its own trust exception.
+Windows may display a key-protection dialog; do not share its protection
+password/PIN. Stop on errors, unsupported protection or a duplicate certificate,
+without retrying with weaker settings or deleting/recreating the key.
+
+```powershell
+& {
+    $ErrorActionPreference = 'Stop'
+    if ($env:COMPUTERNAME -ne 'LITTLENEMO') {
+        throw 'Certificate creation is authorized only on LITTLENEMO.'
+    }
+    $subject = 'CN=HolaHola Internal Helper Pilot'
+    $existing = @(Get-ChildItem Cert:\CurrentUser\My |
+        Where-Object { $_.Subject -eq $subject })
+    if ($existing.Count -gt 0) {
+        throw 'A pilot certificate already exists. Stop; inspect it before any retry.'
+    }
+    $parameters = @{
+        Type = 'CodeSigningCert'
+        Subject = $subject
+        FriendlyName = 'HolaHola Internal Helper Pilot'
+        CertStoreLocation = 'Cert:\CurrentUser\My'
+        Provider = 'Microsoft Software Key Storage Provider'
+        KeyAlgorithm = 'RSA'
+        KeyLength = 3072
+        KeyUsage = 'DigitalSignature'
+        KeyUsageProperty = 'Sign'
+        HashAlgorithm = 'SHA256'
+        KeyExportPolicy = 'NonExportable'
+        KeyProtection = 'ProtectHigh'
+        NotAfter = (Get-Date).AddDays(90)
+    }
+    $certificate = New-SelfSignedCertificate @parameters
+    $sha = [Security.Cryptography.SHA256]::Create()
+    try {
+        $certificateSha256 = [BitConverter]::ToString(
+            $sha.ComputeHash($certificate.RawData)).Replace('-', '').ToLowerInvariant()
+    } finally {
+        $sha.Dispose()
+    }
+    # Public certificate evidence only, even if the later key-policy check fails.
+    [pscustomobject]@{
+        machine = $env:COMPUTERNAME
+        store = 'CurrentUser\My'
+        subject = $certificate.Subject
+        thumbprint = $certificate.Thumbprint
+        certificateSha256 = $certificateSha256
+        expiresUtc = $certificate.NotAfter.ToUniversalTime().ToString('o')
+        hasPrivateKey = $certificate.HasPrivateKey
+    } | ConvertTo-Json
+    $key = [Security.Cryptography.X509Certificates.RSACertificateExtensions]::GetRSAPrivateKey(
+        $certificate)
+    try {
+        if ($key -isnot [Security.Cryptography.RSACng]) {
+            throw 'Unexpected key provider. Stop; do not recreate or weaken the key.'
+        }
+        if ($key.Key.ExportPolicy -ne [Security.Cryptography.CngExportPolicies]::None) {
+            throw 'Non-exportability verification failed. Stop.'
+        }
+        if (($key.Key.UIPolicy.ProtectionLevel -band
+            [Security.Cryptography.CngUIProtectionLevels]::ForceHighProtection) -eq 0) {
+            throw 'High key-use protection verification failed. Stop.'
+        }
+        [pscustomobject]@{
+            privateKeyExportPolicy = $key.Key.ExportPolicy.ToString()
+            keyUseProtection = $key.Key.UIPolicy.ProtectionLevel.ToString()
+            certificateCreationChecksPassed = $true
+        } | ConvertTo-Json
+    } finally {
+        if ($null -ne $key) { $key.Dispose() }
+    }
+}
+```
+
+Only return the two public/metadata JSON outputs (or the error message), never
+key material, a PFX, a protection password or a PIN. A failure after creation
+can leave the personal-store certificate/key present; that is not permission
+to delete it or create another. Inspect it with a separately prepared read-only
+step.
+
+**Founder-reported certificate creation receipt — 2026-10-03.**
+
+- Machine/store: `LITTLENEMO`, `CurrentUser\My`.
+- Subject: `CN=HolaHola Internal Helper Pilot`.
+- Certificate thumbprint: `AE523E990FF3D3AD1271D5A668709489A8EFB13A`.
+- Public DER certificate SHA-256:
+  `5527baca5c8c9db7c8343d3e36b625cc8d4ddc23bd3a203e2c66b322df9404ad`.
+- Expiry: `2027-01-01T23:35:28.0000000Z`.
+- `hasPrivateKey=true`, `privateKeyExportPolicy=None`,
+  `keyUseProtection=ForceHighProtection`,
+  `certificateCreationChecksPassed=true`.
+
+The public fingerprint is supplied by the founder separately from any package.
+Before using it for trust or signing, independently reread that exact personal-
+store certificate and match the DER SHA-256, subject, Code Signing EKU,
+non-CA/digital-signature scope and validity. No key material was supplied.
+This receipt is not root/publisher trust, a signed-helper receipt, package
+integrity, distribution authorization or a native smoke result. Root/publisher
+trust requires a separate exact-certificate, user/machine-scoped approval.
+
+**User-scoped trust authorization — 2026-10-03.** The founder explicitly
+authorized importing only the above public certificate, after independently
+rechecking its exact DER SHA-256, into `CurrentUser\Root` and
+`CurrentUser\TrustedPublisher` for the same Windows user on **LITTLENEMO**.
+This is not machine-wide trust, signing, export/transfer, publication or policy
+authorization. Use a public-only certificate object constructed from its DER
+bytes; the private key remains in the personal store. Verify certificate
+identity, current validity, Code Signing-only EKU, DigitalSignature-only key
+usage and non-CA scope before any trust write. Record already-present versus
+newly added trust separately for each store and confirm unchanged policy scopes.
+Stop on a mismatch or store/policy error; if one store succeeds and the other
+fails, retain the partial result as evidence without automatic rollback,
+certificate deletion or a broader-scope retry. Any later removal requires a
+separate authorization targeting this exact public certificate in those two
+stores, not the personal-store signing key.
+
+**Founder-reported trust installation receipt — 2026-10-03.** The founder
+reported newly added entries (`alreadyPresent=false`) in both
+`CurrentUser\Root` and `CurrentUser\TrustedPublisher`, each with
+`publicCertificateVerified=true` and the exact independently supplied DER
+SHA-256 `5527baca5c8c9db7c8343d3e36b625cc8d4ddc23bd3a203e2c66b322df9404ad`.
+The receipt identifies `LITTLENEMO`, `userScopedTrustInstalled=true`,
+`executionPoliciesUnchanged=true`. The policy table reports `Undefined` for
+all five scopes: MachinePolicy, UserPolicy, Process, CurrentUser and
+LocalMachine. No private-key export, machine-wide trust or policy change is
+reported. This is certificate-store evidence, not proof that an actual
+downloaded signed helper executes. At this trust-receipt stage, signing and
+signed-download verification were still pending; later receipts follow below.
+
+**Pilot scope and trust model.** Use one dedicated, non-CA code-signing
+certificate with the Code Signing extended key usage, SHA-256 signatures and
+a non-exportable private key in the designated Windows signing user's personal
+certificate store. For an initial pilot, propose a 90-day certificate lifetime
+as a bounded review window; expiry/renewal must be planned, not treated as
+permanent trust. Strong key-use protection and availability of the selected
+Windows key provider need confirmation on that machine. A non-exportable
+software key is not hardware isolation and can still be abused by a process
+running with the signing user's authority.
+
+Only the public certificate may leave the signing machine. Independently
+verify its DER certificate SHA-256 and keep the private key out of Replit,
+packages, chat and test receipts. Never export a PFX/private key for clients.
+Certificate creation is a separately approved operation in `CurrentUser\My`,
+not an import into a root or publisher store, and does not sign the helper.
+
+Microsoft describes self-signed PowerShell certificates as testing-only rather
+than suitable for general distribution. This route is therefore a controlled
+internal pilot, not publicly trusted distribution or a production CA program.
+For a maintained internal program, separately design a dedicated private CA
+with protected root custody, separate code-signing issuance, expiry/rotation,
+revocation and client trust administration, or use an existing organizational
+CA. No CA, new account, root authority or enrollment is created by this pilot.
+
+**Separate trust approval is essential.** The receiving Windows user/machine
+must trust the self-signed public certificate as an anchor and approve it as a
+publisher before the unchanged noninteractive child can reliably execute it.
+For the proposed user-scoped pilot, the intended stores are
+`CurrentUser\Root` and `CurrentUser\TrustedPublisher`, subject to Windows and
+organizational policy. Importing a self-signed signer into Root is a deliberate
+new trust anchor, not a harmless file copy. The founder must separately approve
+the exact certificate SHA-256, user/machine and both store scopes after
+certificate creation and independent public-certificate verification.
+
+Do not perform these imports automatically, request machine-wide trust as a
+fallback, or change policy to make user-scoped trust work. Publisher trust
+applies to other code signed by the same key, not only this helper. Use the
+same approved signer for subsequent pilot builds only within its approved
+scope/lifetime; signer rotation can require a new publisher approval. Stop if
+Group Policy or other application controls reject the pilot.
+
+**Signing and packaging remain separately approved.** Sign only the exact
+reviewed staged helper after verifying the unsigned helper/package pins; retain
+the native-store logic unchanged. Finalize all package hashes after signing,
+then pin the signed helper, signer certificate, manifest, archive and runner
+through an independent approved channel before any test distribution.
+The existing builder does not finalize an externally signed package; do not
+reuse its pre-signing manifest as if it covered signed bytes.
+
+**Pilot signing/finalization authorization — 2026-10-03.** The founder explicitly
+approved signing the existing pinned development helper on LITTLENEMO with the
+above pilot certificate, **without a timestamp**, and updating that local
+package's manifest to reflect the signed bytes. The founder identified the
+existing extracted test package as the target. The package must first match
+original manifest SHA-256
+`f84a1c4d04971cba99fefb67d86d48247936d8c46b16cb673a04304b11965539`
+and unsigned helper SHA-256
+`04feff0bfaeb5bde6018f02df5fbac94ffff6432b0ff63467cd0f215008d1e4c`;
+all five original manifest file pins must verify before signing.
+Stop on an unexpected file set, unsafe path, already-signed/changed helper,
+signer/trust mismatch or signature failure. Preserve helper logic and record
+Windows Authenticode validity, exact signer fingerprint, absent timestamp and
+new helper/manifest pins. Keep `sourceDirty=true`, `release=false` and the base
+source revision unchanged. This is founder-run pilot finalization, not a
+new automated builder signing feature. No archive transfer, browser download,
+test invocation, enrollment, live credential, V2 edit or publication is
+authorized by this step.
+
+**Founder-reported signed-helper/finalization receipt — 2026-10-03.**
+
+- Machine: `LITTLENEMO`; Windows Authenticode `signatureStatus=Valid`.
+- Signer certificate SHA-256:
+  `5527baca5c8c9db7c8343d3e36b625cc8d4ddc23bd3a203e2c66b322df9404ad`.
+- `timestampPresent=false`; certificate expiry
+  `2027-01-01T23:35:28.0000000Z`.
+- `helperLogicUnchanged=true`.
+- Signed helper SHA-256:
+  `8e0f0233b7be513bf814f1536599df32800e00cc58e907c808fe38dec3737c59`.
+- Finalized manifest SHA-256:
+  `fdd81d7fee54795143e8e4771a61090398200f6567fec3c13c3550de011dcbe2`.
+- Base source revision `0f9318010690a1a089e79907a7698feae1b86969`;
+  `sourceDirty=true`, `release=false`, `executionPoliciesUnchanged=true`.
+
+These independent founder-supplied public pins describe a locally signed,
+finalized development package. They do not authenticate an archive not yet
+created, prove Internet-mark propagation, establish a downloaded-package smoke
+pass or authorize distribution. Keep the earlier unsigned receipt distinct;
+the signed helper and new manifest no longer match its original file hashes.
+
+**Signed test distribution and dummy-smoke authorization — 2026-10-03.**
+The founder separately approved creating a ZIP of the signed development
+package plus the independently pinned smoke runner, uploading it through this
+chat, and downloading it through the workspace back to LITTLENEMO. Include
+only the six package files (five manifest entries plus manifest.json) and
+`test-runtime-onboarding-windows.mjs`; no certificate-store files, private key,
+PFX, live credential or unrelated file. Record the newly created archive SHA-256
+independently before transfer and verify it again after upload/download.
+Do not overwrite the earlier unsigned archive or an existing output ZIP.
+
+The founder also separately approved invoking the pinned smoke runner against
+the fresh, verified downloaded/extracted signed package on LITTLENEMO. Retain
+and inspect actual archive/helper download marks, independently verify all
+package/signer/runner pins before execution, and require dummy-only owned-scope
+cleanup. This does not authorize publication, source/runtime promotion, V2
+changes, enrollment, live credentials, trust/policy changes or marking files
+as downloaded by hand. Local ZIP, transfer and signed native-smoke receipts
+are recorded below.
+
+**Founder-reported packaging failure — 2026-10-03.** The initial packaging
+attempt failed resolving `[IO.Compression.ZipArchive]` after opening the output
+file. Loading `System.IO.Compression.FileSystem` alone did not make this type
+available in that Windows PowerShell session. No successful archive receipt,
+transfer or native smoke was produced. An empty output file may remain;
+preserve it and retry only at a new, non-existing output filename. Explicitly
+load both `System.IO.Compression` and `System.IO.Compression.FileSystem` and
+resolve the required types before opening a new archive. The signed package,
+certificate stores and execution policies do not need changes for this retry.
+
+**Founder-reported existing signed ZIP verification — 2026-10-03.** A later
+create-new attempt stopped because the retry ZIP already existed. Rather than
+delete or overwrite it, the founder ran read-only verification and reported:
+
+- Archive: `runtime-onboarding-windows-signed-pilot-retry1.zip`.
+- Archive SHA-256:
+  `9996ebbfefa1032a3194d6b4bffcfbdf0f10c862326403ec0f22e3e5b6075151`.
+- `existingArchiveVerified=true`, `archiveEntriesVerified=7`.
+- Signed helper, manifest, runner and signer certificate hashes match the
+  independently supplied pins recorded above.
+- `signatureStatus=Valid`,
+  `signatureCheckedAgainstByteIdenticalLocalHelper=true`,
+  `timestampPresent=false`, `nativeSmokeRun=false`.
+
+This is a founder-run verification of an existing local archive, with signature
+validity checked on the byte-identical local helper. It is not an Agent-run
+archive verification or signature check on a newly downloaded/extracted helper.
+At this local-verification stage, no upload receipt, fresh browser-download
+marks or signed native-smoke result had been supplied.
+The archive hash above is the independent transfer pin;
+do not infer it from an uploaded archive's own manifest.
+
+**Independent uploaded-byte verification — 2026-10-03 (Denver).** The founder
+uploaded `runtime-onboarding-windows-signed-pilot-retry1_1791082041766.zip`
+through the approved chat transfer. Agent independently verified its 33,732
+bytes against the previously supplied archive SHA-256
+`9996ebbfefa1032a3194d6b4bffcfbdf0f10c862326403ec0f22e3e5b6075151`,
+the exact seven unique entries, all three external file pins, all five manifest
+file lengths/hashes and the recorded development provenance. The four unchanged
+package files and smoke runner are byte-identical to the pinned original ZIP.
+Helper logic before the appended signature block matches the original after
+normalizing CRLF and trailing line endings. The signature block contains one
+public certificate whose DER SHA-256 matches the independent signer pin.
+
+These are actual workspace byte/certificate checks, not a Windows Authenticode
+validation, publisher-trust check or native execution. At this upload stage, a
+fresh browser download, archive/helper Internet marks, Windows signature/trust
+verification on the extracted helper and dummy native-smoke receipt were still
+required; the subsequent founder-run result follows below. Download the
+verified uploaded file through the workspace file menu; do not publish a route
+or change source/runtime distribution to obtain the test download. Signed pilot
+transfer ZIPs in `attached_assets` are excluded from Git publication.
+
+A timestamp must be verified if one is used; do not assume a public timestamp
+provider supports this private signer. A no-timestamp, time-bounded pilot can
+be considered only with explicit founder approval and evidence that Windows
+accepts it during the certificate's validity. It must not be represented as
+expiry-safe. This is a specific alternative to the timestamp-required public
+distribution design below, not a silent relaxation of that design.
+
+**Required signed-download receipt.** All dummy-only cleanup and independent
+pin checks described below still apply. Record the private-trust nature of
+the signer, its expiry, timestamp presence/validation or explicitly approved
+absence, exact approved certificate/store scopes, and download marks alongside
+the Windows signature result and unchanged-policy/native-smoke receipt.
+Retain the marks on the actual downloaded/extracted signed helper. No
+`Bypass`, automatic `Unblock-File`, saved policy change, enrollment, live
+credential, V2 edit or publication is part of this pilot.
+
+**Founder-reported actual downloaded signed-package result — 2026-10-03
+(Denver).** After the approved workspace browser download and Windows File
+Explorer extraction into a fresh directory, the founder supplied the native
+smoke output and the final `signed-download-test-complete` wrapper receipt.
+The independently pinned package and runner were not modified or unblocked.
+
+- Platform: `win32`; native smoke exit code `0`.
+- Archive SHA-256:
+  `9996ebbfefa1032a3194d6b4bffcfbdf0f10c862326403ec0f22e3e5b6075151`.
+- Manifest SHA-256:
+  `fdd81d7fee54795143e8e4771a61090398200f6567fec3c13c3550de011dcbe2`.
+- Checks: `unmodified-cli-empty-status`,
+  `dpapi-roundtrip-first-write-atomic-replace-owner-only-acl-all-purposes`,
+  `client-cli-corrupt-state-and-native-corruption-fail-closed`,
+  `unsafe-owned-file-acl-read-delete-rejected`.
+- Dummy scope: endpoint `https://native-smoke.invalid`, actor `luca-cursor`,
+  runtime ID `native-smoke-7ce54245-7741-4df0-86e7-cd842ec51e31`.
+- `ownedScopeCleanup=true`, `executionPoliciesUnchanged=true`,
+  `downloadMarksPreserved=true`, `helperAndRunnerPinsUnchanged=true`.
+- Base source revision `0f9318010690a1a089e79907a7698feae1b86969`;
+  `sourceDirty=true`, `release=false`.
+
+The delivered wrapper gates native execution on independently supplied
+archive/manifest/helper/runner hashes, every manifest file hash/length, actual
+archive and extracted-helper Internet marks (`ZoneId` 3 or 4), a `Valid`
+Authenticode signature on the extracted helper with the pinned signer and no
+timestamp, and the same certificate in both approved CurrentUser trust stores.
+It rechecks marks, pins and unchanged policy after the smoke. The founder's
+final completion receipt reports those postconditions passed. The separately
+printed preflight JSON was not included in the pasted receipt: do not invent
+its exact zone integers or describe its raw signature output as independently
+observed by Agent. Native evidence is founder-run, not an Agent-run Windows
+test; independent workspace byte/certificate checks are documented separately.
+
+**Completion boundary.** Separate creation, signing, exact user-scoped trust,
+test distribution and dummy-test authorizations were obtained. The founder-run
+marked downloaded signed development package passed without a repeated
+download-mark removal or policy exception. This verifies the selected internal
+pilot on this Windows machine/user, with this signer during its validity.
+It does not establish public-CA distribution, unattended publisher rotation,
+other users/machines or organizational controls, repeated future builds, live
+enrollment/provider integration, V2 changes, source/runtime publication or
+expiry-safe signing. The explicitly untimestamped pilot certificate expires
+`2027-01-01T23:35:28Z`; a new signer/trust/distribution operation requires its
+own approval. The builder and native helper source remain unchanged; manual
+approved signing must precede manifest finalization for any later pilot build.
+
+Reference: [PowerShell 5.1 signing, self-signed certificates and publisher
+approval](https://learn.microsoft.com/en-us/powershell/module/microsoft.powershell.core/about/about_signing?view=powershell-5.1).
+
+#### Publicly trusted signing alternative — preparation only, 2026-10-03
+
+The founder authorized this checkout and preparation of a **new publicly
+trusted signer** route. This is not authorization to acquire a certificate,
+create a signing-service account, submit identity documents, incur charges,
+sign files, install signing tooling, change machine trust, transfer a package,
+or publish source/runtime artifacts. The signed-download verification remains
+**pending**. The earlier unsigned-package pass after a one-file trust exception
+is not signed-download evidence.
+
+**Provider comparison.** A hardware-backed public-CA Authenticode certificate
+is the preferred candidate for this helper. DigiCert KeyLocker documents
+hardware-backed key custody and Windows SignTool support for `.ps1` files;
+confirm the actual certificate lifetime, eligible legal identity, price,
+timestamp support and signing permissions with the provider before acquisition.
+Keep its private key in the provider's protected signing system, not in this
+checkout, a package, chat, or an exported PFX. Provider/account setup and any
+required signing-tool installation each need explicit founder authorization.
+
+Microsoft Azure Artifact Signing Public Trust is an alternative, not an
+already configured service. Microsoft documents Authenticode integration,
+identity/geographic eligibility restrictions, daily certificate renewal and
+three-day signing-certificate validity. Timestamping is essential, and Microsoft
+explicitly warns that pinning an individual certificate is not durable across
+renewal. Per-package exact signer pins remain useful, but must not be confused
+with a stable cross-release trust identity.
+
+**Public CA trust is not PowerShell publisher trust.** Windows must validate the
+certificate chain, signature and timestamp, and PowerShell may additionally
+require approval of the publisher. The existing helper child is noninteractive,
+so it cannot resolve an untrusted-publisher prompt. Do not promise prompt-free
+downloads merely because a public CA issued the certificate. A stable signer
+can reduce recurring publisher approvals within that certificate's lifetime;
+renewal/rotation requires renewed independent verification and may require
+another separately authorized publisher approval. Daily leaf rotation is a
+specific concern for the Microsoft alternative.
+
+If publisher approval is required, stop and obtain separate explicit founder
+authorization identifying the exact verified public certificate, target user/
+machine, trust store, scope and removal procedure. No trust operation is
+performed by the package, builder or smoke runner. Never import a private key
+on the client, install a new root as a shortcut for this public-CA route, or
+approve an unknown publisher. The separately approved internal-pilot design
+above explicitly identifies its different private-trust requirements.
+If the founder declines trust approval or organizational policy disallows the
+helper, report a blocked result. RemoteSigned, Group Policy and other Windows
+application-control restrictions remain authoritative.
+
+**Packaging review.** `scripts/build-runtime-onboarding-package.mjs` currently
+copies the unsigned source helper and then hashes the package. Its `--release`
+flag checks source cleanliness; it is not proof of Authenticode signing,
+founder release approval or distribution authorization. Do not sign an existing
+output and retain its old manifest: signing changes the helper's bytes.
+The approved implementation, once separately authorized, must:
+
+1. Build from a reviewed source revision into an isolated staging directory.
+   Keep `server/scripts/runtime-onboarding-native-store.ps1` logic unchanged;
+   signing applies to the staged copy, not a rewritten native-store protocol.
+2. Have the authorized operator sign that exact helper with SHA-256 and a
+   provider-supported timestamp, using narrowly scoped signing authority.
+   No setup-time download-and-evaluate commands or embedded service credentials.
+3. Independently verify the staged helper with Windows Authenticode trust
+   APIs; require a valid signature, expected signer identity, exact signer
+   certificate SHA-256 and valid timestamp. Text resembling a signature block
+   or a certificate bundled with the download is not validation.
+4. Finalize the manifest only after signing. Recompute every packaged file's
+   byte length and SHA-256, then the manifest SHA-256. Package all required
+   files together and compute the final archive SHA-256. Do not normalize
+   line endings, re-sign, or rewrite any file after finalization.
+5. Through an independently trusted founder-approved channel, provide the
+   source revision, development/release status, archive and manifest SHA-256,
+   signed-helper SHA-256, smoke-runner SHA-256, and exact signer certificate
+   SHA-256 plus validated publisher identity. A certificate thumbprint may be
+   recorded as additional identification; it does not replace the SHA-256
+   certificate pin. Any changed signature/package needs new exact pins.
+
+This sequence is a design, **not an implemented signing/finalization feature**.
+The current builder and existing unsigned packages remain unsigned. Ordinary
+ZIP archives are not made Authenticode-signed merely by containing a signed
+script; the independent archive/manifest pins must also authenticate the Node
+CLI, SDK and runner before they execute.
+
+**Separate approval checkpoints.**
+
+- Acquisition: founder approves provider, verified legal identity, cost,
+  account/key custody, allowed signing scope and tooling installation.
+- Signing: founder approves the exact reviewed staging build and signer.
+- Trust: if necessary, founder separately approves the exact publisher trust
+  operation; acquisition/signing approval never implies client trust approval.
+- Test distribution: founder approves a named private transfer/download channel,
+  exact pinned artifact and target Windows machine. This is not public
+  publication or enrollment.
+- Verification: founder approves running the independently pinned dummy-only
+  smoke on that machine. Source/runtime publication, enrollment, live
+  credentials and Coordinator V2 changes each remain outside these approvals.
+
+**Acceptance evidence from the actual downloaded artifact.** After those
+approvals, use the intended browser/download and extraction path on native
+Windows with independently trusted Node.js 20+. Retain download marks; inspect
+and record the archive/helper `Zone.Identifier` state before testing. Do not
+remove, synthesize or alter download marks to manufacture a pass. If extraction
+does not propagate the mark to the helper, record that limitation; the result
+does not prove execution of an Internet-marked signed helper.
+
+Before running any packaged JavaScript, independently match archive, manifest
+and runner pins, verify every file against the pinned manifest, and validate
+the helper's Authenticode signature and exact signer certificate pin on Windows.
+The existing smoke checks manifest file hashes but does **not** independently
+validate signer trust or external pins. Perform those checks before invoking
+`node .\test-runtime-onboarding-windows.mjs <approved-package-directory>`.
+Stop on a missing/mismatched pin, invalid signature, missing/invalid timestamp,
+unapproved publisher or policy rejection; no alternate launcher/retry policy.
+
+Run the unchanged CLI/SDK default native factory with dummy values only.
+Require exit code zero, every native smoke check, unchanged execution-policy
+scopes and successful cleanup of only the three preflight-absent random-scope
+files. Preserve unrelated DPAPI entries and the shared store directory. Process
+termination leaves cleanup unproven; retain the printed owned paths for a
+separately approved, exact-path recovery, never a namespace-wide deletion.
+
+Record in this document: approvals and their precise scopes, tested Windows/
+PowerShell/Node versions, source/development status, download/extraction path
+and mark evidence, independently verified artifact/signer pins, signature and
+timestamp result, publisher-trust state before/after any separately approved
+change, policy scopes before/after, smoke checks/exit code and owned-scope
+cleanup. Preserve failures as failures. No public-CA signed package or native
+pass exists for this alternative. The internal-pilot receipts above establish
+only their explicitly stated private-trust evidence; they do not establish this
+alternative or a downloaded signed-package pass.
+
+**Primary sources reviewed for this strategy:**
+
+- [PowerShell 5.1 signing and untrusted-publisher behavior](https://learn.microsoft.com/en-us/powershell/module/microsoft.powershell.core/about/about_signing?view=powershell-5.1).
+- [DigiCert KeyLocker protected key custody](https://docs.digicert.com/en/digicert-keylocker.html)
+  and [supported signing tools/file types](https://docs.digicert.com/en/digicert-keylocker/overview/compatible-signing-tools.html).
+- [Microsoft Artifact Signing overview](https://learn.microsoft.com/en-us/azure/artifact-signing/overview),
+  [eligibility/setup](https://learn.microsoft.com/en-us/azure/artifact-signing/quickstart),
+  [Authenticode integrations and timestamp requirement](https://learn.microsoft.com/en-us/azure/artifact-signing/how-to-signing-integrations),
+  and [certificate renewal/pinning limitation](https://learn.microsoft.com/en-us/azure/artifact-signing/concept-certificate-management).
 
 The focused server/client test files use isolated fixtures; the client and SDK
 tests use fake endpoints/stores, and no test issues real credentials. The

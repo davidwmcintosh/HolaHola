@@ -112,3 +112,11 @@ Native diagnostic capture must use explicit piped stdio for synchronous child la
 **Why:** A secret-safe outer failure handler does not protect against a child-process API forwarding raw diagnostics before that handler runs. Arbitrary helper output may contain store data or credentials.
 
 **How to apply:** Audit the subprocess boundary as well as the final serializer. Keep fixed-category reporting separate from captured child output, require positive evidence before classifying a security restriction, and leave unrecognized failures explicitly unknown. This is not authority to change policy or unblock a downloaded file.
+
+## Windows PowerShell compression assemblies
+
+Windows PowerShell may not expose compression types transitively when only the FileSystem assembly is loaded. Load the core compression assembly explicitly as well, and resolve required types before creating an output file.
+
+**Why:** A real Windows session accepted the FileSystem assembly load but failed to resolve ZipArchive after opening the destination. Assembly availability must be checked before filesystem side effects, not inferred from a related assembly.
+
+**How to apply:** Preflight all required .NET types in Windows instructions before opening outputs. Preserve failed outputs and use a fresh create-new destination rather than silently overwriting or deleting them.

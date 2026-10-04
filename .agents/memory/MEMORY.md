@@ -154,3 +154,4 @@
 - [Coordination CLI APP_URL target mismatch](coordination-cli-app-url-target.md) — APP_URL can point to a different deployment than the dev workspace, causing a valid token to 401 -- retry with --app-url http://127.0.0.1:5000
 - [Coordinator V2 Windows DPAPI retry semantics](coordination-v2-dpapi-retry-no-clear.md) — runtime-release refresh needs no DPAPI clear -- retry is Initialize-HolaCoordinatorRuntime + Invoke-HolaCoordinator; host never auto-upgrades
 - [Historical attribution recovery](historical-attribution-recovery.md) — Snapshot repair alone does not change recovery authority; verify both the repaired prefix and later historical appends.
+- [Windows signing and publisher trust](windows-signing-publisher-trust.md) — Public CA trust is not publisher approval; rotating signer certificates may prevent unattended downloaded-helper execution.

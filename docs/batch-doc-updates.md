@@ -26,6 +26,24 @@
   handoff sections omitted by the shared-document refresh were restored verbatim
   through the canonical shared-spec revision.
 
+## 2026-10-03 — Downloaded signed Windows helper internal pilot
+
+- Separately approved certificate creation, same-user Root/TrustedPublisher
+  trust, exact staged-helper signing, manifest finalization, test transfer and
+  dummy native smoke. No timestamp was explicitly approved for this bounded
+  pilot; no private key was exported.
+- Independently verified uploaded ZIP/file hashes, exact seven entries,
+  unchanged helper logic and embedded public certificate fingerprint.
+- Founder reported a fresh downloaded signed-package native smoke pass, owned
+  dummy-file cleanup, unchanged policies and preserved download marks. Raw
+  preflight JSON was not included; evidence and limitations are explicit in
+  `docs/runtime-onboarding-clients.md`.
+- No helper/builder/runtime/V2 code, enrollment, live credential, policy bypass,
+  automatic unblock or publication changes. Signed pilot upload ZIPs are
+  Git-ignored; certificate expiry is 2027-01-01T23:35:28Z.
+- Typecheck passed. System-health verifier exited 0; two R2 app-route checks were
+  skipped because the development server is stopped. No application code changed.
+
 ## 2026-10-03 — Approved episode concurrency test isolation repair
 
 - Founder authorized repairing the unrelated Episode 9997 fixture collision
