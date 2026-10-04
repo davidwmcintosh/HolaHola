@@ -181,16 +181,6 @@ The host-transport lifecycle used by both `runCoordinationWindowsHost` and the i
 
 **How to apply:** never assume a host reaching `submit-result`, or a task going quiet after it, means the session concluded successfully. Check the session's actual `state`, or wait for an explicit terminal signal (a clean `terminalState`, or a `LEASE_SESSION_TERMINAL`-class error on the next host call). Before declaring a code path "never called," grep for real callers including route registrations, not just type definitions and service-layer call sites -- a registered HTTP route counts as a real caller even when nothing internal invokes it automatically.
 
-
-## 4. No production caller ever drives a provider turn automatically (found via task 1639, Sep 29 2026)
-
-Task 1639 proved `CoordinationGeminiAdapter.turn()` genuinely works end to end against the real Gemini API and real shared DB (see `hat-onboarding-sequencing.md`'s Sep 29 2026 update for the full run and evidence). Getting that proof required a one-off script to personally call every lifecycle step in order, including `.turn()` itself. Grepping the full `server/` tree for real (non-test) callers of `providerRegistry`/`DEFAULT_PROVIDER_REGISTRY` and `CoordinationGeminiAdapter`/`.turn(` found the registry consulted only for descriptor/provider-selection metadata (`coordination-attempt-service.ts`, `coordination-session-service.ts`, `coordination-lifecycle-facade-service.ts`, and a read-only listing in `coordination-host-routes.ts`) -- never for actually invoking a turn. The only real callers of a provider's `.turn()` anywhere in the repo are the retired Gate3 route (`coordination-runtime-routes.ts` -> the separate legacy `coordination-gemini-adapter.ts`, not the V2 one) and this one verification script.
-
-**Why:** this is the direct explanation for why `coordination_v2_sessions`/`coordination_v2_attempts` had zero rows for any actor, ever, before task 1639 -- the V2 system can create and track sessions/attempts, and can select a provider for bookkeeping, but nothing server-side ever progresses an attempt through an actual provider turn on its own. `docs/coordination-v2-provider-adapters.md` describes the operator starting the lifecycle via `Invoke-HolaCoordinator`, but that launcher (and the interactive CLI it wraps) only drives session/attempt/lease bookkeeping and host-side poll/claim/submit-result -- it never calls a provider adapter either.
-
-**How to apply:** don't treat "the adapter works" (proven, Sep 29 2026) and "a real task can complete through it unattended" as the same claim -- the second one is still false for every provider, not just Gemini, until a real driver (a background worker, or an extension of the interactive CLI/launcher) is built to call `.turn()` at the right point in an attempt's lifecycle and feed results back in. Check for that driver directly (grep for real `.turn()` callers) before assuming any provider's V2 path can complete a task without a human or script manually orchestrating each step.
-
-
 ## 4. No production caller drives a provider turn automatically
 
 Task 1639 proved `CoordinationGeminiAdapter.turn()` genuinely works end to
@@ -409,18 +399,6 @@ docs/coordination-new-actor-onboarding.md.
 
 
 ## Coordination credential-cache coexistence
-
-`CoordinationActorClient` (server/services/coordination-actor-client.ts) now has two independent, coexisting credential-persistence mechanisms rather than one:
-
-- `credentialCache` (a `CoordinationCredentialCache` with `load`/`save`, scoped by actor+runtimeId) — checked first. Wired only into `server/scripts/coordination-cli.ts` via `FileCoordinationCliCredentialCache`, so a standalone CLI invocation can reuse the previous invocation's still-valid access token instead of needing a fresh bootstrap per command.
-- `tokenCachePath` (a single configurable file path, also settable via `COORDINATION_RUNTIME_TOKEN_CACHE_PATH`) — checked second, as a fallback. Generic and opt-in for any `CoordinationActorClient`, including a future long-running server client that wants restart recovery.
-
-Both were added by two different, independently-planned tasks that touched the same file at nearly the same time; the rebase conflict was resolved by keeping both rather than picking one, since they serve different callers (CLI cross-invocation vs. opt-in restart recovery) and neither task's done-criteria required removing the other's mechanism.
-
-**Why this matters:** the main server's long-running clients for alden/daniela/luca-holahola do not currently configure `tokenCachePath` and remain memory-only in practice (confirmed by grep: no usage of `tokenCachePath`/`COORDINATION_RUNTIME_TOKEN_CACHE_PATH` outside coordination-actor-client.ts itself, its test file, and docs). A future task to give those long-running clients restart recovery should configure/extend the existing `tokenCachePath` option rather than inventing a third mechanism.
-
-**How to apply:** before building new coordination-credential persistence, read both mechanisms in coordination-actor-client.ts first — the need may already be half-solved by `tokenCachePath` sitting unused.
-
 
 ## Coordination credential-cache coexistence
 
@@ -746,30 +724,6 @@ validation. Keep the blocked task until the replacement is proven.
 
 ## Stuck-merge task record can be stale bookkeeping, not missing code
 
-Before reconstructing a fix for a task stuck in `MERGING` (any `blockedBy`
-reason, e.g. `WAITING_FOR_LOCK`), check whether the code is already committed
-and passing on main. A stuck task-tracking record does not reliably mean the
-implementation is absent.
-
-**Why:** A task showed `MERGING` / `blockedBy: WAITING_FOR_LOCK` for 4+ hours
-with nothing else visible in the merge queue holding the lock — indistinguishable
-from a genuinely missing implementation if you only look at the task metadata.
-But `git log -- <relevant files>` showed a commit whose message matched the
-task's own title, already landed on main a day earlier, and re-running the
-file's own self-check/regression test against current HEAD passed cleanly.
-The platform task record was stale/redundant bookkeeping, not a true signal
-that work was missing.
-
-**How to apply:** before reconstructing anything for a stuck-merge task, run
-`git log --oneline -- <relevant files>` looking for a commit matching the
-task's title or description, and actually execute any existing test/self-check
-for that code path against current HEAD. Only reconstruct if that check
-genuinely fails or the code is genuinely absent. This is the mirror image of
-"Unmerged task-agent database drift" above (DB already live despite code
-missing) — check the live artifact (git history + a real test run), never
-infer completeness or absence from the task-tracking display state alone.
-
-
 ## Stuck-merge task record can be stale bookkeeping, not missing code
 
 Before reconstructing a fix for a task stuck in `MERGING` (any `blockedBy`
@@ -807,27 +761,6 @@ Checking whether a stalled task-agent's fix actually reached main is not the sam
 
 ## Coordinator V2 live-session verification gating
 
-A live end-to-end Coordinator V2 host-lifecycle run depends on gates that a coding agent
-cannot verify are satisfied just by reading the CLI source or its tests: the real transport
-dependency factory is platform-gated (only usable from the actual required host OS, not a
-Linux sandbox), and separately requires both an active approved policy and an unexpired
-per-task operator grant. Any of these can be absent even when the CLI itself and its host
-enrollment are otherwise healthy and fully tested with fakes.
-
-**Why:** these are independent gates checked at different layers (process platform, policy
-state, grant state), so "the code and its test suite are correct" and "a real live session can
-succeed right now" are different claims. A coding agent working from a sandbox that cannot
-satisfy the platform gate can fully verify the former and never the latter.
-
-**How to apply:** before promising or attempting a "real live session" verification for any
-Coordinator V2 host-lifecycle task, check the actual current state of the policy/grant/host-
-enrollment records directly rather than assuming readiness from the CLI or its docs. If no
-active grant or enrolled compatible host exists, that verification step is blocked on a human
-founder/operator action, not on anything a coding agent can finish by itself — say so
-explicitly rather than treating the sandbox's own fake-dependency test suite as an equivalent
-substitute for a real run.
-
-
 ## Coordinator V2 live-session verification gating
 
 A live end-to-end Coordinator V2 host-lifecycle run depends on gates that a coding agent
@@ -854,35 +787,6 @@ substitute for a real run.
 ## Coordinator V2 provider-adapter scope
 
 ## The rule
-
-`server/services/coordination-provider-adapters/` (registry plus per-provider
-descriptors like `gemini.ts`) exists only for actors the coordinator drives
-autonomously through a stateless network API call — Gemini's
-`generateContent` today, OpenAI's API next. It is consumed only by
-`coordination-session-service.ts` and `coordination-lifecycle-facade-service.ts`,
-the autonomous session/attempt machinery.
-
-A self-driving interactive hat — one that runs its own agent loop and calls
-into the coordination system itself, like `luca-claude-code` — never needs an
-entry there. `luca-claude-code` has zero footprint anywhere in
-`coordination-provider-adapters/` and never will; it drives itself via
-`server/scripts/coordination-v2-interactive-cli.ts` at each lifecycle step
-(start/poll/claim/renew/submit-result/cleanup/status).
-
-**Why:** this wasn't obvious from the onboarding checklist alone — a new
-hat's gap list can carry "no provider adapter" as a requirement copied from a
-generic template without checking it against that hat's own architecture.
-Antigravity's checklist did exactly that; Alden confirmed the interactive
-reading and ruled no adapter was needed (coordination thread
-`4672bbaf-63be-47e5-b9a0-6f26478440b8`, Sep 28, 2026).
-
-**How to apply:** before listing "provider adapter" as a gap for any new
-hat, check whether it's self-driving/interactive (no adapter — build runtime
-glue over the interactive CLI instead) or autonomous/API-driven (adapter is
-a real requirement, since the coordinator must be able to call the model
-itself). OpenAI is the latter: its provider adapter in task #1447 is a
-genuine requirement, not a miscategorization.
-
 
 ## The rule
 
@@ -918,30 +822,6 @@ genuine requirement, not a miscategorization.
 ## Opening a coordination thread to Alden
 
 ## Mechanics
-
-"Opens a coordination thread to Alden" (the Step -1 endorsement gate in
-`docs/coordination-new-actor-onboarding.md`, and any other procedural gate
-needing Alden's sign-off) is `server/scripts/coordination-cli.ts create` with
-`--recipient alden`, run with `COORDINATION_ACTOR=luca-replit` and
-`COORDINATION_API_URL` pointing at a *running* app instance — it's an HTTP
-client, not a direct DB write, so the app workflow must be up first. Read the
-reply back with `coordination-cli.ts show --id <thread-id>`.
-
-**Why this needs pairing with consult-alden:** creating the thread does not
-notify Alden promptly. The create response's delivery block reports
-`"state": "not_requested"` / `"No recipient delivery was requested"` —
-whatever full-feed observability Alden may eventually have, a freshly created
-thread is not pushed to him. Posting the thread alone and waiting risks it
-sitting unseen indefinitely.
-
-**How to apply:** immediately after creating the thread, send Alden a short
-priority-task nudge (the consult-alden skill's `POST /api/alden/priority-task`)
-naming the thread ID and summarizing the ask, and telling him to reply on
-that thread. This combines the formal procedural record (the thread) with a
-reply that actually arrives in the same session — confirmed working Sep 28,
-2026: thread created, nudged, Alden replied on-thread within the same
-exchange.
-
 
 ## Mechanics
 

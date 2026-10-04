@@ -11,3 +11,11 @@ A stable, dedicated internal signer can make an Internet-marked downloaded Power
 **Why:** A real fresh downloaded signed package passed the founder-run native dummy smoke while preserving download marks and execution policies. The earlier unsigned downloaded package had required a one-file manual trust exception; signing plus exact publisher trust removed that exception for the tested copy.
 
 **How to apply:** Keep signer/package pins independent of the download, obtain separate operation approvals, and verify the actual marked download before claiming usability. Do not infer expiry-safe or rotated-publisher support from an untimestamped stable-signer pass. Future builds must be signed before their manifest hashes are finalized.
+
+## Untimestamped pilot replacement boundary
+
+An explicitly approved untimestamped internal Windows pilot is a validity-bounded exception, not enduring publisher usability. Replacement requires new explicit operation approvals and independent artifact/certificate evidence; keeping an expired certificate trusted does not extend its validity.
+
+**Why:** The founder selected a no-timestamp pilot, and its marked-download smoke proved only that exact signer/package in the approved machine/user scope during validity. A future renewal decision must not silently inherit the historical exception.
+
+**How to apply:** Plan a manual review before expiry, stop on expiry or invalid signature/trust, and keep certificate creation/acquisition, signing, exact store trust, transfer and publication approvals separate. Require fresh marked-download dummy-only native evidence for the replacement; do not retrofit a success claim to the old download.
