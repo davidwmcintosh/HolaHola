@@ -1,36 +1,51 @@
 # Alden ↔ Agent Handoff
 
-## From Agent — signed Windows download pilot, 2026-10-03
+## From Agent — last updated: Sun, Oct 4, 3:53 AM
 
-Founder-run marked downloaded signed helper passed the pinned dummy-only native
-smoke with exit 0, all four check groups, owned-scope cleanup, unchanged execution
-policies and preserved download marks. Independent Agent ZIP/file/certificate
-verification preceded the download. Full pins, separate operation approvals,
-packaging failures and honest evidence boundaries are in
-`docs/runtime-onboarding-clients.md`; raw preflight JSON was not supplied.
+2026-10-04 — Offline Windows onboarding finalization (assigned implementation)
 
-Pilot is private, same Windows user/machine and stable dedicated signer only.
-The untimestamped certificate expires 2027-01-01T23:35:28Z. Helper/builder source
-is unchanged; future signing must precede re-finalization of manifest hashes.
-No V2 edits, live credentials, enrollment or publication were authorized.
-Uploaded signed ZIPs are Git-ignored, not source release assets. No coordination
-thread or originating inbox note is linked from this assignment.
+Implemented scripts/finalize-runtime-onboarding-package.mjs plus strict shared
+package integrity checks and scripts/verify-runtime-onboarding-authenticode.ps1.
+Builder remains unsigned and refuses nonempty output. Finalize requires externally
+pinned approval/unsigned baselines, preserves source revision/dirty/release and
+byte-exact native helper prefix, checks all file and signer pins, native cache-only
+Windows trust and verified timestamp policy, then recalculates manifest hashes.
+Verify is read-only and requires an independent final manifest pin.
 
-Completion checks: `npm run typecheck` passed. `verify-system-health.ts` exited
-0 with Summary: `2 warning(s) — review before marking done.` Both warnings are
-R2 application-route checks skipped because the development server is stopped;
-no application code changed. Other health checks passed.
-The dependency's Node 20 support notice concerns January 2027, not a current
-failure. No second native test or app/browser test was run for these doc changes.
+No acquisition, signing, trust/policy change, transfer/archive, native smoke,
+source/runtime publication, V2 change, enrollment or live credentials. The native
+store source is unchanged. Offline missing-cache/revocation errors fail closed.
+The historical pilot used normalized comparison; this tool requires byte-exact
+preservation and does not claim the old pilot can pass that stricter gate.
 
-The first completion attempt passed consolidated CI, canonical chat-save,
-owner-key absence and code review, but the validation suite's live capture-health
-check could not reach the stopped dev server. The existing development workflow
-was started without changing code or publishing; the authenticated, worker-armed
-read-only capture-health check then passed. Completion validation is retried
-with that service running. The documentation rebase preserved both incoming
-launch-diagnostic notes and this pilot's evidence.
+Design independently approved by Alden: document
+df768822-2334-49ff-a1d7-4b04f0bd9198, revision
+e24f289d-e3e2-4306-ae0f-4db0850cf454, review
+3644028c-a9d3-4448-bbb6-d75b6b3d3da8, content hash
+35090a0605a0897bc2837f30421d4d0980c352a685769853b1b90cb0ee568b60.
+Approval independently reread from the canonical API: decision actor alden,
+state approved; no publication. This is design approval, not execution approval.
+No originating coordination thread or inbox note is linked from the assignment.
+The linked review and document were refreshed after Alden's decision; no pending
+collaborator question/offer. Correct live inbox query uses to=agent, not the
+actor ID. The approved-design notification was found, incorporated and marked
+read (verified marked=1). Linked thread final reads:
+cd7a2c2b-b945-4ab4-93ed-84caeeee929b (review request), last-seen/final global
+sequence 1272; 5777dbac-8d54-4ebe-9ec5-2b4538aaf0c0 (decision), last-seen/final
+global sequence 1274. Decision delivery event 1274 proves inbox storage only;
+independent API reread proves Alden's approved review. No response is owed by
+the approval notification; no questions or offers are outstanding.
 
+43 hermetic checks passed; typecheck passed; git diff --check passed. Health:
+All checks passed — safe to mark done. Landing page loaded. CI runner includes
+new hermetic tests. Native Windows WinVerifyTrust/probe acceptance is unproven
+in this Linux workspace and remains separately authorized follow-up work;
+no synthetic result is presented as a native signature receipt.
+
+Operator schema and commands: docs/runtime-onboarding-offline-finalization.md.
+Evidence boundaries updated in docs/runtime-onboarding-clients.md. Existing
+Windows signing/publisher-trust memory reviewed; no new non-code-derived durable
+lesson was found and no memory-file hand-edit was made.
 ## From Agent — historical recovery pause diagnostics — Oct 3, 2026
 
 Capture health and Markdown status now explain historical recovery pauses by
@@ -10150,3 +10165,35 @@ Targeted native-store/client tests: 21 passed, 2 Windows-only skipped. Typecheck
 Changed files: server/services/runtime-onboarding-store.ts, server/scripts/runtime-onboarding-cli.ts, scripts/test-runtime-onboarding-windows.mjs, server/scripts/runtime-onboarding-native-store.test.ts. No linked coordination threads were supplied in this assignment.
 
 Completion validation: consolidated CI, canonical chat-save, owner-key absence, and completion code review passed. The first validation-suite attempt hit the known live-directory scanner fixture race (ENOENT for __gcs-guard-selftest-tmp__.ts). The complete standalone rerun of bash server/scripts/run-validation-suite.sh passed with exit 0; evidence is /tmp/replit-background-tasks/c844ad69-b033-4803-8ce0-4297a4ea4c02.log (VALIDATION_SUITE_EXIT=0). No code changes were needed for that race. Historical recovery and release-packaging handoff sections were restored verbatim through the canonical shared-spec revision after the refresh initially omitted them. The follow-up is read-only native Windows rejection-diagnostic verification, not authority to alter policy or unblock helpers.
+
+---
+
+## From Agent — Windows pilot expiry planning — last updated: Sun, Oct 4, 3:43 AM
+
+Windows pilot expiry planning is complete in docs/runtime-onboarding-clients.md.
+The original untimestamped certificate expires 2027-01-01T23:35:28Z.
+The document contains manual 30/7/1-day UTC checkpoints and a read-only
+PowerShell public-certificate/signature inspection with independent DER pin,
+validity and fail-closed checks. It compares stable internal/public-CA
+publishers, rotating signers and timestamp limitations.
+
+Certificate creation/acquisition, exact staged signing, exact user/machine/store
+trust, private transfer, dummy native verification and public publication
+remain separate founder decisions. New independent certificate/package pins
+and a fresh real marked-download owned-scope dummy-only native smoke are
+required before replacement usability can be claimed.
+
+No helper, launcher, builder, runner or signed artifact was changed.
+No Windows operation, certificate generation, signing, trust import/removal,
+key export, policy change, unblock, renewal, transfer, publication, live
+credential, enrollment or V2 edit was performed.
+The inspection snippet has not been run on native Windows; it is planning
+material, not an implemented runtime guard or automatic notification.
+
+Verification: npm run typecheck passed; git diff --check passed; UTC review
+date arithmetic and explicit plan gates checked. System health Summary:
+All checks passed — safe to mark done.
+Pre-build Alden consultation and startup briefing endpoints returned HTTP 502
+while the development app was stopped; no consultation approval is claimed.
+The existing Start application workflow was then started successfully.
+No coordination thread or agent-note source is linked in this assignment.

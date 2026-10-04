@@ -655,8 +655,11 @@ reviewed staged helper after verifying the unsigned helper/package pins; retain
 the native-store logic unchanged. Finalize all package hashes after signing,
 then pin the signed helper, signer certificate, manifest, archive and runner
 through an independent approved channel before any test distribution.
-The existing builder does not finalize an externally signed package; do not
-reuse its pre-signing manifest as if it covered signed bytes.
+The unsigned builder does not finalize an externally signed package; do not
+reuse its pre-signing manifest as if it covered signed bytes. The separately
+reviewed [offline finalizer](runtime-onboarding-offline-finalization.md) now
+provides an explicit post-signing operation with independent approval/file/
+signer pins. It does not sign, change trust or authorize distribution.
 
 **Pilot signing/finalization authorization — 2026-10-03.** The founder explicitly
 approved signing the existing pinned development helper on LITTLENEMO with the
@@ -912,8 +915,14 @@ The approved implementation, once separately authorized, must:
    recorded as additional identification; it does not replace the SHA-256
    certificate pin. Any changed signature/package needs new exact pins.
 
-This sequence is a design, **not an implemented signing/finalization feature**.
-The current builder and existing unsigned packages remain unsigned. Ordinary
+The signing/acquisition/distribution sequence remains a design, **not an
+automated signing feature**. Its post-signing manifest step is now implemented
+by the separately invoked [offline finalizer](runtime-onboarding-offline-finalization.md).
+It requires independent approval/file/signer pins and a byte-exact original
+helper prefix, validates native Windows trust with cache-only retrieval, and
+refuses stale manifests in read-only verification mode. It neither signs nor
+changes trust, packages archives, transfers or publishes. The current builder
+and existing unsigned packages remain unsigned. Ordinary
 ZIP archives are not made Authenticode-signed merely by containing a signed
 script; the independent archive/manifest pins must also authenticate the Node
 CLI, SDK and runner before they execute.
@@ -939,6 +948,20 @@ and record the archive/helper `Zone.Identifier` state before testing. Do not
 remove, synthesize or alter download marks to manufacture a pass. If extraction
 does not propagate the mark to the helper, record that limitation; the result
 does not prove execution of an Internet-marked signed helper.
+
+**Offline tool evidence — 2026-10-04.** The new finalizer is separately designed
+and tested with hermetic fixtures. It is not a new native Windows, download,
+publisher-trust or public-CA acceptance receipt. Exact prefix verification is
+stricter than the historical pilot's newline-normalized workspace comparison;
+that pilot package is not promised to satisfy the new byte-exact gate.
+Offline trust validation can fail on unavailable cached revocation evidence.
+Do not silently retry online or alter trust/policy to obtain a pass.
+The design was independently approved by Alden in shared-spec:
+document `df768822-2334-49ff-a1d7-4b04f0bd9198`, revision
+`e24f289d-e3e2-4306-ae0f-4db0850cf454`, review
+`3644028c-a9d3-4448-bbb6-d75b6b3d3da8`, content SHA-256
+`35090a0605a0897bc2837f30421d4d0980c352a685769853b1b90cb0ee568b60`.
+This is design approval, not signing, trust, native-test or publication approval.
 
 Before running any packaged JavaScript, independently match archive, manifest
 and runner pins, verify every file against the pinned manifest, and validate

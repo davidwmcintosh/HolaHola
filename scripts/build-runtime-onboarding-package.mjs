@@ -1,9 +1,10 @@
 import { build } from 'esbuild';
 import { createHash } from 'node:crypto';
 import { execFileSync } from 'node:child_process';
-import { mkdir, readFile, writeFile, copyFile } from 'node:fs/promises';
+import { mkdir, readFile, writeFile, copyFile, readdir } from 'node:fs/promises';
 import { resolve, dirname } from 'node:path';
 import { fileURLToPath } from 'node:url';
+import { assertRegularPath, PAYLOADS } from './runtime-onboarding-package-integrity.mjs';
 
 const root = resolve(dirname(fileURLToPath(import.meta.url)), '..');
 
@@ -19,6 +20,10 @@ export async function buildRuntimeOnboardingPackage(options = {}) {
     cwd: workspace, encoding: 'utf8',
   }).trim().length > 0;
   if (release && dirty) throw new Error('onboarding_release_requires_reviewed_clean_source');
+  // Never overwrite a signed/finalized package or retain unrelated leftovers.
+  await assertRegularPath(output, true, true);
+  await mkdir(output, { recursive: true });
+  if ((await readdir(output)).length) throw new Error('onboarding_output_requires_empty_directory');
   await mkdir(resolve(output, 'bin'), { recursive: true });
   await mkdir(resolve(output, 'lib'), { recursive: true });
   await mkdir(resolve(output, 'scripts'), { recursive: true });
@@ -82,14 +87,7 @@ export async function buildRuntimeOnboardingPackage(options = {}) {
     'No script is downloaded and evaluated at setup time.',
     '',
   ].join('\n'));
-  const paths = [
-    'bin/holahola-onboarding.mjs',
-    'lib/runtime-onboarding-sdk.mjs',
-    'scripts/runtime-onboarding-native-store.ps1',
-    'package.json',
-    'README.txt',
-  ];
-  const files = await Promise.all(paths.map(async (path) => {
+  const files = await Promise.all(PAYLOADS.map(async (path) => {
     const bytes = await readFile(resolve(output, path));
     return { path, bytes: bytes.length, sha256: createHash('sha256').update(bytes).digest('hex') };
   }));
@@ -128,8 +126,9 @@ if (process.argv[1] && resolve(process.argv[1]) === fileURLToPath(import.meta.ur
       output: outputIndex >= 0 ? args[outputIndex + 1] : undefined,
     }).then((status) => {
       process.stdout.write(JSON.stringify(status) + '\n');
-    }).catch(() => {
-      process.stderr.write('onboarding_package_build_failed\n');
+    }).catch((error) => {
+      process.stderr.write(error.message.startsWith('onboarding_')
+        ? `${error.message}\n` : 'onboarding_package_build_failed\n');
       process.exitCode = 1;
     });
   }

@@ -45,6 +45,18 @@ test('standalone package is reproducible, hash-verifiable, and works without the
     assert.match(stdout, /no V2 dependency/);
     const sdk = await import(pathToFileURL(join(first.output, 'lib/runtime-onboarding-sdk.mjs')).href);
     assert.equal(typeof sdk.createRuntimeOpenAIResponsesClient, 'function');
+    const pinnedManifest = await readFile(join(first.output, 'manifest.json'));
+    await assert.rejects(
+      buildRuntimeOnboardingPackage({ root, output: first.output, release: true }),
+      /onboarding_output_requires_empty_directory/,
+    );
+    assert.deepEqual(await readFile(join(first.output, 'manifest.json')), pinnedManifest);
+    await mkdir(join(root, '.local/extra'), { recursive: true });
+    await writeFile(join(root, '.local/extra/old-signed-helper.ps1'), '# old fixture');
+    await assert.rejects(
+      buildRuntimeOnboardingPackage({ root, output: join(root, '.local/extra'), release: true }),
+      /onboarding_output_requires_empty_directory/,
+    );
     await writeFile(join(root, 'unreviewed.txt'), 'uncommitted\n');
     await assert.rejects(
       buildRuntimeOnboardingPackage({ root, output: join(root, '.local/rejected'), release: true }),

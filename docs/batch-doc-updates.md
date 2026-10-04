@@ -1,3 +1,28 @@
+## 2026-10-04 — Offline Windows onboarding finalization
+
+- Added a separately invoked, reviewed offline finalization/verification tool:
+  `scripts/finalize-runtime-onboarding-package.mjs`, with shared strict package
+  checks and a read-only Windows WinVerifyTrust/CMS probe. No signing, certificate
+  acquisition, trust/policy change, smoke, private transfer or publication.
+- Independently pinned external approval and unsigned baselines bind exact
+  source provenance, every post-signing file, signer identity/certificate and
+  required-timestamp or explicitly absent internal-pilot policy. Only the
+  byte-exact helper prefix plus one terminal signature block is accepted.
+  Windows timestamp attributes must match a validated provider countersigner.
+- Finalization recalculates all payload hashes/lengths and replaces only the
+  manifest. Read-only verification needs an external final manifest pin and
+  refuses stale hashes. The unsigned builder refuses nonempty output directories
+  rather than overwriting a signed package or retaining unexpected files.
+- Operator schema, independent inputs, commands, offline-cache limits and
+  authorization boundaries: `docs/runtime-onboarding-offline-finalization.md`.
+  Hermetic CI fixtures cover stale manifests, repinned altered helper logic,
+  signer/file mismatches, unsafe paths and mutation during verification.
+  These tests are not native Windows/download/publisher-trust acceptance.
+- Verification: 43 targeted hermetic checks passed; `npm run typecheck` passed.
+  System health summary: All checks passed — safe to mark done. Landing page
+  loaded. Native helper source was not changed; no native signer/trust operation
+  or publication was performed.
+
 ## 2026-10-03 — Secret-safe Windows onboarding launch diagnostics
 
 - Native store failures retain only fixed error codes and diagnostic categories:
