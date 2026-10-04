@@ -228,3 +228,12 @@ to the real host, and Antigravity itself invoking the CLI from Windows
 off win32, and the task's acceptance criteria requires no other agent driving
 it, so this cannot be attempted or simulated from the Replit container.
 
+
+## External Codex scope
+
+The OpenAI runtime extension means an external Codex coding runtime, not an OpenAI model provider running inside HolaHola.
+
+**Why:** The user explicitly selected the external runtime surface and reaffirmed that Antigravity is not fully onboarded yet.
+
+**How to apply:** Follow the existing Antigravity-first sequencing rule before resuming Codex work. Reuse the proven end-to-end onboarding and authority controls; do not treat an MCP connection alone as completed onboarding.
+
