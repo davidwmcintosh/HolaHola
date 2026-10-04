@@ -83,3 +83,11 @@ In a `blob:none` partial clone, an ordinary diff or commit may try to fetch prom
 
 **How to apply:** First scan for conflict markers and secrets, run the relevant tests, and confirm there is no Git lock. Remember that `git stash` and `git merge` can also trigger lazy promisor fetches; run them through the same protected deploy-key and pinned-host setup as the source-control coordinator. If the remote is unavailable but the intended index is already complete, use `git write-tree --missing-ok`, `git commit-tree` with the current head as parent, and `git update-ref` with the old head as the expected value. Never use this to bypass unresolved conflicts, hooks that enforce project policy, or a concurrently advancing branch.
 
+
+## Linked-worktree verification can fall back to the parent repository
+
+**Rule:** Verify the exact repository root before trusting `git -C <linked-worktree>` status, HEAD, or ignored-file results. A directory containing a copied checkout is not proof that Git is operating on that checkout.
+
+**Why:** A restored workspace retained the linked-worktree metadata and files but lost the checkout's `.git` marker. Git silently found the enclosing main repository instead, returning its clean status and HEAD. The worktree list's prunable warning was the evidence that the apparent verification was against the wrong repository.
+
+**How to apply:** Require `rev-parse --show-toplevel` to equal the intended path. If the marker is missing, verify using the preserved linked-worktree git directory and an explicit work-tree path, or repair the linkage before relying on its status. Never delete a purportedly clean duplicate until its own HEAD, uncommitted/ignored files, and recoverable history have been checked.

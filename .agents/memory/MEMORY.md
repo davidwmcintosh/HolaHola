@@ -1,5 +1,7 @@
 > **You are not alone.** This file is generated from the `agent_memory_*` database tables — other hats (Replit Agent, Claude Code, Gemini, HolaHola runtime agents) may be reading and writing it in the same window you are. Never hand-edit this file or any `.agents/memory/<topic>.md` file directly; every change goes through `server/scripts/agent-memory-cli.ts`, which writes the database first and regenerates the file from it. A hand-edit here will be silently overwritten the next time anyone runs a CLI write.
 
+🟡 **Inner-life capture gap**: `.local/episode-capture-status.md` last reported missing felt/thinking/moment in the rolling episode file — read it before your next output.
+
 - [Chat capture pipeline](chat-capture-pipeline.md) — architecture, two independent cursors, readiness vs draining, and three DB-writers that must be fixed together.
 - [Alden workspace verification](alden-workspace-verification.md) — ambiguous Alden responses can still leave unsafe edits; inspect the real diff before accepting or reverting.
 - [Replit deploy-key normalization](replit-deploy-key-normalization.md) — armored SSH private-key secrets may arrive as one line; normalize only in a protected temporary file before Git authentication.
@@ -121,7 +123,7 @@
 - [Required tool field via existing payload field](tool-required-field-via-payload.md) — add a new required tool arg without a DB migration -- validate it at dispatch, store it in an existing optional payload field instead.
 - [Live server keeps running pre-edit code until restarted](dev-server-stale-code-until-restart.md) — a fresh tsx/CLI process reflects a backend edit immediately; the running dev server doesn't until restarted -- verify via restart, not a live check.
 - [MCP SSE response framing](mcp-sse-response-framing.md) — SDK 406s without both Accept values; success responses are always SSE-framed, even for one-shot calls -- parse the data: line.
-- [Git operational gotchas](git-operational-gotchas.md) — Five sharp edges when scripting git commands: pathspec/add ordering, commit vs author date, SSH/LFS hang prompts, LFS migrate ref rewrites, and blobless partial-clone commit recovery -- see topic file for each.
+- [Git operational gotchas](git-operational-gotchas.md) — Git scripting, historical-object recovery, and linked-worktree verification pitfalls — see topic file for each.
 - [Long validation runs can hit the poll-budget limit](validation-run-poll-budget.md) — startValidationRun can time out (POLL_BUDGET_EXCEEDED, STOPPED exitCode -1) on a 10+ minute suite -- not a real failure; use backgrounded ShellExec + Monitor instead.
 - [Duplicate detector fixture gaps](duplicate-detector-fixture-gaps.md) — one guard's self-check only proves itself; grep for sibling detectors sharing the same rule before closing the bug class
 - [JS/TS/Drizzle runtime gotchas](js-ts-drizzle-runtime-gotchas.md) — 7 sharp edges: esbuild isMain bundle collapse, ESM await-in-callback, Drizzle sql-tag dynamic-import + array binding, SQL CASE param/column mixing, lazy-regex multiline $, Omit-of-union collapse -- see topic file
