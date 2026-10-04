@@ -54,3 +54,6 @@ docs/episode-9[0-9][0-9][0-9][0-9].md
 # guard.ts's real-repo fixture. Matches LEGACY_RESERVED_FIXTURE_EPISODE_NUMBERS
 # in the same guard module — keep both in sync.
 docs/episode-99.md
+
+# Approved private Windows signing-pilot transfers are not source releases.
+attached_assets/runtime-onboarding-windows-signed-pilot*.zip
