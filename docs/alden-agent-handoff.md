@@ -1,51 +1,58 @@
 # Alden ↔ Agent Handoff
 
-## From Agent — last updated: Sun, Oct 4, 3:53 AM
+## From Agent — last updated: Sun, Oct 4, 11:43 PM
 
-2026-10-04 — Offline Windows onboarding finalization (assigned implementation)
+2026-10-04 — Founder-approved repair of the shared Render publication path
 
-Implemented scripts/finalize-runtime-onboarding-package.mjs plus strict shared
-package integrity checks and scripts/verify-runtime-onboarding-authenticode.ps1.
-Builder remains unsigned and refuses nonempty output. Finalize requires externally
-pinned approval/unsigned baselines, preserves source revision/dirty/release and
-byte-exact native helper prefix, checks all file and signer pins, native cache-only
-Windows trust and verified timestamp policy, then recalculates manifest hashes.
-Verify is read-only and requires an independent final manifest pin.
+Render remains production. All builder runtimes use the canonical
+GitHub-to-Render source controls. Replit native Publish is not the production
+release action. This standing rule is saved through the DB-first memory CLI.
 
-No acquisition, signing, trust/policy change, transfer/archive, native smoke,
-source/runtime publication, V2 change, enrollment or live credentials. The native
-store source is unchanged. Offline missing-cache/revocation errors fail closed.
-The historical pilot used normalized comparison; this tool requires byte-exact
-preservation and does not claim the old pilot can pass that stricter gate.
+Implemented locally:
+- SourceControlService requires a canonical Render release reference for every
+  new production promotion, including source heads containing a legitimate
+  same-tree Replit publication marker. Both live Render verifications remain
+  required. Historical receipts and authority rows were not rewritten.
+- Shared API rejects missing/malformed/mismatched Render references and
+  Replit-only markers before persisting a request or starting execution.
+- Updated preparation/API instructions and docs/render-production-release.md.
+- Added rejection/acceptance/initial-and-final-failure tests. Source-control
+  fixture closes its DB pool on completion.
+- Fixed the remote CI race-test scheduling assumption: a test-only read barrier
+  makes both real PostgreSQL transactions observe the original review before
+  either production CAS. Exactly one winner and one clean conflict are still
+  required. No schema or production review-assignment logic changed.
 
-Design independently approved by Alden: document
-df768822-2334-49ff-a1d7-4b04f0bd9198, revision
-e24f289d-e3e2-4306-ae0f-4db0850cf454, review
-3644028c-a9d3-4448-bbb6-d75b6b3d3da8, content hash
-35090a0605a0897bc2837f30421d4d0980c352a685769853b1b90cb0ee568b60.
-Approval independently reread from the canonical API: decision actor alden,
-state approved; no publication. This is design approval, not execution approval.
-No originating coordination thread or inbox note is linked from the assignment.
-The linked review and document were refreshed after Alden's decision; no pending
-collaborator question/offer. Correct live inbox query uses to=agent, not the
-actor ID. The approved-design notification was found, incorporated and marked
-read (verified marked=1). Linked thread final reads:
-cd7a2c2b-b945-4ab4-93ed-84caeeee929b (review request), last-seen/final global
-sequence 1272; 5777dbac-8d54-4ebe-9ec5-2b4538aaf0c0 (decision), last-seen/final
-global sequence 1274. Decision delivery event 1274 proves inbox storage only;
-independent API reread proves Alden's approved review. No response is owed by
-the approval notification; no questions or offers are outstanding.
+Evidence:
+- Typecheck and production build passed.
+- Source-control and promotion API fixture checks passed on an isolated,
+  migrated PostgreSQL database, including real notification-channel failures.
+- All three review-assignment/decision PostgreSQL checks passed, zero skipped.
+- Source mutation boundary, GitHub release transport, and diff checks passed.
+- Authenticated running-development API returned HTTP 400 for a Replit-only
+  marker with the new explicit Render-evidence requirement.
+- Application readiness returned ready; landing page screenshot loaded.
+- Health verifier Summary: 2 warnings, no failures. The two student-facing
+  app-route checks were skipped because the parallel development restart had
+  not yet bound the port; direct storage checks passed and subsequent readiness
+  and screenshot confirmed the running app.
 
-43 hermetic checks passed; typecheck passed; git diff --check passed. Health:
-All checks passed — safe to mark done. Landing page loaded. CI runner includes
-new hermetic tests. Native Windows WinVerifyTrust/probe acceptance is unproven
-in this Linux workspace and remains separately authorized follow-up work;
-no synthetic result is presented as a native signature receipt.
+Read-only remote findings:
+- GitHub main remains a42abdc7be0b52c39df482de0bcc169e629e11c8.
+- Its CI unit job failed the now-corrected review-assignment timing assertion.
+- Latest successful Render deployment record serves
+  95e2c7db91dc4a3acd4b861a8968dae4d6cc14a6. No newer deployment was listed.
+- Actual Render deployment mode, CI gating, and webhook state still need
+  authenticated dashboard/API verification; checked-in autoDeploy is not proof.
 
-Operator schema and commands: docs/runtime-onboarding-offline-finalization.md.
-Evidence boundaries updated in docs/runtime-onboarding-clients.md. Existing
-Windows signing/publisher-trust memory reviewed; no new non-code-derived durable
-lesson was found and no memory-file hand-edit was made.
+Stop:
+These are local fixes, not a published Render release. No canonical source
+sync/push, new protected preparation, Render trigger, production setting/DNS
+change, credential change, or native Windows action was performed. A fresh
+exact-source gate is required; no old candidate or publication marker is reused.
+Keep Antigravity/Windows gates and the Codex pause intact. The founder must
+approve synchronization's possible Render auto-deployment consequence before
+the next source synchronization/publication step.
 ## From Agent — historical recovery pause diagnostics — Oct 3, 2026
 
 Capture health and Markdown status now explain historical recovery pauses by

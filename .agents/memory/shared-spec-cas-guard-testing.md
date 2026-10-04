@@ -36,3 +36,11 @@ next to its sibling shared-spec Postgres tests -- no extra gate wiring is
 needed since `scripts/neon-branch.ts`'s `cmdGate()` already sets the generic
 `SHARED_SPEC_TEST_DATABASE_*` env vars for any file using this pattern.
 
+
+## Force overlapping database reads
+
+CAS race tests must force both transactions to observe the same original state before either writes. Starting two promises together does not establish overlapping database reads.
+
+**Why:** A CI runner can serialize the reads enough for both operations to succeed legitimately when sequential reassignment is allowed. Treating that scheduling outcome as a failed CAS produces a false release blocker; allowing two successes instead would weaken the actual stale-write invariant.
+
+**How to apply:** Use a bounded, test-only barrier after real database reads, then require exactly one successful compare-and-set and one clean conflict. Keep real PostgreSQL coverage and production guards unchanged.

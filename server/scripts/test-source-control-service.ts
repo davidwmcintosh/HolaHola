@@ -389,7 +389,7 @@ async function recordPublicationMarkerFixture(overrides: {
   const finalLocalHead = overrides.finalLocalHead ?? localHead;
   const finalRemoteHead = overrides.finalRemoteHead ?? remoteHead;
   const publicationReference = overrides.publicationReference
-    ?? `replit-publish:${LOCAL_NEW}:${markerSha}`;
+    ?? `render-release:${LOCAL_NEW}:${SOURCE_CONTEXT_SHA256}`;
   const recorded: import('../services/source-control-service').SourcePromotionRecordInput[] = [];
   let fetchCount = 0;
   let localHeadReadCount = 0;
@@ -833,7 +833,7 @@ async function syncThenRecordPublicationMarkerFixture(): Promise<{
   const head = PUBLICATION_MARKER;
   const preparedAt = '2026-09-15T20:00:00.000Z';
   const expiresAt = '2026-09-15T22:00:00.000Z';
-  const publicationReference = `replit-publish:${candidateSha}:${head}`;
+  const publicationReference = `render-release:${candidateSha}:${SOURCE_CONTEXT_SHA256}`;
   writeFileSync(statusPath, `${JSON.stringify({
     schemaVersion: 3,
     state: 'ready_to_promote',
@@ -870,6 +870,7 @@ async function syncThenRecordPublicationMarkerFixture(): Promise<{
       resolveRemoteCommit: async (sha) => (sha === candidateSha
         ? { sha, treeSha: candidateTree, parentSha: LOCAL_OLD }
         : { sha, treeSha: candidateTree, parentSha: candidateSha }),
+      resolveRenderReleaseEvidence: async () => VALID_RENDER_EVIDENCE,
       recordSourcePromotion: async (input) => {
         recorded.push(input);
       },
@@ -1235,7 +1236,27 @@ async function main(): Promise<void> {
   });
   assert.equal((await production.sync('fixture')).state, 'disabled');
 
+  const replitOnlyPublication = await recordPublicationMarkerFixture({
+    publicationReference: `replit-publish:${LOCAL_NEW}:${PUBLICATION_MARKER}`,
+  });
+  assert.equal(replitOnlyPublication.result.ok, false);
+  assert.match(replitOnlyPublication.result.error || '', /requires verified Render release evidence/);
+  assert.equal(replitOnlyPublication.recorded.length, 0, 'Replit hosting must never append production authority');
+  assert.equal(replitOnlyPublication.receipt, undefined);
+  assert.equal(replitOnlyPublication.renderEvidenceCalls, 0);
+
+  for (const failureAt of [1, 2]) {
+    const markerWithoutLiveRender = await recordPublicationMarkerFixture({
+      renderEvidenceFailureAt: failureAt,
+    });
+    assert.equal(markerWithoutLiveRender.result.ok, false);
+    assert.equal(markerWithoutLiveRender.recorded.length, 0, 'even a verified marker cannot bypass either live Render check');
+    assert.equal(markerWithoutLiveRender.renderEvidenceCalls, failureAt);
+  }
+
   const markerRecovery = await recordPublicationMarkerFixture();
+  assert.equal(markerRecovery.renderEvidenceCalls, 2);
+  assert.deepEqual(markerRecovery.receipt?.renderReleaseEvidence, VALID_RENDER_EVIDENCE);
   assert.equal(markerRecovery.result.state, 'synced');
   assert.equal(markerRecovery.result.candidateSha, LOCAL_NEW);
   assert.equal(markerRecovery.recorded.length, 1);
@@ -1253,7 +1274,7 @@ async function main(): Promise<void> {
     repositoryIdentity: 'github:davidwmcintosh/holahola',
     promotedCommitSha: LOCAL_NEW,
     exactTreeSha: CANDIDATE_TREE,
-    publicationReference: `replit-publish:${LOCAL_NEW}:${PUBLICATION_MARKER}`,
+    publicationReference: `render-release:${LOCAL_NEW}:${SOURCE_CONTEXT_SHA256}`,
     protectedValidationId: manifest(LOCAL_NEW).validationId,
     publishTriggerSha: PUBLICATION_MARKER,
     publicationMarker: {
@@ -1262,6 +1283,7 @@ async function main(): Promise<void> {
       parentSha: LOCAL_NEW,
       subject: 'Published your App',
     },
+    renderReleaseEvidence: VALID_RENDER_EVIDENCE,
   })).digest('hex');
   assert.equal(markerRecovery.recorded[0].canonicalRecordDigest, expectedMarkerCanonicalDigest);
 
@@ -1283,7 +1305,7 @@ async function main(): Promise<void> {
     repositoryIdentity: 'github:davidwmcintosh/holahola',
     promotedCommitSha: LOCAL_NEW,
     exactTreeSha: CANDIDATE_TREE,
-    publicationReference: `replit-publish:${LOCAL_NEW}:${PUBLICATION_MARKER}`,
+    publicationReference: `render-release:${LOCAL_NEW}:${SOURCE_CONTEXT_SHA256}`,
     protectedValidationId: manifest(LOCAL_NEW).validationId,
     publishTriggerSha: PUBLICATION_MARKER,
     publicationMarker: {
@@ -1298,6 +1320,7 @@ async function main(): Promise<void> {
       parentSha: LOCAL_NEW,
       subject: 'Published your App',
     },
+    renderReleaseEvidence: VALID_RENDER_EVIDENCE,
   })).digest('hex');
   assert.equal(
     pushedMarkerRecovery.recorded[0].canonicalRecordDigest,
@@ -2559,5 +2582,8 @@ async function main(): Promise<void> {
 
 main().catch((error) => {
   console.error(error);
-  process.exit(1);
+  process.exitCode = 1;
+}).finally(async () => {
+  const { closeDbConnections } = await import('../db');
+  await closeDbConnections();
 });

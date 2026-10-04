@@ -12,9 +12,12 @@ lock and writes its observable state to `.local/source-bridge-status.{json,md}`.
   accepted Replit merge; the dedicated workflow polls for retries and GitHub
   changes. Both paths share the lock.
 - GitHub-received source is validated, then marked `ready_to_promote`; it is
-  **not** published automatically. Run `npm run source-bridge:prepare-promotion`
-  before using Replit Publish. After Replit confirms that publish, record the
-  same exact candidate with `npm run source-bridge:record-promotion -- <sha>`.
+  **not** production publication. Explicitly run `npm run source-control:prepare`
+  for the exact equal local/GitHub commit, obtain founder publication approval,
+  and publish that candidate to **Render**. Record only matching live Render
+  commit and source-context evidence; Replit's native Publish is not production
+  publication. Every builder runtime follows the same
+  [Render production release procedure](render-production-release.md).
 
 Run focused safety coverage with `npm run test:source-bridge` and
 `npm run test:github-release-safety`.

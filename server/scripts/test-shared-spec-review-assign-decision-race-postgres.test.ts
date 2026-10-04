@@ -50,7 +50,7 @@ import { Pool } from "pg";
 import { drizzle } from "drizzle-orm/node-postgres";
 import * as schema from "@shared/schema";
 import { getVerifiedCiDatabaseUrl } from "../ci-database";
-import { SharedSpecCore, SharedSpecDomainError, type ActorContext } from "../services/shared-spec-core";
+import { SharedSpecCore, SharedSpecDomainError, type ActorContext, type SharedSpecTransaction } from "../services/shared-spec-core";
 import { PostgresSharedSpecRepository } from "../services/shared-spec-postgres-repository";
 
 function disposableTarget(): string | undefined {
@@ -94,7 +94,27 @@ test("two concurrent assignReview reassignments of the same pending review again
   const pool = new Pool({ connectionString: url });
   try {
     const db = drizzle(pool, { schema });
-    const core = new SharedSpecCore(new PostgresSharedSpecRepository(db));
+    const repository = new PostgresSharedSpecRepository(db);
+    const transaction = repository.transaction.bind(repository);
+    let readBarrier: { reviewId: string; arrive: () => Promise<void> } | undefined;
+    repository.transaction = <T>(work: (tx: SharedSpecTransaction) => Promise<T>): Promise<T> =>
+      transaction(async tx => {
+        const getReview = tx.getReview;
+        let arrived = false;
+        tx.getReview = async id => {
+          const review = await getReview(id);
+          if (!arrived && readBarrier?.reviewId === id) {
+            arrived = true;
+            // Pause AFTER the real SELECT, so both transactions hold the same
+            // original assignment before either can reach the production CAS.
+            assert.equal(review?.requestedReviewerActorId, undefined);
+            await readBarrier.arrive();
+          }
+          return review;
+        };
+        return work(tx);
+      });
+    const core = new SharedSpecCore(repository);
     const suffix = `${Date.now()}-${Math.floor(Math.random() * 100000)}`;
     const admin: ActorContext = { actorId: `assign-race-admin-${suffix}`, capabilities: ["policy_admin"] };
     const author: ActorContext = { actorId: `assign-race-author-${suffix}` };
@@ -104,11 +124,9 @@ test("two concurrent assignReview reassignments of the same pending review again
     await core.setReviewerPolicy(admin, { actorId: reviewerY.actorId, capability: "reviewer", active: true, idempotencyKey: `y-on-${suffix}` });
     await core.setReviewerPolicy(admin, { actorId: reviewerZ.actorId, capability: "reviewer", active: true, idempotencyKey: `z-on-${suffix}` });
 
-    // Ten independent reviews, each raced separately -- see the identical
-    // rationale in test-shared-spec-review-claim-race-postgres.test.ts: a
-    // race can happen to resolve without truly overlapping reads if one
-    // connection's round trip is scheduled a little ahead of the other's,
-    // which would make a single-attempt assertion pass for the wrong reason.
+    // Promise.allSettled alone does not guarantee overlapping database reads.
+    // Sequential reassignments are valid and can both succeed. Force both real
+    // transactions to read the original row before testing their competing CAS.
     const outcomes: Array<{ fulfilled: number; rejected: number; codes: string[]; winnerReviewerId: string | undefined; dbReviewerId: string | undefined }> = [];
     for (let attempt = 0; attempt < 10; attempt += 1) {
       const attemptSuffix = `${suffix}-${attempt}`;
@@ -121,10 +139,26 @@ test("two concurrent assignReview reassignments of the same pending review again
         documentId: attemptDoc.document.id, revisionId: attemptDoc.revision.id, idempotencyKey: `ready-attempt-${attemptSuffix}`,
       });
 
-      const results = await Promise.allSettled([
-        core.assignReview(admin, attemptReview.id, reviewerY.actorId, `assign-y-${attemptSuffix}`),
-        core.assignReview(admin, attemptReview.id, reviewerZ.actorId, `assign-z-${attemptSuffix}`),
-      ]);
+      let arrivals = 0;
+      let release!: () => void;
+      let fail!: (error: Error) => void;
+      const ready = new Promise<void>((resolve, reject) => { release = resolve; fail = reject; });
+      const timeout = setTimeout(() => fail(new Error("both assignment transactions must reach the read barrier")), 10_000);
+      readBarrier = { reviewId: attemptReview.id, arrive: async () => {
+        if (++arrivals === 2) release();
+        await ready;
+      } };
+      let results: PromiseSettledResult<Awaited<ReturnType<typeof core.assignReview>>>[];
+      try {
+        results = await Promise.allSettled([
+          core.assignReview(admin, attemptReview.id, reviewerY.actorId, `assign-y-${attemptSuffix}`),
+          core.assignReview(admin, attemptReview.id, reviewerZ.actorId, `assign-z-${attemptSuffix}`),
+        ]);
+        assert.equal(arrivals, 2, "the fixture must exercise overlapping reads, not scheduling luck");
+      } finally {
+        clearTimeout(timeout);
+        readBarrier = undefined;
+      }
       const fulfilled = results.filter((result): result is PromiseFulfilledResult<Awaited<ReturnType<typeof core.assignReview>>> => result.status === "fulfilled");
       const rejected = results.filter((result): result is PromiseRejectedResult => result.status === "rejected");
       const finalReview = await core.getReview(attemptReview.id);

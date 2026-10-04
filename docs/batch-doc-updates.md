@@ -1,3 +1,32 @@
+## 2026-10-04 — Render-only production promotion
+
+- The founder confirmed Render as production for all builder runtimes. The
+  canonical source-control and shared promotion API now require exact live
+  Render evidence; a Replit-only hosting marker cannot append production
+  authority. Legitimate same-tree marker ancestry remains supported when
+  Render independently matches the prepared candidate.
+- Both initial and final live Render checks remain mandatory. Historical
+  receipts were not rewritten. Added regression checks for marker-only refusal,
+  marker-plus-Render acceptance, both failed live checks, and API rejection
+  before request persistence. Updated shared preparation guidance and added
+  `docs/render-production-release.md`.
+- Read-only GitHub inspection found the synchronized source's remote CI failing
+  a real-PostgreSQL concurrent review-assignment assertion (two successes).
+  No newer Render deployment record was present. Render's actual deployment
+  mode/CI gating remains unverified; no deployment or setting change was made.
+- Fixed that test's scheduling assumption by holding both real PostgreSQL reads
+  before either assignment can write. Retained the strict one-winner/CONFLICT
+  assertions and existing production CAS; no schema or production data-flow
+  change. All three checks passed on a migrated disposable local PostgreSQL
+  database, with no skipped coverage.
+- Typecheck, production build, source-control and promotion API fixtures
+  (including isolated-CI real-database notification coverage), source mutation
+  boundary, release transport safety, authenticated live API refusal, and
+  landing-page verification passed. System health reported no failures and two
+  app-route checks skipped during the parallel development restart; the app
+  subsequently reported ready. The exact-source publication gate and live
+  Render deployment remain pending, not claimed complete.
+
 ## 2026-10-04 — Manual recovery of the pilot-expiry documentation
 
 - Reconstructed the expiry/replacement plan from the founder-supplied task 1698
