@@ -155,3 +155,4 @@
 - [Coordinator V2 Windows DPAPI retry semantics](coordination-v2-dpapi-retry-no-clear.md) — runtime-release refresh needs no DPAPI clear -- retry is Initialize-HolaCoordinatorRuntime + Invoke-HolaCoordinator; host never auto-upgrades
 - [Historical attribution recovery](historical-attribution-recovery.md) — Snapshot repair alone does not change recovery authority; verify both the repaired prefix and later historical appends.
 - [Windows signing and publisher trust](windows-signing-publisher-trust.md) — Public CA trust is not publisher approval; rotating signer certificates may prevent unattended downloaded-helper execution.
+- [Render production target](render-production-target.md) — Render is production; every builder runtime must publish through the shared Render release path.
