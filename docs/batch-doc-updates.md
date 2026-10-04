@@ -1,3 +1,16 @@
+## 2026-10-04 — Manual recovery of the pilot-expiry documentation
+
+- Reconstructed the expiry/replacement plan from the founder-supplied task 1698
+  completion summary after failed apply attempts; this is not the original
+  patch and does not establish a platform task merge.
+- Added explicit manual UTC 30-/7-/1-day reviews, read-only independently pinned
+  certificate inspection, publisher/rotation/timestamp tradeoffs, separate
+  approvals and fresh marked-download dummy-only replacement acceptance.
+- Alden's analysis-only review approved the proposed plan. Historical pilot
+  receipts and offline-finalizer instructions remain intact. No helper,
+  signature, Windows state, credential or publication changes; replacement
+  usability and task 1701 native verification remain unproven.
+
 ## 2026-10-04 — Offline Windows onboarding finalization
 
 - Added a separately invoked, reviewed offline finalization/verification tool:
