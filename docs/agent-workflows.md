@@ -469,6 +469,35 @@ now exist and nothing distinguishes which one is current — that ambiguity,
 not the old path's continued existence, is the actual failure.
 ---
 
+## Release Cutover Attestation
+
+Render's automatic deployments can change the live release during a human
+decision. Use `ReleaseCutoverAttestationService`
+(`server/services/release-cutover-attestation-service.ts`; CLI:
+`server/scripts/release-attestation-cli.ts`; authenticated routes:
+`/api/admin/release-attestation/*`) to record the exact release being considered.
+This records a decision snapshot; it does **not** freeze deployments.
+
+1. Before presenting a cutover decision, call `attest()` and record its
+   `decisionRef`, `commitSha`, `sourceContextSha256`, and target agreement.
+   Do not silently replace that snapshot with whatever is live later.
+2. If it expires or becomes unsuitable, explicitly invalidate any active
+   record, create a fresh attestation, and seek a fresh decision. `attest()`
+   rejects duplicate active records, including expired ones.
+3. Immediately before executing a cutover, call `consume()` and stop if it
+   fails. Matching actor/action retries still re-check expiry and live target
+   consensus against the original commit and digest; a prior successful
+   consumption is not permission to act again on stale evidence.
+
+All pinned endpoints must be reachable and agree. An outage or deployment
+disagreement is a failed check, not authorization to ignore a target or trust
+the stored snapshot alone. This procedure does not itself authorize DNS,
+deployment, or runtime-authority changes.
+
+Historical design and reconciliation:
+`docs/superpowers/specs/2026-09-17-release-cutover-attestation-design.md` and
+`docs/task-1460-reconciliation-2026-10-03.md`.
+
 ## Key File Map
 
 | Purpose | File |

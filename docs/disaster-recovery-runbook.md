@@ -147,6 +147,27 @@ gives you a free, API-driven DNS layer without transferring the domain itself.
 
 ## Phase 2 — Cutover (only if Replit is actually down)
 
+0. For a release-attested cutover, capture the decision before acting:
+
+   ```bash
+   npx tsx server/scripts/release-attestation-cli.ts attest \
+     --decision-ref <ref> --actor <coordination-actor-id> \
+     --reason "disaster recovery cutover"
+   ```
+
+   Record the printed commit and source-context digest. Immediately before
+   changing DNS, run `consume --decision-ref <ref> --actor
+   <coordination-actor-id> --action "dns-cutover"` through the same CLI and
+   stop if it fails. Invalidate an expired active record before re-attesting.
+   Even matching consumption retries re-check live identity and expiry.
+
+   **Outage limitation:** this helper requires every pinned release endpoint
+   to be reachable and agree. If the outage makes one unreachable, it cannot
+   attest or authorize this guarded path. Stop guarded automation and obtain
+   an explicit founder decision for an alternative recovery procedure; never
+   fabricate consensus, omit a target, or describe stale evidence as fresh.
+   See `docs/agent-workflows.md` → Release Cutover Attestation.
+
 1. In Cloudflare's DNS tab, change the A/CNAME record for `getholahola.com`
    (and `www`) from Replit's target to Render's provided hostname.
 2. Because DNS now lives on Cloudflare instead of Network Solutions, this
