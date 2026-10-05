@@ -116,7 +116,7 @@ test("recovery never starts runtime lifecycle and never emits secrets", () => {
 
 test("recovery context uses a separate signed two-minute purpose and no token authority", () => {
   const helper = recovery.slice(recovery.indexOf('function Get-InternalHolaCoordinatorRecoveryGeneration'),
-    recovery.indexOf('function Restore-HolaCoordinatorHostCredential'));
+    recovery.indexOf('function Restore-InternalHolaCoordinatorHostCredential'));
   assert.match(helper, /kind = 'host_credential_recovery_context'/);
   assert.match(helper, /expiresAt = \$capturedAt\.AddMinutes\(2\)/);
   assert.match(helper, /minimumGeneration = \$MinimumGeneration/);
@@ -126,4 +126,35 @@ test("recovery context uses a separate signed two-minute purpose and no token au
   assert.match(helper, /context\.contextKey -cne \[string\]\$declaration\.contextKey/);
   assert.match(helper, /context\.nextGeneration -gt \[int\]::MaxValue/);
   assert.doesNotMatch(helper, /accessToken|Write-Dpapi|Remove-Item|Authorization|v2h_/);
+});
+
+test("all four recovery HTTP failures use the safe reporter, not enrollment diagnostics", () => {
+  assert.equal((recovery.match(/Get-HolaCoordinatorRecoveryFailureDetail -ErrorRecord \$_/g) ?? []).length, 4);
+  assert.doesNotMatch(recovery, /Get-HolaCoordinatorTransportFailureDetail/);
+  const enrollment = source.slice(0, start);
+  assert.equal((enrollment.match(/Get-HolaCoordinatorTransportFailureDetail -ErrorRecord \$_/g) ?? []).length, 3);
+});
+
+test("recovery diagnostics bound JSON and stream input and never echo error text", () => {
+  const reporter = recovery.slice(recovery.indexOf("function Get-HolaCoordinatorRecoveryFailureDetail"),
+    recovery.indexOf("function New-InternalHolaCoordinatorReauthorizationDeclaration"));
+  assert.match(reporter, /New-Object char\[\] 4097/);
+  assert.match(reporter, /\$body\.Length -gt 4096/);
+  assert.match(reporter, /\$reader\.Read\(\$buffer, \$count, \$buffer\.Length - \$count\)/);
+  assert.match(reporter, /ConvertFrom-Json -InputObject \$body -ErrorAction Stop/);
+  assert.match(reporter, /StartsWith\('V2_HOST_', \[StringComparison\]::Ordinal\)/);
+  assert.match(reporter, /Get-HolaCoordinatorRecoveryGuidance -Code \$code\.Value/);
+  assert.match(reporter, /TRANSPORT_TLS|TRANSPORT_TIMEOUT/);
+  assert.doesNotMatch(reporter, /ReadToEnd|Exception\.Message|Write-Host|Write-Output|Console|return \$body|response='/);
+  assert.doesNotMatch(reporter, /Write-Dpapi|Remove-Item|Invoke-RestMethod|Unprotect|FromXmlString/);
+});
+
+test("public recovery sanitizes local errors while preserving recognized failure codes", () => {
+  const wrapper = recovery.slice(recovery.indexOf("function Restore-HolaCoordinatorHostCredential"));
+  assert.match(wrapper, /Restore-InternalHolaCoordinatorHostCredential -Endpoint \$Endpoint/);
+  assert.match(wrapper, /Get-HolaCoordinatorRecoveryGuidance -Code \$code/);
+  assert.match(wrapper, /Fail-Safe \$code -Detail/);
+  assert.match(wrapper, /host_recovery_failed/);
+  assert.match(wrapper, /\$message -ceq \('hola_coordinator_host_reauthorization_transport :: ' \+ \$detail\)/);
+  assert.doesNotMatch(wrapper, /^\s*throw(?:\s|$)|Fail-Safe[^\n]*-Detail \$message|Write-Dpapi|Remove-Item/m);
 });

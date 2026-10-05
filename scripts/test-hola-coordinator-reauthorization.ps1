@@ -2,6 +2,7 @@ $ErrorActionPreference = 'Stop'
 Set-StrictMode -Version 2.0
 
 . (Join-Path $PSScriptRoot 'hola-coordinator.ps1')
+& (Join-Path $PSScriptRoot 'test-hola-coordinator-recovery-diagnostics.ps1')
 
 function Assert-Test {
     param(
@@ -168,7 +169,7 @@ try {
     try {
         Restore-HolaCoordinatorHostCredential -Endpoint $endpoint | Out-Null
     } catch {
-        $crashedAfterTerminal = ([string]$_.Exception.Message -eq 'test_crash_after_terminal_persist')
+        $crashedAfterTerminal = ([string]$_.Exception.Message -match '^hola_coordinator_host_recovery_failed ::')
     }
     Assert-Test $crashedAfterTerminal 'Restore did not reach the post-terminal crash point'
     $terminalState = Read-DpapiJson `

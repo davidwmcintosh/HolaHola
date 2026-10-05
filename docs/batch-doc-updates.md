@@ -1,3 +1,37 @@
+## 2026-10-05 — Automatic safe recovery diagnostics, local preparation
+
+- David chose automatic reporting over a separate diagnostic command. All four
+  recovery HTTP failure paths now use bounded HTTP metadata, exact allowlisted
+  reason codes, and fixed guidance, rather than raw response/exception text.
+  Enrollment's three legacy diagnostic call sites remain unchanged.
+- Recovery JSON parsing is limited to 4096 characters; the legacy response-stream
+  path reads at most 4097 and rejects oversized input. Unknown or malformed
+  responses and failed capture produce fixed fallbacks. Typed transport metadata
+  can identify timeout, connectivity, or TLS failure without reflecting messages.
+- The public recovery wrapper preserves recognized local failure codes and
+  recomputes recognized transport details. Unexpected local exceptions become
+  `host_recovery_failed`; no raw CLR/PowerShell text is rethrown. Script-loading
+  policy errors and parameter binding are outside that wrapper. Success/status
+  shapes, request persistence/retries, approval, signing, and key custody are
+  unchanged; the underlying lifecycle only moved behind the wrapper.
+- Added `scripts/test-hola-coordinator-recovery-diagnostics.ps1`, invoked by
+  the existing Windows reauthorization CI script. Synthetic cases cover secret
+  sentinels, unknown/malformed/oversized bodies, response-stream capture, invalid
+  status metadata, transport types and public-boundary error handling. These
+  PowerShell fixtures are **not executed locally**; Windows PowerShell 5.1
+  verification remains pending.
+- Verification: 24 focused Node checks passed, zero skips; typecheck passed;
+  health verifier: "All checks passed — safe to mark done." The application
+  restarted and its public landing page loaded. The initial independent review
+  request hit startup unavailability; the later request succeeded. Alden approved
+  the exact shared-spec design revision and found no implementation blockers.
+  The workspace design matches the reviewed immutable record in
+  `docs/superpowers/specs/2026-10-05-safe-recovery-diagnostics-design.md`.
+- No publication, real Windows command, live host/credential operation, runtime
+  session/init, or policy/trust change was performed. Changed source still needs
+  fresh exact-byte founder-gated GitHub-to-Render source/runtime publication and
+  native proof; neither static checks nor review establishes native success.
+
 ## 2026-10-05 — Expired replacement host-credential recovery, local preparation
 
 - The founder approved server-guided recovery instead of client-only acceptance
