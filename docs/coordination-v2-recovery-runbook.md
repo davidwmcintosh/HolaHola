@@ -134,6 +134,39 @@ malicious software already running as that user. If local custody cannot be
 proved, stop with `preflight_failed` or `host_unavailable`; do not move the
 ciphertext or recreate authority from historical evidence.
 
+### Read-only clock preflight before Windows credential recovery
+
+Before sending a signed recovery-context or reauthorization declaration, inspect
+Windows time-service status and measure clock offset. For LITTLENEMO, the
+following reference was reachable; elsewhere use an approved reachable NTP
+reference rather than changing the configured time source:
+
+```powershell
+w32tm /query /status
+w32tm /stripchart /computer:time.windows.com /samples:5 /dataonly
+```
+
+These commands do not adjust the clock or configure the time service.
+Read both results independently: a stopped or unsynchronized service does not
+prove the current clock offset, and a small measured offset does not prove
+ongoing synchronization. A failed measurement is unknown, not a passing check.
+For stripchart, a negative offset means the local clock is ahead of the reference.
+HTTP Date headers alone are not a precise offset measurement.
+
+The server rejects recovery declarations issued in its future. On October 5,
+2026, LITTLENEMO received `V2_HOST_REAUTH_DECLARATION_INVALID` before any local
+request was saved while independent NTP samples showed it about 1.5 seconds
+ahead. The unchanged client and server accepted the retry after samples showed
+the offset had disappeared. The attempted resync reported failure and a stopped
+service; this does not establish what corrected the clock or that synchronization
+will continue.
+
+If a clock adjustment is needed, obtain explicit approval and keep any elevated
+time-service work separate from the original recovery window. Do not automatically
+resync, change time servers or service configuration, broaden timestamp acceptance,
+clear DPAPI state, or re-enroll the host. Re-measure before one bounded retry, then
+stop at the existing founder-approval boundary.
+
 ## Historical Gate 3 boundary
 
 Gate 3 receipts, windows, challenges, claims, digests, bootstrap exchanges, and

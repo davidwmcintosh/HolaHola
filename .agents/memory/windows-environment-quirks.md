@@ -129,3 +129,12 @@ A Process-scope execution-policy adjustment does not persist into a new PowerShe
 
 **How to apply:** Run read-only policy checks first. If no Group Policy restriction is shown, verified local source with no download-zone marker may use Process-scope RemoteSigned only after explicit approval for that adjustment. Do not infer authority for Bypass, permanent policy changes, file unblocking, or credential approval.
 
+
+## Clock freshness during Windows credential recovery
+
+A Windows recovery validation rejection with no saved request can happen before request persistence, during the signed recovery-context lookup. Check clock offset independently before diagnosing a declaration serialization defect or changing protected state.
+
+**Why:** A real host was about 1.5 seconds ahead of an NTP reference and received a declaration-invalid rejection with no local draft. After independent samples showed the offset had disappeared, the unchanged published client and server accepted the next generation. The resync command itself reported failure and a stopped service, so acceptance does not establish what corrected the clock or that ongoing synchronization works.
+
+**How to apply:** Use bounded clock and recovery metadata diagnostics, never decrypted request dumps. Separate observed clock alignment from time-service health and command success. Obtain explicit approval for system-clock adjustments; do not broaden timestamp validation or change time-service configuration based on this incident.
+
