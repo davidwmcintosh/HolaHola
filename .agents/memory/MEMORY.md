@@ -89,7 +89,7 @@
 - [Publish composite-FK ordering](publish-composite-fk-ordering.md) — declare referenced column pairs as table-level unique constraints; standalone unique indexes may be reordered after FKs.
 - [Image intent and people policy](image-intent-people-policy.md) — settings default to empty environments; people require explicit evidence, and live tutor identity comes from the active session.
 - [Socket room supersession](socket-room-supersession.md) — Socket.IO membership belongs to socket+room, not join attempt; stale same-room completion must never leave the winning room.
-- [Render redeploys on every push to main](render-autodeploy-moving-target.md) — even a memory-only edit reached production via auto-deploy within an hour; "verified release" is a moving target mid-development.
+- [Render redeploys on every push to main](render-autodeploy-moving-target.md) — Historical auto-deploy observations are conditional; verify live policy. Dashboard exact-commit deploys disable auto-deploy.
 - [.replit env vars are git-tracked](replit-env-var-tracked-file.md) — setEnvVars(shared) writes into the tracked .replit file; set/commit/push config before, never during, a tree-cleanliness-sensitive git workflow.
 - [Source-control promotion path](source-control-promotion-path.md) — direct git push is disabled; use the in-process scheduler's wake file; any unrelated dirty tracked file silently blocks promotion.
 - [Git reconciliation procedure](reconciliation-git-procedure.md) — divergence detection, GitHub App auth, preflight→candidate→sync, plus manual hand-merge steps for ordinary/unclassified conflicts candidate() refuses.
