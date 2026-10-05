@@ -20,7 +20,10 @@ test("legacy material is recovery-only and runtime requires future expiry", () =
   assert.match(source, /host_credential_reauthorization_required/);
   assert.match(source, /Names @\('endpoint', 'accessToken', 'expiresAt'\)/);
   assert.match(source, /material\.expiresAt\)\.ToUniversalTime\(\) -le \[DateTime\]::UtcNow/);
-  assert.match(recovery, /materialNames\.Count -ne 2[\s\S]*notcontains 'endpoint'[\s\S]*notcontains 'accessToken'/);
+  assert.match(recovery, /materialNames\.Count -eq 2[\s\S]*contains 'endpoint'[\s\S]*contains 'accessToken'/);
+  assert.match(recovery, /materialNames\.Count -eq 3[\s\S]*contains 'expiresAt'/);
+  assert.match(recovery, /\$expiry -gt \[DateTime\]::UtcNow[\s\S]*host_credential_reauthorization_not_required/);
+  assert.match(recovery, /host_credential_expiry_invalid/);
   assert.match(recovery, /host_credential_reauthorization_not_required/);
 });
 
@@ -31,9 +34,10 @@ test("request state is persisted before submission and resumes exact generation"
   assert.match(recovery, /'requestKey', 'requestId', 'generation', 'hostId'/);
   assert.match(recovery, /terminal = \$false/);
   assert.match(recovery, /completionAmbiguous = \$false/);
-  assert.match(recovery, /nextGeneration = \[int\]\$state\.generation \+ 1/);
+  assert.match(recovery, /minimum = \[long\]\$state\.generation \+ 1/);
   assert.match(recovery, /requestGeneration = \$Generation/);
-  assert.match(recovery, /-Generation 1/);
+  assert.match(recovery, /nextGeneration = Get-InternalHolaCoordinatorRecoveryGeneration/);
+  assert.doesNotMatch(recovery, /-Generation 1/);
   assert.match(recovery, /\[int\]\$challenge\.requestGeneration -ne \[int\]\$state\.generation/);
 });
 
@@ -80,16 +84,16 @@ test("wire declarations and status branches are exact and terminal-safe", () => 
   assert.match(recovery, /nonce -notmatch '\^\[A-Za-z0-9_-\]\{32,\}\$'/);
   assert.match(recovery, /host_reauthorization_transport/);
   assert.match(recovery, /host_reauthorization_challenge_expired/);
-  const rollover = recovery.indexOf('$nextGeneration = [int]$state.generation + 1');
+  const rollover = recovery.indexOf('$nextGeneration = Get-InternalHolaCoordinatorRecoveryGeneration');
   assert.ok(rollover >= 0);
-  assert.ok(recovery.indexOf('if ([bool]$state.terminal)') < rollover);
+  assert.ok(recovery.indexOf('if ($null -eq $state -or [bool]$state.terminal)') < rollover);
   assert.doesNotMatch(recovery.slice(rollover - 200, rollover), /completionAmbiguous/);
 });
 
 test("reauthorization body and status transport keep request keys out of URLs and results", () => {
   const restore = recovery.slice(recovery.indexOf("function Restore-HolaCoordinatorHostCredential"));
   const bodyStarts = [...recovery.matchAll(/\$bodyObject = \[ordered\]@\{/g)].map((m) => m.index as number);
-  assert.equal(bodyStarts.length, 2);
+  assert.equal(bodyStarts.length, 1);
   for (const bodyStart of bodyStarts) {
     const bodyEnd = recovery.indexOf("\n            }", bodyStart);
     const body = recovery.slice(bodyStart, bodyEnd);
@@ -108,4 +112,18 @@ test("recovery never starts runtime lifecycle and never emits secrets", () => {
   assert.doesNotMatch(recovery, /Initialize-HolaCoordinatorRuntime|Invoke-HolaCoordinator/);
   assert.doesNotMatch(recovery, /Write-Host|Console\.Out|Write-Output/);
   assert.doesNotMatch(recovery, /accessToken\s*=\s*\[string\]\$issued\.accessToken[\s\S]{0,160}return/);
+});
+
+test("recovery context uses a separate signed two-minute purpose and no token authority", () => {
+  const helper = recovery.slice(recovery.indexOf('function Get-InternalHolaCoordinatorRecoveryGeneration'),
+    recovery.indexOf('function Restore-HolaCoordinatorHostCredential'));
+  assert.match(helper, /kind = 'host_credential_recovery_context'/);
+  assert.match(helper, /expiresAt = \$capturedAt\.AddMinutes\(2\)/);
+  assert.match(helper, /minimumGeneration = \$MinimumGeneration/);
+  assert.match(helper, /ConvertTo-CanonicalJson -Value \$declaration/);
+  assert.match(helper, /\/api\/coordination\/v2\/host\/recovery-context/);
+  assert.match(helper, /'contextKey', 'nextGeneration', 'issuedAt', 'expiresAt'/);
+  assert.match(helper, /context\.contextKey -cne \[string\]\$declaration\.contextKey/);
+  assert.match(helper, /context\.nextGeneration -gt \[int\]::MaxValue/);
+  assert.doesNotMatch(helper, /accessToken|Write-Dpapi|Remove-Item|Authorization|v2h_/);
 });

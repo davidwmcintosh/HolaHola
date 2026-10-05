@@ -1,3 +1,35 @@
+## 2026-10-05 — Expired replacement host-credential recovery, local preparation
+
+- The founder approved server-guided recovery instead of client-only acceptance
+  or an operator-supplied generation. The recovery helper now accepts only
+  well-formed expired replacement material (or existing legacy material), gets
+  the next generation using an enrolled-key signature and a read-only context,
+  persists a fresh signed request before submission, and retains exact retries.
+  It does not trust the expired token, alter the host key, bypass approval, or
+  initialize a runtime.
+- Fresh server submissions check historical generations under the enrolled
+  host lock, after exact replay. A signed local minimum preserves retired
+  legacy generations even when they were never accepted by the server.
+  Pending/approved requests prevent a new context lookup without being changed.
+- Verification: 21 focused validation/contract/static checks passed; typecheck
+  passed; the health verifier reported "All checks passed — safe to mark done."
+  Three no-skip PostgreSQL checks passed on a disposable migrated local cluster,
+  then the cluster was removed. A running-development route check rejected
+  malformed, token-only, and signed unknown-host context requests with bounded
+  responses and no-store headers. The public landing page loaded.
+- The Windows PowerShell 5.1 regression script has new expired-material,
+  missing-state, invalid-context, exact-retry, founder-before-proof, and
+  synthetic approved-proof/store fixtures; it has **not** yet run on Windows.
+  Do not claim native execution or signing-policy compatibility from the
+  local static checks.
+- Design record: `docs/superpowers/specs/2026-10-05-coordinator-expired-replacement-recovery-design.md`
+  matches the exact independently approved shared-spec revision. Alden approved
+  that revision and reported no code blockers, but this is **not** a release
+  approval. No GitHub/Render publication, host mutation, trust/policy change,
+  or Windows recovery occurred. New source/runtime approvals and native proof
+  require the separately gated founder steps; existing release receipts
+  cannot cover these changed bytes. Diagnostic reporting remains deferred.
+
 ## 2026-10-04 — Render-only production promotion
 
 - The founder confirmed Render as production for all builder runtimes. The

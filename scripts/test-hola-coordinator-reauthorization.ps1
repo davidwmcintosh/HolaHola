@@ -146,6 +146,16 @@ try {
         -Bytes $privateCipher
     Write-DpapiJsonAtomic -Path (Join-Path $testRoot 'host-reauthorization-request.dpapi') `
         -Value $lifecycleState
+    Set-Item Function:\script:Invoke-RestMethod -Value {
+        [CmdletBinding()]
+        param($Method, $Uri, $ContentType, $Body, [switch]$UseBasicParsing, $MaximumRedirection, $Headers)
+        if ([string]$Uri -notlike '*/host/recovery-context') { throw 'test_unexpected_network' }
+        $query = ([string]$Body | ConvertFrom-Json).declaration
+        return [pscustomobject]@{
+            contextKey = [string]$query.contextKey; nextGeneration = 2
+            issuedAt = [string]$query.issuedAt; expiresAt = [string]$query.expiresAt
+        }
+    }
 
     Set-Item Function:\New-InternalHolaCoordinatorReauthorizationDeclaration -Value {
         param(
@@ -181,6 +191,14 @@ try {
             [switch]$UseBasicParsing,
             $MaximumRedirection, $Headers
         )
+        if ([string]$Uri -like '*/host/recovery-context') {
+            $global:ReauthorizationTestContextBody = [string]$Body
+            $query = ([string]$Body | ConvertFrom-Json).declaration
+            return [pscustomobject]@{
+                contextKey = [string]$query.contextKey; nextGeneration = 2
+                issuedAt = [string]$query.issuedAt; expiresAt = [string]$query.expiresAt
+            }
+        }
         $global:ReauthorizationTestBody = [string]$Body
         return [pscustomobject]@{
             requestId = '55555555-5555-4555-8555-555555555555'
@@ -229,6 +247,154 @@ try {
     Assert-Test ($LASTEXITCODE -eq 0) 'Node rejected the PowerShell wire payload'
     Remove-Item -LiteralPath $payloadPath -Force
 
+    [IO.File]::WriteAllText($payloadPath, [string]$global:ReauthorizationTestContextBody,
+        (New-Object Text.UTF8Encoding($false)))
+    & node (Join-Path $PSScriptRoot 'verify-hola-coordinator-reauthorization-payload.mjs') $payloadPath
+    Assert-Test ($LASTEXITCODE -eq 0) 'Node rejected the PowerShell recovery-context proof'
+    Remove-Item -LiteralPath $payloadPath -Force
+
+    # Material validation is exercised without opening real credentials or any
+    # policy/trust changes. All following files remain inside this disposable root.
+    $expiredMaterial = [ordered]@{
+        endpoint = $endpoint; accessToken = 'v2h_AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA'
+        expiresAt = [DateTime]::UtcNow.AddDays(-1).ToString('o')
+    }
+    Assert-InternalHolaCoordinatorRecoveryMaterial -Material $expiredMaterial
+    foreach ($badExpiry in @('not-a-date', '2026-01-01', 123)) {
+        $badMaterial = [ordered]@{
+            endpoint = $endpoint; accessToken = $expiredMaterial.accessToken; expiresAt = $badExpiry
+        }
+        $denied = $false
+        try { Assert-InternalHolaCoordinatorRecoveryMaterial -Material $badMaterial }
+        catch { $denied = ([string]$_.Exception.Message -match 'host_credential_expiry_invalid') }
+        Assert-Test $denied 'Malformed expiry was accepted'
+    }
+    $futureMaterial = [ordered]@{
+        endpoint = $endpoint; accessToken = $expiredMaterial.accessToken
+        expiresAt = [DateTime]::UtcNow.AddDays(1).ToString('o')
+    }
+    $denied = $false
+    try { Assert-InternalHolaCoordinatorRecoveryMaterial -Material $futureMaterial }
+    catch { $denied = ([string]$_.Exception.Message -match 'host_credential_reauthorization_not_required') }
+    Assert-Test $denied 'Unexpired replacement credential was accepted for recovery'
+
+    $requestPath = Join-Path $testRoot 'host-reauthorization-request.dpapi'
+    $materialPath = Join-Path $testRoot 'host-material.dpapi'
+    $privatePath = Join-Path $testRoot 'host-private-key.dpapi'
+    Remove-Item -LiteralPath $requestPath -Force
+    Write-DpapiJsonAtomic -Path $materialPath -Value $expiredMaterial
+    $materialBefore = [IO.File]::ReadAllText($materialPath)
+    $privateBefore = [IO.File]::ReadAllText($privatePath)
+    $global:RecoveryContextCalls = 0
+    $global:RecoverySubmitCalls = 0
+    $global:RecoverySubmittedBody = ''
+    $global:RecoveryBadContext = ''
+    Set-Item Function:\script:Invoke-RestMethod -Value {
+        [CmdletBinding()]
+        param($Method, $Uri, $ContentType, $Body, [switch]$UseBasicParsing, $MaximumRedirection, $Headers)
+        if ([string]$Uri -like '*/host/recovery-context') {
+            $global:RecoveryContextCalls++
+            $query = ([string]$Body | ConvertFrom-Json).declaration
+            Assert-Test ([string]$Body -notmatch 'accessToken|v2h_') 'Expired token was sent as context authority'
+            $reply = [pscustomobject]@{
+                contextKey = [string]$query.contextKey; nextGeneration = 3
+                issuedAt = [string]$query.issuedAt; expiresAt = [string]$query.expiresAt
+            }
+            if ($global:RecoveryBadContext -eq 'correlation') { $reply.contextKey = 'wrong-context' }
+            if ($global:RecoveryBadContext -eq 'generation') { $reply.nextGeneration = '3' }
+            if ($global:RecoveryBadContext -eq 'extra') { $reply | Add-Member NoteProperty accessToken 'not-authority' }
+            return $reply
+        }
+        if ([string]$Uri -like '*/status') {
+            return [pscustomobject]@{ requestId = '66666666-6666-4666-8666-666666666666'; status = 'pending' }
+        }
+        Assert-Test ([string]$Uri -like '*/host/reauthorization-requests') 'Unexpected recovery request route'
+        $global:RecoverySubmitCalls++
+        if ($global:RecoverySubmitCalls -eq 1) {
+            $global:RecoverySubmittedBody = [string]$Body
+            throw 'test_lost_submission_response'
+        }
+        Assert-Test ([string]$Body -ceq $global:RecoverySubmittedBody) 'Retry replaced the persisted signed bytes'
+        return [pscustomobject]@{
+            requestId = '66666666-6666-4666-8666-666666666666'; status = 'pending'
+            approvalUrl = '/coordination/v2/host-reauthorization-approval?requestId=66666666-6666-4666-8666-666666666666'
+        }
+    }
+    foreach ($badContext in @('correlation', 'generation', 'extra')) {
+        $global:RecoveryBadContext = $badContext
+        $denied = $false
+        try { Restore-HolaCoordinatorHostCredential -Endpoint $endpoint | Out-Null }
+        catch { $denied = ([string]$_.Exception.Message -match 'host_recovery_context_(shape|mismatch)') }
+        Assert-Test $denied 'Invalid recovery context was accepted'
+        Assert-Test (-not [IO.File]::Exists($requestPath)) 'Invalid context wrote request state'
+        Assert-Test ($global:RecoverySubmitCalls -eq 0) 'Invalid context submitted a request'
+    }
+    $global:RecoveryBadContext = ''
+    $global:RecoveryContextCalls = 0
+    $lost = $false
+    try { Restore-HolaCoordinatorHostCredential -Endpoint $endpoint | Out-Null }
+    catch { $lost = ([string]$_.Exception.Message -match 'host_reauthorization_transport') }
+    Assert-Test $lost 'Lost response was not bounded as a transport failure'
+    $persisted = Read-DpapiJson -Path $requestPath -FailureCode 'test_missing_persisted_request'
+    Assert-Test ([int]$persisted.generation -eq 3) 'Missing local state restarted at generation 1'
+    Assert-Test ([string]$persisted.body -ceq $global:RecoverySubmittedBody) 'Submit happened before exact persistence'
+    $resumed = Restore-HolaCoordinatorHostCredential -Endpoint $endpoint
+    Assert-Test ([int]$resumed.generation -eq 3) 'Retry changed the generation'
+    Assert-Test ($global:RecoveryContextCalls -eq 1) 'Retry looked up a new generation'
+    $pending = Restore-HolaCoordinatorHostCredential -Endpoint $endpoint
+    Assert-Test ([string]$pending.status -ceq 'pending') 'Pending request was not resumed'
+    Assert-Test ($global:RecoverySubmitCalls -eq 2) 'Pending request was submitted again'
+    Assert-Test ([IO.File]::ReadAllText($materialPath) -ceq $materialBefore) 'Recovery changed credential before founder approval'
+    Assert-Test ([IO.File]::ReadAllText($privatePath) -ceq $privateBefore) 'Recovery changed the enrolled private key'
+
+    # Only an approved challenge can reach proof/store. The HTTP fixture checks
+    # the real PowerShell signature and the ambiguity marker before returning a
+    # synthetic replacement; it never touches a live host or founder session.
+    $approvedAt = [DateTime]::UtcNow
+    $global:RecoveryApprovedChallenge = [pscustomobject]@{
+        challengeId = '77777777-7777-4777-8777-777777777777'
+        nonce = 'BBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBB'
+        issuedAt = $approvedAt.ToString('o'); expiresAt = $approvedAt.AddMinutes(2).ToString('o')
+        requestId = [string]$persisted.requestId; requestKey = [string]$persisted.requestKey
+        hostEnrollmentId = '88888888-8888-4888-8888-888888888888'
+        keyFingerprint = $fingerprint; protocolVersion = 1; requestGeneration = 3
+    }
+    # Reload the ID persisted after the lost-response retry.
+    $persisted = Read-DpapiJson -Path $requestPath -FailureCode 'test_request_corrupted'
+    $global:RecoveryApprovedChallenge.requestId = [string]$persisted.requestId
+    Set-Item Function:\script:Invoke-RestMethod -Value {
+        [CmdletBinding()]
+        param($Method, $Uri, $ContentType, $Body, [switch]$UseBasicParsing, $MaximumRedirection, $Headers)
+        $challenge = $global:RecoveryApprovedChallenge
+        if ([string]$Uri -like '*/status') {
+            return [pscustomobject]@{ status = 'approved'; requestId = $challenge.requestId
+                requestKey = $challenge.requestKey; challenge = $challenge }
+        }
+        Assert-Test ([string]$Uri -like '*/proof') 'Unapproved fixture path reached credential store'
+        $proof = [string]$Body | ConvertFrom-Json
+        $proofState = Read-DpapiJson -Path (Join-Path $RuntimeBootstrapRoot 'host-reauthorization-request.dpapi') `
+            -FailureCode 'test_proof_state_corrupted'
+        Assert-Test ([bool]$proofState.completionAmbiguous) 'Proof was sent before ambiguity persistence'
+        $signed = [ordered]@{ kind = 'host_credential_reauthorization_challenge' }
+        foreach ($property in $challenge.PSObject.Properties) { $signed[$property.Name] = $property.Value }
+        Assert-Test ($rsa.VerifyData([Text.Encoding]::UTF8.GetBytes((ConvertTo-CanonicalJson -Value $signed)),
+            [Security.Cryptography.CryptoConfig]::MapNameToOID('SHA256'),
+            [Convert]::FromBase64String([string]$proof.signature))) 'Enrolled key did not sign the exact approved challenge'
+        return [pscustomobject]@{ accessToken = 'v2h_CCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCC'
+            expiresAt = [DateTime]::UtcNow.AddDays(1).ToString('o') }
+    }
+    $completed = Restore-HolaCoordinatorHostCredential -Endpoint $endpoint
+    Assert-Test ([string]$completed.status -ceq 'completed') 'Approved recovery did not complete'
+    Assert-Test (-not [IO.File]::Exists($requestPath)) 'Completed request state was not cleared'
+    Assert-Test ([IO.File]::ReadAllText($privatePath) -ceq $privateBefore) 'Completed recovery changed the enrolled key'
+    $stored = Read-DpapiJson -Path $materialPath -FailureCode 'test_replacement_missing'
+    Assert-ExactPropertySet -Value $stored -Names @('endpoint', 'accessToken', 'expiresAt') `
+        -FailureCode 'test_replacement_shape'
+    $denied = $false
+    try { Restore-HolaCoordinatorHostCredential -Endpoint $endpoint | Out-Null }
+    catch { $denied = ([string]$_.Exception.Message -match 'host_credential_reauthorization_not_required') }
+    Assert-Test $denied 'Successful recovery allowed immediate replacement of a valid credential'
+
     Write-Host '[coordinator-v2] Windows reauthorization lifecycle checks passed'
 } finally {
     Set-Item Function:\New-InternalHolaCoordinatorReauthorizationDeclaration `
@@ -240,6 +406,12 @@ try {
     }
     $RuntimeBootstrapRoot = $originalRuntimeBootstrapRoot
     $global:ReauthorizationTestBody = $null
+    $global:ReauthorizationTestContextBody = $null
+    $global:RecoveryContextCalls = $null
+    $global:RecoverySubmitCalls = $null
+    $global:RecoverySubmittedBody = $null
+    $global:RecoveryBadContext = $null
+    $global:RecoveryApprovedChallenge = $null
     if ($null -ne $testRoot -and [IO.Directory]::Exists($testRoot)) {
         Remove-Item -LiteralPath $testRoot -Recurse -Force
     }

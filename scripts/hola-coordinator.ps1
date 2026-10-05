@@ -1828,6 +1828,88 @@ function Test-InternalHolaCoordinatorLegacyTwoClockRequest {
     }
 }
 
+function Assert-InternalHolaCoordinatorRecoveryMaterial {
+    param([Parameter(Mandatory = $true)]$Material)
+    $materialNames = @(Get-PropertyNames -Value $Material)
+    $legacy = ($materialNames.Count -eq 2 -and $materialNames -contains 'endpoint' -and
+        $materialNames -contains 'accessToken')
+    $replacement = ($materialNames.Count -eq 3 -and $materialNames -contains 'endpoint' -and
+        $materialNames -contains 'accessToken' -and $materialNames -contains 'expiresAt')
+    if (-not $legacy -and -not $replacement) { Fail-Safe 'host_credential_shape' }
+    if ($Material.endpoint -isnot [string] -or [string]$Material.endpoint -notmatch '^https://') {
+        Fail-Safe 'host_endpoint_invalid'
+    }
+    if ($Material.accessToken -isnot [string] -or
+        [string]$Material.accessToken -notmatch '^v2h_[A-Za-z0-9_-]{32,}$') {
+        Fail-Safe 'host_credential_invalid'
+    }
+    if ($replacement) {
+        if ($Material.expiresAt -isnot [string] -or
+            $Material.expiresAt -notmatch '^\d{4}-\d{2}-\d{2}T.*(?:Z|[+-]\d{2}:\d{2})$') {
+            Fail-Safe 'host_credential_expiry_invalid'
+        }
+        try {
+            $expiry = [DateTimeOffset]::Parse([string]$Material.expiresAt,
+                [Globalization.CultureInfo]::InvariantCulture).UtcDateTime
+        } catch { Fail-Safe 'host_credential_expiry_invalid' }
+        # Recovery is an explicit lifecycle, never permission to replace a
+        # still-valid credential. The expired token is not sent or used as proof.
+        if ($expiry -gt [DateTime]::UtcNow) { Fail-Safe 'host_credential_reauthorization_not_required' }
+    }
+}
+
+function Get-InternalHolaCoordinatorRecoveryGeneration {
+    param(
+        [Parameter(Mandatory = $true)][string]$Endpoint,
+        [Parameter(Mandatory = $true)]$Rsa,
+        [Parameter(Mandatory = $true)][string]$HostId,
+        [Parameter(Mandatory = $true)][string]$Fingerprint,
+        [Parameter(Mandatory = $true)][int]$MinimumGeneration
+    )
+    if ($MinimumGeneration -lt 1) { Fail-Safe 'host_reauthorization_generation_invalid' }
+    $capturedAt = [DateTime]::UtcNow
+    $declaration = [ordered]@{
+        kind = 'host_credential_recovery_context'; contextKey = [Guid]::NewGuid().ToString()
+        issuedAt = $capturedAt.ToString('o'); expiresAt = $capturedAt.AddMinutes(2).ToString('o')
+        protocolVersion = 1; hostId = $HostId; keyFingerprint = $Fingerprint
+        minimumGeneration = $MinimumGeneration
+    }
+    $parameters = $Rsa.ExportParameters($false)
+    $b64url = {
+        param([byte[]]$Bytes)
+        ([Convert]::ToBase64String($Bytes).TrimEnd('=').Replace('+', '-').Replace('/', '_'))
+    }
+    $publicKey = [ordered]@{
+        kty = 'RSA'; n = & $b64url $parameters.Modulus; e = & $b64url $parameters.Exponent
+    }
+    $signature = $Rsa.SignData([Text.Encoding]::UTF8.GetBytes(
+        (ConvertTo-CanonicalJson -Value $declaration)),
+        [Security.Cryptography.CryptoConfig]::MapNameToOID('SHA256'))
+    $body = [ordered]@{
+        declaration = $declaration; publicKey = ($publicKey | ConvertTo-Json -Compress)
+        keyFingerprint = $Fingerprint; signature = [Convert]::ToBase64String($signature)
+    } | ConvertTo-Json -Depth 8 -Compress
+    try {
+        $context = Invoke-RestMethod -Method Post -Uri (
+            $Endpoint + '/api/coordination/v2/host/recovery-context') `
+            -ContentType 'application/json' -Body $body -UseBasicParsing `
+            -MaximumRedirection 0 -ErrorAction Stop
+    } catch { Fail-Safe 'host_reauthorization_transport' -Detail (Get-HolaCoordinatorTransportFailureDetail -ErrorRecord $_) }
+    Assert-ExactPropertySet -Value $context -Names @(
+        'contextKey', 'nextGeneration', 'issuedAt', 'expiresAt'
+    ) -FailureCode 'host_recovery_context_shape'
+    if ([string]$context.contextKey -cne [string]$declaration.contextKey -or
+        [string]$context.issuedAt -cne [string]$declaration.issuedAt -or
+        [string]$context.expiresAt -cne [string]$declaration.expiresAt -or
+        ($context.nextGeneration -isnot [int] -and $context.nextGeneration -isnot [long]) -or
+        [long]$context.nextGeneration -lt $MinimumGeneration -or
+        [long]$context.nextGeneration -gt [int]::MaxValue) {
+        Fail-Safe 'host_recovery_context_mismatch'
+    }
+    if ($capturedAt.AddMinutes(2) -le [DateTime]::UtcNow) { Fail-Safe 'host_recovery_context_expired' }
+    return [int]$context.nextGeneration
+}
+
 function Restore-HolaCoordinatorHostCredential {
     [CmdletBinding()]
     param(
@@ -1848,18 +1930,7 @@ function Restore-HolaCoordinatorHostCredential {
         Fail-Safe 'host_credential_missing'
     }
     $material = Read-DpapiJson -Path $materialPath -FailureCode 'host_credential_corrupted'
-    $materialNames = @(Get-PropertyNames -Value $material)
-    if ($materialNames.Count -ne 2 -or $materialNames -notcontains 'endpoint' -or
-        $materialNames -notcontains 'accessToken') {
-        # A completed three-field record is runtime authority, not recovery
-        # input.  Recovery cannot overwrite it without a new explicit request.
-        if ($materialNames.Count -eq 3) { Fail-Safe 'host_credential_reauthorization_not_required' }
-        Fail-Safe 'host_credential_shape'
-    }
-    if ([string]$material.endpoint -notmatch '^https://') { Fail-Safe 'host_endpoint_invalid' }
-    if ([string]$material.accessToken -notmatch '^v2h_[A-Za-z0-9_-]{32,}$') {
-        Fail-Safe 'host_credential_invalid'
-    }
+    Assert-InternalHolaCoordinatorRecoveryMaterial -Material $material
     $endpointBase = $Endpoint.TrimEnd('/')
     if ([string]$material.endpoint -ne $endpointBase) { Fail-Safe 'runtime_endpoint_mismatch' }
     $privateXml = [Text.Encoding]::UTF8.GetString(
@@ -1889,10 +1960,25 @@ function Restore-HolaCoordinatorHostCredential {
                 $state.terminal = $true
                 Write-DpapiJsonAtomic -Path $requestPath -Value $state
             }
-        } else {
+        }
+        if ($null -eq $state -or [bool]$state.terminal) {
+            $minimumGeneration = 1
+            if ($null -ne $state) {
+                $minimum = [long]$state.generation + 1
+                if ($minimum -lt 1 -or $minimum -gt [int]::MaxValue) {
+                    Fail-Safe 'host_reauthorization_generation_invalid'
+                }
+                $minimumGeneration = [int]$minimum
+            }
+            # Missing/terminal local state is not a server generation counter.
+            # This lookup authenticates with the enrolled key and writes nothing.
+            $nextGeneration = Get-InternalHolaCoordinatorRecoveryGeneration `
+                -Endpoint $endpointBase -Rsa $rsa -HostId $hostId `
+                -Fingerprint $fingerprint -MinimumGeneration $minimumGeneration
             $requestKey = [Guid]::NewGuid().ToString()
             $declaration = New-InternalHolaCoordinatorReauthorizationDeclaration `
-                -RequestKey $requestKey -HostId $hostId -Fingerprint $fingerprint -Generation 1
+                -RequestKey $requestKey -HostId $hostId -Fingerprint $fingerprint `
+                -Generation $nextGeneration
             $parameters = $rsa.ExportParameters($false)
             $b64url = {
                 param([byte[]]$Bytes)
@@ -1912,37 +1998,13 @@ function Restore-HolaCoordinatorHostCredential {
             }
             $state = [ordered]@{
                 endpoint = $endpointBase; requestKey = $requestKey; requestId = ''
-                generation = 1; hostId = $hostId; fingerprint = $fingerprint
+                generation = $nextGeneration; hostId = $hostId; fingerprint = $fingerprint
                 terminal = $false; completionAmbiguous = $false
                 declaration = $declaration
                 body = ($bodyObject | ConvertTo-Json -Depth 8 -Compress)
             }
-            # Persist request authority, including the exact generation, before
-            # the first network call.  No decrypted material is emitted.
-            Write-DpapiJsonAtomic -Path $requestPath -Value $state
-        }
-        if ([bool]$state.terminal) {
-            $nextGeneration = [int]$state.generation + 1
-            if ($nextGeneration -le 0) { Fail-Safe 'host_reauthorization_generation_invalid' }
-            $requestKey = [Guid]::NewGuid().ToString()
-            $declaration = New-InternalHolaCoordinatorReauthorizationDeclaration `
-                -RequestKey $requestKey -HostId $hostId -Fingerprint $fingerprint `
-                -Generation $nextGeneration
-            $oldBody = [string]$state.body | ConvertFrom-Json
-            $signature = $rsa.SignData([Text.Encoding]::UTF8.GetBytes(
-                (ConvertTo-CanonicalJson -Value $declaration)),
-                [Security.Cryptography.CryptoConfig]::MapNameToOID('SHA256'))
-            $bodyObject = [ordered]@{
-                declaration = $declaration
-                publicKey = [string]$oldBody.publicKey; keyFingerprint = $fingerprint
-                signature = [Convert]::ToBase64String($signature)
-            }
-            $state = [ordered]@{
-                endpoint = $endpointBase; requestKey = $requestKey; requestId = ''
-                generation = $nextGeneration; hostId = $hostId; fingerprint = $fingerprint
-                declaration = $declaration; terminal = $false; completionAmbiguous = $false
-                body = ($bodyObject | ConvertTo-Json -Depth 8 -Compress)
-            }
+            # Persist the exact signed request before submission. A lost
+            # response resumes these bytes, never a new context/generation.
             Write-DpapiJsonAtomic -Path $requestPath -Value $state
         }
         if ([string]::IsNullOrWhiteSpace([string]$state.requestId)) {

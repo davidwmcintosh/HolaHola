@@ -16,6 +16,7 @@ import {
   issueCoordinationV2HostReauthorizationChallenge,
   completeCoordinationV2HostReauthorization,
   getCoordinationV2HostReauthorizationRequest,
+  getCoordinationV2HostRecoveryContext,
 } from '../services/coordination-v2-host-auth-service';
 import { CoordinationHostEnrollmentError } from '../services/coordination-host-enrollment-service';
 import { requireCoordinationV2HostIdentityAuth } from '../middleware/coordination-v2-host-auth';
@@ -25,6 +26,7 @@ export type CoordinationV2HostAdminRouteDependencies = {
   founderMiddleware?: readonly RequestHandler[];
   submitEnrollmentRequest?: typeof submitCoordinationV2HostEnrollmentRequest;
   submitReauthorizationRequest?: typeof submitCoordinationV2HostReauthorizationRequest;
+  getRecoveryContext?: typeof getCoordinationV2HostRecoveryContext;
 };
 
 function actor(req: Request): string {
@@ -64,9 +66,22 @@ export function registerCoordinationV2HostAdminRoutes(
     ?? submitCoordinationV2HostEnrollmentRequest;
   const submitReauthorizationRequest = dependencies.submitReauthorizationRequest
     ?? submitCoordinationV2HostReauthorizationRequest;
+  const getRecoveryContext = dependencies.getRecoveryContext ?? getCoordinationV2HostRecoveryContext;
 
   // Reauthorization is deliberately a separate protocol boundary. It does not
   // accept an expired credential, actor token, runtime credential, or session.
+  app.post('/api/coordination/v2/host/recovery-context', strictLimiter, async (req: Request, res: Response) => {
+    res.set('Cache-Control', 'no-store');
+    try {
+      const body = req.body ?? {};
+      if (!exactBody(body, ['declaration', 'signature', 'publicKey', 'keyFingerprint']))
+        throw new CoordinationV2HostAuthError('V2_HOST_REAUTH_INVALID');
+      res.json(await getRecoveryContext({
+        declaration: body.declaration, signature: text(body, 'signature'),
+        publicKey: text(body, 'publicKey'), keyFingerprint: text(body, 'keyFingerprint'),
+      }));
+    } catch (error) { replyError(res, error); }
+  });
   app.post('/api/coordination/v2/host/reauthorization-requests', strictLimiter, async (req: Request, res: Response) => {
     try {
       const body = (req.body ?? {}) as Record<string, unknown>;

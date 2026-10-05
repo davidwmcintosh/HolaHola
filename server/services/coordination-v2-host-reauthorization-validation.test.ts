@@ -4,6 +4,7 @@ import test from 'node:test';
 import {
   CoordinationV2HostAuthError,
   validateCoordinationV2HostReauthorizationSubmission,
+  validateCoordinationV2HostRecoveryContextSubmission,
 } from './coordination-v2-host-auth-service';
 import { canonicalJson } from './coordination-policy-canonicalization';
 
@@ -95,4 +96,70 @@ test('canonical signature mismatch has a bounded pre-insert code', () => {
     keyFingerprint: fingerprint,
     now,
   }), 'V2_HOST_REAUTH_SIGNATURE_INVALID');
+});
+
+function recoveryDeclaration() {
+  return {
+    kind: 'host_credential_recovery_context',
+    contextKey: '22222222-2222-4222-8222-222222222222',
+    issuedAt: now.toISOString(),
+    expiresAt: new Date(now.getTime() + 120_000).toISOString(),
+    protocolVersion: 1, hostId: 'WINDOWS-TEST', keyFingerprint: fingerprint,
+    minimumGeneration: 1,
+  };
+}
+
+test('recovery-context proof has a distinct signed purpose and exact short-lived shape', () => {
+  const value = recoveryDeclaration();
+  const input = { declaration: value, signature: signature(value),
+    publicKey: publicKeyJson, keyFingerprint: fingerprint, now };
+  assert.deepEqual(validateCoordinationV2HostRecoveryContextSubmission(input), value);
+  rejectsCode(() => validateCoordinationV2HostReauthorizationSubmission(input), 'V2_HOST_REAUTH_DECLARATION_INVALID');
+  const reauth = declaration();
+  rejectsCode(() => validateCoordinationV2HostRecoveryContextSubmission({
+    ...input, declaration: reauth, signature: signature(reauth),
+  }), 'V2_HOST_REAUTH_DECLARATION_INVALID');
+  for (const mutation of [
+    { ...value, kind: 'host_credential_reauthorization' },
+    { ...value, accessToken: 'v2h_synthetic_not_authority' },
+    { ...value, protocolVersion: '1' },
+    { ...value, contextKey: '' },
+    { ...value, expiresAt: new Date(now.getTime() + 120_001).toISOString() },
+    { ...value, expiresAt: now.toISOString() },
+    { ...value, issuedAt: new Date(now.getTime() + 1).toISOString() },
+    { ...value, expiresAt: 'not-a-date' },
+    { ...value, minimumGeneration: 0 },
+    { ...value, minimumGeneration: 1.5 },
+    { ...value, minimumGeneration: '1' },
+    { ...value, minimumGeneration: 2_147_483_648 },
+  ]) {
+    rejectsCode(() => validateCoordinationV2HostRecoveryContextSubmission({
+      ...input, declaration: mutation, signature: signature(mutation),
+    }), 'V2_HOST_REAUTH_DECLARATION_INVALID');
+  }
+});
+
+test('recovery-context rejects changed identity, mismatched key, and invalid signature', () => {
+  const value = recoveryDeclaration();
+  const input = { declaration: value, signature: signature(value),
+    publicKey: publicKeyJson, keyFingerprint: fingerprint, now };
+  rejectsCode(() => validateCoordinationV2HostRecoveryContextSubmission({
+    ...input, declaration: { ...value, hostId: 'OTHER-HOST' },
+  }), 'V2_HOST_REAUTH_SIGNATURE_INVALID');
+  rejectsCode(() => validateCoordinationV2HostRecoveryContextSubmission({
+    ...input, keyFingerprint: '0'.repeat(64),
+  }), 'V2_HOST_REAUTH_PUBLIC_KEY_INVALID');
+  rejectsCode(() => validateCoordinationV2HostRecoveryContextSubmission({
+    ...input, signature: '',
+  }), 'V2_HOST_REAUTH_SIGNATURE_INVALID');
+});
+
+test('request generations fit the actual PostgreSQL/Windows boundary', () => {
+  for (const generation of [0, -1, 1.5, '1', 2_147_483_648]) {
+    const value = { ...declaration(), requestGeneration: generation };
+    rejectsCode(() => validateCoordinationV2HostReauthorizationSubmission({
+      declaration: value, signature: signature(value), publicKey: publicKeyJson,
+      keyFingerprint: fingerprint, now,
+    }), 'V2_HOST_REAUTH_DECLARATION_INVALID');
+  }
 });

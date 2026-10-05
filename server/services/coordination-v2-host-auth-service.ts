@@ -22,6 +22,7 @@ import { validateHostEnrollmentDeclaration } from './coordination-host-enrollmen
 
 const REQUEST_TTL_MS = 15 * 60_000;
 const REAUTH_REQUEST_TTL_MS = 60 * 60_000;
+const MAX_REAUTH_GENERATION = 2_147_483_647; // PostgreSQL integer and Windows Int32.
 const CHALLENGE_TTL_MS = 2 * 60_000;
 const HOST_CREDENTIAL_TTL_MS = 24 * 60 * 60_000;
 const SESSION_CREDENTIAL_TTL_MS = 15 * 60_000;
@@ -57,6 +58,7 @@ export type V2HostAuthErrorCode =
   | 'V2_HOST_REAUTH_INVALID' | 'V2_HOST_REAUTH_DECLARATION_INVALID'
   | 'V2_HOST_REAUTH_PUBLIC_KEY_INVALID' | 'V2_HOST_REAUTH_SIGNATURE_INVALID'
   | 'V2_HOST_REAUTH_REPLAYED'
+  | 'V2_HOST_REAUTH_GENERATION_CONFLICT' | 'V2_HOST_REAUTH_PENDING_CONFLICT'
   | 'V2_HOST_REAUTH_NOT_APPROVED' | 'V2_HOST_REAUTH_ENROLLMENT_MISMATCH'
   | 'V2_HOST_DATABASE_UNAVAILABLE';
 
@@ -115,13 +117,94 @@ const REAUTH_DECLARATION_KEYS = ['kind', 'requestKey', 'issuedAt', 'expiresAt', 
   'hostId', 'keyFingerprint', 'requestGeneration'] as const;
 const REAUTH_CHALLENGE_KEYS = ['kind', 'requestId', 'requestKey', 'challengeId', 'nonce',
   'hostEnrollmentId', 'keyFingerprint', 'protocolVersion', 'requestGeneration', 'issuedAt', 'expiresAt'] as const;
+const RECOVERY_CONTEXT_KEYS = ['kind', 'contextKey', 'issuedAt', 'expiresAt', 'protocolVersion',
+  'hostId', 'keyFingerprint', 'minimumGeneration'] as const;
+
+function validGeneration(value: unknown): value is number {
+  return Number.isInteger(value) && (value as number) >= 1 && (value as number) <= MAX_REAUTH_GENERATION;
+}
+
+type RecoverySubmission = {
+  declaration: unknown; signature: string; publicKey: string; keyFingerprint: string; now?: Date;
+};
+
+function validateRecoveryKey(input: RecoverySubmission, value: Record<string, unknown>): void {
+  if (!bounded(input.signature, 8192)) fail('V2_HOST_REAUTH_SIGNATURE_INVALID');
+  if (!bounded(input.publicKey, 8192) || !HEX.test(input.keyFingerprint)
+    || value.keyFingerprint !== input.keyFingerprint) fail('V2_HOST_REAUTH_PUBLIC_KEY_INVALID');
+  try {
+    publicKey(input.publicKey);
+    if (publicKeyFingerprint(input.publicKey) !== input.keyFingerprint)
+      fail('V2_HOST_REAUTH_PUBLIC_KEY_INVALID');
+  } catch { fail('V2_HOST_REAUTH_PUBLIC_KEY_INVALID'); }
+  if (!verifyCanonical(input.publicKey, value, input.signature))
+    fail('V2_HOST_REAUTH_SIGNATURE_INVALID');
+}
+
+function validateRecoveryEnrollment(host: CoordinationV2HostEnrollment | undefined,
+  input: RecoverySubmission, value: Record<string, unknown>): asserts host is CoordinationV2HostEnrollment {
+  if (!host) fail('V2_HOST_ENROLLMENT_NOT_FOUND');
+  if (host.status !== 'active') fail('V2_HOST_ENROLLMENT_REVOKED');
+  if (host.protocolVersion !== HOST_PROTOCOL_VERSION || host.keyFingerprint !== input.keyFingerprint
+    || publicKeyFingerprint(host.publicKey) !== input.keyFingerprint
+    || !host.capabilities.includes('host:transport') || !host.capabilities.includes('host:cleanup'))
+    fail('V2_HOST_REAUTH_ENROLLMENT_MISMATCH');
+  if (!verifyCanonical(host.publicKey, value, input.signature))
+    fail('V2_HOST_REAUTH_SIGNATURE_INVALID');
+}
+
+export function validateCoordinationV2HostRecoveryContextSubmission(input: RecoverySubmission) {
+  const now = input.now ?? new Date();
+  if (!exactObject(input.declaration, RECOVERY_CONTEXT_KEYS)) fail('V2_HOST_REAUTH_DECLARATION_INVALID');
+  const value = input.declaration;
+  if (value.kind !== 'host_credential_recovery_context' || value.protocolVersion !== HOST_PROTOCOL_VERSION
+    || !bounded(value.contextKey) || !bounded(value.hostId) || !HEX.test(String(value.keyFingerprint))
+    || !validGeneration(value.minimumGeneration) || typeof value.issuedAt !== 'string'
+    || typeof value.expiresAt !== 'string') fail('V2_HOST_REAUTH_DECLARATION_INVALID');
+  const issued = new Date(value.issuedAt), expiry = new Date(value.expiresAt);
+  if (Number.isNaN(issued.valueOf()) || Number.isNaN(expiry.valueOf())
+    || issued > now || expiry <= now || expiry <= issued
+    || expiry.getTime() - issued.getTime() > CHALLENGE_TTL_MS)
+    fail('V2_HOST_REAUTH_DECLARATION_INVALID');
+  validateRecoveryKey(input, value);
+  return value;
+}
+
+// Metadata only: no credential/token authority, challenge issuance, or writes.
+// A signed minimum preserves locally retired, never-accepted legacy generations.
+export async function getCoordinationV2HostRecoveryContext(input: RecoverySubmission) {
+  const value = validateCoordinationV2HostRecoveryContextSubmission(input);
+  try {
+    return await db.transaction(async (tx) => {
+      const host = (await tx.select().from(coordinationV2HostEnrollments)
+        .where(and(eq(coordinationV2HostEnrollments.hostKey, String(value.hostId)),
+          eq(coordinationV2HostEnrollments.keyFingerprint, input.keyFingerprint))).for('share'))[0];
+      validateRecoveryEnrollment(host, input, value);
+      const requests = await tx.select({
+        generation: coordinationV2HostReauthorizationRequests.requestGeneration,
+        state: coordinationV2HostReauthorizationRequests.state,
+      }).from(coordinationV2HostReauthorizationRequests)
+        .where(eq(coordinationV2HostReauthorizationRequests.hostEnrollmentId, host.id));
+      if (requests.some((request) => request.state === 'pending' || request.state === 'approved'))
+        fail('V2_HOST_REAUTH_PENDING_CONFLICT');
+      const highest = requests.reduce((max, request) => Math.max(max, request.generation), 0);
+      const nextGeneration = Math.max(highest + 1, Number(value.minimumGeneration));
+      if (!validGeneration(nextGeneration)) fail('V2_HOST_REAUTH_GENERATION_CONFLICT');
+      return { contextKey: String(value.contextKey), nextGeneration,
+        issuedAt: String(value.issuedAt), expiresAt: String(value.expiresAt) };
+    });
+  } catch (error) {
+    if (error instanceof CoordinationV2HostAuthError) throw error;
+    fail('V2_HOST_DATABASE_UNAVAILABLE');
+  }
+}
 
 function reauthDeclaration(value: unknown, now: Date) {
   if (!exactObject(value, REAUTH_DECLARATION_KEYS)) fail('V2_HOST_REAUTH_DECLARATION_INVALID');
   const v = value as Record<string, unknown>;
   if (v.kind !== 'host_credential_reauthorization' || v.protocolVersion !== HOST_PROTOCOL_VERSION
     || !bounded(v.requestKey) || !bounded(v.hostId)
-    || !HEX.test(String(v.keyFingerprint)) || !Number.isInteger(v.requestGeneration) || (v.requestGeneration as number) < 1
+    || !HEX.test(String(v.keyFingerprint)) || !validGeneration(v.requestGeneration)
     || typeof v.issuedAt !== 'string' || typeof v.expiresAt !== 'string')
     fail('V2_HOST_REAUTH_DECLARATION_INVALID');
   const issued = new Date(v.issuedAt), expiry = new Date(v.expiresAt);
@@ -136,21 +219,8 @@ export function validateCoordinationV2HostReauthorizationSubmission(input: {
   declaration: unknown; signature: string; publicKey: string; keyFingerprint: string; now?: Date;
 }) {
   const now = input.now ?? new Date();
-  if (!bounded(input.signature, 8192)) fail('V2_HOST_REAUTH_SIGNATURE_INVALID');
-  if (!bounded(input.publicKey, 8192) || !HEX.test(input.keyFingerprint))
-    fail('V2_HOST_REAUTH_PUBLIC_KEY_INVALID');
   const declaration = reauthDeclaration(input.declaration, now);
-  if (declaration.value.keyFingerprint !== input.keyFingerprint || declaration.value.requestKey === '')
-    fail('V2_HOST_REAUTH_PUBLIC_KEY_INVALID');
-  try {
-    publicKey(input.publicKey);
-    if (publicKeyFingerprint(input.publicKey) !== input.keyFingerprint)
-      fail('V2_HOST_REAUTH_PUBLIC_KEY_INVALID');
-  } catch {
-    fail('V2_HOST_REAUTH_PUBLIC_KEY_INVALID');
-  }
-  if (!verifyCanonical(input.publicKey, declaration.value, input.signature))
-    fail('V2_HOST_REAUTH_SIGNATURE_INVALID');
+  validateRecoveryKey(input, declaration.value);
   return declaration;
 }
 
@@ -165,14 +235,7 @@ export async function submitCoordinationV2HostReauthorizationRequest(input: {
         .where(and(eq(coordinationV2HostEnrollments.hostKey, String(declaration.value.hostId)),
           eq(coordinationV2HostEnrollments.keyFingerprint, input.keyFingerprint))).for('update');
       const host = hosts[0];
-      if (!host) fail('V2_HOST_ENROLLMENT_NOT_FOUND');
-      if (host.status !== 'active') fail('V2_HOST_ENROLLMENT_REVOKED');
-      if (host.protocolVersion !== HOST_PROTOCOL_VERSION || host.keyFingerprint !== input.keyFingerprint
-        || publicKeyFingerprint(host.publicKey) !== input.keyFingerprint
-        || !host.capabilities.includes('host:transport') || !host.capabilities.includes('host:cleanup'))
-        fail('V2_HOST_REAUTH_ENROLLMENT_MISMATCH');
-      if (!verifyCanonical(host.publicKey, declaration.value, input.signature))
-        fail('V2_HOST_REAUTH_SIGNATURE_INVALID');
+       validateRecoveryEnrollment(host, input, declaration.value);
       const prior = await tx.select().from(coordinationV2HostReauthorizationRequests)
         .where(eq(coordinationV2HostReauthorizationRequests.requestKey, String(declaration.value.requestKey))).for('update');
       if (prior[0]) {
@@ -186,6 +249,13 @@ export async function submitCoordinationV2HostReauthorizationRequest(input: {
           sql`${coordinationV2HostReauthorizationRequests.state} IN ('pending','approved')`)).limit(1);
       if (live[0]) fail('V2_HOST_IDEMPOTENCY_CONFLICT');
       const generation = Number(declaration.value.requestGeneration);
+       const history = await tx.select({ generation: coordinationV2HostReauthorizationRequests.requestGeneration })
+         .from(coordinationV2HostReauthorizationRequests)
+         .where(eq(coordinationV2HostReauthorizationRequests.hostEnrollmentId, host.id));
+       // The enrollment lock serializes fresh requests. Exact replay above is
+       // deliberately checked first; gaps for retired legacy requests are safe.
+       if (history.some((request) => request.generation >= generation))
+         fail('V2_HOST_REAUTH_GENERATION_CONFLICT');
       const row = await tx.insert(coordinationV2HostReauthorizationRequests).values({
         id: randomUUID(), hostEnrollmentId: host.id, keyFingerprint: input.keyFingerprint,
         protocolVersion: HOST_PROTOCOL_VERSION, requestGeneration: generation,
