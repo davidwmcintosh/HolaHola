@@ -256,13 +256,13 @@ try {
 
     # Material validation is exercised without opening real credentials or any
     # policy/trust changes. All following files remain inside this disposable root.
-    $expiredMaterial = [ordered]@{
+    $expiredMaterial = [pscustomobject][ordered]@{
         endpoint = $endpoint; accessToken = 'v2h_AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA'
         expiresAt = [DateTime]::UtcNow.AddDays(-1).ToString('o')
     }
     Assert-InternalHolaCoordinatorRecoveryMaterial -Material $expiredMaterial
     foreach ($badExpiry in @('not-a-date', '2026-01-01', 123)) {
-        $badMaterial = [ordered]@{
+        $badMaterial = [pscustomobject][ordered]@{
             endpoint = $endpoint; accessToken = $expiredMaterial.accessToken; expiresAt = $badExpiry
         }
         $denied = $false
@@ -270,7 +270,7 @@ try {
         catch { $denied = ([string]$_.Exception.Message -match 'host_credential_expiry_invalid') }
         Assert-Test $denied 'Malformed expiry was accepted'
     }
-    $futureMaterial = [ordered]@{
+    $futureMaterial = [pscustomobject][ordered]@{
         endpoint = $endpoint; accessToken = $expiredMaterial.accessToken
         expiresAt = [DateTime]::UtcNow.AddDays(1).ToString('o')
     }

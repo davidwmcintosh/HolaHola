@@ -156,3 +156,4 @@
 - [Historical attribution recovery](historical-attribution-recovery.md) — Snapshot repair alone does not change recovery authority; verify both the repaired prefix and later historical appends.
 - [Windows signing and publisher trust](windows-signing-publisher-trust.md) — Public CA trust is not publisher approval; rotating signer certificates may prevent unattended downloaded-helper execution.
 - [Render production target](render-production-target.md) — Render is production; every builder runtime must publish through the shared Render release path.
+- [NPM override reproducibility](npm-override-reproducibility.md) — Floating overrides can break clean CI while local installs pass; inspect dependency-tool declaration drift.

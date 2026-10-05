@@ -158,3 +158,10 @@ test("public recovery sanitizes local errors while preserving recognized failure
   assert.match(wrapper, /\$message -ceq \('hola_coordinator_host_reauthorization_transport :: ' \+ \$detail\)/);
   assert.doesNotMatch(wrapper, /^\s*throw(?:\s|$)|Fail-Safe[^\n]*-Detail \$message|Write-Dpapi|Remove-Item/m);
 });
+
+test("native material fixtures match the strict JSON object boundary", () => {
+  const fixture = readFileSync("scripts/test-hola-coordinator-reauthorization.ps1", "utf8");
+  for (const name of ["expiredMaterial", "badMaterial", "futureMaterial"]) {
+    assert.match(fixture, new RegExp(`\\$${name} = \\[pscustomobject\\]\\[ordered\\]@\\{`));
+  }
+});
