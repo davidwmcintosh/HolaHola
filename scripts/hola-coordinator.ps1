@@ -193,12 +193,16 @@ function Assert-SidAcl {
     $ownerSid = Convert-ToSidValue -IdentityReference $acl.Owner
     $allowedOwners = @($currentSid, 'S-1-5-18', 'S-1-5-32-544')
     if ($allowedOwners -notcontains $ownerSid) { Fail-Safe 'acl_owner_unsafe' }
+    # FullControl and Modify include read bits; they are not mutation masks.
     $unsafeWriteMask = [int](
-        [System.Security.AccessControl.FileSystemRights]::Write `
-        -bor [System.Security.AccessControl.FileSystemRights]::Modify `
-        -bor [System.Security.AccessControl.FileSystemRights]::FullControl `
-        -bor [System.Security.AccessControl.FileSystemRights]::TakeOwnership `
-        -bor [System.Security.AccessControl.FileSystemRights]::ChangePermissions
+        [System.Security.AccessControl.FileSystemRights]::WriteData `
+        -bor [System.Security.AccessControl.FileSystemRights]::AppendData `
+        -bor [System.Security.AccessControl.FileSystemRights]::WriteExtendedAttributes `
+        -bor [System.Security.AccessControl.FileSystemRights]::DeleteSubdirectoriesAndFiles `
+        -bor [System.Security.AccessControl.FileSystemRights]::WriteAttributes `
+        -bor [System.Security.AccessControl.FileSystemRights]::Delete `
+        -bor [System.Security.AccessControl.FileSystemRights]::ChangePermissions `
+        -bor [System.Security.AccessControl.FileSystemRights]::TakeOwnership
     )
     foreach ($ace in @($acl.Access)) {
         $sid = Convert-ToSidValue -IdentityReference $ace.IdentityReference

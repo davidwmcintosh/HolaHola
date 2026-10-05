@@ -3,6 +3,7 @@ Set-StrictMode -Version 2.0
 
 . (Join-Path $PSScriptRoot 'hola-coordinator.ps1')
 & (Join-Path $PSScriptRoot 'test-hola-coordinator-recovery-diagnostics.ps1')
+& (Join-Path $PSScriptRoot 'test-hola-coordinator-acl.ps1')
 
 function Assert-Test {
     param(

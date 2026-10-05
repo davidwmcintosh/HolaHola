@@ -7954,3 +7954,29 @@ migration has not been applied and requires a passing isolated gate first.
 There has been no source/runtime publication and no invitation or real
 credential issuance. No Alden review or notification is claimed; the
 generated `docs/alden-agent-handoff.md` snapshot was not edited directly.
+
+## 2026-10-05 — Coordinator ACL read-only false-positive correction
+
+**Local preparation only.** The founder approved the independently reviewed
+`docs/superpowers/specs/2026-10-05-coordinator-acl-write-mask-design.md`.
+`Assert-SidAcl` now classifies mutation using the eight primitive mutating
+FileSystemRights instead of FullControl/Modify composites that also contain
+read permissions. Legitimate read/execute/synchronize rules no longer intersect
+the mutation mask. Owner/trusted-writer identities, rejection branches,
+conservative Deny/InheritOnly handling, call sites and other custody checks
+remain unchanged.
+
+`scripts/test-hola-coordinator-acl.ps1` adds disposable native directory/file
+ACL fixtures and actual-guard mutation checks through the existing Windows
+reauthorization CI entrypoint. It includes the reported trusted-inherited plus
+explicit-read shape and each primitive mutating right.
+`server/scripts/test-coordination-v2-acl-mask.test.ts` adds supplementary
+source/SDK-bitmask contracts, registered in `scripts/run-ci-test-steps.mjs`.
+
+Focused local contracts and typecheck passed; system health had no failures,
+with two app-route skips while the dev server was stopped. Dev startup then
+succeeded. Alden approved the design and the production/code-test architecture.
+**Native Windows PowerShell 5.1 CI has not run.** No Windows host operations,
+credential changes, sessions, or publication occurred. A fresh founder-gated
+source/runtime publication is required before any host update or initialization
+retry; old release receipts do not authorize the changed launcher.
