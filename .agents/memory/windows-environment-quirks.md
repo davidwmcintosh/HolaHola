@@ -120,3 +120,12 @@ Windows PowerShell may not expose compression types transitively when only the F
 **Why:** A real Windows session accepted the FileSystem assembly load but failed to resolve ZipArchive after opening the destination. Assembly availability must be checked before filesystem side effects, not inferred from a related assembly.
 
 **How to apply:** Preflight all required .NET types in Windows instructions before opening outputs. Preserve failed outputs and use a fresh create-new destination rather than silently overwriting or deleting them.
+
+## Execution policy after a new PowerShell session
+
+A Process-scope execution-policy adjustment does not persist into a new PowerShell session. Windows recovery instructions must check the current policy scopes before loading the launcher, rather than assuming an earlier temporary adjustment remains effective.
+
+**Why:** A repeated launcher-loading failure was caused by effective Restricted policy despite a verified source hash and no download-zone marker. Earlier session-only adjustments did not establish a permanent host configuration.
+
+**How to apply:** Run read-only policy checks first. If no Group Policy restriction is shown, verified local source with no download-zone marker may use Process-scope RemoteSigned only after explicit approval for that adjustment. Do not infer authority for Bypass, permanent policy changes, file unblocking, or credential approval.
+
