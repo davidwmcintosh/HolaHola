@@ -147,3 +147,12 @@ Operator-facing Windows diagnostics should be self-contained and read-only. Do n
 
 **How to apply:** Make diagnostic prerequisites explicit, avoid loading lifecycle code solely to inspect filesystem metadata, and represent unresolved identities as unknown rather than trusted. Keep success messages inside the same guarded block as the checks so later pasted commands cannot print a false verification success after an earlier error.
 
+
+## Primitive filesystem mutation masks
+
+Classify filesystem mutation using primitive mutating rights, not broad composite grants such as FullControl or Modify. Those composites also contain read bits, so including them in a write predicate can reject a legitimately read-only ACL.
+
+**Why:** A native Windows checkout with an untrusted ReadAndExecute/Synchronize ACE was rejected as unsafe write access. Independent architectural review confirmed the integrity boundary is preventing untrusted modification; DPAPI CurrentUser separately protects encrypted custody material against decryption by other users.
+
+**How to apply:** Preserve trusted-owner/writer identities and unrelated custody checks. Test native ACL semantics in disposable Windows fixtures and prove both false-positive and missed-mutation regressions. Do not remove legitimate read-only host permissions to accommodate a classifier defect, and do not claim native success from text scanning alone.
+

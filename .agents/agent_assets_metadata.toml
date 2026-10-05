@@ -326,3 +326,17 @@ mtime_ms = 1790874977835
 storage_uri = "gcs://replit-rams-assets-kirk/rams/assets/repl:3ca2376d-c3dc-490a-a375-6b2f97f7c281/bbcc7592-2a93-442f-8f14-a311162747b8/7bee4871-14bc-42a3-a765-ab74a5530829"
 storage_version_token = "1790874978980291"
 content_type = "text/markdown"
+
+[[outputs]]
+id = "vuFKE0D3F2deQWqru80Z-"
+uri = "file://docs/superpowers/specs/2026-10-05-coordinator-acl-write-mask-design.md"
+type = "text"
+title = "Windows ACL guard correction — reviewed design"
+description = "Alden approved this exact design. Primitive write rights replace broad composite masks; native Windows tests and founder publication gates are preserved. No executable code has changed yet."
+logical_id = "ed2a9a1c-11ee-402b-9b5a-4419706a5d4e"
+content_hash = "sha256:4cde5c06d93d5fe8c90ec7d2a82653a512ff8f5e8ebdcbfea87328c51fbd400f"
+size = 4581
+mtime_ms = 1791240810695
+storage_uri = "gcs://replit-rams-assets-kirk/rams/assets/repl:3ca2376d-c3dc-490a-a375-6b2f97f7c281/ed2a9a1c-11ee-402b-9b5a-4419706a5d4e/5e09a7f6-d858-41db-936d-9785f594c5e7"
+storage_version_token = "1791240922784105"
+content_type = "text/markdown"
