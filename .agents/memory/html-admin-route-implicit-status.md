@@ -27,3 +27,12 @@ mirror that service's outcome-to-status-code mapping with its own
 test that asserts the actual HTTP status code for each outcome, not just the
 rendered body text.
 
+
+## Explicit founder approval confirmation
+
+Founder approval actions need a clear, explicit outcome confirmation. A submitted form or lack of an error is not sufficient feedback that an approval was recorded.
+
+**Why:** The founder explicitly confirmed that the approval UI confirmation fixed the problem of not knowing whether approval went through.
+
+**How to apply:** Preserve explicit success, replay, and failure outcomes when changing approval pages. Keep UI confirmation distinct from operational verification of the authoritative server record; both support the protected approval sequence.
+
