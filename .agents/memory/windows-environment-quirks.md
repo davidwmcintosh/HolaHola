@@ -138,3 +138,12 @@ A Windows recovery validation rejection with no saved request can happen before 
 
 **How to apply:** Use bounded clock and recovery metadata diagnostics, never decrypted request dumps. Separate observed clock alignment from time-service health and command success. Obtain explicit approval for system-clock adjustments; do not broaden timestamp validation or change time-service configuration based on this incident.
 
+
+## Self-contained operator diagnostics
+
+Operator-facing Windows diagnostics should be self-contained and read-only. Do not depend on coordinator globals or helper functions having survived in the caller's PowerShell session. Use an explicitly grounded checkout path and standard PowerShell/.NET APIs where possible.
+
+**Why:** A recovery ACL diagnostic could not inspect the checkout because its assumed coordinator path variable was empty in the operator's window. The diagnostic had not cleared that variable; relying on implicit session state introduced a separate failure while investigating the original one.
+
+**How to apply:** Make diagnostic prerequisites explicit, avoid loading lifecycle code solely to inspect filesystem metadata, and represent unresolved identities as unknown rather than trusted. Keep success messages inside the same guarded block as the checks so later pasted commands cannot print a false verification success after an earlier error.
+
