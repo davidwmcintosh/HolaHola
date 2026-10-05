@@ -1753,7 +1753,9 @@ function Get-HolaCoordinatorRecoveryGuidance {
         @{ codes = @('V2_HOST_REQUEST_EXPIRED', 'V2_HOST_REQUEST_TERMINAL', 'V2_HOST_REQUEST_NOT_FOUND',
                     'V2_HOST_REAUTH_REPLAYED', 'V2_HOST_CHALLENGE_EXPIRED')
            next = 'Keep local files and ask the founder to inspect request status before continuing.' },
-        @{ codes = @('V2_HOST_REAUTH_DECLARATION_INVALID', 'V2_HOST_REAUTH_INVALID', 'V2_HOST_REAUTH_PUBLIC_KEY_INVALID',
+        @{ codes = @('V2_HOST_REAUTH_DECLARATION_INVALID')
+           next = 'Inspect read-only clock samples and approved client/server versions with the founder. No saved draft can mean the context lookup failed. Keep current files; do not backdate timestamps.' },
+        @{ codes = @('V2_HOST_REAUTH_INVALID', 'V2_HOST_REAUTH_PUBLIC_KEY_INVALID',
                     'V2_HOST_REAUTH_SIGNATURE_INVALID', 'V2_HOST_PROTOCOL_MISMATCH', 'V2_HOST_INVALID_REQUEST',
                     'V2_HOST_PROOF_INVALID', 'V2_HOST_CHALLENGE_INVALID', 'V2_HOST_SOURCE_PROMOTION_REQUIRED')
            next = 'Stop and verify the approved client and server versions with the founder. Keep current files.' },
@@ -1764,6 +1766,8 @@ function Get-HolaCoordinatorRecoveryGuidance {
            next = 'Stop and verify HTTPS connectivity with the founder. Do not bypass certificate or trust checks.' },
         @{ codes = @('host_credential_reauthorization_not_required')
            next = 'The credential is still valid. Do not replace it through expired-credential recovery.' },
+        @{ codes = @('host_recovery_clock_out_of_window')
+           next = 'Clock samples are outside the recovery window. Keep current files; ask the founder before any manual clock correction. No correction was run.' },
         @{ codes = @('host_credential_missing', 'host_credential_corrupted', 'host_credential_shape',
                     'host_credential_invalid', 'host_credential_expiry_invalid', 'host_endpoint_invalid',
                     'host_key_invalid', 'runtime_endpoint_mismatch', 'canonical_value_invalid',
@@ -2003,6 +2007,163 @@ function Assert-InternalHolaCoordinatorRecoveryMaterial {
     }
 }
 
+function Get-InternalHolaCoordinatorClockSample {
+    param([Parameter(Mandatory = $true)][string]$Endpoint)
+    $request = $null; $response = $null; $stream = $null; $pending = $null; $read = $null
+    try {
+        $uri = New-Object Uri ($Endpoint.TrimEnd('/') + '/api/coordination/v2/host/recovery-clock')
+        if ($uri.Scheme -cne 'https' -or $uri.UserInfo -ne '' -or $uri.Query -ne '' -or
+            $uri.Fragment -ne '') { return $null }
+        $request = [Net.HttpWebRequest]::Create($uri)
+        $request.Method = 'GET'; $request.AllowAutoRedirect = $false
+        $request.Timeout = 2000; $request.ReadWriteTimeout = 2000
+        $request.CachePolicy = New-Object Net.Cache.RequestCachePolicy (
+            [Net.Cache.RequestCacheLevel]::NoCacheNoStore)
+        $request.Headers['Cache-Control'] = 'no-cache'
+        $epoch = [DateTime]::SpecifyKind([DateTime]::Parse('1970-01-01'), [DateTimeKind]::Utc)
+        $startMs = ([DateTime]::UtcNow - $epoch).TotalMilliseconds
+        $watch = [Diagnostics.Stopwatch]::StartNew()
+        $pending = $request.BeginGetResponse($null, $null)
+        if (-not $pending.AsyncWaitHandle.WaitOne(2000)) { return $null }
+        $response = $request.EndGetResponse($pending)
+        if ([int]$response.StatusCode -ne 200 -or $response.ContentLength -gt 512 -or
+            $response.Headers['Cache-Control'] -notmatch '(?i)\bno-store\b') { return $null }
+        $stream = $response.GetResponseStream()
+        $buffer = New-Object byte[] 513
+        $length = 0
+        while ($length -lt 513) {
+            $remaining = 2000 - [int][Math]::Ceiling($watch.Elapsed.TotalMilliseconds)
+            if ($remaining -le 0) { return $null }
+            $read = $stream.BeginRead($buffer, $length, 513 - $length, $null, $null)
+            if (-not $read.AsyncWaitHandle.WaitOne($remaining)) { return $null }
+            $count = $stream.EndRead($read)
+            $read.AsyncWaitHandle.Close(); $read = $null
+            if ($count -eq 0) { break }
+            $length += $count
+        }
+        if ($length -gt 512 -or $watch.Elapsed.TotalMilliseconds -gt 2000) { return $null }
+        $endMs = ([DateTime]::UtcNow - $epoch).TotalMilliseconds
+        $elapsedMs = $watch.Elapsed.TotalMilliseconds
+        $body = [Text.Encoding]::UTF8.GetString($buffer, 0, $length) | ConvertFrom-Json
+        return [pscustomobject]@{ body = $body; startMs = $startMs; endMs = $endMs; elapsedMs = $elapsedMs }
+    } catch { return $null }
+    finally {
+        try { if ($null -ne $request) { $request.Abort() } } catch {}
+        try { if ($null -ne $stream) { $stream.Dispose() } } catch {}
+        try { if ($null -ne $response) { $response.Close() } } catch {}
+        try { if ($null -ne $pending) { $pending.AsyncWaitHandle.Close() } } catch {}
+        try { if ($null -ne $read) { $read.AsyncWaitHandle.Close() } } catch {}
+    }
+}
+
+function Get-InternalHolaCoordinatorTimeService {
+    # A separate bounded, read-only child prevents an SCM query from hanging
+    # recovery. No execution-policy flag or service-control command is used.
+    $process = $null
+    try {
+        $exe = Join-Path $env:SystemRoot 'System32\WindowsPowerShell\v1.0\powershell.exe'
+        $info = New-Object Diagnostics.ProcessStartInfo
+        $info.FileName = $exe
+        $info.Arguments = '-NoProfile -NonInteractive -Command "(Get-Service -Name W32Time -ErrorAction Stop).Status.ToString()"'
+        $info.UseShellExecute = $false; $info.CreateNoWindow = $true
+        $info.RedirectStandardOutput = $true; $info.RedirectStandardError = $true
+        $process = [Diagnostics.Process]::Start($info)
+        if (-not $process.WaitForExit(1000)) { $process.Kill(); return 'unknown' }
+        if ($process.ExitCode -ne 0) { return 'unknown' }
+        $buffer = New-Object char[] 32
+        $count = $process.StandardOutput.Read($buffer, 0, 32)
+        $status = (New-Object string (,$buffer)).Substring(0, $count).Trim()
+        if ($status -ceq 'Running') { return 'running' }
+        if ($status -ceq 'Stopped') { return 'stopped' }
+        return 'unknown'
+    } catch { return 'unknown' }
+    finally { if ($null -ne $process) { $process.Dispose() } }
+}
+
+function ConvertTo-InternalHolaCoordinatorClockInterval {
+    param($Sample)
+    try {
+        if ($null -eq $Sample) { return $null }
+        Assert-ExactPropertySet -Value $Sample.body -Names @(
+            'protocolVersion', 'serverUnixMs', 'resolutionMs', 'futureAllowanceMs', 'contextTtlMs'
+        ) -FailureCode 'clock_sample_invalid'
+        foreach ($number in @($Sample.startMs, $Sample.endMs, $Sample.elapsedMs,
+            $Sample.body.serverUnixMs, $Sample.body.resolutionMs,
+            $Sample.body.futureAllowanceMs, $Sample.body.contextTtlMs, $Sample.body.protocolVersion)) {
+            if (($number -isnot [double] -and $number -isnot [int] -and $number -isnot [long]) -or
+                [double]::IsNaN([double]$number) -or [double]::IsInfinity([double]$number)) { return $null }
+        }
+        if ($Sample.body.protocolVersion -ne 1 -or $Sample.body.futureAllowanceMs -ne 0 -or
+            $Sample.body.resolutionMs -ne 1 -or $Sample.body.contextTtlMs -le 0 -or
+            $Sample.body.contextTtlMs -gt [int]::MaxValue -or
+            $Sample.body.contextTtlMs -ne [Math]::Floor($Sample.body.contextTtlMs) -or
+            $Sample.body.serverUnixMs -le 0 -or $Sample.body.serverUnixMs -gt 8640000000000000 -or
+            $Sample.body.serverUnixMs -ne [Math]::Floor($Sample.body.serverUnixMs) -or
+            $Sample.startMs -le 0 -or $Sample.endMs -lt $Sample.startMs -or
+            $Sample.elapsedMs -lt 0 -or $Sample.elapsedMs -gt 2000 -or
+            $Sample.elapsedMs -ge $Sample.body.contextTtlMs) { return $null }
+        # Windows' default 64-Hz wall-clock update cadence (not a skew
+        # allowance). Include both endpoint quantization errors, server
+        # resolution, and observed wall/monotonic disagreement.
+        $wallResolutionMs = 1000.0 / 64
+        $discrepancy = [Math]::Abs(($Sample.endMs - $Sample.startMs) - $Sample.elapsedMs)
+        if ($discrepancy -gt 2 * $wallResolutionMs) { return $null }
+        $uncertainty = $Sample.elapsedMs / 2 + 2 * $wallResolutionMs +
+            $Sample.body.resolutionMs + $discrepancy
+        $offset = ($Sample.startMs + $Sample.endMs) / 2 - $Sample.body.serverUnixMs
+        return [pscustomobject]@{ lower = $offset - $uncertainty; upper = $offset + $uncertainty
+            ttl = $Sample.body.contextTtlMs }
+    } catch { return $null }
+}
+
+function Get-HolaCoordinatorClockPreflight {
+    [CmdletBinding()]
+    param([Parameter(Mandatory = $true)][ValidatePattern('^https://')][string]$Endpoint)
+    try { $service = Get-InternalHolaCoordinatorTimeService } catch { $service = 'unknown' }
+    if ($service -cnotin @('running', 'stopped', 'unknown')) { $service = 'unknown' }
+    $intervals = @()
+    for ($index = 0; $index -lt 3; $index++) {
+        try { $sample = Get-InternalHolaCoordinatorClockSample -Endpoint $Endpoint } catch { $sample = $null }
+        $interval = ConvertTo-InternalHolaCoordinatorClockInterval -Sample $sample
+        if ($null -ne $interval) { $intervals += $interval }
+    }
+    $classification = 'unknown'; $offsetMs = $null; $uncertaintyMs = $null
+    if ($intervals.Count -eq 3) {
+        $lower = ($intervals | Measure-Object lower -Minimum).Minimum
+        $upper = ($intervals | Measure-Object upper -Maximum).Maximum
+        $overlapLower = ($intervals | Measure-Object lower -Maximum).Maximum
+        $overlapUpper = ($intervals | Measure-Object upper -Minimum).Minimum
+        $ttls = @($intervals | Select-Object -ExpandProperty ttl -Unique)
+        if ($ttls.Count -eq 1 -and $overlapLower -le $overlapUpper) {
+            # Classify the union, not the narrower intersection: all samples
+            # must support the claim. Rounding is display-only.
+            $offsetMs = [Math]::Round(($lower + $upper) / 2, 1)
+            $uncertaintyMs = [Math]::Ceiling(($upper - $lower) / 2)
+            if ($lower -gt 0) { $classification = 'ahead' }
+            elseif ($upper -le -$ttls[0]) { $classification = 'behind' }
+            elseif ($lower -gt -$ttls[0] -and $upper -le 0) { $classification = 'within_window' }
+        }
+    }
+    return [pscustomobject]@{ clock = $classification; offsetMs = $offsetMs
+        uncertaintyMs = $uncertaintyMs; validSamples = $intervals.Count
+        timeService = $service; correctionCommand = 'not_run' }
+}
+
+function Assert-InternalHolaCoordinatorClockPreflight {
+    [CmdletBinding()]
+    param([Parameter(Mandatory = $true)][string]$Endpoint)
+    $report = Get-HolaCoordinatorClockPreflight -Endpoint $Endpoint
+    # Recompute a bounded message from typed fields, never remote/raw text.
+    Write-Warning ('Recovery clock: {0}; local-minus-server-ms={1}; uncertainty-ms={2}; samples={3}/3; time-service={4}; correction-command=not_run. This does not prove ongoing synchronization.' -f
+        $report.clock, $report.offsetMs, $report.uncertaintyMs, $report.validSamples, $report.timeService)
+    if ($report.clock -ceq 'ahead' -or $report.clock -ceq 'behind') {
+        Fail-Safe 'host_recovery_clock_out_of_window'
+    }
+    if ($report.clock -ceq 'unknown') {
+        Write-Warning 'Clock alignment is unknown, not healthy. Server timestamp validation remains authoritative. Preserve custody; ask the founder before any manual clock correction.'
+    }
+}
+
 function Get-InternalHolaCoordinatorRecoveryGeneration {
     param(
         [Parameter(Mandatory = $true)][string]$Endpoint,
@@ -2078,6 +2239,7 @@ function Restore-InternalHolaCoordinatorHostCredential {
     Assert-InternalHolaCoordinatorRecoveryMaterial -Material $material
     $endpointBase = $Endpoint.TrimEnd('/')
     if ([string]$material.endpoint -ne $endpointBase) { Fail-Safe 'runtime_endpoint_mismatch' }
+    Assert-InternalHolaCoordinatorClockPreflight -Endpoint $endpointBase
     $privateXml = [Text.Encoding]::UTF8.GetString(
         [Security.Cryptography.ProtectedData]::Unprotect(
             [Convert]::FromBase64String([IO.File]::ReadAllText($privatePath)),

@@ -62,6 +62,81 @@ successful command may exit `0`.
 
 ## Common recovery cases
 
+### Windows credential recovery clock preflight
+
+`Restore-HolaCoordinatorHostCredential -Endpoint <approved HTTPS endpoint>`
+now runs a read-only clock preflight after validating the stored endpoint and
+before decrypting the enrolled private key, retiring a draft, or persisting a
+new request. To inspect only the clock (without reading DPAPI custody), use:
+
+```powershell
+Get-HolaCoordinatorClockPreflight -Endpoint <approved HTTPS endpoint>
+```
+
+Use the endpoint from the approved recovery setup, not a public NTP reference.
+The check performs at most three unauthenticated HTTPS GETs to
+`/api/coordination/v2/host/recovery-clock`. Each has a two-second total
+response/read deadline, a 512-byte body cap, no redirects, ordinary TLS
+verification, and no caching. A separate read-only Windows Time service query
+has a one-second child-process deadline. Scheduling overhead can add time;
+there are no retries beyond these three samples.
+
+The report contains only `clock`, local-minus-server `offsetMs`,
+`uncertaintyMs`, `validSamples`, `timeService`, and
+`correctionCommand=not_run`. Positive offset means the Windows host is ahead.
+No raw responses, exception text, machine names, keys, tokens, request bodies,
+or identifiers are reported.
+
+The threshold is **not** a general “acceptable Windows skew” constant.
+The signed recovery context rejects `issuedAt > server now` (zero future
+allowance) and `expiresAt <= server now`, with at most a two-minute lifetime.
+The diagnostic endpoint publishes that same service-owned TTL. Each sample
+uses midpoint local UTC minus server UTC, with uncertainty equal to half the
+monotonic round-trip duration plus both local wall-clock quantization errors
+(the Windows default 64-Hz cadence, 15.625 ms each), server millisecond
+resolution, and observed wall/monotonic duration disagreement. Disagreement
+greater than both local quantization errors makes the sample unknown.
+Different TTLs or nonoverlapping sample intervals are unknown; classification
+uses the conservative union of all three intervals, not just the best sample.
+
+- `ahead`: the entire interval is greater than zero. Recovery stops with
+  `host_recovery_clock_out_of_window` before custody changes.
+- `behind`: the entire interval is at or below minus the context TTL.
+  Recovery stops at the same boundary.
+- `within_window`: all three intervals lie strictly above minus the TTL and
+  at or below zero. This is a measurement, **not** proof of healthy ongoing
+  synchronization or a guarantee the later signed request will pass.
+- `unknown`: a missing, malformed, oversized, slow, inconsistent, or failed
+  sample, or an interval overlapping a boundary. Unknown is explicitly
+  advisory, never healthy; recovery retains its existing behavior and the
+  server remains authoritative. An older server without the endpoint is
+  unknown, not evidence of alignment.
+
+`timeService=stopped` can coexist with a small measured offset. A running
+service does not prove alignment. No resync is attempted; `not_run` is neither
+success nor failure. If an operator separately runs a correction with founder
+approval, record its outcome separately from independent offset measurements
+and service status. Do not infer a successful correction from later recovery
+acceptance.
+
+The verified incident involved a host about 1.5 seconds ahead: declaration
+validation failed during the signed recovery-context lookup **before a local
+request existed**. Later independent alignment samples and successful recovery
+with unchanged source did not prove why the offset disappeared. The resync
+command reported failure and a stopped service. Do not dump decrypted requests,
+clear DPAPI, reset generations, backdate declarations, or relax server checks
+to diagnose this case. Ask the founder before any manual clock correction.
+
+**Publication gate:** development tests are hermetic synthetic PowerShell
+fixtures, not LITTLENEMO tests. Before any real-host testing, follow the exact
+source/runtime sequence in the Windows compatibility design: commit/push exact
+source, prepare/verify fresh source promotion, stop for founder source
+publication, prepare/verify fresh runtime release, stop for founder runtime
+publication, then fast-forward the host to that exact commit and verify its
+tree. Never reuse a release for different bytes. Founder approval is also
+required before completing a replacement-credential request. No real host,
+credential, or session is changed by development validation.
+
 ### Preparation response lost
 
 Retry the complete preparation request with the same idempotency key only when

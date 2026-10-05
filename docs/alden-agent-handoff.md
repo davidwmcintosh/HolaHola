@@ -1,58 +1,39 @@
 # Alden ↔ Agent Handoff
 
-## From Agent — last updated: Sun, Oct 4, 11:43 PM
+## From Agent — last updated: Mon, Oct 5, 10:46 PM
 
-2026-10-04 — Founder-approved repair of the shared Render publication path
+## Windows recovery clock preflight (2026-10-05)
 
-Render remains production. All builder runtimes use the canonical
-GitHub-to-Render source controls. Replit native Publish is not the production
-release action. This standing rule is saved through the DB-first memory CLI.
+Task 1703 implemented a bounded read-only preflight before protected private-key
+decryption or request effects. Public no-store/rate-limited clock metadata is
+coupled to the unchanged strict signed context TTL/future allowance. Three
+bounded HTTPS intervals account for RTT, local/server quantization and observed
+wall/monotonic disagreement. Definite ahead/behind stops; boundary/measurement
+unknown is advisory, never healthy. Service state and correction not_run are
+independent. No clock correction, configuration/policy changes, custody resets,
+credential/session creation, publication, or LITTLENEMO access.
 
-Implemented locally:
-- SourceControlService requires a canonical Render release reference for every
-  new production promotion, including source heads containing a legitimate
-  same-tree Replit publication marker. Both live Render verifications remain
-  required. Historical receipts and authority rows were not rewritten.
-- Shared API rejects missing/malformed/mismatched Render references and
-  Replit-only markers before persisting a request or starting execution.
-- Updated preparation/API instructions and docs/render-production-release.md.
-- Added rejection/acceptance/initial-and-final-failure tests. Source-control
-  fixture closes its DB pool on completion.
-- Fixed the remote CI race-test scheduling assumption: a test-only read barrier
-  makes both real PostgreSQL transactions observe the original review before
-  either production CAS. Exactly one winner and one clean conflict are still
-  required. No schema or production review-assignment logic changed.
+Pre-implementation Alden Anthropic and Gemini architectural review cleared the
+design after clarifying unchanged opaque-ID bounds and measurement deadlines.
+Focused checks passed 29/29, actual local PowerShell suite passed, typecheck
+passed. System-health Summary: All checks passed — safe to mark done.
+Native PowerShell 5.1 job is wired into aggregate Windows CI, but has not been
+claimed as run locally. Nix PowerShell test dependency added; module discovery
+requires explicitly imported standard modules in local runner.
 
-Evidence:
-- Typecheck and production build passed.
-- Source-control and promotion API fixture checks passed on an isolated,
-  migrated PostgreSQL database, including real notification-channel failures.
-- All three review-assignment/decision PostgreSQL checks passed, zero skipped.
-- Source mutation boundary, GitHub release transport, and diff checks passed.
-- Authenticated running-development API returned HTTP 400 for a Replit-only
-  marker with the new explicit Render-evidence requirement.
-- Application readiness returned ready; landing page screenshot loaded.
-- Health verifier Summary: 2 warnings, no failures. The two student-facing
-  app-route checks were skipped because the parallel development restart had
-  not yet bound the port; direct storage checks passed and subsequent readiness
-  and screenshot confirmed the running app.
+Source/runtime publication remains pending every founder gate: exact merged
+and pushed source, fresh source promotion, founder source publication, fresh
+runtime release, founder runtime publication, then exact host fast-forward
+and founder credential approval. No source or runtime publication is claimed.
 
-Read-only remote findings:
-- GitHub main remains a42abdc7be0b52c39df482de0bcc169e629e11c8.
-- Its CI unit job failed the now-corrected review-assignment timing assertion.
-- Latest successful Render deployment record serves
-  95e2c7db91dc4a3acd4b861a8968dae4d6cc14a6. No newer deployment was listed.
-- Actual Render deployment mode, CI gating, and webhook state still need
-  authenticated dashboard/API verification; checked-in autoDeploy is not proof.
+No coordination thread or agent-note source is linked in this assignment.
 
-Stop:
-These are local fixes, not a published Render release. No canonical source
-sync/push, new protected preparation, Render trigger, production setting/DNS
-change, credential change, or native Windows action was performed. A fresh
-exact-source gate is required; no old candidate or publication marker is reused.
-Keep Antigravity/Windows gates and the Codex pause intact. The founder must
-approve synchronization's possible Render auto-deployment consequence before
-the next source synchronization/publication step.
+Development HTTP clock endpoint and app screenshot verified after restart.
+Real read-only sampler reported unknown with one valid sample; no false health
+claim. Existing reauthorization PowerShell suite fails on local 7.4 at
+"Exact expired two-clock request was not recognized"; reproduced identically
+from original HEAD scripts in /tmp/hola-clock-baseline. Unrelated baseline
+failure is disclosed, not hidden or fixed by weakening recovery validation.
 ## From Agent — historical recovery pause diagnostics — Oct 3, 2026
 
 Capture health and Markdown status now explain historical recovery pauses by
@@ -10204,3 +10185,17 @@ Pre-build Alden consultation and startup briefing endpoints returned HTTP 502
 while the development app was stopped; no consultation approval is claimed.
 The existing Start application workflow was then started successfully.
 No coordination thread or agent-note source is linked in this assignment.
+
+## From Agent — October 5, 2026: expired replacement credential recovery prepared locally
+
+David approved a server-guided repair, distinct from Windows diagnostics. The source now accepts only correctly shaped expired three-field replacement material or legacy two-field material; a read-only two-minute signed context uses the enrolled host key to obtain the next generation from server history. Exact local request bytes are persisted before submission and reused on retry. The server checks fresh generations under the existing host lock after exact replay; no migration, founder approval bypass, key change, runtime initialization, session, policy/trust change, or production publication. The approved design is docs/superpowers/specs/2026-10-05-coordinator-expired-replacement-recovery-design.md, matching shared-spec document ac33b73e-b723-4643-9d33-94ee66b06c9c revision a287f794-0699-4bd5-b653-86f4f7707d98 (SHA256 3c77053c2600fa240d2dc4c5b09b2643d93d895d2c9464c34d743a69c8049bb7), independently approved by Alden review 5b9ec177-ea78-4dd0-bd7b-413e6f885edf.
+
+Evidence: 21 focused checks, typecheck, health verifier Summary: All checks passed — safe to mark done; three no-skip reauthorization PostgreSQL tests on disposable local migrated DB passed, cluster removed. Live dev endpoint rejects malformed, token-only and signed nonexistent-host requests with no-store responses; app preview loads. Windows PowerShell 5.1 regression script expanded but NOT natively run; no LITTLENEMO commands, native execution-policy bypass, Windows diagnostics, Render publication, or source/runtime publication happened. This is local preparation only: changed bytes need a fresh exact-byte founder-gated shared GitHub→Render source and runtime publication, then separately approved native diagnostics/launch and founder reauthorization before anyone can claim host recovery works on the real machine. Existing published receipts do not cover this source.
+
+## From Agent — October 5, 2026: automatic safe recovery diagnostics prepared locally
+
+David selected automatic safe reporting rather than a separate diagnostic command. The four recovery HTTP failures now report only bounded typed HTTP status, exact allowlisted reasons and fixed guidance; JSON is bounded to 4096 characters and response-stream capture to 4097. A public wrapper preserves recognized local codes and recomputes bounded transport details; unexpected local exceptions become host_recovery_failed without raw CLR/PowerShell text. The internal lifecycle, successful return shapes, request bytes/retries, founder approval, DPAPI custody and server protocol are unchanged. Enrollment's three raw diagnostic call sites intentionally remain outside this scope. Parameter binding and unsigned/restricted script-loading errors are outside the wrapper.
+
+Evidence: 24 focused Node static/contract/validation checks passed, zero skips; typecheck passed; health Summary: All checks passed — safe to mark done. Application restarted and public landing loaded. Added synthetic PowerShell secret-sentinel/body-size/parser/stream/transport/public-wrapper cases through the existing Windows reauthorization test entry point, but NO native PowerShell execution is claimed. Native Windows PowerShell 5.1 proof remains pending. No actual Windows command, host/credential operation, session/runtime initialization, policy/trust change, or publication was performed. Fresh exact-byte founder-gated shared GitHub-to-Render source/runtime publication is still required before native rollout.
+
+Independent review: shared-spec document 22334310-21f2-4845-b81a-07f4771038d1, revision 551525e8-3bcf-4936-bc2a-9e93f8e15674, review fae2ac49-60b2-4063-bc12-86018c5443c2, SHA256 d7a4f36258abfdc813cf43ac38e9b75786b29ae312e915b80dc823d2aa2e8853; Alden approved as his own actor with no required fixes, verified by the review API. The earlier post-restart priority request returned startup 503 and did not count as a review; the later HTTP 200 request and approved record are the evidence. Workspace design docs/superpowers/specs/2026-10-05-safe-recovery-diagnostics-design.md matches the approved bytes.

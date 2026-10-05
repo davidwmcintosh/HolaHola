@@ -1093,6 +1093,38 @@ and `git diff --check` pass.
 
 # Batch Documentation Updates
 
+## Read-only Windows recovery clock preflight — 2026-10-05
+
+Added a bounded, non-secret clock diagnostic before protected recovery key
+decryption or draft effects. Server metadata reuses the signed context TTL and
+preserves zero future allowance; no auth validation or authority changes.
+Three two-second HTTPS samples with 512-byte caps and conservative uncertainty
+intervals distinguish definite ahead/behind from unknown. Windows Time service
+status and correction-command `not_run` remain independent.
+
+Operator: `Get-HolaCoordinatorClockPreflight -Endpoint <approved HTTPS endpoint>`
+is standalone read-only; the protected Restore command invokes the same check.
+Definite out-of-window stops preserve custody; unknown is explicitly advisory,
+not healthy. No resync, policy/service changes, DPAPI reset, real host access,
+credential issuance, session creation, or publication was performed.
+
+Coverage: actual PowerShell interval/custody suite, contract/route/static tests,
+and native PowerShell 5.1 Windows CI wiring. Local focused checks passed 29/29,
+typecheck passed, and system-health Summary: All checks passed — safe to mark
+done. Native Windows CI evidence is pending the exact source merge/push, not
+claimed from local PowerShell 7.4 execution. PowerShell is a Nix test dependency.
+Both Alden architectural engines cleared the design before implementation.
+Runbook and compatibility design retain every exact-source/runtime founder
+publication and approval stop; LITTLENEMO remains untouched.
+
+Additional verification: the restarted development endpoint returned bounded
+clock metadata and the app rendered normally. A real read-only HTTPS sampler
+run returned `unknown` with one valid sample, correctly not claiming alignment.
+The older reauthorization PowerShell suite fails locally at “Exact expired
+two-clock request was not recognized”; the identical failure was reproduced
+from unchanged HEAD scripts in a temporary baseline directory. This is not a
+new clock-check regression, and no native Windows result is inferred from it.
+
 ## Session September 2, 2026 — Language Hub scene mastery crash
 
 **Root cause:** `SceneMasterySection` parsed error JSON from

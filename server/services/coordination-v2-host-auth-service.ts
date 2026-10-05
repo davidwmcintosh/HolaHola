@@ -24,6 +24,12 @@ const REQUEST_TTL_MS = 15 * 60_000;
 const REAUTH_REQUEST_TTL_MS = 60 * 60_000;
 const MAX_REAUTH_GENERATION = 2_147_483_647; // PostgreSQL integer and Windows Int32.
 const CHALLENGE_TTL_MS = 2 * 60_000;
+// Read-only metadata coupled to the signed recovery-context window below.
+// This is not enrollment, credential, challenge or session authority.
+export function getCoordinationV2RecoveryClock(now = new Date()) {
+  return { protocolVersion: 1, serverUnixMs: now.getTime(),
+    resolutionMs: 1, futureAllowanceMs: 0, contextTtlMs: CHALLENGE_TTL_MS };
+}
 const HOST_CREDENTIAL_TTL_MS = 24 * 60 * 60_000;
 const SESSION_CREDENTIAL_TTL_MS = 15 * 60_000;
 const HEX = /^[0-9a-f]{64}$/;

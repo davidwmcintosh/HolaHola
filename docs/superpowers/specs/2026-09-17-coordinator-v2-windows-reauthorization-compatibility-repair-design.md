@@ -226,6 +226,51 @@ pending until this exact commit is pushed and the aggregate GitHub CI job runs.
 
 ## Protected Publication and Founder Stops
 
+### Read-only clock preflight extension
+
+The verified ahead-clock incident failed the signed recovery-context lookup
+before local draft persistence. An approximately 1.5-second positive offset
+was independently measured; unchanged client/server recovery later succeeded
+after alignment samples. A reported failed resync and stopped Windows Time
+service are separate evidence, not proof of what corrected the offset.
+
+Alden's Anthropic and Gemini architectural engines cleared this extension
+before implementation: bounded unauthenticated server-time metadata, interval
+arithmetic tied to the existing strict time contract, and no new authority.
+The existing opaque `contextKey`/`requestKey` bounds and all timestamp,
+signature, credential, and founder validation remain unchanged.
+
+The application exposes a rate-limited, `no-store` GET
+`/api/coordination/v2/host/recovery-clock`, returning only epoch milliseconds,
+millisecond resolution, protocol version, zero future allowance, and the
+existing recovery-context TTL. It does not touch the database or mint proof,
+challenge, credentials, requests, or sessions.
+
+The protected Windows recovery calls the standalone read-only preflight after
+endpoint validation but before private-key decryption or request-state effects.
+Three HTTPS samples maximum, two-second per-sample total deadline, 512-byte
+cap, no redirects, and normal TLS trust. Windows Time service status is read
+separately with a one-second process deadline. No resync, time-service
+configuration, execution-policy changes, custody reset, or timestamp backdating.
+
+Interval uncertainty accounts for monotonic RTT, Windows default 64-Hz UTC
+quantization at both ends, server millisecond resolution, and measured
+wall/monotonic divergence. The safe window is derived from `issued <= now`
+and `expires > now`, not an arbitrary skew allowance. Require three valid,
+overlapping intervals and one matching TTL; classify their conservative union.
+Definite ahead/behind stops before custody changes. Boundary overlap,
+unavailable/malformed data, clock jumps, or inconsistent samples are explicitly
+unknown and advisory, never healthy. Server validation remains authoritative.
+Report service state and `correctionCommand=not_run` independently of offset.
+
+Coverage executes actual PowerShell interval evaluation and protected recovery
+stops with unchanged dummy custody hashes, plus server contract/route checks.
+It covers ahead/behind, stopped service with a small offset, invalid/unavailable
+samples, boundary uncertainty, changed contract TTL, and contradictory samples.
+The native PowerShell 5.1 CI job runs only synthetic fixtures; it is not real
+host acceptance. Real-host testing remains downstream of every founder stop
+below. Development never mutates LITTLENEMO.
+
 After the correction receives review and all validation passes:
 
 1. commit and push the exact source;
