@@ -1,0 +1,59 @@
+Okay, Phase 1: Research and Plan Server-Side Fix, is underway.
+
+The approved design is for "Runtime timestamp canonicalization and historical replay repair". Based on the context from the review, I recall that server/services/coordination-v2-runtime-bootstrap-service.ts and server/services/coordination-v2-runtime-evidence-canonicalization.ts are the primary files involved in the issue/replay path and evidence canonicalization.
+
+I will start by searching for selectRuntimeReplayManifest in server/services/coordination-v2-runtime-evidence-canonicalization.ts to understand the existing implementation and identify the areas for modification.
+
+read_shared_spec_review
+claim_shared_spec_review
+decide_shared_spec_review
+notify_david
+request_continuation
+A
+Phase 1: Approve Diagnosis & Plan Server Fix
+Okay, Phase 1 is complete. I have identified the exact location of the error in completeCoordinationV2HostReauthorization within server/services/coordination-v2-host-auth-service.ts. The problem is a mismatch between the client-provided requestKey and the stored requestKey, pointing to a canonicalization issue.
+
+I am now moving on to Phase 2: Investigate `submitEnrollmentRequest` and Digest Generation. My goal is to understand how requestKey and related digests are created and compared, focusing on any inconsistencies in timestamp canonicalization or digest generation that might lead to the observed mismatch. I'll search for submitEnrollmentRequest across the server directory and then delve into coordination-v2-host-auth-service.ts for digest and canonicalize functions.
+
+read_file
+search_code
+search_multi
+request_continuation
+A
+Phase 1: Research and Plan Server-Side Fix
+I have completed Phase 2: Investigate submitEnrollmentRequest and Digest Generation.
+
+Here's what I found:
+
+1. `submitEnrollmentRequest` Location: The submitEnrollmentRequest function is exposed via server/routes/coordination-v2-host-admin-routes.ts (line 152) and its actual implementation is submitCoordinationV2HostEnrollmentRequest in server/services/coordination-v2-host-auth-service.ts.
+
+2. `coordination-v2-host-auth-service.ts` Overview: This file contains the core logic for host enrollment, reauthorization, and credential management. It uses node:crypto for hashing (createHash), public key operations (createPublicKey), and signature verification (verify).
+
+3. Digest Generation (`digest` function):
+* The digest function (line 79) in server/services/coordination-v2-host-auth-service.ts is function digest(value: unknown): string { return hash(canonicalJson(value)); }.
+* It relies on hash (line 78), which uses SHA256: function hash(value: string): string { return createHash('sha256').update(value).digest('hex'); }.
+* Crucially, canonicalJson from ./coordination-policy-canonicalization is used to ensure a consistent JSON string representation before hashing. This is critical for deterministic digest generation.
+
+4. Timestamp Handling:
+* In validateCoordinationV2HostRecoveryContextSubmission (lines 162-177), timestamps (issuedAt and expiresAt) are parsed from the declaration as strings into Date objects.
+* There's a validation check: expiry.getTime() - issued.getTime() > CHALLENGE_TTL_MS (line 173). This confirms that the client-provided issuedAt and expiresAt are within the expected CHALLENGE_TTL_MS (which is 2 minutes, from line 26).
+* The REAUTH_REQUEST_TTL_MS (1 hour, line 24) is used for reauthorization requests.
+* The getCoordinationV2RecoveryClock (line 29) provides serverUnixMs, resolutionMs, futureAllowanceMs, and contextTtlMs to the client for clock synchronization. This suggests an awareness of potential clock drift.
+
+### Analysis of Potential Inconsistency
+
+The issue described by Luca — "the server's stored record of your existing setup request no longer matches what it rebuilds" — strongly points to a subtle difference in how the declaration (which contains issuedAt and expiresAt) is canonicalized or digested between the initial request storage and the subsequent comparison during reauthorization.
+
+While canonicalJson is used, if the client is generating issuedAt and expiresAt with a higher precision (e.g., milliseconds) than what's being stored or compared on the server, or if there's any implicit rounding/truncation happening at either end, the canonical JSON string will differ, leading to a digest mismatch. The Date object conversion on the server-side might introduce such a difference if the original string format isn't perfectly preserved or if there are timezone considerations not fully accounted for in the canonicalization.
+
+The approved design "Runtime timestamp canonicalization and historical replay repair" directly addresses this by stating: "The approved correction captures one timestamp for both fields. It does not mutate or reuse the malformed request." This implies the client was generating two distinct timestamps, and the server's canonicalization was not robust enough to handle the resulting variations.
+
+Next Steps (Phase 3: Propose Fix for Timestamp Canonicalization):
+
+I will now focus on proposing a specific code change to server/services/coordination-v2-host-auth-service.ts to ensure that issuedAt and expiresAt are canonicalized consistently. This will likely involve:
+
+1. Standardizing Timestamp Format: Ensuring both client and server use a consistent, high-precision ISO 8601 format (e.g., YYYY-MM-DDTHH:mm:ss.SSSZ) for issuedAt and expiresAt within the declaration object.
+2. Canonicalization of Dates: Explicitly canonicalizing the date strings before they are included in the object that is passed to canonicalJson for digest generation. This might involve parsing to Date objects, then formatting them back to a canonical string representation to eliminate any potential precision or formatting discrepancies.
+3. Reviewing `canonicalJson` behavior: Confirming that canonicalJson handles date strings predictably and doesn't introduce variations.
+
+I will now proceed with preparing the specific code changes.
