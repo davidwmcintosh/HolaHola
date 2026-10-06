@@ -176,6 +176,27 @@ test("Windows CI retains the synthetic enrollment and recovery diagnostics fixtu
   assert.match(workflow, /shell: powershell\s+run: \.\\scripts\\test-hola-coordinator-reauthorization\.ps1/);
 });
 
+test("enrollment diagnostic mutation proof stays synthetic and checks specific failures", () => {
+  const fixture = readFileSync("scripts/test-hola-coordinator-recovery-diagnostics.ps1", "utf8");
+  const proof = readFileSync("scripts/test-hola-coordinator-enrollment-diagnostic-mutations.ps1", "utf8");
+  assert.match(fixture, /param\(\[switch\]\$SkipMutationChecks\)/);
+  assert.match(fixture, /if \(-not \$SkipMutationChecks\)[\s\S]*test-hola-coordinator-enrollment-diagnostic-mutations\.ps1/);
+  assert.match(fixture, /Get-HolaCoordinatorEnrollmentGuidance -Code \$code\.ToLowerInvariant\(\)/);
+  for (const name of ["raw-response", "raw-exception", "case-insensitive-guidance", "root-array", "unmodified"]) {
+    assert.ok(proof.includes(`name = '${name}'`));
+  }
+  for (const failure of ["Enrollment secret reflected", "Enrollment guidance accepted case-insensitive reason",
+    "Enrollment malformed root array accepted"]) {
+    assert.ok(fixture.includes(failure) && proof.includes(failure));
+  }
+  assert.match(proof, /GetTempPath\(\)/);
+  assert.match(proof, /-Command \$bootstrap/);
+  assert.match(proof, /\$copy\.Replace[\s\S]*-SkipMutationChecks/);
+  assert.match(proof, /\$exitCode -eq 0 -or -not \$output\.Contains\(\$mutation\.failure\)/);
+  assert.match(proof, /finally[\s\S]*\[IO\.Directory\]::Delete\(\$root, \$true\)/);
+  assert.doesNotMatch(proof, /-ExecutionPolicy|Invoke-RestMethod|Write-Dpapi|Initialize-HolaCoordinatorRuntime|Invoke-HolaCoordinator\b/);
+});
+
 test("public recovery sanitizes local errors while preserving recognized failure codes", () => {
   const wrapper = recovery.slice(recovery.indexOf("function Restore-HolaCoordinatorHostCredential"));
   assert.match(wrapper, /Restore-InternalHolaCoordinatorHostCredential -Endpoint \$Endpoint/);

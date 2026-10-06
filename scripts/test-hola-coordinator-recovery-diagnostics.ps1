@@ -1,3 +1,6 @@
+[CmdletBinding()]
+param([switch]$SkipMutationChecks)
+
 $ErrorActionPreference = 'Stop'
 Set-StrictMode -Version 2.0
 
@@ -92,6 +95,8 @@ $enrollmentCodes = @(
 )
 $enrollmentCases = @()
 foreach ($code in $enrollmentCodes) {
+    Assert-Diagnostic ($null -eq (Get-HolaCoordinatorEnrollmentGuidance -Code $code.ToLowerInvariant())) `
+        'Enrollment guidance accepted case-insensitive reason'
     $enrollmentCases += @{
         body = '{"error":{"code":"' + $code + '","message":"' + $sentinel + '"},"requestKey":"' +
             $sentinel + '","nonce":"' + $sentinel + '","signature":"' + $sentinel +
@@ -100,6 +105,10 @@ foreach ($code in $enrollmentCodes) {
     }
     $enrollmentCases += @{
         body = '{"error":{"code":"' + $code.ToLowerInvariant() + '"}}'
+        reason = 'UNKNOWN_SERVER_ERROR'
+    }
+    $enrollmentCases += @{
+        body = '{"error":{"code":"V2_HOST_' + $code.Substring(8).ToLowerInvariant() + '"}}'
         reason = 'UNKNOWN_SERVER_ERROR'
     }
 }
@@ -117,7 +126,8 @@ $enrollmentCases += @(
     @{ body = '{}'; reason = 'UNKNOWN_SERVER_ERROR' },
     @{ body = 'null'; reason = 'UNKNOWN_SERVER_ERROR' },
     @{ body = '[]'; reason = 'UNKNOWN_SERVER_ERROR' },
-    @{ body = '[{"error":{"code":"V2_HOST_BOOTSTRAP_DENIED"}}]'; reason = 'UNKNOWN_SERVER_ERROR' },
+    @{ body = '[{"error":{"code":"V2_HOST_BOOTSTRAP_DENIED"}}]'; reason = 'UNKNOWN_SERVER_ERROR'
+       assertion = 'Enrollment malformed root array accepted' },
     @{ body = '"V2_HOST_BOOTSTRAP_DENIED"'; reason = 'UNKNOWN_SERVER_ERROR' },
     @{ body = '{"error":'; reason = 'UNKNOWN_SERVER_ERROR' },
     @{ body = '<html>' + $sentinel + '</html>'; reason = 'UNKNOWN_SERVER_ERROR' },
@@ -135,11 +145,13 @@ foreach ($case in $enrollmentCases) {
     foreach ($streamOnly in @($false, $true)) {
         $fixture = New-DiagnosticFixture -Body $case.body -StreamOnly:$streamOnly
         $detail = Get-HolaCoordinatorTransportFailureDetail -ErrorRecord $fixture
+        Assert-Diagnostic ($detail -notmatch $sentinel) 'Enrollment secret reflected'
         $expected = 'http_status=409; reason=' + $case.reason + '; next=' +
             (Get-HolaCoordinatorEnrollmentGuidance -Code $case.reason)
-        Assert-Diagnostic ($detail -ceq $expected) 'Enrollment report not fixed and allowlisted'
+        $assertion = 'Enrollment report not fixed and allowlisted'
+        if ($case.ContainsKey('assertion')) { $assertion = $case.assertion }
+        Assert-Diagnostic ($detail -ceq $expected) $assertion
         Assert-Diagnostic ($detail.Length -le 300) 'Enrollment report exceeds Fail-Safe bound'
-        Assert-Diagnostic ($detail -notmatch $sentinel) 'Enrollment secret reflected'
         Assert-Diagnostic ($detail -notmatch 'requestKey|accessToken|nonce|signature|https://|<html>|response=|message=') `
             'Enrollment raw error content reflected'
         $observed = ''
@@ -232,3 +244,6 @@ try {
     Set-Item Function:\script:Restore-InternalHolaCoordinatorHostCredential -Value $original
 }
 Write-Host '[coordinator-v2] Synthetic safe enrollment and recovery diagnostic checks passed'
+if (-not $SkipMutationChecks) {
+    & (Join-Path $PSScriptRoot 'test-hola-coordinator-enrollment-diagnostic-mutations.ps1')
+}

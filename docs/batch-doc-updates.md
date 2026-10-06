@@ -8094,3 +8094,26 @@ succeeded. Alden approved the design and the production/code-test architecture.
 credential changes, sessions, or publication occurred. A fresh founder-gated
 source/runtime publication is required before any host update or initialization
 retry; old release receipts do not authorize the changed launcher.
+
+## 2026-10-06 — Synthetic enrollment diagnostic mutation proofs
+
+The existing safe-diagnostics fixture now invokes
+`scripts/test-hola-coordinator-enrollment-diagnostic-mutations.ps1`.
+Four independent temporary source copies reflect response text, reflect exception
+text, make enrollment guidance case-insensitive, or admit root JSON arrays for
+enrollment. Each must exit unsuccessfully with its named confidentiality,
+case-sensitivity, or malformed-envelope assertion; the final unmodified copy must
+pass. Temporary copies are removed in `finally`, and original source/fixture
+contents are checked for preservation. The fixture also directly tests lowercase
+guidance lookups and mixed-case reasons with the otherwise valid uppercase prefix.
+The static reauthorization suite checks this wiring through the existing Windows
+CI diagnostics entrypoint.
+
+Local PowerShell 7.4.2 on Linux passed all four mutation proofs and the unmodified
+fixture. Child processes explicitly import standard modules rather than relying
+on ambient module discovery. Typecheck and 16 focused static checks passed.
+System health reported no failures and two app-route skips because the application
+server was stopped; those routes are unrelated to these pure synthetic checks.
+This does not establish native Windows PowerShell 5.1 verification. No published
+source, shared enrollment state, credentials, DPAPI, or Windows policy was changed.
+Native Windows execution and publication remain separately founder-gated.
