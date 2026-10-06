@@ -26,6 +26,10 @@ import {
 } from '@shared/schema';
 import { canonicalJson } from './coordination-policy-canonicalization';
 import {
+  runtimeEvidenceDate,
+  selectRuntimeReplayManifest,
+} from './coordination-v2-runtime-evidence-canonicalization';
+import {
   signCoordinationV2Envelope,
 } from './coordination-v2-signing';
 import {
@@ -819,7 +823,7 @@ function iso(value: unknown): string {
 }
 
 function dateValue(value: unknown): Date {
-  const date = new Date(String(value));
+  const date = runtimeEvidenceDate(value);
   if (Number.isNaN(date.getTime())) fail('V2_RUNTIME_DATABASE_UNAVAILABLE');
   return date;
 }
@@ -1469,7 +1473,10 @@ export async function issueCoordinationV2RuntimeBootstrapManifest(input: {
         SELECT * FROM coordination_v2_runtime_releases WHERE id = ${prior.runtime_release_id} LIMIT 1
       `));
       if (!release) fail('V2_RUNTIME_DATABASE_UNAVAILABLE');
-      const signed = signedManifest(manifestFrom(prior, release, hostRow, await artifacts(tx as unknown as typeof db, String(release.id))));
+      const reconstructed = manifestFrom(prior, release, hostRow, await artifacts(tx as unknown as typeof db, String(release.id)));
+      const replay = selectRuntimeReplayManifest(reconstructed, String(prior.manifest_digest));
+      if (!replay) fail('V2_RUNTIME_EVIDENCE_INVALID');
+      const signed = signedManifest(replay);
       if (signed.canonicalResponseDigest !== String(prior.manifest_digest)) fail('V2_RUNTIME_EVIDENCE_INVALID');
       return { created: false, issueId: String(prior.id), expiresAt: iso(prior.expires_at), ...signed };
     }

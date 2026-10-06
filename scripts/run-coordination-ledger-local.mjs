@@ -8,6 +8,7 @@ import { Pool } from 'pg';
 
 const LOCAL_HOSTS = new Set(['127.0.0.1', 'localhost', '::1']);
 const suppliedUrl = process.env.COORDINATION_TEST_POSTGRES_URL;
+const runtimeTimestampMode = process.argv.includes('--runtime-timestamps');
 let clusterDirectory;
 let postgresProcess;
 let adminUrl;
@@ -139,14 +140,27 @@ try {
     // throwaway database's token signing. Generate a run-scoped secret here,
     // the same way the database and branch ID above are disposable.
     COORDINATION_INBOX_TOKEN_SECRET: randomBytes(32).toString('hex'),
+    ...(runtimeTimestampMode ? {
+      COORDINATOR_V2_TEST_DATABASE_URL: testUrl.toString(),
+      COORDINATOR_V2_TEST_DATABASE_DISPOSABLE: '1',
+      COORDINATOR_V2_REQUIRE_DATABASE_TESTS: '1',
+      COORDINATOR_V2_FORBIDDEN_SHARED_URL: process.env.NEON_SHARED_DATABASE_URL ?? 'not-the-disposable-database',
+    } : {}),
   };
 
   console.log('[coordination-local] applying migrations to a disposable local database');
   await run('npx', ['drizzle-kit', 'migrate'], env);
-  console.log('[coordination-local] seeding coordination fixtures and materializing the inbox');
-  await run('npx', ['tsx', 'server/scripts/setup-ci-test-database.ts'], env);
-  console.log('[coordination-local] running the full coordination validation');
-  await run('npm', ['run', 'test:coordination-ledger:run'], env);
+  if (runtimeTimestampMode) {
+    console.log('[coordination-local] running runtime timestamp proofs through the real database driver');
+    await run('npx', ['tsx', '--test', '--test-concurrency=1',
+      'server/scripts/test-coordination-v2-runtime-timestamp-replay.test.ts',
+      'server/scripts/test-coordination-v2-runtime-bootstrap-postgres.test.ts'], env);
+  } else {
+    console.log('[coordination-local] seeding coordination fixtures and materializing the inbox');
+    await run('npx', ['tsx', 'server/scripts/setup-ci-test-database.ts'], env);
+    console.log('[coordination-local] running the full coordination validation');
+    await run('npm', ['run', 'test:coordination-ledger:run'], env);
+  }
 } finally {
   await cleanup();
   console.log('[coordination-local] removed the disposable database state');
