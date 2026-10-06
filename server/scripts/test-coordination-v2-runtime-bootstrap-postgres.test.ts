@@ -388,6 +388,38 @@ test("runtime manifests survive a real PostgreSQL round trip without changing hi
         error.code === "V2_RUNTIME_ACK_SIGNATURE_INVALID");
       assert.deepEqual(await snapshot(), before);
 
+      // Response lost after commit: exact successor replay is a distinct issue,
+      // never renewal or mutation of the expired original.
+      const successorKey = randomUUID();
+      const successor = await runtime.issueCoordinationV2RuntimeBootstrapManifest({
+        hostEnrollmentId: hostId, requestKey: successorKey, protocolVersion: 1, now: expiredNow,
+      });
+      const successorReplay = await runtime.issueCoordinationV2RuntimeBootstrapManifest({
+        hostEnrollmentId: hostId, requestKey: successorKey, protocolVersion: 1, now: expiredNow,
+      });
+      assert.equal(successor.created, true);
+      assert.equal(successorReplay.created, false);
+      assert.deepEqual(successorReplay.payload, successor.payload);
+      assert.notEqual(successor.issueId, legacyId);
+      assert.equal(new Date(successor.payload.expiresAt).getTime() - expiredNow.getTime(), 300_000);
+      assert.equal(verify(null, Buffer.from(canonicalJson(successorReplay.payload)), keys.publicKey,
+        Buffer.from(successorReplay.signature, "base64")), true);
+      const withSuccessor = await snapshot();
+      assert.deepEqual(withSuccessor.filter((row) => row.id !== successor.issueId), before);
+      assert.equal(withSuccessor.filter((row) => row.request_key === successorKey).length, 1);
+      const expiredReplay = await runtime.issueCoordinationV2RuntimeBootstrapManifest({
+        hostEnrollmentId: hostId, requestKey: legacyKey, protocolVersion: 1, now: expiredNow,
+      });
+      assert.deepEqual(expiredReplay.payload, legacyPayload);
+      assert.deepEqual(await snapshot(), withSuccessor);
+      await assert.rejects(runtime.openCoordinationV2RuntimeArtifact({
+        hostEnrollmentId: hostId, issueId: legacyId, artifactId, now: expiredNow,
+      }), expiredCode);
+      await assert.rejects(runtime.acknowledgeCoordinationV2RuntimeBootstrap({
+        hostEnrollmentId: hostId, issueId: legacyId, payload: ackPayload,
+        signature: ackSignature, now: expiredNow,
+      }), expiredCode);
+
       for (const field of ["hostKeyFingerprint", "runtimeReleaseDigest", "requestKeyDigest"]) {
         const badId = randomUUID(), badKey = randomUUID();
         const badPayload = {

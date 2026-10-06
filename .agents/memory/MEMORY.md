@@ -125,7 +125,6 @@
 - [MCP SSE response framing](mcp-sse-response-framing.md) — SDK 406s without both Accept values; success responses are always SSE-framed, even for one-shot calls -- parse the data: line.
 - [Git operational gotchas](git-operational-gotchas.md) — Git scripting, historical-object recovery, and linked-worktree verification pitfalls — see topic file for each.
 - [Long validation runs can hit the poll-budget limit](validation-run-poll-budget.md) — startValidationRun can time out (POLL_BUDGET_EXCEEDED, STOPPED exitCode -1) on a 10+ minute suite -- not a real failure; use backgrounded ShellExec + Monitor instead.
-- [Duplicate detector fixture gaps](duplicate-detector-fixture-gaps.md) — one guard's self-check only proves itself; grep for sibling detectors sharing the same rule before closing the bug class
 - [JS/TS/Drizzle runtime gotchas](js-ts-drizzle-runtime-gotchas.md) — 7 sharp edges: esbuild isMain bundle collapse, ESM await-in-callback, Drizzle sql-tag dynamic-import + array binding, SQL CASE param/column mixing, lazy-regex multiline $, Omit-of-union collapse -- see topic file
 - [Alden tool-result persistence boundary](alden-tool-result-persistence.md) — raw tool-result JSON is never persisted; secret-bearing tools need instruction, not redaction
 - [CLI-to-service extraction exit semantics](cli-to-service-exit-semantics.md) — extracting a CLI script's logic for an in-process tool/service must drop every process.exit() — it would kill the whole server, not a one-shot subprocess.
@@ -134,7 +133,6 @@
 - [Synthetic fixture ID collision](synthetic-fixture-id-collision.md) — a hardcoded "surely never real" fixture value (e.g. Episode 99) can collide with real content as the system grows -- not a race, a deterministic expiry
 - [Windows PowerShell/console quirks](windows-environment-quirks.md) — Four Windows-only gotchas: corrupted piped files, missing openssl, console-close killing children, and a coordinator host script masking real HTTP errors behind one generic code.
 - [Shared-spec live-instruction-document drift](shared-spec-live-instruction-doc-drift.md) — docs/coordination-clients.md is DB-governed; a raw git edit silently diverges until synced via appendRevision.
-- [Mutation-guard scenario coverage](mutation-guard-scenario-coverage.md) — A guard's failure modes can be asymmetric (never-fires vs always-fires); one mutation only proves one direction -- test each separately.
 - [CAS failure reason: deleted vs version_mismatch](agent-memory-cas-failure-reason.md) — editEntry/editBlock's failure now reports why: deletedAt beats version comparison, so a deletion is never mistaken for a stale version.
 - [Source-control stall detection](source-control-stall-detection.md) — generic failure-count/staleness thresholds + dual-channel (ephemeral+durable) alerting beat per-state cases and the visible-only-if-watched gap.
 - [Live-status banner in MEMORY.md](live-status-banner-memory-index.md) — folds .local/ live-state into the auto-injected index; writers phrase alerts differently — match the shared substring.
@@ -143,11 +141,9 @@
 - [Shared-tool identity leak](shared-tool-identity-leak.md) — parallel branches need identity via explicit context, not a global-config read, or one gets told it's the other
 - [Source-control candidate provenance](source-control-candidate-provenance.md) — auto-sync can produce ready_to_promote too; candidateSource + drift check stop Publish shipping the unreviewed one.
 - [Agent-memory drift guard vs. concurrent writes](agent-memory-drift-guard-concurrent-writes.md) — the drift guard's "out of sync with DB" error also fires from another hat's legitimate concurrent write, not just a hand-edit -- regenerate --all before assuming a hand-edit
-- [Scanner self-test fixture race](scanner-selftest-fixture-race.md) — a scanner's live-directory scratch-file self-test can transiently race a sibling test file's whole-directory scan; confirmed intermittent, not a regression
 - [Memory-file rebase conflicts](agent-memory-rebase-conflict-resolution.md) — resolve via regenerate --all from the shared DB, not by hand-merging ours/theirs prose -- rebase's ours/theirs is reversed from merge's
 - [Real-DB channel-independence testing](postgres-trigger-fault-injection.md) — prove two best-effort DB writes fail independently with a real BEFORE INSERT trigger, not a mock
 - [Alden's shell whitelist excludes ad-hoc interpreter commands](alden-tool-whitelist.md) — Alden cannot run npx tsx or other project CLI scripts -- give him the plain HTTP/curl equivalent; stacked shared-spec reviews only need the newest one decided.
-- [Text-scan guards can flag themselves](grep-guard-self-reference-false-positive.md) — a regex-based guard's own doc comments or self-check fixture strings can match its target pattern -- exempt its own file path or it fails on itself
 - [Coordination inbox delivery only routes two actors](coordination-inbox-delivery-actor-routing.md) — agent_notes inbox projection used to hardcode luca-replit<->luca-claude-code only; fixed Sep 29 2026 to accept any actor as origin -- recipients besides those two still have no inbox at all.
 - [CAS guard testing needs a real-Postgres race test](shared-spec-cas-guard-testing.md) — InMemorySharedSpecRepository serializes transactions -- only a real Postgres test can prove a new CAS guard closes a genuine race
 - [HTML admin-route implicit status code](html-admin-route-implicit-status.md) — Express defaults to 200 when .status() is never called; an HTML confirmation page mirroring a JSON API's created-vs-replay codes needs it set explicitly per outcome.
@@ -157,3 +153,6 @@
 - [Windows signing and publisher trust](windows-signing-publisher-trust.md) — Public CA trust is not publisher approval; rotating signer certificates may prevent unattended downloaded-helper execution.
 - [Render production target](render-production-target.md) — Render is production; every builder runtime must publish through the shared Render release path.
 - [NPM override reproducibility](npm-override-reproducibility.md) — Floating overrides can break clean CI while local installs pass; inspect dependency-tool declaration drift.
+- [Coordination inbox evidence boundaries](coordination-inbox-evidence-boundaries.md) — A fresh attributed forward can unblock review; successful bounded receipt/read/reply does not explain historical invisibility.
+- [Guard self-check lessons](guard-self-check-lessons.md) — Grouped pointers: sibling detectors, asymmetric mutations, scanner fixture races, and self-matching text scans.
+- [Main workspace implementation](main-workspace-implementation.md) — Keep implementation here; isolated task-agent merges have been unreliable, while independent reviewers remain review-only.

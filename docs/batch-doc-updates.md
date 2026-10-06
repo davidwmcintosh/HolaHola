@@ -1,3 +1,22 @@
+## 2026-10-06 — Expired bootstrap replay recovery, main-workspace implementation
+
+- Approved bounded recovery is implemented in the launcher: consistency-only
+  expired intake, DPAPI create-once evidence and one successor, durable resume,
+  second-expiry observation, installed-baseline reproof, unchanged fresh gates.
+- Corrected the client request-key digest to match the server's canonical JSON
+  string convention, and enabled canonical null values for protected states.
+- Added source/mutation/parser coverage to CI and distinct-successor replay
+  checks to the verified disposable PostgreSQL service test.
+- Contract and exact independent review receipt are in
+  `docs/superpowers/specs/2026-10-06-runtime-expired-recovery-implementation.md`
+  and `docs/superpowers/plans/2026-10-06-runtime-expired-recovery-review-receipt.md`.
+- Final local source/parser suites: 38 passed. Disposable PostgreSQL: 20
+  passed. Existing service/HTTP/timestamp checks and typecheck passed.
+  Development health and landing page were verified.
+- Native helper fixture is partial and unrun; full native validation remains
+  gated downstream work. No publication, Windows run, enrolled-host retry,
+  credential operation, production repair, or coordinator session occurred.
+
 ## 2026-10-05 — Safe enrollment diagnostics, reporting-only preparation
 
 - The three enrollment HTTP catches retain `enrollment_transport`; their helper

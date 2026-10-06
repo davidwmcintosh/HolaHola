@@ -321,7 +321,7 @@ function Assert-ExactPropertySet {
 }
 
 function ConvertTo-CanonicalJson {
-    param([Parameter(Mandatory = $true)]$Value)
+    param([Parameter(Mandatory = $true)][AllowNull()]$Value)
     if ($null -eq $Value) { return 'null' }
     if ($Value -is [bool]) { return $(if ($Value) { 'true' } else { 'false' }) }
     if ($Value -is [string]) { return ($Value | ConvertTo-Json -Compress) }
@@ -555,6 +555,293 @@ function Assert-RuntimeManifestShape {
         Fail-Safe 'runtime_source_members_duplicate'
     }
 }
+
+# BEGIN COORDINATION_RUNTIME_RECOVERY_BOUNDARY
+function Get-RuntimeRecoveryDigest {
+    param([Parameter(Mandatory = $true)]$Value)
+    $hash = [Security.Cryptography.SHA256]::Create()
+    try {
+        return (($hash.ComputeHash([Text.Encoding]::UTF8.GetBytes(
+            (ConvertTo-CanonicalJson -Value $Value))) | ForEach-Object { $_.ToString('x2') }) -join '')
+    } finally { $hash.Dispose() }
+}
+
+function Assert-RuntimeRecoveryEvidence {
+    param([Parameter(Mandatory = $true)]$Envelope,
+        [Parameter(Mandatory = $true)][string]$RequestKey,
+        [Parameter(Mandatory = $true)]$Identity)
+    # Consistency only, NOT Ed25519 verification or installation authority.
+    Assert-StrictUuid -Value $RequestKey -FailureCode 'runtime_recovery_request_invalid'
+    Assert-RuntimeManifestShape -Envelope $Envelope -AllowExpired
+    if ([string]$Envelope.payload.hostKeyFingerprint -cne [string]$Identity.fingerprint -or
+        [string]$Envelope.payload.requestKeyDigest -cne (Get-RuntimeRecoveryDigest -Value $RequestKey)) {
+        Fail-Safe 'runtime_recovery_binding_invalid'
+    }
+    if ([string]$Envelope.canonicalResponseDigest -cne (Get-RuntimeRecoveryDigest -Value $Envelope.payload)) {
+        Fail-Safe 'runtime_recovery_digest_invalid'
+    }
+    if (-not [IO.File]::Exists($PinnedServerPublicKey)) { Fail-Safe 'runtime_public_key_invalid' }
+    Assert-PrivatePath -Path $PinnedServerPublicKey -Root $ApprovedWorktree
+    if ([IO.File]::ReadAllText($PinnedServerPublicKey).Trim() -cne $PinnedServerPublicKeyPem.Trim()) {
+        Fail-Safe 'runtime_public_key_invalid'
+    }
+    try {
+        $der = [Convert]::FromBase64String(($PinnedServerPublicKeyPem -replace
+            '-----BEGIN PUBLIC KEY-----|-----END PUBLIC KEY-----|\s', ''))
+        $hash = [Security.Cryptography.SHA256]::Create()
+        try { $fingerprint = ($hash.ComputeHash($der) | ForEach-Object { $_.ToString('x2') }) -join '' }
+        finally { $hash.Dispose() }
+        $signature = [Convert]::FromBase64String([string]$Envelope.signature)
+        if ($signature.Length -ne 64 -or
+            [Convert]::ToBase64String($signature) -cne [string]$Envelope.signature -or
+            [string]$Envelope.keyFingerprint -cne $fingerprint) {
+            Fail-Safe 'runtime_recovery_signature_shape'
+        }
+    } catch { Fail-Safe 'runtime_recovery_signature_shape' }
+    return ([DateTime]::Parse([string]$Envelope.payload.expiresAt).ToUniversalTime() -le [DateTime]::UtcNow)
+}
+
+function Write-RuntimeRecoveryDpapi {
+    param([Parameter(Mandatory = $true)][string]$Path,
+        [Parameter(Mandatory = $true)]$Value, [switch]$CreateOnce)
+    $full = Assert-SafePath -Path $Path -Root $RuntimeBootstrapRoot
+    $parent = Split-Path -Parent $full
+    Assert-PrivatePath -Path $parent -Root $RuntimeBootstrapRoot
+    if ([IO.File]::Exists($full)) {
+        Assert-PrivatePath -Path $full -Root $RuntimeBootstrapRoot
+        if ($CreateOnce) { Fail-Safe 'runtime_recovery_record_exists' }
+    }
+    $temporary = $full + '.' + [Guid]::NewGuid().ToString('N') + '.tmp'
+    try {
+        $json = $Value | ConvertTo-Json -Depth 30 -Compress
+        $plain = [Text.Encoding]::UTF8.GetBytes($json)
+        $cipher = [Security.Cryptography.ProtectedData]::Protect($plain, $null, $CurrentUserScope)
+        # Verify canonical round-trip before committing any state.
+        $roundTrip = [Text.Encoding]::UTF8.GetString(
+            [Security.Cryptography.ProtectedData]::Unprotect($cipher, $null, $CurrentUserScope)) |
+            ConvertFrom-Json -ErrorAction Stop
+        if ((Get-RuntimeRecoveryDigest -Value $roundTrip) -cne (Get-RuntimeRecoveryDigest -Value $Value)) {
+            Fail-Safe 'runtime_recovery_roundtrip_invalid'
+        }
+        $bytes = [Text.Encoding]::UTF8.GetBytes([Convert]::ToBase64String($cipher))
+        $stream = New-Object -TypeName IO.FileStream -ArgumentList @(
+            $temporary, [IO.FileMode]::CreateNew, [IO.FileAccess]::Write, [IO.FileShare]::None)
+        try { $stream.Write($bytes, 0, $bytes.Length); $stream.Flush($true) }
+        finally { $stream.Dispose() }
+        Assert-PrivatePath -Path $temporary -Root $RuntimeBootstrapRoot
+        if ([IO.File]::Exists($full)) {
+            Assert-PrivatePath -Path $full -Root $RuntimeBootstrapRoot
+            if ($CreateOnce) { Fail-Safe 'runtime_recovery_record_exists' }
+            [IO.File]::Replace($temporary, $full, $null)
+        } else {
+            # File.Move never replaces an existing journal.
+            [IO.File]::Move($temporary, $full)
+        }
+        Assert-PrivatePath -Path $full -Root $RuntimeBootstrapRoot
+        Assert-PrivatePath -Path $parent -Root $RuntimeBootstrapRoot
+    } catch {
+        if ($_.Exception.Message -match '^hola_coordinator_') { throw }
+        Fail-Safe 'runtime_recovery_write_failed'
+    } finally {
+        if ([IO.File]::Exists($temporary)) { Remove-Item -LiteralPath $temporary -Force -ErrorAction Stop }
+    }
+}
+
+function Get-RuntimeRecoveryRecordPath {
+    param([Parameter(Mandatory = $true)][string]$RequestKey, [switch]$Observation)
+    Assert-StrictUuid -Value $RequestKey -FailureCode 'runtime_recovery_request_invalid'
+    $prefix = if ($Observation) { 'runtime-bootstrap-expired-' } else { 'runtime-bootstrap-recovery-' }
+    return (Join-Path $RuntimeBootstrapRoot ($prefix + (Get-RuntimeRecoveryDigest -Value $RequestKey) + '.dpapi'))
+}
+
+function Assert-RuntimeRecoveryRecord {
+    param([Parameter(Mandatory = $true)]$Record,
+        [Parameter(Mandatory = $true)][string]$Endpoint,
+        [Parameter(Mandatory = $true)]$Identity, [switch]$Observation)
+    Assert-ExactPropertySet -Value $Record -Names @(
+        'version', 'label', 'endpoint', 'oldRequestKey', 'oldRequestDigest',
+        'originalEnvelope', 'installed', 'installedBaseline', 'successorRequestKey'
+    ) -FailureCode 'runtime_recovery_record_shape'
+    if ($Record.version -ne 1 -or $Record.label -cne 'unverified_expired_evidence' -or
+        $Record.endpoint -cne $Endpoint -or $Record.installed -isnot [bool] -or
+        $Record.oldRequestDigest -cne (Get-RuntimeRecoveryDigest -Value ([string]$Record.oldRequestKey))) {
+        Fail-Safe 'runtime_recovery_record_invalid'
+    }
+    if (-not (Assert-RuntimeRecoveryEvidence -Envelope $Record.originalEnvelope `
+        -RequestKey ([string]$Record.oldRequestKey) -Identity $Identity)) {
+        Fail-Safe 'runtime_recovery_record_not_expired'
+    }
+    if ($Observation) {
+        if ($Record.successorRequestKey -cne '') { Fail-Safe 'runtime_recovery_observation_invalid' }
+    } else {
+        Assert-StrictUuid -Value ([string]$Record.successorRequestKey) -FailureCode 'runtime_recovery_successor_invalid'
+        if ($Record.successorRequestKey -ceq $Record.oldRequestKey) { Fail-Safe 'runtime_recovery_successor_invalid' }
+    }
+    if (($Record.installed -and $null -eq $Record.installedBaseline) -or
+        (-not $Record.installed -and $null -ne $Record.installedBaseline)) {
+        Fail-Safe 'runtime_recovery_baseline_invalid'
+    }
+}
+
+function Get-RuntimeRecoveryBaseline {
+    # Never infer installation from an expired response or an installed flag.
+    if (-not [IO.File]::Exists($RuntimeManifest)) { Fail-Safe 'runtime_recovery_baseline_invalid' }
+    Assert-PrivatePath -Path $RuntimeManifest -Root $ApprovedWorktree
+    try { $baseline = [IO.File]::ReadAllText($RuntimeManifest) | ConvertFrom-Json -ErrorAction Stop }
+    catch { Fail-Safe 'runtime_recovery_baseline_invalid' }
+    Assert-FullyInstalledRuntimeGeneration -Manifest $baseline -EnvelopePath $RuntimeManifest -AllowExpired
+    return $baseline
+}
+
+function Remove-RuntimeRecoveryStage {
+    param([Parameter(Mandatory = $true)]$Record)
+    if (-not $Record.installed) {
+        $stage = Join-Path $ApprovedWorktree ('.runtime-bootstrap-staging-' + [string]$Record.originalEnvelope.payload.issueId)
+        if ([IO.Directory]::Exists($stage)) {
+            Assert-PrivatePath -Path $stage -Root $ApprovedWorktree
+            Remove-Item -LiteralPath $stage -Recurse -Force -ErrorAction Stop
+        } elseif ([IO.File]::Exists($stage)) { Fail-Safe 'runtime_recovery_stage_invalid' }
+    }
+}
+
+function Resume-RuntimeRecovery {
+    param([Parameter(Mandatory = $true)]$State,
+        [Parameter(Mandatory = $true)][string]$Endpoint,
+        [Parameter(Mandatory = $true)]$Identity)
+    $direct = $null
+    $parents = @()
+    Assert-PrivatePath -Path $RuntimeBootstrapRoot -Root $RuntimeBootstrapRoot
+    foreach ($file in @(Get-ChildItem -LiteralPath $RuntimeBootstrapRoot -Filter 'runtime-bootstrap-recovery-*.dpapi' -Force)) {
+        Assert-PrivatePath -Path $file.FullName -Root $RuntimeBootstrapRoot
+        if ($file.PSIsContainer) { Fail-Safe 'runtime_recovery_record_path' }
+        $record = Read-DpapiJson -Path $file.FullName -FailureCode 'runtime_recovery_record_corrupted'
+        Assert-RuntimeRecoveryRecord -Record $record -Endpoint $Endpoint -Identity $Identity
+        if ($file.Name -cne [IO.Path]::GetFileName(
+            (Get-RuntimeRecoveryRecordPath -RequestKey ([string]$record.oldRequestKey)))) {
+            Fail-Safe 'runtime_recovery_record_path'
+        }
+        if ($record.oldRequestKey -ceq $State.requestKey) { $direct = $record }
+        if ($record.successorRequestKey -ceq $State.requestKey) { $parents += $record }
+    }
+    foreach ($file in @(Get-ChildItem -LiteralPath $RuntimeBootstrapRoot -Filter 'runtime-bootstrap-expired-*.dpapi' -Force)) {
+        Assert-PrivatePath -Path $file.FullName -Root $RuntimeBootstrapRoot
+        if ($file.PSIsContainer) { Fail-Safe 'runtime_recovery_record_path' }
+        $observation = Read-DpapiJson -Path $file.FullName -FailureCode 'runtime_recovery_record_corrupted'
+        Assert-RuntimeRecoveryRecord -Record $observation -Endpoint $Endpoint -Identity $Identity -Observation
+        if ($file.Name -cne [IO.Path]::GetFileName(
+            (Get-RuntimeRecoveryRecordPath -RequestKey ([string]$observation.oldRequestKey) -Observation))) {
+            Fail-Safe 'runtime_recovery_record_path'
+        }
+        if ($observation.oldRequestKey -ceq $State.requestKey -and $null -ne $direct) {
+            $observedBinding = [ordered]@{ envelope = $observation.originalEnvelope
+                installed = $observation.installed; baseline = $observation.installedBaseline }
+            $decisionBinding = [ordered]@{ envelope = $direct.originalEnvelope
+                installed = $direct.installed; baseline = $direct.installedBaseline }
+            if ((Get-RuntimeRecoveryDigest -Value $observedBinding) -cne
+                (Get-RuntimeRecoveryDigest -Value $decisionBinding)) {
+                Fail-Safe 'runtime_recovery_observation_conflict'
+            }
+        }
+    }
+    if ($parents.Count -gt 1) { Fail-Safe 'runtime_recovery_ambiguous' }
+    $record = if ($null -ne $direct) { $direct } elseif ($parents.Count -eq 1) { $parents[0] } else { $null }
+    if ($null -eq $record) { return [ordered]@{ state = $State; baseline = $null; rotated = $false } }
+    $baseline = $null
+    if ([string]::IsNullOrWhiteSpace([string]$State.issueId)) {
+        if ($State.installed -isnot [bool] -or $State.installed -ne $record.installed -or
+            $null -ne $State.manifest -or $null -ne $State.ackPayload -or $State.ackSignature -cne '') {
+            Fail-Safe 'runtime_recovery_state_conflict'
+        }
+        if ($record.installed) {
+            $baseline = Get-RuntimeRecoveryBaseline
+            if ((Get-RuntimeRecoveryDigest -Value $baseline) -cne
+                (Get-RuntimeRecoveryDigest -Value $record.installedBaseline)) {
+                Fail-Safe 'runtime_recovery_baseline_conflict'
+            }
+        }
+    } elseif ($null -ne $direct) { Fail-Safe 'runtime_recovery_state_conflict' }
+    else {
+        # Saved successor evidence must bind before any old-stage cleanup.
+        if ($State.installed -isnot [bool] -or $null -eq $State.manifest -or
+            [string]$State.issueId -cne [string]$State.manifest.payload.issueId) {
+            Fail-Safe 'runtime_recovery_state_conflict'
+        }
+        Assert-RuntimeRecoveryEvidence -Envelope $State.manifest `
+            -RequestKey ([string]$State.requestKey) -Identity $Identity | Out-Null
+    }
+    $rotated = $false
+    if ($null -ne $direct) {
+        $State = [ordered]@{
+            endpoint = $Endpoint; requestKey = [string]$record.successorRequestKey
+            issueId = ''; manifest = $null; installed = [bool]$record.installed
+            ackPayload = $null; ackSignature = ''
+        }
+        Write-RuntimeRecoveryDpapi -Path $RuntimeRequestPath -Value $State
+        $rotated = $true
+    }
+    # Cleanup retries even when the successor already became active.
+    Remove-RuntimeRecoveryStage -Record $record
+    return [ordered]@{ state = $State; baseline = $baseline; rotated = $rotated }
+}
+
+function Save-RuntimeExpiredEvidence {
+    param([Parameter(Mandatory = $true)]$State,
+        [Parameter(Mandatory = $true)]$Envelope,
+        [Parameter(Mandatory = $true)]$Identity, [switch]$ObserveOnly)
+    if (-not (Assert-RuntimeRecoveryEvidence -Envelope $Envelope `
+        -RequestKey ([string]$State.requestKey) -Identity $Identity)) {
+        Fail-Safe 'runtime_recovery_not_expired'
+    }
+    if ($State.installed -isnot [bool] -or -not [string]::IsNullOrWhiteSpace([string]$State.issueId) -or
+        $null -ne $State.manifest -or $null -ne $State.ackPayload -or $State.ackSignature -cne '') {
+        Fail-Safe 'runtime_recovery_state_conflict'
+    }
+    $baseline = if ($State.installed) { Get-RuntimeRecoveryBaseline } else { $null }
+    # A second expiry gets a separate create-once observation, not a second successor.
+    $path = Get-RuntimeRecoveryRecordPath -RequestKey ([string]$State.requestKey) -Observation:$ObserveOnly
+    $record = [ordered]@{
+        version = 1; label = 'unverified_expired_evidence'; endpoint = [string]$State.endpoint
+        oldRequestKey = [string]$State.requestKey
+        oldRequestDigest = Get-RuntimeRecoveryDigest -Value ([string]$State.requestKey)
+        originalEnvelope = $Envelope; installed = [bool]$State.installed
+        installedBaseline = $baseline
+        successorRequestKey = $(if ($ObserveOnly) { '' } else { [Guid]::NewGuid().ToString() })
+    }
+    # If there was an earlier bounded stop, bind its observation before retirement.
+    $observationPath = Get-RuntimeRecoveryRecordPath -RequestKey ([string]$State.requestKey) -Observation
+    if (-not $ObserveOnly -and [IO.File]::Exists($observationPath)) {
+        Assert-PrivatePath -Path $observationPath -Root $RuntimeBootstrapRoot
+        $observation = Read-DpapiJson -Path $observationPath -FailureCode 'runtime_recovery_record_corrupted'
+        Assert-RuntimeRecoveryRecord -Record $observation -Endpoint $State.endpoint -Identity $Identity -Observation
+        if ((Get-RuntimeRecoveryDigest -Value $observation.originalEnvelope) -cne
+            (Get-RuntimeRecoveryDigest -Value $Envelope) -or $observation.installed -ne $State.installed -or
+            (Get-RuntimeRecoveryDigest -Value $observation) -cne (Get-RuntimeRecoveryDigest -Value (
+                [ordered]@{ version = 1; label = $record.label; endpoint = $record.endpoint
+                    oldRequestKey = $record.oldRequestKey; oldRequestDigest = $record.oldRequestDigest
+                    originalEnvelope = $Envelope; installed = $record.installed
+                    installedBaseline = $baseline; successorRequestKey = '' }))) {
+            Fail-Safe 'runtime_recovery_observation_conflict'
+        }
+    }
+    if ([IO.File]::Exists($path)) {
+        Assert-PrivatePath -Path $path -Root $RuntimeBootstrapRoot
+        $existing = Read-DpapiJson -Path $path -FailureCode 'runtime_recovery_record_corrupted'
+        Assert-RuntimeRecoveryRecord -Record $existing -Endpoint $State.endpoint -Identity $Identity -Observation:$ObserveOnly
+        $record.successorRequestKey = $existing.successorRequestKey
+        if ((Get-RuntimeRecoveryDigest -Value $existing) -cne (Get-RuntimeRecoveryDigest -Value $record)) {
+            Fail-Safe 'runtime_recovery_record_conflict'
+        }
+        return $existing
+    }
+    Write-RuntimeRecoveryDpapi -Path $path -Value $record -CreateOnce
+    $persisted = Read-DpapiJson -Path $path -FailureCode 'runtime_recovery_record_corrupted'
+    Assert-RuntimeRecoveryRecord -Record $persisted -Endpoint $State.endpoint -Identity $Identity -Observation:$ObserveOnly
+    if ((Get-RuntimeRecoveryDigest -Value $persisted) -cne (Get-RuntimeRecoveryDigest -Value $record)) {
+        Fail-Safe 'runtime_recovery_roundtrip_invalid'
+    }
+    return $persisted
+}
+# END COORDINATION_RUNTIME_RECOVERY_BOUNDARY
 
 function Invoke-PinnedManifestVerifier {
     param(
@@ -1041,6 +1328,7 @@ function Initialize-HolaCoordinatorRuntime {
         $requestState = $null
         $installedBaseline = $null
         $reuseInstalledGeneration = $false
+        $generationRotations = 0
         if ([IO.File]::Exists($RuntimeRequestPath)) {
             $requestState = Read-DpapiJson -Path $RuntimeRequestPath -FailureCode 'runtime_request_corrupted'
             Assert-ExactPropertySet -Value $requestState -Names @(
@@ -1051,6 +1339,13 @@ function Initialize-HolaCoordinatorRuntime {
                 [string]$requestState.requestKey -notmatch '^[0-9a-fA-F-]{36}$') {
                 Fail-Safe 'runtime_request_authority_corrupted'
             }
+            $resumed = Resume-RuntimeRecovery -State $requestState -Endpoint $endpointBase -Identity $identity
+            $requestState = $resumed.state
+            if ($resumed.rotated) { $generationRotations++ }
+            if ($null -ne $resumed.baseline) {
+                $installedBaseline = $resumed.baseline
+                $reuseInstalledGeneration = $true
+            }
             if ([bool]$requestState.installed -and
                 -not [string]::IsNullOrWhiteSpace([string]$requestState.issueId)) {
                 try {
@@ -1060,6 +1355,7 @@ function Initialize-HolaCoordinatorRuntime {
                     Fail-Safe 'runtime_request_manifest_corrupted'
                 }
                 if ($savedExpiry -le [DateTime]::UtcNow) {
+                    if ($generationRotations -ge 1) { Fail-Safe 'runtime_recovery_rotation_limit' }
                     $installedBaseline = $requestState.manifest
                     # The old issue is expired, but the already-installed
                     # generation remains eligible only after full local proof.
@@ -1075,7 +1371,8 @@ function Initialize-HolaCoordinatorRuntime {
                         ackSignature = ''
                     }
                     $reuseInstalledGeneration = $true
-                    Write-DpapiJsonAtomic -Path $RuntimeRequestPath -Value $requestState
+                    Write-RuntimeRecoveryDpapi -Path $RuntimeRequestPath -Value $requestState
+                    $generationRotations++
                 }
             } elseif (-not [bool]$requestState.installed -and
                 -not [string]::IsNullOrWhiteSpace([string]$requestState.issueId)) {
@@ -1086,6 +1383,7 @@ function Initialize-HolaCoordinatorRuntime {
                     Fail-Safe 'runtime_request_manifest_corrupted'
                 }
                 if ($savedExpiry -le [DateTime]::UtcNow) {
+                    if ($generationRotations -ge 1) { Fail-Safe 'runtime_recovery_rotation_limit' }
                     $expiredStage = Join-Path $ApprovedWorktree (
                         '.runtime-bootstrap-staging-' + [string]$requestState.issueId)
                     if ([IO.Directory]::Exists($expiredStage)) {
@@ -1103,7 +1401,8 @@ function Initialize-HolaCoordinatorRuntime {
                         ackPayload = $null
                         ackSignature = ''
                     }
-                    Write-DpapiJsonAtomic -Path $RuntimeRequestPath -Value $requestState
+                    Write-RuntimeRecoveryDpapi -Path $RuntimeRequestPath -Value $requestState
+                    $generationRotations++
                 }
             }
         } else {
@@ -1124,23 +1423,41 @@ function Initialize-HolaCoordinatorRuntime {
                 ackSignature = ''
             }
             # This is deliberately before the first network request.
-            Write-DpapiJsonAtomic -Path $RuntimeRequestPath -Value $requestState
+            Write-RuntimeRecoveryDpapi -Path $RuntimeRequestPath -Value $requestState
         }
         if ([string]::IsNullOrWhiteSpace([string]$requestState.issueId)) {
             $issuePath = '/api/coordination/v2/host/runtime-bootstrap/issues'
-            $issueBody = ([ordered]@{
-                requestKey = [string]$requestState.requestKey
-                protocolVersion = 1
-            } | ConvertTo-Json -Compress)
-            $issueResponse = Invoke-HostAuthenticatedRequest -Method 'POST' -Endpoint $endpointBase `
-                -Path $issuePath -Identity $identity -Body $issueBody
+            for ($issueAttempt = 0; $issueAttempt -lt 2; $issueAttempt++) {
+                $issueBody = ([ordered]@{
+                    requestKey = [string]$requestState.requestKey
+                    protocolVersion = 1
+                } | ConvertTo-Json -Compress)
+                $issueResponse = Invoke-HostAuthenticatedRequest -Method 'POST' -Endpoint $endpointBase `
+                    -Path $issuePath -Identity $identity -Body $issueBody
+                $expiredReply = Assert-RuntimeRecoveryEvidence -Envelope $issueResponse `
+                    -RequestKey ([string]$requestState.requestKey) -Identity $identity
+                if (-not $expiredReply) { break }
+                if ($generationRotations -ge 1) {
+                    Save-RuntimeExpiredEvidence -State $requestState -Envelope $issueResponse `
+                        -Identity $identity -ObserveOnly | Out-Null
+                    Fail-Safe 'runtime_recovery_rotation_limit'
+                }
+                # Original envelope journal is durable before state changes or POST.
+                Save-RuntimeExpiredEvidence -State $requestState -Envelope $issueResponse -Identity $identity | Out-Null
+                $resumed = Resume-RuntimeRecovery -State $requestState -Endpoint $endpointBase -Identity $identity
+                if (-not $resumed.rotated) { Fail-Safe 'runtime_recovery_state_conflict' }
+                $requestState = $resumed.state
+                $generationRotations++
+                $installedBaseline = $resumed.baseline
+                $reuseInstalledGeneration = $null -ne $installedBaseline
+            }
             Assert-RuntimeManifestShape -Envelope $issueResponse
             if ([string]$issueResponse.payload.hostKeyFingerprint -cne [string]$identity.fingerprint) {
                 Fail-Safe 'runtime_manifest_binding_invalid'
             }
             $requestState.issueId = [string]$issueResponse.payload.issueId
             $requestState.manifest = $issueResponse
-            Write-DpapiJsonAtomic -Path $RuntimeRequestPath -Value $requestState
+            Write-RuntimeRecoveryDpapi -Path $RuntimeRequestPath -Value $requestState
             if ($reuseInstalledGeneration) {
                 if (Test-RuntimeGenerationEvidenceEquivalent -First $installedBaseline -Second $issueResponse) {
                     $candidateEnvelope = Join-Path $RuntimeBootstrapRoot (
@@ -1173,7 +1490,7 @@ function Initialize-HolaCoordinatorRuntime {
                     $requestState.installed = $false
                     $requestState.ackPayload = $null
                     $requestState.ackSignature = ''
-                    Write-DpapiJsonAtomic -Path $RuntimeRequestPath -Value $requestState
+                    Write-RuntimeRecoveryDpapi -Path $RuntimeRequestPath -Value $requestState
                 }
             }
         }
@@ -1182,9 +1499,7 @@ function Initialize-HolaCoordinatorRuntime {
         if ([string]$manifest.payload.hostKeyFingerprint -cne [string]$identity.fingerprint) {
             Fail-Safe 'runtime_manifest_host_binding_invalid'
         }
-        $requestKeyDigest = ([Security.Cryptography.SHA256]::Create().ComputeHash(
-            [Text.Encoding]::UTF8.GetBytes([string]$requestState.requestKey)) |
-            ForEach-Object { $_.ToString('x2') }) -join ''
+        $requestKeyDigest = Get-RuntimeRecoveryDigest -Value ([string]$requestState.requestKey)
         if ($requestKeyDigest -cne [string]$manifest.payload.requestKeyDigest) {
             Fail-Safe 'runtime_manifest_request_binding_invalid'
         }
@@ -1232,7 +1547,7 @@ function Initialize-HolaCoordinatorRuntime {
             Install-RuntimeGenerationAtomic -StageRoot $stageRoot
             Write-InstalledManifestAtomic -Path $RuntimeManifest -Manifest $manifest
             $requestState.installed = $true
-            Write-DpapiJsonAtomic -Path $RuntimeRequestPath -Value $requestState
+            Write-RuntimeRecoveryDpapi -Path $RuntimeRequestPath -Value $requestState
         }
         # Never sign or submit an acknowledgement until the installed
         # generation has been re-proven from the persisted signed envelope.
@@ -1267,7 +1582,7 @@ function Initialize-HolaCoordinatorRuntime {
             $requestState.ackPayload = $ackPayload
             $requestState.ackSignature = $ackSignature
             # Persist the exact signed retry authority before submitting it.
-            Write-DpapiJsonAtomic -Path $RuntimeRequestPath -Value $requestState
+            Write-RuntimeRecoveryDpapi -Path $RuntimeRequestPath -Value $requestState
         }
         $ackPath = '/api/coordination/v2/host/runtime-bootstrap/issues/' +
             [Uri]::EscapeDataString([string]$requestState.issueId) + '/acknowledge'

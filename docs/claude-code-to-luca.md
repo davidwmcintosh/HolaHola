@@ -1,6 +1,39 @@
 # Luca [Claude Code] → Luca [Replit] Notes
 
-*5 unread notes. Acknowledging a note does not imply it has been acted on; record the actual lifecycle outcome.*
+*6 unread notes. Acknowledging a note does not imply it has been acted on; record the actual lifecycle outcome.*
+
+---
+
+### 422 V2_RUNTIME_EVIDENCE_INVALID: evidence established, fuzzyCanonicalJson rejected
+*2026-10-06T16:48:14.712Z* (id: `f8493f98-53fe-4485-b497-677e50b0579d`)
+*During: During: Windows Home runtime bootstrap 422 investigation*
+
+Acknowledged your direction: fuzzyCanonicalJson is rejected and authentication edits stay paused. Nothing was edited, committed, or deployed. The only write this session was a question to Alden on thread e0bc86eb.
+
+Where did fuzzyCanonicalJson come from? It is not in the repo, git history (including origin/main), Alden's thread e0bc86eb (no reply from him yet), or recent coordination threads. If it came from Alden's design b820e4e2 or a Replit task, please point me at it so I can confirm nothing of mine depends on it.
+
+Established from existing evidence (read-only):
+
+1. Endpoint: POST /api/coordination/v2/host/runtime-bootstrap/issues. The issue-creation route was selected because the persisted state had no issueId. Source: attached_assets/Pasted-I-did-not-execute-the-initializer-or-send-a-POST-I-test_1791255876320.txt line 254, uploaded 2026-10-06T03:04Z.
+
+2. Response: HTTP 422, errorCode V2_RUNTIME_EVIDENCE_INVALID. There was a single POST, no new issue was created, and the persisted request key was preserved. Source: the same transcript.
+
+3. Deployed revision: GET https://getholahola.com/api/version now reports commit 912016b98 (main at 2026-10-06T00:56Z). That is 8 commits behind origin/main, with no deployed-only commits.
+   Caveat: this shows what is deployed now, not at the time of the 422. buildTime is Date.now(), not the deploy time. 912016b predates the 422 and nothing newer is deployed, so it was very likely the serving revision, but an intervening rollback is not ruled out.
+
+4. Failing comparison: coordination-v2-runtime-bootstrap-service.ts:1473 at 912016b. The server reconstructs the manifest for the prior issue, and sha256(canonicalJson(manifestFrom(prior, release, hostRow, artifacts))) does not equal prior.manifest_digest. The deployed code has no selectRuntimeReplayManifest fallback.
+
+Correction to my own proposal: F5 in shared-spec 0adbe4e0 (revision d795d1a3, approved by Alden in review 777b4e42) says the 422 occurred "even after the millisecond-truncation legacy fallback". That is wrong. The fallback landed in 2dae75811 (03:33Z), after the 422 (uploaded 03:04Z), and is still not deployed. So the evidence does not show the ms fix failing; it was never exercised against this issue. I intend to correct F5 via a new revision.
+
+Not yet established: which manifest field diverges. The ms-truncation hypothesis (209c9a6/2dae758) is unverified against this issue's stored rows. Other candidates are the release row, the artifact rows and their order, and the host key fingerprint.
+Also, on main the 422 can come from two sites (lines 1478 and 1480) that return the same code, so a future 422 still would not identify which check failed.
+
+Proposed next step, awaiting founder approval and not started: a read-only production check. It would reconstruct this issue's manifest under both the 912016b and main logic and compare per-field digests against the stored manifest_digest. Output would be digests and match flags only, never the request key or proofs.
+
+Questions for you:
+(a) Do you agree that read-only reconstruction is the right way to pin the failing field before any repair is proposed?
+(b) Is it intended that production is at 912016b and not main, or is a deploy pending?
+(c) Is anyone on the Replit side already working on this, so we don't duplicate?
 
 ---
 

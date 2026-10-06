@@ -110,6 +110,7 @@ commands.splice(safetyInsertion, 0,
   'npx tsx --test server/services/coordination-v2-runtime-bootstrap-service.test.ts',
   'npx tsx --test server/scripts/test-coordination-v2-runtime-bootstrap-http.test.ts',
   'npx tsx --test server/scripts/test-coordination-v2-runtime-timestamp-replay.test.ts',
+  'npx tsx --test server/scripts/test-coordination-v2-runtime-expired-recovery-static.test.ts',
   'npx tsx --test server/scripts/test-coordination-v2-windows-runtime-bootstrap-static.test.ts',
 
   // Coordination CLI cross-invocation credential cache: lets a runtime run

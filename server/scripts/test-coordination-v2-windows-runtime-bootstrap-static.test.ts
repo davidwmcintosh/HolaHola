@@ -29,7 +29,7 @@ test("runtime initializer has only the HTTPS endpoint authority", () => {
 test("runtime bootstrap proves custody, closed responses, pinned verification, and safe output", () => {
   const runtime = boundary("RUNTIME_BOOTSTRAP");
   assert.match(source, /DataProtectionScope\]::CurrentUser/);
-  assert.match(runtime, /Write-DpapiJsonAtomic\s+-Path\s+\$RuntimeRequestPath/);
+  assert.match(runtime, /Write-RuntimeRecoveryDpapi\s+-Path\s+\$RuntimeRequestPath/);
   assert.match(runtime, /Persist the exact signed retry authority/);
   assert.match(runtime, /Assert-ExactPropertySet/);
   assert.match(runtime, /canonicalResponseDigest/);
@@ -194,7 +194,7 @@ test("initialization never trusts a local acknowledgement and rotates expired un
   assert.match(runtime, /savedExpiry/);
   assert.match(runtime, /expiredStage/);
   assert.match(runtime, /requestKey = \[Guid\]::NewGuid\(\)\.ToString\(\)/);
-  assert.match(runtime, /Write-DpapiJsonAtomic -Path \$RuntimeRequestPath/);
+  assert.match(runtime, /Write-RuntimeRecoveryDpapi -Path \$RuntimeRequestPath/);
   assert.match(runtime, /if \(-not \[bool\]\$requestState\.installed/);
 });
 

@@ -174,3 +174,21 @@ tooling approval. Do not rewrite files to force a match, silently accept a
 different pin, or infer a checkout revision from a file hash. This diagnosis
 does not permit normalization of signed artifacts: approved helper prefixes and
 signed-package hashes must still match their exact independent bytes.
+
+
+## Linux PowerShell evidence boundary
+
+Linux PowerShell parsing is not evidence of Windows DPAPI, ACL, Authenticode,
+atomic filesystem, or initializer behavior. Keep parser/structural checks
+separate from native execution receipts.
+
+**Why:** On 2026-10-06, the Nix PowerShell executable parsed the full launcher
+and exercised core parameter binding, but two synthetic pure-function runs
+stalled during cmdlet loading (the traced run stopped at Join-Path). The cause
+was not established. The failed runs were not counted as passes.
+
+**How to apply:** Bound child-process execution time, report stalls honestly,
+and do not infer a Windows failure or success from a Linux cmdlet stall.
+Respect native publication/authorization gates even when native fixtures are
+synthetic. Do not add a hanging exploratory check to mandatory CI.
+
