@@ -17736,7 +17736,12 @@ Return ONLY valid JSON, no markdown, no explanation.`;
             founderName,
             engineOverride: eng,
           });
-          return { engine: eng, response: result.response, toolsUsed: result.toolsUsed };
+          return {
+            engine: eng,
+            response: result.response,
+            toolsUsed: result.toolsUsed,
+            coordinationReadReceipts: result.coordinationReadReceipts ?? [],
+          };
         })
       );
 

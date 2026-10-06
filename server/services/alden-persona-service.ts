@@ -4,6 +4,7 @@ import { buildAldenSystemPrompt } from "../alden-system-prompt";
 import { ALDEN_TOOLS, executeAldenTool, toAnthropicAldenTools } from "./alden-functions";
 import { buildAldenWorkspaceContext } from "./alden-workspace-context";
 import { aldenActivity } from "./alden-activity-emitter";
+import { aldenCoordinationReadReceipt, serializeAldenToolResult } from "./alden-tool-result";
 import { costTracker } from "./cost-tracker";
 import { getUserDb } from "../db";
 import { aldenConfig, aldenEngineSwitches } from "@shared/schema";
@@ -122,6 +123,7 @@ interface ContinuationInfo {
 interface AldenChatResponse {
   response: string;
   toolsUsed: string[];
+  coordinationReadReceipts?: NonNullable<ReturnType<typeof aldenCoordinationReadReceipt>>[];
   continuation?: ContinuationInfo;
 }
 
@@ -152,6 +154,7 @@ export async function generateAldenResponse(params: AldenChatParams): Promise<Al
 async function generateAldenResponseAnthropic(params: AldenChatParams): Promise<AldenChatResponse> {
   const { userMessage, conversationHistory = [], founderName = 'David', timezone, learningContext, conversationId } = params;
   const toolsUsed: string[] = [];
+  const coordinationReadReceipts: NonNullable<ReturnType<typeof aldenCoordinationReadReceipt>>[] = [];
 
   try {
     const claude = getAnthropicClient();
@@ -237,10 +240,9 @@ async function generateAldenResponseAnthropic(params: AldenChatParams): Promise<
           const toolResult = await executeAldenTool(tu.name, (tu.input as Record<string, any>) || {}, { conversationId, engine: 'anthropic' });
           aldenActivity.push({ type: 'tool_result', name: tu.name, success: true, timestamp: new Date().toISOString() });
 
-          const rawResult = JSON.stringify(toolResult.data);
-          const truncatedResult = rawResult.length > 12_000
-            ? rawResult.slice(0, 12_000) + `\n... [truncated: ${rawResult.length - 12_000} chars omitted]`
-            : rawResult;
+          const truncatedResult = serializeAldenToolResult(tu.name, toolResult.data);
+          const receipt = aldenCoordinationReadReceipt(tu.name, toolResult.data, (tu.input as Record<string, unknown>) || {});
+          if (receipt) coordinationReadReceipts.push(receipt);
 
           toolResults.push({ type: 'tool_result', tool_use_id: tu.id, content: truncatedResult });
 
@@ -294,7 +296,7 @@ async function generateAldenResponseAnthropic(params: AldenChatParams): Promise<
 
     aldenActivity.push({ type: 'response_complete', timestamp: new Date().toISOString() });
 
-    return { response: aldenResponse, toolsUsed, continuation: pendingContinuation };
+    return { response: aldenResponse, toolsUsed, coordinationReadReceipts, continuation: pendingContinuation };
   } catch (error: any) {
     console.error('[Alden Chat/Claude] Error:', error.message);
     return {
@@ -307,6 +309,7 @@ async function generateAldenResponseAnthropic(params: AldenChatParams): Promise<
 async function generateAldenResponseGemini(params: AldenChatParams): Promise<AldenChatResponse> {
   const { userMessage, conversationHistory = [], founderName = 'David', timezone, learningContext, conversationId } = params;
   const toolsUsed: string[] = [];
+  const coordinationReadReceipts: NonNullable<ReturnType<typeof aldenCoordinationReadReceipt>>[] = [];
 
   try {
     const ai = getGeminiClient();
@@ -413,10 +416,9 @@ async function generateAldenResponseGemini(params: AldenChatParams): Promise<Ald
           const toolResult = await executeAldenTool(toolName, toolArgs, { conversationId, engine: 'gemini' });
           aldenActivity.push({ type: 'tool_result', name: toolName, success: true, timestamp: new Date().toISOString() });
 
-          const rawResult = JSON.stringify(toolResult.data);
-          const truncatedResult = rawResult.length > 12_000
-            ? rawResult.slice(0, 12_000) + `\n... [truncated: ${rawResult.length - 12_000} chars omitted]`
-            : rawResult;
+          const truncatedResult = serializeAldenToolResult(toolName, toolResult.data);
+          const receipt = aldenCoordinationReadReceipt(toolName, toolResult.data, toolArgs);
+          if (receipt) coordinationReadReceipts.push(receipt);
 
           functionResponses.push({
             functionResponse: {
@@ -477,7 +479,7 @@ async function generateAldenResponseGemini(params: AldenChatParams): Promise<Ald
       console.log(`[Alden Chat] Continuation queued: "${pendingContinuation.phaseTitle}" → "${pendingContinuation.nextPrompt.substring(0, 60)}..."`);
     }
 
-    return { response: aldenResponse, toolsUsed, continuation: pendingContinuation };
+    return { response: aldenResponse, toolsUsed, coordinationReadReceipts, continuation: pendingContinuation };
   } catch (error: any) {
     console.error('[Alden Chat] Error:', error.message);
     return {

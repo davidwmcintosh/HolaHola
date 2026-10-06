@@ -1,51 +1,47 @@
 # Alden ↔ Agent Handoff
 
-## From Agent — last updated: Sun, Oct 4, 3:53 AM
+## From Agent — last updated: Tue, Oct 6, 7:09 PM
 
-2026-10-04 — Offline Windows onboarding finalization (assigned implementation)
+2026-10-06 — Main-session messaging repair, publication pending.
 
-Implemented scripts/finalize-runtime-onboarding-package.mjs plus strict shared
-package integrity checks and scripts/verify-runtime-onboarding-authenticode.ps1.
-Builder remains unsigned and refuses nonempty output. Finalize requires externally
-pinned approval/unsigned baselines, preserves source revision/dirty/release and
-byte-exact native helper prefix, checks all file and signer pins, native cache-only
-Windows trust and verified timestamp policy, then recalculates manifest hashes.
-Verify is read-only and requires an independent final manifest pin.
+David approved working through the five-step messaging repair here. Task 1701
+remains separate and incomplete: native offline Authenticode fixture approval,
+independent pins and receipts are still missing. No reauthorization, signing,
+trust/policy/mark change, installation retry or publication was performed.
 
-No acquisition, signing, trust/policy change, transfer/archive, native smoke,
-source/runtime publication, V2 change, enrollment or live credentials. The native
-store source is unchanged. Offline missing-cache/revocation errors fail closed.
-The historical pilot used normalized comparison; this tool requires byte-exact
-preservation and does not claim the old pilot can pass that stricter gate.
+The source tool-result cutoffs can discard inbox message bodies and paging
+metadata. Development now caps Alden inbox pages at five, budgets previews by
+escaped JSON size, retains the genuine service window, and exposes the exact
+event body through participant-authorized bounded read_coordination_message
+chunks. Both providers and background worker use non-slicing coordination
+transport; priority-task responses include non-secret execution receipts.
 
-Design independently approved by Alden: document
-df768822-2334-49ff-a1d7-4b04f0bd9198, revision
-e24f289d-e3e2-4306-ae0f-4db0850cf454, review
-3644028c-a9d3-4448-bbb6-d75b6b3d3da8, content hash
-35090a0605a0897bc2837f30421d4d0980c352a685769853b1b90cb0ee568b60.
-Approval independently reread from the canonical API: decision actor alden,
-state approved; no publication. This is design approval, not execution approval.
-No originating coordination thread or inbox note is linked from the assignment.
-The linked review and document were refreshed after Alden's decision; no pending
-collaborator question/offer. Correct live inbox query uses to=agent, not the
-actor ID. The approved-design notification was found, incorporated and marked
-read (verified marked=1). Linked thread final reads:
-cd7a2c2b-b945-4ab4-93ed-84caeeee929b (review request), last-seen/final global
-sequence 1272; 5777dbac-8d54-4ebe-9ec5-2b4538aaf0c0 (decision), last-seen/final
-global sequence 1274. Decision delivery event 1274 proves inbox storage only;
-independent API reread proves Alden's approved review. No response is owed by
-the approval notification; no questions or offers are outstanding.
+The new hermetic suite exercises tokens, escaped text, Unicode chunk
+reassembly, authorization denial and exact-event lookup; registered in both
+CI entrypoints. Both Alden providers actually executed inbox and first-chunk
+read tools in development for original event 8540fde3 (global sequence 1312).
+These are development probes, not published acceptance or native receipts.
+Production still reports commit 912016b987260f105c030431b4aebd511ee3d815.
 
-43 hermetic checks passed; typecheck passed; git diff --check passed. Health:
-All checks passed — safe to mark done. Landing page loaded. CI runner includes
-new hermetic tests. Native Windows WinVerifyTrust/probe acceptance is unproven
-in this Linux workspace and remains separately authorized follow-up work;
-no synthetic result is presented as a native signature receipt.
+Next: finish final checks, request separate source/runtime publication approval,
+then verify original report retrieval and reply on thread e0bc86eb directly
+with LCC as the participant who can independently inspect it. Do not infer
+historical incident cause from a successful bounded read.
 
-Operator schema and commands: docs/runtime-onboarding-offline-finalization.md.
-Evidence boundaries updated in docs/runtime-onboarding-clients.md. Existing
-Windows signing/publisher-trust memory reviewed; no new non-code-derived durable
-lesson was found and no memory-file hand-edit was made.
+Final verification status: all 15 hermetic transport tests and whitespace
+checks passed; provider projection guard passed. After timeout/workspace
+interruptions and a 2 GiB heap-exhaustion failure, the final full tsc --noEmit
+with a 4 GiB heap cap passed (exit 0). The app serves HTTP 200 and renders.
+Final receipt instrumentation is confirmed in the running app. Anthropic
+read the original 7169-character report in eight contiguous chunks ending
+complete=true. Both providers advanced inbox pages. The final Gemini probe's
+submitted-token hash matched the returned prior token hash; one earlier
+signature rejection remains unattributed because its input was not captured.
+Token validation remains unchanged. Publication still requires separate
+approval and exact release-scope checks; no source commit or publish performed.
+LCC inventory/hash request is stored as event
+6e2f3dd0-fc56-4f8d-a427-6ba207e7572f at thread sequence 17/global 1333;
+adapter delivery state was not_applicable, and no acknowledgement was seen.
 ## From Agent — historical recovery pause diagnostics — Oct 3, 2026
 
 Capture health and Markdown status now explain historical recovery pauses by
@@ -10197,3 +10193,17 @@ Pre-build Alden consultation and startup briefing endpoints returned HTTP 502
 while the development app was stopped; no consultation approval is claimed.
 The existing Start application workflow was then started successfully.
 No coordination thread or agent-note source is linked in this assignment.
+
+## From Agent — October 5, 2026: expired replacement credential recovery prepared locally
+
+David approved a server-guided repair, distinct from Windows diagnostics. The source now accepts only correctly shaped expired three-field replacement material or legacy two-field material; a read-only two-minute signed context uses the enrolled host key to obtain the next generation from server history. Exact local request bytes are persisted before submission and reused on retry. The server checks fresh generations under the existing host lock after exact replay; no migration, founder approval bypass, key change, runtime initialization, session, policy/trust change, or production publication. The approved design is docs/superpowers/specs/2026-10-05-coordinator-expired-replacement-recovery-design.md, matching shared-spec document ac33b73e-b723-4643-9d33-94ee66b06c9c revision a287f794-0699-4bd5-b653-86f4f7707d98 (SHA256 3c77053c2600fa240d2dc4c5b09b2643d93d895d2c9464c34d743a69c8049bb7), independently approved by Alden review 5b9ec177-ea78-4dd0-bd7b-413e6f885edf.
+
+Evidence: 21 focused checks, typecheck, health verifier Summary: All checks passed — safe to mark done; three no-skip reauthorization PostgreSQL tests on disposable local migrated DB passed, cluster removed. Live dev endpoint rejects malformed, token-only and signed nonexistent-host requests with no-store responses; app preview loads. Windows PowerShell 5.1 regression script expanded but NOT natively run; no LITTLENEMO commands, native execution-policy bypass, Windows diagnostics, Render publication, or source/runtime publication happened. This is local preparation only: changed bytes need a fresh exact-byte founder-gated shared GitHub→Render source and runtime publication, then separately approved native diagnostics/launch and founder reauthorization before anyone can claim host recovery works on the real machine. Existing published receipts do not cover this source.
+
+## From Agent — October 5, 2026: automatic safe recovery diagnostics prepared locally
+
+David selected automatic safe reporting rather than a separate diagnostic command. The four recovery HTTP failures now report only bounded typed HTTP status, exact allowlisted reasons and fixed guidance; JSON is bounded to 4096 characters and response-stream capture to 4097. A public wrapper preserves recognized local codes and recomputes bounded transport details; unexpected local exceptions become host_recovery_failed without raw CLR/PowerShell text. The internal lifecycle, successful return shapes, request bytes/retries, founder approval, DPAPI custody and server protocol are unchanged. Enrollment's three raw diagnostic call sites intentionally remain outside this scope. Parameter binding and unsigned/restricted script-loading errors are outside the wrapper.
+
+Evidence: 24 focused Node static/contract/validation checks passed, zero skips; typecheck passed; health Summary: All checks passed — safe to mark done. Application restarted and public landing loaded. Added synthetic PowerShell secret-sentinel/body-size/parser/stream/transport/public-wrapper cases through the existing Windows reauthorization test entry point, but NO native PowerShell execution is claimed. Native Windows PowerShell 5.1 proof remains pending. No actual Windows command, host/credential operation, session/runtime initialization, policy/trust change, or publication was performed. Fresh exact-byte founder-gated shared GitHub-to-Render source/runtime publication is still required before native rollout.
+
+Independent review: shared-spec document 22334310-21f2-4845-b81a-07f4771038d1, revision 551525e8-3bcf-4936-bc2a-9e93f8e15674, review fae2ac49-60b2-4063-bc12-86018c5443c2, SHA256 d7a4f36258abfdc813cf43ac38e9b75786b29ae312e915b80dc823d2aa2e8853; Alden approved as his own actor with no required fixes, verified by the review API. The earlier post-restart priority request returned startup 503 and did not count as a review; the later HTTP 200 request and approved record are the evidence. Workspace design docs/superpowers/specs/2026-10-05-safe-recovery-diagnostics-design.md matches the approved bytes.

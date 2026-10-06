@@ -1,3 +1,15 @@
+## 2026-10-06 — Lossless Alden coordination message transport
+
+- Inbox discovery returns at most five bounded messages/previews with intact
+  service paging tokens. Oversized bodies have an explicit read-only,
+  participant-authorized chunk retrieval path and a canonical content digest.
+- Both chat providers and the background worker preserve structured
+  coordination results; oversized envelopes fail explicitly instead of slicing.
+- See `docs/alden-coordination-message-transport.md` for operation and acceptance
+  boundaries. Development tests are distinct from deployed handoff evidence and
+  native Windows offline-verifier receipts. No publication or Windows operation
+  is authorized or claimed by this entry.
+
 ## 2026-10-04 — Offline Windows onboarding finalization
 
 - Added a separately invoked, reviewed offline finalization/verification tool:

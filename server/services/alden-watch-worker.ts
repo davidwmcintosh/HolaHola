@@ -16,6 +16,7 @@ import { getUserDb } from "../db";
 import { aldenNotifications, aiCostLogs, aldenWatchConfig, voiceSessions } from "@shared/schema";
 import { sql as drizzleSql, eq, desc, and, gte, isNotNull } from "drizzle-orm";
 import { executeAldenTool, toAnthropicAldenTools } from "./alden-functions";
+import { isCompleteAldenResultTool, serializeAldenToolResult } from "./alden-tool-result";
 import {
   captureSnapshot,
   detectAnomalies,
@@ -523,11 +524,22 @@ Respond with NOTHING or a single line in SEVERITY:FINGERPRINT:Message format:`,
         } catch (e: any) {
           toolOutput = { error: `Tool "${block.name}" failed: ${e.message}` };
         }
-        toolResults.push({
-          type: 'tool_result',
-          tool_use_id: block.id,
-          content: JSON.stringify(toolOutput).substring(0, 3000),
-        });
+        try {
+          toolResults.push({
+            type: 'tool_result',
+            tool_use_id: block.id,
+            content: isCompleteAldenResultTool(block.name)
+              ? serializeAldenToolResult(block.name, toolOutput.data ?? toolOutput)
+              : JSON.stringify(toolOutput).substring(0, 3000),
+          });
+        } catch (e: any) {
+          toolResults.push({
+            type: 'tool_result',
+            tool_use_id: block.id,
+            is_error: true,
+            content: e.message,
+          });
+        }
       }
 
       // Append tool results as user turn
