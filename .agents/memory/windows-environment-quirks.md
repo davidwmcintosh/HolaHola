@@ -120,3 +120,58 @@ Windows PowerShell may not expose compression types transitively when only the F
 **Why:** A real Windows session accepted the FileSystem assembly load but failed to resolve ZipArchive after opening the destination. Assembly availability must be checked before filesystem side effects, not inferred from a related assembly.
 
 **How to apply:** Preflight all required .NET types in Windows instructions before opening outputs. Preserve failed outputs and use a fresh create-new destination rather than silently overwriting or deleting them.
+
+## Execution policy after a new PowerShell session
+
+A Process-scope execution-policy adjustment does not persist into a new PowerShell session. Windows recovery instructions must check the current policy scopes before loading the launcher, rather than assuming an earlier temporary adjustment remains effective.
+
+**Why:** A repeated launcher-loading failure was caused by effective Restricted policy despite a verified source hash and no download-zone marker. Earlier session-only adjustments did not establish a permanent host configuration.
+
+**How to apply:** Run read-only policy checks first. If no Group Policy restriction is shown, verified local source with no download-zone marker may use Process-scope RemoteSigned only after explicit approval for that adjustment. Do not infer authority for Bypass, permanent policy changes, file unblocking, or credential approval.
+
+
+## Clock freshness during Windows credential recovery
+
+A Windows recovery validation rejection with no saved request can happen before request persistence, during the signed recovery-context lookup. Check clock offset independently before diagnosing a declaration serialization defect or changing protected state.
+
+**Why:** A real host was about 1.5 seconds ahead of an NTP reference and received a declaration-invalid rejection with no local draft. After independent samples showed the offset had disappeared, the unchanged published client and server accepted the next generation. The resync command itself reported failure and a stopped service, so acceptance does not establish what corrected the clock or that ongoing synchronization works.
+
+**How to apply:** Use bounded clock and recovery metadata diagnostics, never decrypted request dumps. Separate observed clock alignment from time-service health and command success. Obtain explicit approval for system-clock adjustments; do not broaden timestamp validation or change time-service configuration based on this incident.
+
+
+## Self-contained operator diagnostics
+
+Operator-facing Windows diagnostics should be self-contained and read-only. Do not depend on coordinator globals or helper functions having survived in the caller's PowerShell session. Use an explicitly grounded checkout path and standard PowerShell/.NET APIs where possible.
+
+**Why:** A recovery ACL diagnostic could not inspect the checkout because its assumed coordinator path variable was empty in the operator's window. The diagnostic had not cleared that variable; relying on implicit session state introduced a separate failure while investigating the original one.
+
+**How to apply:** Make diagnostic prerequisites explicit, avoid loading lifecycle code solely to inspect filesystem metadata, and represent unresolved identities as unknown rather than trusted. Keep success messages inside the same guarded block as the checks so later pasted commands cannot print a false verification success after an earlier error.
+
+
+## Primitive filesystem mutation masks
+
+Classify filesystem mutation using primitive mutating rights, not broad composite grants such as FullControl or Modify. Those composites also contain read bits, so including them in a write predicate can reject a legitimately read-only ACL.
+
+**Why:** A native Windows checkout with an untrusted ReadAndExecute/Synchronize ACE was rejected as unsafe write access. Independent architectural review confirmed the integrity boundary is preventing untrusted modification; DPAPI CurrentUser separately protects encrypted custody material against decryption by other users.
+
+**How to apply:** Preserve trusted-owner/writer identities and unrelated custody checks. Test native ACL semantics in disposable Windows fixtures and prove both false-positive and missed-mutation regressions. Do not remove legitimate read-only host permissions to accommodate a classifier defect, and do not claim native success from text scanning alone.
+
+
+## Tooling checkout hashes versus Git blob line endings
+
+Windows tooling-checkout hashes can differ from reviewed Git-blob hashes solely
+because of CRLF line endings. Diagnose this by computing the exact deterministic
+CRLF rendering of the reviewed blob and comparing its hash, rather than
+assuming either code drift or equivalence.
+
+**Why:** A native Windows tooling inventory produced different hashes from the
+reviewed Linux files, but the reported hashes exactly matched their CRLF-only
+renderings. An unexplained mismatch and a demonstrated checkout transformation
+need different treatment.
+
+**How to apply:** Record both byte representations explicitly in the proposed
+tooling approval. Do not rewrite files to force a match, silently accept a
+different pin, or infer a checkout revision from a file hash. This diagnosis
+does not permit normalization of signed artifacts: approved helper prefixes and
+signed-package hashes must still match their exact independent bytes.
+
