@@ -237,3 +237,22 @@ The OpenAI runtime extension means an external Codex coding runtime, not an Open
 
 **How to apply:** Follow the existing Antigravity-first sequencing rule before resuming Codex work. Reuse the proven end-to-end onboarding and authority controls; do not treat an MCP connection alone as completed onboarding.
 
+
+## Standing requirement: Alden-led adaptive onboarding
+
+Every new runtime should receive guided onboarding from Alden: instruction,
+project/team orientation, and customization for the LLM/runtime's actual needs.
+A fixed checklist or a one-time briefing is not sufficient by itself.
+
+**Why:** On 2026-10-06 the founder explicitly required the system to be as
+flexible as possible and asked Alden to walk any newly added runtime through
+the process, including whatever customization its LLM/runtime needs.
+
+**How to apply:** Adapt the guidance to verified execution capabilities,
+available tools/transports, and the runtime's instruction-loading behavior.
+Keep shared identity, authentication, authorization, attribution, and delivery
+verification boundaries consistent. Complete an actual addressed-message,
+read, and reply exchange rather than declaring onboarding complete from a
+registry entry or claimed briefing. This requirement does not authorize
+credential issuance, automatic trust/policy changes, or bypassing actor setup.
+
