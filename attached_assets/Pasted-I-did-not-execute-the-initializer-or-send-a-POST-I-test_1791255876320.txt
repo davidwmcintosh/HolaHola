@@ -1,0 +1,275 @@
+I did not execute the initializer or send a POST. I tested the error reporter under Windows PowerShell 5.1 with synthetic HTTP 422, DNS, and TLS errors; it returned only the status and safe code, or the exception type and network status.
+The review draft below uses the launcher’s Invoke-RestMethod call and captures $_ directly in its catch. It runs the initializer’s existing checks, restricts the request to the route selected by persisted state, and stops immediately after that one POST attempt. It blocks if state is missing, would require a new request key, or would require intermediate installation work. A successful Invoke-RestMethod response does not expose its exact HTTP status in Windows PowerShell 5.1, so the success report says so explicitly.
+Do not run this until you approve the POST. If the selected route is the issue-creation route and it succeeds, the server may create a bootstrap issue; the diagnostic stops before persisting the response or continuing to downloads, installation, or acknowledgement.
+# Review draft only. Running this sends one authenticated POST.
+& {
+    $ErrorActionPreference = 'Stop'
+    $diag = @{
+        Summary = $null
+        TargetPath = $null
+        TargetKind = $null
+        RequestKey = $null
+        SavedState = $null
+    }
+    $identity = $null
+
+    try {
+        . 'C:\Users\David\HolaHola\scripts\hola-coordinator.ps1'
+
+        # Require existing persisted state. This prevents the initializer from
+        # generating a new request key for this diagnostic.
+        if (-not [IO.File]::Exists($RuntimeRequestPath)) {
+            throw 'diagnostic precondition failed'
+        }
+
+        $saved = Read-DpapiJson -Path $RuntimeRequestPath `
+            -FailureCode 'runtime_request_corrupted'
+        Assert-ExactPropertySet -Value $saved -Names @(
+            'endpoint', 'requestKey', 'issueId', 'manifest', 'installed',
+            'ackPayload', 'ackSignature'
+        ) -FailureCode 'runtime_request_shape'
+
+        if ([string]$saved.endpoint -cne 'https://getholahola.com' -or
+            [string]$saved.requestKey -notmatch '^[0-9a-fA-F-]{36}$') {
+            throw 'diagnostic precondition failed'
+        }
+
+        $diag.RequestKey = [string]$saved.requestKey
+        $diag.SavedState = $saved
+
+        if ([string]::IsNullOrWhiteSpace([string]$saved.issueId)) {
+            $diag.TargetKind = 'issue'
+            $diag.TargetPath = '/api/coordination/v2/host/runtime-bootstrap/issues'
+        } else {
+            # Only allow the acknowledgement route when the runtime is already
+            # installed and its exact acknowledgement payload is already saved.
+            if ([string]$saved.issueId -notmatch '^[0-9a-fA-F-]{36}$' -or
+                $saved.installed -isnot [bool] -or -not $saved.installed -or
+                $null -eq $saved.ackPayload -or
+                [string]::IsNullOrWhiteSpace([string]$saved.ackSignature)) {
+                throw 'diagnostic precondition failed'
+            }
+
+            try {
+                $expiry = [DateTime]::Parse(
+                    [string]$saved.manifest.payload.expiresAt).ToUniversalTime()
+            } catch {
+                throw 'diagnostic precondition failed'
+            }
+            if ($expiry -le [DateTime]::UtcNow) {
+                throw 'diagnostic precondition failed'
+            }
+
+            $diag.TargetKind = 'acknowledgement'
+            $diag.TargetPath = '/api/coordination/v2/host/runtime-bootstrap/issues/' +
+                [Uri]::EscapeDataString([string]$saved.issueId) + '/acknowledge'
+        }
+
+        function Get-SafeBootstrapPostFailure {
+            param([Parameter(Mandatory = $true)]$ErrorRecord)
+
+            $current = $null
+            $exceptionProperty = $ErrorRecord.PSObject.Properties['Exception']
+            if ($null -ne $exceptionProperty) {
+                $current = $exceptionProperty.Value
+            }
+
+            while ($null -ne $current) {
+                $responseProperty = $current.PSObject.Properties['Response']
+                if ($null -ne $responseProperty -and
+                    $null -ne $responseProperty.Value) {
+                    $response = $responseProperty.Value
+                    $statusProperty = $response.PSObject.Properties['StatusCode']
+
+                    if ($null -ne $statusProperty -and
+                        $null -ne $statusProperty.Value) {
+                        $status = [int]$statusProperty.Value
+                        $body = $null
+
+                        $detailsProperty = $ErrorRecord.PSObject.Properties['ErrorDetails']
+                        if ($null -ne $detailsProperty -and
+                            $null -ne $detailsProperty.Value) {
+                            $messageProperty = $detailsProperty.Value.PSObject.Properties['Message']
+                            if ($null -ne $messageProperty) {
+                                $body = [string]$messageProperty.Value
+                            }
+                        }
+
+                        if ([string]::IsNullOrWhiteSpace($body)) {
+                            $streamMethod = $response.PSObject.Methods['GetResponseStream']
+                            if ($null -ne $streamMethod) {
+                                try {
+                                    $stream = $response.GetResponseStream()
+                                    if ($null -ne $stream) {
+                                        $reader = New-Object System.IO.StreamReader($stream)
+                                        try { $body = $reader.ReadToEnd() }
+                                        finally { $reader.Dispose() }
+                                    }
+                                } catch {
+                                    $body = $null
+                                }
+                            }
+                        }
+
+                        $code = 'unavailable'
+                        if (-not [string]::IsNullOrWhiteSpace($body)) {
+                            try {
+                                $payload = $body | ConvertFrom-Json -ErrorAction Stop
+                                $candidate = $null
+                                $codeProperty = $payload.PSObject.Properties['code']
+
+                                if ($null -ne $codeProperty) {
+                                    $candidate = [string]$codeProperty.Value
+                                } else {
+                                    $errorProperty = $payload.PSObject.Properties['error']
+                                    if ($null -ne $errorProperty) {
+                                        if ($errorProperty.Value -is [string]) {
+                                            $candidate = [string]$errorProperty.Value
+                                        } elseif ($null -ne $errorProperty.Value) {
+                                            $nestedCode = $errorProperty.Value.PSObject.Properties['code']
+                                            if ($null -ne $nestedCode) {
+                                                $candidate = [string]$nestedCode.Value
+                                            }
+                                        }
+                                    }
+                                }
+
+                                if ($candidate -cmatch '^[A-Za-z0-9][A-Za-z0-9_.-]{0,79}$') {
+                                    $code = $candidate
+                                }
+                            } catch {
+                                $code = 'unavailable'
+                            }
+                        }
+
+                        return ('HTTP status=' + $status + '; errorCode=' + $code)
+                    }
+                }
+
+                if ($current -is [System.Net.WebException]) {
+                    return ('networkExceptionType=' + $current.GetType().Name +
+                        '; networkStatus=' + [string]$current.Status)
+                }
+
+                $innerProperty = $current.PSObject.Properties['InnerException']
+                if ($null -eq $innerProperty) { break }
+                $current = $innerProperty.Value
+            }
+
+            if ($null -eq $current) {
+                return 'networkExceptionType=unknown; networkStatus=unknown'
+            }
+            return ('networkExceptionType=' + $current.GetType().Name +
+                '; networkStatus=unknown')
+        }
+
+        function Invoke-HostAuthenticatedRequest {
+            param(
+                [Parameter(Mandatory = $true)][string]$Method,
+                [Parameter(Mandatory = $true)][string]$Endpoint,
+                [Parameter(Mandatory = $true)][string]$Path,
+                [Parameter(Mandatory = $true)]$Identity,
+                [AllowEmptyString()][string]$Body = ''
+            )
+
+            # Block every request except the single route selected from saved state.
+            if ($Method -cne 'POST' -or
+                $Endpoint.TrimEnd('/') -cne 'https://getholahola.com' -or
+                $Path -cne $diag.TargetPath) {
+                throw 'diagnostic scope guard'
+            }
+
+            # Verify the initializer supplied the already-persisted key/payload.
+            $wire = $Body | ConvertFrom-Json -ErrorAction Stop
+            if ($diag.TargetKind -eq 'issue') {
+                Assert-ExactPropertySet -Value $wire -Names @(
+                    'requestKey', 'protocolVersion'
+                ) -FailureCode 'diagnostic_payload_mismatch'
+                if ([string]$wire.requestKey -cne $diag.RequestKey -or
+                    [int]$wire.protocolVersion -ne 1) {
+                    throw 'diagnostic payload guard'
+                }
+            } else {
+                Assert-ExactPropertySet -Value $wire -Names @(
+                    'payload', 'signature'
+                ) -FailureCode 'diagnostic_payload_mismatch'
+                if ([string]$wire.signature -cne [string]$diag.SavedState.ackSignature -or
+                    (ConvertTo-CanonicalJson -Value $wire.payload) -cne
+                    (ConvertTo-CanonicalJson -Value $diag.SavedState.ackPayload)) {
+                    throw 'diagnostic payload guard'
+                }
+            }
+
+            $signature = $Identity.rsa.SignData(
+                [Text.Encoding]::UTF8.GetBytes([string]$Identity.accessToken),
+                [Security.Cryptography.CryptoConfig]::MapNameToOID('SHA256'))
+
+            $headers = @{
+                'x-coordination-v2-host-token' = [string]$Identity.accessToken
+                'x-coordination-v2-host-proof' = [Convert]::ToBase64String($signature)
+            }
+
+            try {
+                # Same request method and options as the launcher.
+                $null = Invoke-RestMethod -Method $Method `
+                    -Uri ($Endpoint.TrimEnd('/') + $Path) `
+                    -Headers $headers -ContentType 'application/json' -Body $Body `
+                    -UseBasicParsing -MaximumRedirection 0 -ErrorAction Stop
+
+                $diag.Summary = 'method=POST route=' + $Path +
+                    ' HTTP status=success (exact status unavailable from Invoke-RestMethod); errorCode=none'
+                throw 'diagnostic stop after target POST'
+            } catch {
+                # Capture the original Invoke-RestMethod error directly here.
+                $originalError = $_
+                $diag.Summary = 'method=POST route=' + $Path + ' ' +
+                    (Get-SafeBootstrapPostFailure -ErrorRecord $originalError)
+                throw 'diagnostic stop after target POST'
+            }
+        }
+
+        # The initializer retains its existing security checks, identity,
+        # request key, payload construction, and signing flow.
+        $null = Initialize-HolaCoordinatorRuntime -Endpoint 'https://getholahola.com'
+    } catch {
+        if (-not [string]::IsNullOrWhiteSpace([string]$diag.Summary)) {
+            $diag.Summary
+        } else {
+            'Diagnostic stopped before the target POST; no request result.'
+        }
+    }
+}
+The request wrapper exists only inside the child scope and does not edit the checkout. The synthetic test passed; the POST diagnostic remains unexecuted and awaits your review and approval.
+
+
+9:01 PM
+
+
+
+
+
+
+
+
+method=POST route=/api/coordination/v2/host/runtime-bootstrap/issues HTTP status=422; errorCode=V2_RUNTIME_EVIDENCE_INVALID
+
+
+
+
+
+
+
+9:03 PM
+
+
+
+
+
+
+Worked for 48s
+
+
+
+The 422 is an HTTP rejection, not a transport failure. In the local server code, V2_RUNTIME_EVIDENCE_INVALID is returned when the server finds an existing issue for this host and persisted request key, recomputes its manifest, and gets a canonical digest that differs from the digest stored with that issue ([service code (line 1473)](/C:/Users/David/HolaHola/server/services/coordination-v2-runtime-bootstrap-service.ts:1473)).
+That replay branch fails before inserting another issue. The POST did not create a new bootstrap issue, and the diagnostic preserved the existing request state. The mismatch points to inconsistent evidence for the existing issue; the response alone doesn’t identify which evidence changed.
+Keep the persisted request key and payload intact. A new key could create another issue, while retrying this same key is likely to return the same rejection until the existing issue’s evidence is investigated. No further request or state change was made.
