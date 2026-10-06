@@ -7,6 +7,10 @@ import pg from "pg";
 import {
   CoordinationV2HostAuthError,
   submitCoordinationV2HostReauthorizationRequest,
+  getCoordinationV2HostRecoveryContext,
+  approveCoordinationV2HostReauthorization,
+  issueCoordinationV2HostReauthorizationChallenge,
+  completeCoordinationV2HostReauthorization,
 } from "../services/coordination-v2-host-auth-service";
 import { canonicalJson } from "../services/coordination-policy-canonicalization";
 import { closeDbConnections } from "../db";
@@ -277,6 +281,37 @@ test("reauthorization service is idempotent and pre-insert failures append nothi
       ],
     );
 
+    const contextInput = (minimumGeneration = 1, selectedHost = hostId) => {
+      const value = { kind: "host_credential_recovery_context", contextKey: randomUUID(),
+        issuedAt: now.toISOString(), expiresAt: new Date(now.getTime() + 120_000).toISOString(),
+        protocolVersion: 1, hostId: selectedHost, keyFingerprint: fingerprint, minimumGeneration };
+      return { declaration: value, signature: sign("RSA-SHA256", Buffer.from(canonicalJson(value)), privateKey).toString("base64"),
+        publicKey: publicKeyJson, keyFingerprint: fingerprint, now };
+    };
+    const rowCounts = async () => (await client.query(
+      `SELECT (SELECT count(*) FROM coordination_v2_host_reauthorization_requests) AS requests,
+              (SELECT count(*) FROM coordination_v2_host_reauthorization_challenges) AS challenges,
+              (SELECT count(*) FROM coordination_v2_host_credentials) AS credentials,
+              (SELECT count(*) FROM coordination_v2_sessions) AS sessions`,
+    )).rows[0];
+    const beforeContext = await rowCounts();
+    const freshContext = contextInput();
+    const freshMetadata = await getCoordinationV2HostRecoveryContext(freshContext);
+    assert.deepEqual(Object.keys(freshMetadata).sort(), ["contextKey", "expiresAt", "issuedAt", "nextGeneration"]);
+    assert.equal(freshMetadata.contextKey, freshContext.declaration.contextKey);
+    assert.equal(freshMetadata.nextGeneration, 1);
+    assert.equal((await getCoordinationV2HostRecoveryContext(contextInput(2))).nextGeneration, 2,
+      "locally retired malformed generation is preserved as a floor, not server history");
+    await assert.rejects(getCoordinationV2HostRecoveryContext(contextInput(1, `missing-${randomUUID()}`)),
+      (error: unknown) => error instanceof CoordinationV2HostAuthError && error.code === "V2_HOST_ENROLLMENT_NOT_FOUND");
+    await client.query("UPDATE coordination_v2_host_enrollments SET status = 'revoked', revoked_at = $2 WHERE id = $1",
+      [hostEnrollmentId, now]);
+    await assert.rejects(getCoordinationV2HostRecoveryContext(contextInput()),
+      (error: unknown) => error instanceof CoordinationV2HostAuthError && error.code === "V2_HOST_ENROLLMENT_REVOKED");
+    await client.query("UPDATE coordination_v2_host_enrollments SET status = 'active', revoked_at = NULL WHERE id = $1",
+      [hostEnrollmentId]);
+    assert.deepEqual(await rowCounts(), beforeContext, "context calls must append no authority");
+
     const first = await submitCoordinationV2HostReauthorizationRequest(submission);
     const repeated = await submitCoordinationV2HostReauthorizationRequest(submission);
     assert.equal(repeated.requestId, first.requestId);
@@ -292,20 +327,16 @@ test("reauthorization service is idempotent and pre-insert failures append nothi
       [hostEnrollmentId],
     )).rows[0].count), 1);
 
-    const countBeforeFailures = Number((await client.query(
-      "SELECT count(*)::integer AS count FROM coordination_v2_host_reauthorization_requests",
-    )).rows[0].count);
     const expectServiceCode = async (
       value: Parameters<typeof submitCoordinationV2HostReauthorizationRequest>[0],
       code: string,
     ) => {
+      const beforeFailure = await rowCounts();
       await assert.rejects(
         submitCoordinationV2HostReauthorizationRequest(value),
         (error: unknown) => error instanceof CoordinationV2HostAuthError && error.code === code,
       );
-      assert.equal(Number((await client.query(
-        "SELECT count(*)::integer AS count FROM coordination_v2_host_reauthorization_requests",
-      )).rows[0].count), countBeforeFailures);
+      assert.deepEqual(await rowCounts(), beforeFailure);
     };
 
     const overlong = {
@@ -351,9 +382,75 @@ test("reauthorization service is idempotent and pre-insert failures append nothi
       keyFingerprint: fingerprint,
       now,
     }, "V2_HOST_REAUTH_SIGNATURE_INVALID");
+
+    const beforePendingContext = await rowCounts();
+    await assert.rejects(getCoordinationV2HostRecoveryContext(contextInput()),
+      (error: unknown) => error instanceof CoordinationV2HostAuthError && error.code === "V2_HOST_REAUTH_PENDING_CONFLICT");
+    assert.deepEqual(await rowCounts(), beforePendingContext, "lookup must not retire a pending request");
+    await assert.rejects(approveCoordinationV2HostReauthorization({
+      requestId: first.requestId, founderActor: "test-agent", founderRole: "agent", now,
+    }), (error: unknown) => error instanceof CoordinationV2HostAuthError && error.code === "V2_HOST_FOUNDER_REQUIRED");
+
+    const complete = async (requestId: string, key: string) => {
+      await approveCoordinationV2HostReauthorization({
+        requestId, founderActor: "synthetic-founder", founderRole: "founder", now,
+      });
+      const status = await issueCoordinationV2HostReauthorizationChallenge({ requestId, requestKey: key, now });
+      assert.equal(status.status, "approved");
+      assert.ok("challenge" in status && status.challenge);
+      const challenge = status.challenge;
+      const proof = sign("RSA-SHA256", Buffer.from(canonicalJson({
+        kind: "host_credential_reauthorization_challenge", ...challenge,
+      })), privateKey).toString("base64");
+      const issued = await completeCoordinationV2HostReauthorization({
+        requestId, requestKey: key, challengeId: challenge.challengeId,
+        nonce: challenge.nonce, signature: proof, now,
+      });
+      assert.deepEqual(Object.keys(issued).sort(), ["accessToken", "expiresAt"]);
+      assert.ok(new Date(issued.expiresAt) > now);
+    };
+    const newSubmission = (generation: number) => {
+      const value = { ...declaration, requestKey: randomUUID(), requestGeneration: generation };
+      return { ...submission, declaration: value,
+        signature: sign("RSA-SHA256", Buffer.from(canonicalJson(value)), privateKey).toString("base64") };
+    };
+    await complete(first.requestId, requestKey);
+    assert.equal((await getCoordinationV2HostRecoveryContext(contextInput())).nextGeneration, 2);
+    const secondInput = newSubmission(2);
+    const second = await submitCoordinationV2HostReauthorizationRequest(secondInput);
+    await complete(second.requestId, secondInput.declaration.requestKey);
+    const beforeHistoryLookup = await rowCounts();
+    assert.equal((await getCoordinationV2HostRecoveryContext(contextInput())).nextGeneration, 3,
+      "completed generation 2 plus missing local state must produce generation 3");
+    assert.equal((await getCoordinationV2HostRecoveryContext(contextInput(5))).nextGeneration, 5);
+    assert.deepEqual(await rowCounts(), beforeHistoryLookup);
+    assert.equal((await submitCoordinationV2HostReauthorizationRequest(submission)).requestId, first.requestId,
+      "exact old replay remains idempotent after newer generations");
+    await expectServiceCode(newSubmission(1), "V2_HOST_REAUTH_GENERATION_CONFLICT");
+    await expectServiceCode(newSubmission(2), "V2_HOST_REAUTH_GENERATION_CONFLICT");
+
+    const contenders = [newSubmission(3), newSubmission(3)];
+    const outcomes = await Promise.allSettled(contenders.map(submitCoordinationV2HostReauthorizationRequest));
+    assert.equal(outcomes.filter((result) => result.status === "fulfilled").length, 1);
+    const loser = outcomes.find((result) => result.status === "rejected");
+    assert.ok(loser?.status === "rejected" && loser.reason instanceof CoordinationV2HostAuthError);
+    assert.equal(loser.reason.code, "V2_HOST_IDEMPOTENCY_CONFLICT");
+    const winnerIndex = outcomes.findIndex((result) => result.status === "fulfilled");
+    const winner = outcomes[winnerIndex];
+    assert.ok(winner.status === "fulfilled");
+    assert.equal((await submitCoordinationV2HostReauthorizationRequest(contenders[winnerIndex])).requestId,
+      winner.value.requestId, "winning persisted request resumes unchanged");
+    assert.equal(Number((await client.query(
+      "SELECT count(*)::integer AS count FROM coordination_v2_host_reauthorization_requests WHERE host_enrollment_id = $1",
+      [hostEnrollmentId],
+    )).rows[0].count), 3);
   } finally {
     await client.query(
       "DELETE FROM coordination_v2_host_reauthorization_requests WHERE host_enrollment_id = $1",
+      [hostEnrollmentId],
+    ).catch(() => undefined);
+    await client.query(
+      "DELETE FROM coordination_v2_host_credentials WHERE host_enrollment_id = $1",
       [hostEnrollmentId],
     ).catch(() => undefined);
     await client.query(

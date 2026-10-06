@@ -340,3 +340,31 @@ mtime_ms = 1791092642532
 storage_uri = "gcs://replit-rams-assets-kirk/rams/assets/repl:3ca2376d-c3dc-490a-a375-6b2f97f7c281/8070e146-f0fc-4068-b08b-d0e1ec892314/66046424-eacc-4e8d-95e9-1b3c83387c8b"
 storage_version_token = "1791092650047137"
 content_type = "text/markdown"
+
+[[outputs]]
+id = "vuFKE0D3F2deQWqru80Z-"
+uri = "file://docs/superpowers/specs/2026-10-05-coordinator-acl-write-mask-design.md"
+type = "text"
+title = "Windows ACL guard correction — reviewed design"
+description = "Alden approved this exact design. Primitive write rights replace broad composite masks; native Windows tests and founder publication gates are preserved. No executable code has changed yet."
+logical_id = "ed2a9a1c-11ee-402b-9b5a-4419706a5d4e"
+content_hash = "sha256:4cde5c06d93d5fe8c90ec7d2a82653a512ff8f5e8ebdcbfea87328c51fbd400f"
+size = 4581
+mtime_ms = 1791240810695
+storage_uri = "gcs://replit-rams-assets-kirk/rams/assets/repl:3ca2376d-c3dc-490a-a375-6b2f97f7c281/ed2a9a1c-11ee-402b-9b5a-4419706a5d4e/5e09a7f6-d858-41db-936d-9785f594c5e7"
+storage_version_token = "1791240922784105"
+content_type = "text/markdown"
+
+[[outputs]]
+id = "WjGSXHJ5Nt-5hbziBXyJQ"
+uri = "file://docs/superpowers/specs/2026-10-05-runtime-timestamp-replay-repair-design.md"
+type = "text"
+title = "Reviewed timestamp replay repair design"
+description = "Independently approved design and regression-test plan. Application code and executable tests are not yet implemented."
+logical_id = "a69d9b2c-319e-4ea1-96c6-38b3adcf4463"
+content_hash = "sha256:9378708d89709642d46031f0fc16de1179537c2afa8d531b60335adcfb80620d"
+size = 7074
+mtime_ms = 1791256593022
+storage_uri = "gcs://replit-rams-assets-kirk/rams/assets/repl:3ca2376d-c3dc-490a-a375-6b2f97f7c281/a69d9b2c-319e-4ea1-96c6-38b3adcf4463/976d1a41-ba7b-4cb1-aad6-1892cb754661"
+storage_version_token = "1791256594352452"
+content_type = "text/markdown"

@@ -3,6 +3,9 @@ import { readFileSync } from "node:fs";
 import test from "node:test";
 import { fileURLToPath } from "node:url";
 import pg from "pg";
+import { generateKeyPairSync, randomUUID, sign, verify } from "node:crypto";
+import { canonicalJson } from "../services/coordination-policy-canonicalization";
+import { runtimeEvidenceDigest } from "../services/coordination-v2-runtime-evidence-canonicalization";
 
 // COORDINATOR_V2_TEST_DATABASE_URL (not the ambient NEON_SHARED_DATABASE_URL,
 // which is already set in a normal dev shell as the app's own database) is
@@ -241,6 +244,177 @@ async function insertRevocation(
     [revocationId, releaseId, requestKey, digest("a")],
   );
 }
+
+test("runtime manifests survive a real PostgreSQL round trip without changing historical evidence", async (context) => {
+  if (!disposableTarget()) {
+    context.skip("run through the disposable Coordinator V2 database gate");
+    return;
+  }
+  // Import the DB-touching service only AFTER proving the disposable target.
+  const { db, closeDbConnections } = await import("../db");
+  const runtime = await import("../services/coordination-v2-runtime-bootstrap-service");
+  const keys = generateKeyPairSync("ed25519");
+  const hostKeys = generateKeyPairSync("rsa", { modulusLength: 2048 });
+  const previousSigningKey = process.env.COORDINATION_V2_SERVER_SIGNING_PRIVATE_KEY;
+  process.env.COORDINATION_V2_SERVER_SIGNING_PRIVATE_KEY =
+    keys.privateKey.export({ format: "pem", type: "pkcs8" }).toString();
+  const originalTransaction = db.transaction;
+  const originalExecute = db.execute;
+  const rollback = new Error("synthetic runtime fixture rollback");
+  try {
+    await originalTransaction.call(db, async (tx) => {
+      // Keep service calls on the actual driver's transaction: all fixtures,
+      // including service-created issues, disappear in ONE final rollback.
+      const client = (tx as unknown as { session: { client: pg.Client } }).session.client;
+      const sourceId = randomUUID(), hostId = randomUUID(), releaseId = randomUUID();
+      await client.query(
+        `INSERT INTO coordination_v2_source_promotions
+          (id, repository_identity, promoted_commit_sha, exact_tree_sha,
+           publication_reference, protected_validation_id, canonical_record_digest,
+           operation_receipt_digest, operation_receipt_reference, created_at)
+         VALUES ($1, 'github.com/holahola/holahola', $2, $3, $4, $5, $6, $7, $8,
+           now() + interval '1 day')`,
+        [sourceId, "1".repeat(40), "2".repeat(40), randomUUID(), randomUUID(),
+          digest("c"), digest("d"), randomUUID()],
+      );
+      await client.query(
+        `INSERT INTO coordination_v2_host_enrollments
+          (id, host_key, host_type, display_name, protocol_version, public_key,
+           key_fingerprint, capabilities, enrollment_digest, enrollment_request_key,
+           status, created_by)
+         VALUES ($1, $2, 'windows', 'Synthetic timestamp host', 1, $3, $4,
+           ARRAY['runtime_bootstrap'], $5, $6, 'active', 'runtime-timestamp-test')`,
+        [hostId, randomUUID(), JSON.stringify(hostKeys.publicKey.export({ format: "jwk" })),
+          digest("2"), digest("4"), randomUUID()],
+      );
+      await insertRelease(client, {
+        ...releaseFixture(releaseId, sourceId, "e"),
+        sourceMembers: runtime.RUNTIME_SOURCE_MEMBER_PATHS.map((fixedPath) => ({
+          fixedPath, sha256: digest("d"),
+        })),
+      });
+      const artifactId = randomUUID();
+      await client.query(
+        `INSERT INTO coordination_v2_runtime_release_artifacts
+          (id, runtime_release_id, role, fixed_destination, object_key,
+           object_digest, byte_length, media_type, requires_authenticode)
+         VALUES ($1, $2, 'node_executable', 'runtime/node.exe', $3, $4, 4,
+           'application/vnd.microsoft.portable-executable', TRUE)`,
+        [artifactId, releaseId, `coordination-v2/runtime/${digest("2")}/node.exe`, digest("2")],
+      );
+      Object.defineProperty(db, "transaction", {
+        value: (callback: Parameters<typeof db.transaction>[0]) => callback(tx),
+        configurable: true, writable: true,
+      });
+      Object.defineProperty(db, "execute", {
+        value: tx.execute.bind(tx), configurable: true, writable: true,
+      });
+      const now = new Date();
+      now.setUTCMilliseconds(191);
+      const freshKey = randomUUID();
+      const fresh = await runtime.issueCoordinationV2RuntimeBootstrapManifest({
+        hostEnrollmentId: hostId, requestKey: freshKey, protocolVersion: 1, now,
+      });
+      const replayFresh = await runtime.issueCoordinationV2RuntimeBootstrapManifest({
+        hostEnrollmentId: hostId, requestKey: freshKey, protocolVersion: 1, now,
+      });
+      assert.equal(fresh.created, true);
+      assert.equal(replayFresh.created, false);
+      assert.deepEqual(replayFresh.payload, fresh.payload);
+      assert.equal(replayFresh.canonicalResponseDigest, fresh.canonicalResponseDigest);
+      assert.equal(new Date(fresh.payload.issuedAt).getUTCMilliseconds(), 191);
+      assert.equal(verify(null, Buffer.from(canonicalJson(replayFresh.payload)), keys.publicKey,
+        Buffer.from(replayFresh.signature, "base64")), true);
+      await assert.rejects(runtime.issueCoordinationV2RuntimeBootstrapManifest({
+        hostEnrollmentId: hostId, requestKey: randomUUID(), protocolVersion: 1, now: new Date(NaN),
+      }), (error: unknown) => error instanceof runtime.CoordinationV2RuntimeError &&
+        error.code === "V2_RUNTIME_DATABASE_UNAVAILABLE");
+
+      const legacyKey = randomUUID(), legacyId = randomUUID();
+      const issued = new Date(String(new Date(fresh.payload.issuedAt))).toISOString();
+      const expires = new Date(String(new Date(fresh.payload.expiresAt))).toISOString();
+      const requestDigest = (key: string) => runtimeEvidenceDigest(key);
+      const legacyPayload = {
+        ...fresh.payload, issueId: legacyId, requestKeyDigest: requestDigest(legacyKey),
+        issuedAt: issued, expiresAt: expires,
+        nonce: runtimeEvidenceDigest({ issueId: legacyId, releaseDigest: digest("e"), host: hostId }),
+      };
+      const legacyDigest = runtimeEvidenceDigest(legacyPayload);
+      const insertSyntheticIssue = (id: string, key: string, stored: string) => client.query(
+        `INSERT INTO coordination_v2_runtime_bootstrap_issues
+          (id, host_enrollment_id, runtime_release_id, request_key, request_digest,
+           manifest_digest, issued_at, expires_at) VALUES ($1,$2,$3,$4,$5,$6,$7,$8)`,
+        [id, hostId, releaseId, key, requestDigest(key), stored,
+          fresh.payload.issuedAt, fresh.payload.expiresAt],
+      );
+      await insertSyntheticIssue(legacyId, legacyKey, legacyDigest);
+      const snapshot = () => client.query(
+        `SELECT * FROM coordination_v2_runtime_bootstrap_issues
+          WHERE host_enrollment_id=$1 ORDER BY id`, [hostId],
+      ).then((result) => result.rows);
+      const before = await snapshot();
+      for (let attempt = 0; attempt < 2; attempt++) {
+        const replay = await runtime.issueCoordinationV2RuntimeBootstrapManifest({
+          hostEnrollmentId: hostId, requestKey: legacyKey, protocolVersion: 1, now,
+        });
+        assert.equal(replay.created, false);
+        assert.deepEqual(replay.payload, legacyPayload);
+        assert.equal(replay.canonicalResponseDigest, legacyDigest);
+        assert.equal(verify(null, Buffer.from(canonicalJson(replay.payload)), keys.publicKey,
+          Buffer.from(replay.signature, "base64")), true);
+      }
+      assert.deepEqual(await snapshot(), before, "replay must not rewrite or append evidence");
+
+      const expiredNow = new Date(new Date(fresh.payload.expiresAt).getTime() + 1);
+      const expiredCode = (error: unknown) => error instanceof runtime.CoordinationV2RuntimeError &&
+        error.code === "V2_RUNTIME_ISSUE_EXPIRED";
+      await assert.rejects(runtime.openCoordinationV2RuntimeArtifact({
+        hostEnrollmentId: hostId, issueId: legacyId, artifactId, now: expiredNow,
+      }), expiredCode);
+      const ackPayload = {
+        protocolVersion: 1, issueId: legacyId, requestKey: legacyKey,
+        runtimeReleaseId: releaseId, manifestDigest: legacyDigest, localEvidenceDigest: digest("8"),
+      };
+      const ackSignature = sign("RSA-SHA256", Buffer.from(canonicalJson(ackPayload)),
+        hostKeys.privateKey).toString("base64");
+      await assert.rejects(runtime.acknowledgeCoordinationV2RuntimeBootstrap({
+        hostEnrollmentId: hostId, issueId: legacyId, payload: ackPayload,
+        signature: ackSignature, now: expiredNow,
+      }), expiredCode);
+      await assert.rejects(runtime.acknowledgeCoordinationV2RuntimeBootstrap({
+        hostEnrollmentId: hostId, issueId: legacyId, payload: ackPayload,
+        signature: Buffer.from("wrong-signature").toString("base64"), now,
+      }), (error: unknown) => error instanceof runtime.CoordinationV2RuntimeError &&
+        error.code === "V2_RUNTIME_ACK_SIGNATURE_INVALID");
+      assert.deepEqual(await snapshot(), before);
+
+      for (const field of ["hostKeyFingerprint", "runtimeReleaseDigest", "requestKeyDigest"]) {
+        const badId = randomUUID(), badKey = randomUUID();
+        const badPayload = {
+          ...legacyPayload, issueId: badId, requestKeyDigest: requestDigest(badKey),
+          nonce: runtimeEvidenceDigest({ issueId: badId, releaseDigest: digest("e"), host: hostId }),
+          [field]: digest("f"),
+        };
+        await insertSyntheticIssue(badId, badKey, runtimeEvidenceDigest(badPayload));
+        const badBefore = await snapshot();
+        await assert.rejects(runtime.issueCoordinationV2RuntimeBootstrapManifest({
+          hostEnrollmentId: hostId, requestKey: badKey, protocolVersion: 1, now,
+        }), (error: unknown) => error instanceof runtime.CoordinationV2RuntimeError &&
+          error.code === "V2_RUNTIME_EVIDENCE_INVALID");
+        assert.deepEqual(await snapshot(), badBefore);
+      }
+      throw rollback;
+    });
+  } catch (error) {
+    if (error !== rollback) throw error;
+  } finally {
+    Object.defineProperty(db, "transaction", { value: originalTransaction, configurable: true, writable: true });
+    Object.defineProperty(db, "execute", { value: originalExecute, configurable: true, writable: true });
+    if (previousSigningKey === undefined) delete process.env.COORDINATION_V2_SERVER_SIGNING_PRIVATE_KEY;
+    else process.env.COORDINATION_V2_SERVER_SIGNING_PRIVATE_KEY = previousSigningKey;
+    await closeDbConnections();
+  }
+});
 
 test("Coordinator V2 runtime bootstrap PostgreSQL evidence is lineage-bound and append-only", async (context) => {
   const url = disposableTarget();

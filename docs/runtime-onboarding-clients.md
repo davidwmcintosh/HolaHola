@@ -839,6 +839,76 @@ approved signing must precede manifest finalization for any later pilot build.
 Reference: [PowerShell 5.1 signing, self-signed certificates and publisher
 approval](https://learn.microsoft.com/en-us/powershell/module/microsoft.powershell.core/about/about_signing?view=powershell-5.1).
 
+#### Pilot expiry and replacement review — manual recovery, 2026-10-04
+
+This documentation-only plan was reconstructed in the main checkout from the
+founder-supplied completion summary of task 1698 after its platform apply
+attempts failed. It is not the recovered original task diff, a successful task
+merge, an implemented renewal service, or evidence that a replacement works.
+The historical pilot and its receipts above remain unchanged.
+
+The explicitly untimestamped pilot certificate expires
+**2027-01-01T23:35:28Z**. Its existing trust-store entries do not extend that
+validity. Do not assume the old signed helper remains usable after expiry or
+that adding a timestamp to a later package validates the old package.
+
+These are **manual review checkpoints**, not configured reminders or automatic
+renewal jobs:
+
+| Checkpoint | UTC review deadline | Required review |
+| --- | --- | --- |
+| 30 days before expiry | 2026-12-02T23:35:28Z | Choose a proposed replacement route, confirm provider eligibility and timestamp support, and request the separate authorizations below. If approval is unavailable, plan to stop using the pilot at expiry. |
+| 7 days before expiry | 2026-12-25T23:35:28Z | Review the independently pinned replacement, any approved signer/trust changes, and available native verification receipts. An unfinished or untested replacement is not usable. |
+| 1 day before expiry | 2026-12-31T23:35:28Z | Confirm a replacement has actually passed the marked-download dummy-only smoke and is separately approved for its intended use. Otherwise retain the blocked status; do not bypass expiry or policy. |
+
+**Read-only certificate inspection.** On a separately approved Windows host
+and user profile, inspect only the independently pinned pilot's public
+certificate in the already approved `CurrentUser\Root` and
+`CurrentUser\TrustedPublisher` stores. Match the SHA-256 of its DER `RawData`
+against the independent certificate pin; a subject name or thumbprint alone
+does not replace that pin. Record store presence and `NotBefore`/`NotAfter`
+converted to UTC. Missing or mismatched entries stop the review. Do not create,
+import, remove or renew certificates, export private keys/PFX, change policy,
+or execute the helper as part of this inspection. Metadata inspection alone
+does not establish valid Authenticode trust or timestamp verification.
+
+**Replacement choices.**
+
+- A stable, appropriately approved publisher identity reduces repeated
+  operator decisions, but public-CA chain trust is not publisher approval.
+  Confirm the selected provider's eligibility, lifetime, supported signing
+  tooling and trusted timestamp service before acquisition.
+- Certificate rotation changes the exact certificate pin even when the
+  publisher name stays the same. Independently approve the new certificate
+  and any exact user-scoped trust-store changes; never treat the old approval
+  as blanket permission to trust a replacement.
+- A provider-supported trusted timestamp may permit later validation of a
+  signature made within the signer's validity period, subject to actual
+  Windows chain, countersigner and applicable policy checks. It is not an
+  unconditional expiry guarantee and does not retrofit the untimestamped
+  pilot. Preserve the offline finalizer's cache-only and fail-closed limits.
+
+**Separate authorizations and acceptance.** Certificate acquisition/account
+setup, signing, each exact trust-store change, package transfer and publication
+remain separate founder decisions. This plan authorizes none of those
+operations. Prepare any approved replacement from reviewed source and deliver
+independent source, development/release status, signer certificate, signed
+helper, runner, manifest and archive pins through the approved channel.
+Signing changes bytes: follow the reviewed post-signing finalization process
+instead of retaining an old manifest or normalizing the signed helper.
+
+Before claiming replacement usability, collect a fresh native Windows receipt
+from the approved marked-download/extraction and dummy-only smoke. Verify
+actual download marks, exact package/signer pins, native signature and the
+approved timestamp policy; require owned-scope cleanup and unchanged execution
+policies and marks afterward. Do not reuse the earlier pilot receipt as proof
+for a new signer, package, host or the stricter offline verifier.
+
+No helper or signed artifact was changed for this documentation recovery.
+There was no Windows trust, signing, renewal, transfer, publication, enrollment,
+credential or source-pin operation. Replacement usability remains
+**unverified**; task 1701's new native receipts remain separately gated.
+
 #### Publicly trusted signing alternative — preparation only, 2026-10-03
 
 The founder authorized this checkout and preparation of a **new publicly

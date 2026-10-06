@@ -286,13 +286,17 @@ export class SourcePromotionService {
       throw new SourcePromotionInputError('sourceContextSha256 must be an exact lowercase 64-character SHA-256 digest.');
     }
     if (sourceContextSha256 && input.publicationReference) {
-      throw new SourcePromotionInputError('Use sourceContextSha256 for Render evidence or publicationReference for Replit evidence, not both.');
+      throw new SourcePromotionInputError('Use sourceContextSha256 or a canonical Render publicationReference, not both.');
     }
     const publicationReference = sourceContextSha256
       ? `render-release:${sha}:${sourceContextSha256}`
       : input.publicationReference?.trim() || undefined;
     if (publicationReference && publicationReference.length > 200) {
       throw new SourcePromotionInputError('publicationReference must be 200 characters or fewer.');
+    }
+    const renderReference = /^render-release:([0-9a-f]{40}):([0-9a-f]{64})$/.exec(publicationReference || '');
+    if (!renderReference || renderReference[1] !== sha) {
+      throw new SourcePromotionInputError('Production publication requires matching Render evidence. Supply sourceContextSha256 for the prepared sha, or render-release:<commit-sha>:<source-context-sha256>. Replit-only publication markers are not production evidence.');
     }
     return this.start(
       'record',

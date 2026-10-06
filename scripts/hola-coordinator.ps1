@@ -49,71 +49,38 @@ function Fail-Safe {
 }
 
 function Get-HolaCoordinatorTransportFailureDetail {
-    # Best-effort, never-throwing extraction of the HTTP status code and the
-    # server's own (already-safe) JSON error body from a failed
-    # Invoke-RestMethod call, so an operator can tell a rejected request
-    # (bad fingerprint, idempotency conflict, validation failure) apart from
-    # a genuine network/TLS failure instead of seeing one fixed generic code
-    # either way. A failure inside this diagnostic capture is swallowed so
-    # it can never mask or replace the real error.
+    # Enrollment reporting only: do not reflect raw bodies or exception text.
     param([Parameter(Mandatory = $true)]$ErrorRecord)
-    try {
-        $response = $null
-        $exceptionProperty = $ErrorRecord.PSObject.Properties['Exception']
-        if ($null -ne $exceptionProperty -and $null -ne $exceptionProperty.Value) {
-            $responseProperty = $exceptionProperty.Value.PSObject.Properties['Response']
-            if ($null -ne $responseProperty) { $response = $responseProperty.Value }
-        }
-        $statusCode = $null
-        if ($null -ne $response) {
-            $statusCodeProperty = $response.PSObject.Properties['StatusCode']
-            if ($null -ne $statusCodeProperty -and $null -ne $statusCodeProperty.Value) {
-                $statusCode = [int]$statusCodeProperty.Value
-            }
-        }
-        $bodyText = $null
-        $errorDetailsProperty = $ErrorRecord.PSObject.Properties['ErrorDetails']
-        if ($null -ne $errorDetailsProperty -and $null -ne $errorDetailsProperty.Value) {
-            $messageProperty = $errorDetailsProperty.Value.PSObject.Properties['Message']
-            if ($null -ne $messageProperty -and -not [string]::IsNullOrWhiteSpace([string]$messageProperty.Value)) {
-                $bodyText = [string]$messageProperty.Value
-            }
-        }
-        if ([string]::IsNullOrWhiteSpace($bodyText) -and $null -ne $response) {
-            # Older Windows PowerShell surfaces the failure as a WebException
-            # without populating ErrorDetails; read the response body once
-            # directly as a fallback.
-            $streamMethod = $response.PSObject.Methods['GetResponseStream']
-            if ($null -ne $streamMethod) {
-                $stream = $response.GetResponseStream()
-                if ($null -ne $stream) {
-                    $reader = New-Object IO.StreamReader($stream)
-                    try { $bodyText = $reader.ReadToEnd() } finally { $reader.Dispose() }
-                }
-            }
-        }
-        $segments = @()
-        if ($null -ne $statusCode) { $segments += ('http_status=' + $statusCode) }
-        if (-not [string]::IsNullOrWhiteSpace($bodyText)) {
-            $flatBody = ([string]$bodyText -replace '[\x00-\x1f\x7f]+', ' ').Trim()
-            if ($flatBody.Length -gt 0) {
-                $segments += ('response=' + $flatBody.Substring(0, [Math]::Min(300, $flatBody.Length)))
-            }
-        }
-        if ($segments.Count -eq 0) {
-            $messageText = [string]$ErrorRecord.Exception.Message
-            if (-not [string]::IsNullOrWhiteSpace($messageText)) {
-                $flatMessage = ($messageText -replace '[\x00-\x1f\x7f]+', ' ').Trim()
-                if ($flatMessage.Length -gt 0) {
-                    $segments += ('error=' + $flatMessage.Substring(0, [Math]::Min(300, $flatMessage.Length)))
-                }
-            }
-        }
-        if ($segments.Count -eq 0) { return 'no_diagnostic_available' }
-        return ($segments -join ' ')
-    } catch {
-        return 'diagnostic_capture_failed'
+    return (Get-InternalHolaCoordinatorHttpFailureDetail -ErrorRecord $ErrorRecord -Context Enrollment)
+}
+
+function Get-HolaCoordinatorEnrollmentGuidance {
+    param([Parameter(Mandatory = $true)][string]$Code)
+    $guidance = [Collections.Generic.Dictionary[string,string]]::new([StringComparer]::Ordinal)
+    $groups = @(
+        @{ codes = @('V2_HOST_BOOTSTRAP_REQUIRED', 'V2_HOST_BOOTSTRAP_DENIED',
+                    'V2_HOST_BOOTSTRAP_UNAVAILABLE', 'V2_HOST_BOOTSTRAP_CONSUMED')
+           next = 'Keep local files. Ask the founder to inspect bootstrap status; do not reissue or replace it.' },
+        @{ codes = @('V2_HOST_FOUNDER_REQUIRED')
+           next = 'Wait for founder approval. Keep the persisted request; do not submit proof manually.' },
+        @{ codes = @('V2_HOST_IDEMPOTENCY_CONFLICT')
+           next = 'Keep the exact persisted request. Ask the founder to locate it; do not create another.' },
+        @{ codes = @('V2_HOST_REQUEST_NOT_FOUND', 'V2_HOST_REQUEST_EXPIRED', 'V2_HOST_REQUEST_TERMINAL',
+                    'V2_HOST_CHALLENGE_INVALID', 'V2_HOST_CHALLENGE_EXPIRED', 'V2_HOST_PROOF_INVALID')
+           next = 'Keep local files. Ask the founder to inspect request and challenge status; do not replay proof.' },
+        @{ codes = @('V2_HOST_INVALID_REQUEST', 'V2_HOST_PROTOCOL_MISMATCH', 'V2_HOST_SOURCE_PROMOTION_REQUIRED')
+           next = 'Stop and verify approved client and server versions with the founder. Keep current files.' },
+        @{ codes = @('V2_HOST_DATABASE_UNAVAILABLE', 'UNKNOWN_SERVER_ERROR', 'RESPONSE_TOO_LARGE',
+                    'DIAGNOSTIC_UNAVAILABLE', 'TRANSPORT_UNKNOWN', 'TRANSPORT_TIMEOUT', 'TRANSPORT_CONNECTIVITY')
+           next = 'Outcome may be unknown. Keep the persisted request; ask the founder to inspect before retrying.' },
+        @{ codes = @('TRANSPORT_TLS')
+           next = 'Stop and verify HTTPS connectivity with the founder. Do not bypass certificate or trust checks.' }
+    )
+    foreach ($group in $groups) {
+        foreach ($item in $group.codes) { $guidance.Add([string]$item, [string]$group.next) }
     }
+    if ($guidance.ContainsKey($Code)) { return $guidance[$Code] }
+    return $null
 }
 
 function Resolve-ApprovedNode {
@@ -193,12 +160,16 @@ function Assert-SidAcl {
     $ownerSid = Convert-ToSidValue -IdentityReference $acl.Owner
     $allowedOwners = @($currentSid, 'S-1-5-18', 'S-1-5-32-544')
     if ($allowedOwners -notcontains $ownerSid) { Fail-Safe 'acl_owner_unsafe' }
+    # FullControl and Modify include read bits; they are not mutation masks.
     $unsafeWriteMask = [int](
-        [System.Security.AccessControl.FileSystemRights]::Write `
-        -bor [System.Security.AccessControl.FileSystemRights]::Modify `
-        -bor [System.Security.AccessControl.FileSystemRights]::FullControl `
-        -bor [System.Security.AccessControl.FileSystemRights]::TakeOwnership `
-        -bor [System.Security.AccessControl.FileSystemRights]::ChangePermissions
+        [System.Security.AccessControl.FileSystemRights]::WriteData `
+        -bor [System.Security.AccessControl.FileSystemRights]::AppendData `
+        -bor [System.Security.AccessControl.FileSystemRights]::WriteExtendedAttributes `
+        -bor [System.Security.AccessControl.FileSystemRights]::DeleteSubdirectoriesAndFiles `
+        -bor [System.Security.AccessControl.FileSystemRights]::WriteAttributes `
+        -bor [System.Security.AccessControl.FileSystemRights]::Delete `
+        -bor [System.Security.AccessControl.FileSystemRights]::ChangePermissions `
+        -bor [System.Security.AccessControl.FileSystemRights]::TakeOwnership
     )
     foreach ($ace in @($acl.Access)) {
         $sid = Convert-ToSidValue -IdentityReference $ace.IdentityReference
@@ -1737,6 +1708,185 @@ function Register-HolaCoordinatorHost {
 # END COORDINATION_REGISTER_BOUNDARY
 
 # BEGIN COORDINATION_REAUTHORIZATION_BOUNDARY
+function Get-HolaCoordinatorRecoveryGuidance {
+    param([Parameter(Mandatory = $true)][string]$Code)
+    # Ordinal keys are an allowlist, not a sanitizer for arbitrary server text.
+    $guidance = [Collections.Generic.Dictionary[string,string]]::new([StringComparer]::Ordinal)
+    $groups = @(
+        @{ codes = @('V2_HOST_ENROLLMENT_NOT_FOUND', 'V2_HOST_ENROLLMENT_REVOKED', 'V2_HOST_REAUTH_ENROLLMENT_MISMATCH')
+           next = 'Stop and ask the founder to verify enrollment. Do not replace the enrolled key.' },
+        @{ codes = @('V2_HOST_REAUTH_PENDING_CONFLICT', 'V2_HOST_IDEMPOTENCY_CONFLICT')
+           next = 'Keep local files. Ask the founder to locate the existing request; do not create another.' },
+        @{ codes = @('V2_HOST_REAUTH_GENERATION_CONFLICT')
+           next = 'Keep the persisted draft. Ask the founder to review its generation; do not reset the counter.' },
+        @{ codes = @('V2_HOST_FOUNDER_REQUIRED', 'V2_HOST_REAUTH_NOT_APPROVED')
+           next = 'Wait for founder approval. Do not submit proof manually.' },
+        @{ codes = @('V2_HOST_REQUEST_EXPIRED', 'V2_HOST_REQUEST_TERMINAL', 'V2_HOST_REQUEST_NOT_FOUND',
+                    'V2_HOST_REAUTH_REPLAYED', 'V2_HOST_CHALLENGE_EXPIRED')
+           next = 'Keep local files and ask the founder to inspect request status before continuing.' },
+        @{ codes = @('V2_HOST_REAUTH_DECLARATION_INVALID')
+           next = 'Inspect read-only clock samples and approved client/server versions with the founder. No saved draft can mean the context lookup failed. Keep current files; do not backdate timestamps.' },
+        @{ codes = @('V2_HOST_REAUTH_INVALID', 'V2_HOST_REAUTH_PUBLIC_KEY_INVALID',
+                    'V2_HOST_REAUTH_SIGNATURE_INVALID', 'V2_HOST_PROTOCOL_MISMATCH', 'V2_HOST_INVALID_REQUEST',
+                    'V2_HOST_PROOF_INVALID', 'V2_HOST_CHALLENGE_INVALID', 'V2_HOST_SOURCE_PROMOTION_REQUIRED')
+           next = 'Stop and verify the approved client and server versions with the founder. Keep current files.' },
+        @{ codes = @('V2_HOST_DATABASE_UNAVAILABLE', 'UNKNOWN_SERVER_ERROR', 'RESPONSE_TOO_LARGE',
+                    'DIAGNOSTIC_UNAVAILABLE', 'TRANSPORT_UNKNOWN', 'TRANSPORT_TIMEOUT', 'TRANSPORT_CONNECTIVITY')
+           next = 'Outcome may be unknown. Keep current files; resume only through the existing recovery flow.' },
+        @{ codes = @('TRANSPORT_TLS')
+           next = 'Stop and verify HTTPS connectivity with the founder. Do not bypass certificate or trust checks.' },
+        @{ codes = @('host_credential_reauthorization_not_required')
+           next = 'The credential is still valid. Do not replace it through expired-credential recovery.' },
+        @{ codes = @('host_recovery_clock_out_of_window')
+           next = 'Clock samples are outside the recovery window. Keep current files; ask the founder before any manual clock correction. No correction was run.' },
+        @{ codes = @('host_credential_missing', 'host_credential_corrupted', 'host_credential_shape',
+                    'host_credential_invalid', 'host_credential_expiry_invalid', 'host_endpoint_invalid',
+                    'host_key_invalid', 'runtime_endpoint_mismatch', 'canonical_value_invalid',
+                    'path_escape', 'reparse_point', 'acl_unavailable', 'acl_identity_unresolvable',
+                    'acl_owner_unsafe', 'acl_write_unsafe', 'acl_untrusted_write')
+           next = 'Stop and ask the founder to inspect local custody or configuration. Do not delete or replace files.' },
+        @{ codes = @('host_reauthorization_state_corrupted', 'host_reauthorization_state_shape',
+                    'host_reauthorization_state_mismatch', 'host_reauthorization_generation_invalid')
+           next = 'Keep the persisted request unchanged. Ask the founder to inspect its safe status.' },
+        @{ codes = @('host_recovery_context_shape', 'host_recovery_context_mismatch', 'host_recovery_context_expired',
+                    'host_reauthorization_response_shape', 'host_reauthorization_response_invalid',
+                    'host_reauthorization_status_invalid', 'host_reauthorization_status_mismatch',
+                    'host_reauthorization_status_shape', 'host_reauthorization_approval_url_invalid',
+                    'host_reauthorization_challenge_shape', 'host_reauthorization_challenge_mismatch',
+                    'host_reauthorization_challenge_invalid', 'host_reauthorization_challenge_expired',
+                    'host_reauthorization_credential_shape', 'host_credential_replacement_corrupted',
+                    'host_credential_replacement_shape', 'host_credential_replacement_mismatch', 'LOCAL_RECOVERY_FAILURE')
+           next = 'Recovery stopped. Keep current files and ask the founder to inspect the reported reason.' }
+    )
+    foreach ($group in $groups) {
+        foreach ($item in $group.codes) { $guidance.Add([string]$item, [string]$group.next) }
+    }
+    if ($guidance.ContainsKey($Code)) { return $guidance[$Code] }
+    return $null
+}
+
+function Format-HolaCoordinatorRecoveryDetail {
+    param([string]$Reason = 'DIAGNOSTIC_UNAVAILABLE', [string]$HttpStatus = 'none')
+    $next = Get-HolaCoordinatorRecoveryGuidance -Code $Reason
+    if ($null -eq $next) {
+        $Reason = 'DIAGNOSTIC_UNAVAILABLE'
+        $next = Get-HolaCoordinatorRecoveryGuidance -Code $Reason
+    }
+    if ($HttpStatus -cnotmatch '^[45][0-9]{2}$') { $HttpStatus = 'none' }
+    return ('http_status=' + $HttpStatus + '; reason=' + $Reason + '; next=' + $next)
+}
+
+function Get-InternalHolaCoordinatorDiagnosticGuidance {
+    param([string]$Code, [ValidateSet('Enrollment', 'Recovery')][string]$Context)
+    if ($Context -ceq 'Enrollment') { return (Get-HolaCoordinatorEnrollmentGuidance -Code $Code) }
+    return (Get-HolaCoordinatorRecoveryGuidance -Code $Code)
+}
+
+function Format-InternalHolaCoordinatorHttpFailureDetail {
+    param([string]$Reason, [string]$HttpStatus = 'none',
+          [ValidateSet('Enrollment', 'Recovery')][string]$Context)
+    if ($Context -ceq 'Recovery') {
+        return (Format-HolaCoordinatorRecoveryDetail -Reason $Reason -HttpStatus $HttpStatus)
+    }
+    $next = Get-HolaCoordinatorEnrollmentGuidance -Code $Reason
+    if ($null -eq $next) {
+        $Reason = 'DIAGNOSTIC_UNAVAILABLE'
+        $next = Get-HolaCoordinatorEnrollmentGuidance -Code $Reason
+    }
+    if ($HttpStatus -cnotmatch '^[45][0-9]{2}$') { $HttpStatus = 'none' }
+    return ('http_status=' + $HttpStatus + '; reason=' + $Reason + '; next=' + $next)
+}
+
+function Get-InternalHolaCoordinatorHttpFailureDetail {
+    param([Parameter(Mandatory = $true)]$ErrorRecord,
+          [Parameter(Mandatory = $true)][ValidateSet('Enrollment', 'Recovery')][string]$Context)
+    try {
+        $httpStatus = 'none'
+        $reason = 'TRANSPORT_UNKNOWN'
+        $response = $null
+        $exception = $ErrorRecord.PSObject.Properties['Exception']
+        if ($null -ne $exception -and $null -ne $exception.Value) {
+            $responseProperty = $exception.Value.PSObject.Properties['Response']
+            if ($null -ne $responseProperty) { $response = $responseProperty.Value }
+        }
+        if ($null -ne $response) {
+            $status = $response.PSObject.Properties['StatusCode']
+            if ($null -ne $status -and ($status.Value -is [Net.HttpStatusCode] -or
+                $status.Value -is [int] -or $status.Value -is [long])) {
+                $number = [long]$status.Value
+                if ($number -ge 400 -and $number -le 599) { $httpStatus = [string]$number }
+            }
+        }
+        if ($httpStatus -ceq 'none') {
+            # Typed transport metadata only; never inspect exception messages.
+            if ($null -ne $exception -and $exception.Value -is [Net.WebException]) {
+                switch ($exception.Value.Status) {
+                    ([Net.WebExceptionStatus]::Timeout) { $reason = 'TRANSPORT_TIMEOUT' }
+                    ([Net.WebExceptionStatus]::NameResolutionFailure) { $reason = 'TRANSPORT_CONNECTIVITY' }
+                    ([Net.WebExceptionStatus]::ConnectFailure) { $reason = 'TRANSPORT_CONNECTIVITY' }
+                    ([Net.WebExceptionStatus]::TrustFailure) { $reason = 'TRANSPORT_TLS' }
+                    ([Net.WebExceptionStatus]::SecureChannelFailure) { $reason = 'TRANSPORT_TLS' }
+                }
+            }
+            return (Format-InternalHolaCoordinatorHttpFailureDetail -Reason $reason -Context $Context)
+        }
+        $reason = 'UNKNOWN_SERVER_ERROR'
+        $body = $null
+        $details = $ErrorRecord.PSObject.Properties['ErrorDetails']
+        if ($null -ne $details -and $null -ne $details.Value) {
+            $message = $details.Value.PSObject.Properties['Message']
+            if ($null -ne $message -and $message.Value -is [string]) { $body = $message.Value }
+        }
+        if ([string]::IsNullOrEmpty($body) -and $null -ne $response.PSObject.Methods['GetResponseStream']) {
+            $stream = $response.GetResponseStream()
+            if ($null -ne $stream) {
+                $reader = New-Object IO.StreamReader($stream)
+                try {
+                    $buffer = New-Object char[] 4097
+                    $count = 0
+                    while ($count -lt $buffer.Length) {
+                        $read = $reader.Read($buffer, $count, $buffer.Length - $count)
+                        if ($read -eq 0) { break }
+                        $count += $read
+                    }
+                    if ($count -eq 0) { $body = '' }
+                    else { $body = -join $buffer[0..($count - 1)] }
+                } finally { $reader.Dispose() }
+            }
+        }
+        if ($null -ne $body -and $body.Length -gt 4096) {
+            return (Format-InternalHolaCoordinatorHttpFailureDetail -Reason 'RESPONSE_TOO_LARGE' -HttpStatus $httpStatus -Context $Context)
+        }
+        # PowerShell can unwrap a one-element JSON array on assignment. Check
+        # the root delimiter before parsing so that it cannot become an envelope.
+        if (-not [string]::IsNullOrEmpty($body) -and
+            $body.TrimStart().StartsWith('{', [StringComparison]::Ordinal)) {
+            try {
+                $parsed = ConvertFrom-Json -InputObject $body -ErrorAction Stop
+                if ($null -ne $parsed -and $parsed -is [PSCustomObject]) {
+                    $errorProperty = $parsed.PSObject.Properties['error']
+                    if ($null -ne $errorProperty -and $errorProperty.Value -is [PSCustomObject]) {
+                        $code = $errorProperty.Value.PSObject.Properties['code']
+                        if ($null -ne $code -and $code.Value -is [string] -and
+                            $code.Value.StartsWith('V2_HOST_', [StringComparison]::Ordinal) -and
+                            $null -ne (Get-InternalHolaCoordinatorDiagnosticGuidance -Code $code.Value -Context $Context)) {
+                            $reason = $code.Value
+                        }
+                    }
+                }
+            } catch { $reason = 'UNKNOWN_SERVER_ERROR' }
+        }
+        return (Format-InternalHolaCoordinatorHttpFailureDetail -Reason $reason -HttpStatus $httpStatus -Context $Context)
+    } catch {
+        return (Format-InternalHolaCoordinatorHttpFailureDetail -Reason 'DIAGNOSTIC_UNAVAILABLE' -Context $Context)
+    }
+}
+
+function Get-HolaCoordinatorRecoveryFailureDetail {
+    param([Parameter(Mandatory = $true)]$ErrorRecord)
+    return (Get-InternalHolaCoordinatorHttpFailureDetail -ErrorRecord $ErrorRecord -Context Recovery)
+}
+
 function New-InternalHolaCoordinatorReauthorizationDeclaration {
     param(
         [Parameter(Mandatory = $true)][string]$RequestKey,
@@ -1828,7 +1978,246 @@ function Test-InternalHolaCoordinatorLegacyTwoClockRequest {
     }
 }
 
-function Restore-HolaCoordinatorHostCredential {
+function Assert-InternalHolaCoordinatorRecoveryMaterial {
+    param([Parameter(Mandatory = $true)]$Material)
+    $materialNames = @(Get-PropertyNames -Value $Material)
+    $legacy = ($materialNames.Count -eq 2 -and $materialNames -contains 'endpoint' -and
+        $materialNames -contains 'accessToken')
+    $replacement = ($materialNames.Count -eq 3 -and $materialNames -contains 'endpoint' -and
+        $materialNames -contains 'accessToken' -and $materialNames -contains 'expiresAt')
+    if (-not $legacy -and -not $replacement) { Fail-Safe 'host_credential_shape' }
+    if ($Material.endpoint -isnot [string] -or [string]$Material.endpoint -notmatch '^https://') {
+        Fail-Safe 'host_endpoint_invalid'
+    }
+    if ($Material.accessToken -isnot [string] -or
+        [string]$Material.accessToken -notmatch '^v2h_[A-Za-z0-9_-]{32,}$') {
+        Fail-Safe 'host_credential_invalid'
+    }
+    if ($replacement) {
+        if ($Material.expiresAt -isnot [string] -or
+            $Material.expiresAt -notmatch '^\d{4}-\d{2}-\d{2}T.*(?:Z|[+-]\d{2}:\d{2})$') {
+            Fail-Safe 'host_credential_expiry_invalid'
+        }
+        try {
+            $expiry = [DateTimeOffset]::Parse([string]$Material.expiresAt,
+                [Globalization.CultureInfo]::InvariantCulture).UtcDateTime
+        } catch { Fail-Safe 'host_credential_expiry_invalid' }
+        # Recovery is an explicit lifecycle, never permission to replace a
+        # still-valid credential. The expired token is not sent or used as proof.
+        if ($expiry -gt [DateTime]::UtcNow) { Fail-Safe 'host_credential_reauthorization_not_required' }
+    }
+}
+
+function Get-InternalHolaCoordinatorClockSample {
+    param([Parameter(Mandatory = $true)][string]$Endpoint)
+    $request = $null; $response = $null; $stream = $null; $pending = $null; $read = $null
+    try {
+        $uri = New-Object Uri ($Endpoint.TrimEnd('/') + '/api/coordination/v2/host/recovery-clock')
+        if ($uri.Scheme -cne 'https' -or $uri.UserInfo -ne '' -or $uri.Query -ne '' -or
+            $uri.Fragment -ne '') { return $null }
+        $request = [Net.HttpWebRequest]::Create($uri)
+        $request.Method = 'GET'; $request.AllowAutoRedirect = $false
+        $request.Timeout = 2000; $request.ReadWriteTimeout = 2000
+        $request.CachePolicy = New-Object Net.Cache.RequestCachePolicy (
+            [Net.Cache.RequestCacheLevel]::NoCacheNoStore)
+        $request.Headers['Cache-Control'] = 'no-cache'
+        $epoch = [DateTime]::SpecifyKind([DateTime]::Parse('1970-01-01'), [DateTimeKind]::Utc)
+        $startMs = ([DateTime]::UtcNow - $epoch).TotalMilliseconds
+        $watch = [Diagnostics.Stopwatch]::StartNew()
+        $pending = $request.BeginGetResponse($null, $null)
+        if (-not $pending.AsyncWaitHandle.WaitOne(2000)) { return $null }
+        $response = $request.EndGetResponse($pending)
+        if ([int]$response.StatusCode -ne 200 -or $response.ContentLength -gt 512 -or
+            $response.Headers['Cache-Control'] -notmatch '(?i)\bno-store\b') { return $null }
+        $stream = $response.GetResponseStream()
+        $buffer = New-Object byte[] 513
+        $length = 0
+        while ($length -lt 513) {
+            $remaining = 2000 - [int][Math]::Ceiling($watch.Elapsed.TotalMilliseconds)
+            if ($remaining -le 0) { return $null }
+            $read = $stream.BeginRead($buffer, $length, 513 - $length, $null, $null)
+            if (-not $read.AsyncWaitHandle.WaitOne($remaining)) { return $null }
+            $count = $stream.EndRead($read)
+            $read.AsyncWaitHandle.Close(); $read = $null
+            if ($count -eq 0) { break }
+            $length += $count
+        }
+        if ($length -gt 512 -or $watch.Elapsed.TotalMilliseconds -gt 2000) { return $null }
+        $endMs = ([DateTime]::UtcNow - $epoch).TotalMilliseconds
+        $elapsedMs = $watch.Elapsed.TotalMilliseconds
+        $body = [Text.Encoding]::UTF8.GetString($buffer, 0, $length) | ConvertFrom-Json
+        return [pscustomobject]@{ body = $body; startMs = $startMs; endMs = $endMs; elapsedMs = $elapsedMs }
+    } catch { return $null }
+    finally {
+        try { if ($null -ne $request) { $request.Abort() } } catch {}
+        try { if ($null -ne $stream) { $stream.Dispose() } } catch {}
+        try { if ($null -ne $response) { $response.Close() } } catch {}
+        try { if ($null -ne $pending) { $pending.AsyncWaitHandle.Close() } } catch {}
+        try { if ($null -ne $read) { $read.AsyncWaitHandle.Close() } } catch {}
+    }
+}
+
+function Get-InternalHolaCoordinatorTimeService {
+    # A separate bounded, read-only child prevents an SCM query from hanging
+    # recovery. No execution-policy flag or service-control command is used.
+    $process = $null
+    try {
+        $exe = Join-Path $env:SystemRoot 'System32\WindowsPowerShell\v1.0\powershell.exe'
+        $info = New-Object Diagnostics.ProcessStartInfo
+        $info.FileName = $exe
+        $info.Arguments = '-NoProfile -NonInteractive -Command "(Get-Service -Name W32Time -ErrorAction Stop).Status.ToString()"'
+        $info.UseShellExecute = $false; $info.CreateNoWindow = $true
+        $info.RedirectStandardOutput = $true; $info.RedirectStandardError = $true
+        $process = [Diagnostics.Process]::Start($info)
+        if (-not $process.WaitForExit(1000)) { $process.Kill(); return 'unknown' }
+        if ($process.ExitCode -ne 0) { return 'unknown' }
+        $buffer = New-Object char[] 32
+        $count = $process.StandardOutput.Read($buffer, 0, 32)
+        $status = (New-Object string (,$buffer)).Substring(0, $count).Trim()
+        if ($status -ceq 'Running') { return 'running' }
+        if ($status -ceq 'Stopped') { return 'stopped' }
+        return 'unknown'
+    } catch { return 'unknown' }
+    finally { if ($null -ne $process) { $process.Dispose() } }
+}
+
+function ConvertTo-InternalHolaCoordinatorClockInterval {
+    param($Sample)
+    try {
+        if ($null -eq $Sample) { return $null }
+        Assert-ExactPropertySet -Value $Sample.body -Names @(
+            'protocolVersion', 'serverUnixMs', 'resolutionMs', 'futureAllowanceMs', 'contextTtlMs'
+        ) -FailureCode 'clock_sample_invalid'
+        foreach ($number in @($Sample.startMs, $Sample.endMs, $Sample.elapsedMs,
+            $Sample.body.serverUnixMs, $Sample.body.resolutionMs,
+            $Sample.body.futureAllowanceMs, $Sample.body.contextTtlMs, $Sample.body.protocolVersion)) {
+            if (($number -isnot [double] -and $number -isnot [int] -and $number -isnot [long]) -or
+                [double]::IsNaN([double]$number) -or [double]::IsInfinity([double]$number)) { return $null }
+        }
+        if ($Sample.body.protocolVersion -ne 1 -or $Sample.body.futureAllowanceMs -ne 0 -or
+            $Sample.body.resolutionMs -ne 1 -or $Sample.body.contextTtlMs -le 0 -or
+            $Sample.body.contextTtlMs -gt [int]::MaxValue -or
+            $Sample.body.contextTtlMs -ne [Math]::Floor($Sample.body.contextTtlMs) -or
+            $Sample.body.serverUnixMs -le 0 -or $Sample.body.serverUnixMs -gt 8640000000000000 -or
+            $Sample.body.serverUnixMs -ne [Math]::Floor($Sample.body.serverUnixMs) -or
+            $Sample.startMs -le 0 -or $Sample.endMs -lt $Sample.startMs -or
+            $Sample.elapsedMs -lt 0 -or $Sample.elapsedMs -gt 2000 -or
+            $Sample.elapsedMs -ge $Sample.body.contextTtlMs) { return $null }
+        # Windows' default 64-Hz wall-clock update cadence (not a skew
+        # allowance). Include both endpoint quantization errors, server
+        # resolution, and observed wall/monotonic disagreement.
+        $wallResolutionMs = 1000.0 / 64
+        $discrepancy = [Math]::Abs(($Sample.endMs - $Sample.startMs) - $Sample.elapsedMs)
+        if ($discrepancy -gt 2 * $wallResolutionMs) { return $null }
+        $uncertainty = $Sample.elapsedMs / 2 + 2 * $wallResolutionMs +
+            $Sample.body.resolutionMs + $discrepancy
+        $offset = ($Sample.startMs + $Sample.endMs) / 2 - $Sample.body.serverUnixMs
+        return [pscustomobject]@{ lower = $offset - $uncertainty; upper = $offset + $uncertainty
+            ttl = $Sample.body.contextTtlMs }
+    } catch { return $null }
+}
+
+function Get-HolaCoordinatorClockPreflight {
+    [CmdletBinding()]
+    param([Parameter(Mandatory = $true)][ValidatePattern('^https://')][string]$Endpoint)
+    try { $service = Get-InternalHolaCoordinatorTimeService } catch { $service = 'unknown' }
+    if ($service -cnotin @('running', 'stopped', 'unknown')) { $service = 'unknown' }
+    $intervals = @()
+    for ($index = 0; $index -lt 3; $index++) {
+        try { $sample = Get-InternalHolaCoordinatorClockSample -Endpoint $Endpoint } catch { $sample = $null }
+        $interval = ConvertTo-InternalHolaCoordinatorClockInterval -Sample $sample
+        if ($null -ne $interval) { $intervals += $interval }
+    }
+    $classification = 'unknown'; $offsetMs = $null; $uncertaintyMs = $null
+    if ($intervals.Count -eq 3) {
+        $lower = ($intervals | Measure-Object lower -Minimum).Minimum
+        $upper = ($intervals | Measure-Object upper -Maximum).Maximum
+        $overlapLower = ($intervals | Measure-Object lower -Maximum).Maximum
+        $overlapUpper = ($intervals | Measure-Object upper -Minimum).Minimum
+        $ttls = @($intervals | Select-Object -ExpandProperty ttl -Unique)
+        if ($ttls.Count -eq 1 -and $overlapLower -le $overlapUpper) {
+            # Classify the union, not the narrower intersection: all samples
+            # must support the claim. Rounding is display-only.
+            $offsetMs = [Math]::Round(($lower + $upper) / 2, 1)
+            $uncertaintyMs = [Math]::Ceiling(($upper - $lower) / 2)
+            if ($lower -gt 0) { $classification = 'ahead' }
+            elseif ($upper -le -$ttls[0]) { $classification = 'behind' }
+            elseif ($lower -gt -$ttls[0] -and $upper -le 0) { $classification = 'within_window' }
+        }
+    }
+    return [pscustomobject]@{ clock = $classification; offsetMs = $offsetMs
+        uncertaintyMs = $uncertaintyMs; validSamples = $intervals.Count
+        timeService = $service; correctionCommand = 'not_run' }
+}
+
+function Assert-InternalHolaCoordinatorClockPreflight {
+    [CmdletBinding()]
+    param([Parameter(Mandatory = $true)][string]$Endpoint)
+    $report = Get-HolaCoordinatorClockPreflight -Endpoint $Endpoint
+    # Recompute a bounded message from typed fields, never remote/raw text.
+    Write-Warning ('Recovery clock: {0}; local-minus-server-ms={1}; uncertainty-ms={2}; samples={3}/3; time-service={4}; correction-command=not_run. This does not prove ongoing synchronization.' -f
+        $report.clock, $report.offsetMs, $report.uncertaintyMs, $report.validSamples, $report.timeService)
+    if ($report.clock -ceq 'ahead' -or $report.clock -ceq 'behind') {
+        Fail-Safe 'host_recovery_clock_out_of_window'
+    }
+    if ($report.clock -ceq 'unknown') {
+        Write-Warning 'Clock alignment is unknown, not healthy. Server timestamp validation remains authoritative. Preserve custody; ask the founder before any manual clock correction.'
+    }
+}
+
+function Get-InternalHolaCoordinatorRecoveryGeneration {
+    param(
+        [Parameter(Mandatory = $true)][string]$Endpoint,
+        [Parameter(Mandatory = $true)]$Rsa,
+        [Parameter(Mandatory = $true)][string]$HostId,
+        [Parameter(Mandatory = $true)][string]$Fingerprint,
+        [Parameter(Mandatory = $true)][int]$MinimumGeneration
+    )
+    if ($MinimumGeneration -lt 1) { Fail-Safe 'host_reauthorization_generation_invalid' }
+    $capturedAt = [DateTime]::UtcNow
+    $declaration = [ordered]@{
+        kind = 'host_credential_recovery_context'; contextKey = [Guid]::NewGuid().ToString()
+        issuedAt = $capturedAt.ToString('o'); expiresAt = $capturedAt.AddMinutes(2).ToString('o')
+        protocolVersion = 1; hostId = $HostId; keyFingerprint = $Fingerprint
+        minimumGeneration = $MinimumGeneration
+    }
+    $parameters = $Rsa.ExportParameters($false)
+    $b64url = {
+        param([byte[]]$Bytes)
+        ([Convert]::ToBase64String($Bytes).TrimEnd('=').Replace('+', '-').Replace('/', '_'))
+    }
+    $publicKey = [ordered]@{
+        kty = 'RSA'; n = & $b64url $parameters.Modulus; e = & $b64url $parameters.Exponent
+    }
+    $signature = $Rsa.SignData([Text.Encoding]::UTF8.GetBytes(
+        (ConvertTo-CanonicalJson -Value $declaration)),
+        [Security.Cryptography.CryptoConfig]::MapNameToOID('SHA256'))
+    $body = [ordered]@{
+        declaration = $declaration; publicKey = ($publicKey | ConvertTo-Json -Compress)
+        keyFingerprint = $Fingerprint; signature = [Convert]::ToBase64String($signature)
+    } | ConvertTo-Json -Depth 8 -Compress
+    try {
+        $context = Invoke-RestMethod -Method Post -Uri (
+            $Endpoint + '/api/coordination/v2/host/recovery-context') `
+            -ContentType 'application/json' -Body $body -UseBasicParsing `
+            -MaximumRedirection 0 -ErrorAction Stop
+    } catch { Fail-Safe 'host_reauthorization_transport' -Detail (Get-HolaCoordinatorRecoveryFailureDetail -ErrorRecord $_) }
+    Assert-ExactPropertySet -Value $context -Names @(
+        'contextKey', 'nextGeneration', 'issuedAt', 'expiresAt'
+    ) -FailureCode 'host_recovery_context_shape'
+    if ([string]$context.contextKey -cne [string]$declaration.contextKey -or
+        [string]$context.issuedAt -cne [string]$declaration.issuedAt -or
+        [string]$context.expiresAt -cne [string]$declaration.expiresAt -or
+        ($context.nextGeneration -isnot [int] -and $context.nextGeneration -isnot [long]) -or
+        [long]$context.nextGeneration -lt $MinimumGeneration -or
+        [long]$context.nextGeneration -gt [int]::MaxValue) {
+        Fail-Safe 'host_recovery_context_mismatch'
+    }
+    if ($capturedAt.AddMinutes(2) -le [DateTime]::UtcNow) { Fail-Safe 'host_recovery_context_expired' }
+    return [int]$context.nextGeneration
+}
+
+function Restore-InternalHolaCoordinatorHostCredential {
     [CmdletBinding()]
     param(
         [Parameter(Mandatory = $true)]
@@ -1848,20 +2237,10 @@ function Restore-HolaCoordinatorHostCredential {
         Fail-Safe 'host_credential_missing'
     }
     $material = Read-DpapiJson -Path $materialPath -FailureCode 'host_credential_corrupted'
-    $materialNames = @(Get-PropertyNames -Value $material)
-    if ($materialNames.Count -ne 2 -or $materialNames -notcontains 'endpoint' -or
-        $materialNames -notcontains 'accessToken') {
-        # A completed three-field record is runtime authority, not recovery
-        # input.  Recovery cannot overwrite it without a new explicit request.
-        if ($materialNames.Count -eq 3) { Fail-Safe 'host_credential_reauthorization_not_required' }
-        Fail-Safe 'host_credential_shape'
-    }
-    if ([string]$material.endpoint -notmatch '^https://') { Fail-Safe 'host_endpoint_invalid' }
-    if ([string]$material.accessToken -notmatch '^v2h_[A-Za-z0-9_-]{32,}$') {
-        Fail-Safe 'host_credential_invalid'
-    }
+    Assert-InternalHolaCoordinatorRecoveryMaterial -Material $material
     $endpointBase = $Endpoint.TrimEnd('/')
     if ([string]$material.endpoint -ne $endpointBase) { Fail-Safe 'runtime_endpoint_mismatch' }
+    Assert-InternalHolaCoordinatorClockPreflight -Endpoint $endpointBase
     $privateXml = [Text.Encoding]::UTF8.GetString(
         [Security.Cryptography.ProtectedData]::Unprotect(
             [Convert]::FromBase64String([IO.File]::ReadAllText($privatePath)),
@@ -1889,10 +2268,25 @@ function Restore-HolaCoordinatorHostCredential {
                 $state.terminal = $true
                 Write-DpapiJsonAtomic -Path $requestPath -Value $state
             }
-        } else {
+        }
+        if ($null -eq $state -or [bool]$state.terminal) {
+            $minimumGeneration = 1
+            if ($null -ne $state) {
+                $minimum = [long]$state.generation + 1
+                if ($minimum -lt 1 -or $minimum -gt [int]::MaxValue) {
+                    Fail-Safe 'host_reauthorization_generation_invalid'
+                }
+                $minimumGeneration = [int]$minimum
+            }
+            # Missing/terminal local state is not a server generation counter.
+            # This lookup authenticates with the enrolled key and writes nothing.
+            $nextGeneration = Get-InternalHolaCoordinatorRecoveryGeneration `
+                -Endpoint $endpointBase -Rsa $rsa -HostId $hostId `
+                -Fingerprint $fingerprint -MinimumGeneration $minimumGeneration
             $requestKey = [Guid]::NewGuid().ToString()
             $declaration = New-InternalHolaCoordinatorReauthorizationDeclaration `
-                -RequestKey $requestKey -HostId $hostId -Fingerprint $fingerprint -Generation 1
+                -RequestKey $requestKey -HostId $hostId -Fingerprint $fingerprint `
+                -Generation $nextGeneration
             $parameters = $rsa.ExportParameters($false)
             $b64url = {
                 param([byte[]]$Bytes)
@@ -1912,37 +2306,13 @@ function Restore-HolaCoordinatorHostCredential {
             }
             $state = [ordered]@{
                 endpoint = $endpointBase; requestKey = $requestKey; requestId = ''
-                generation = 1; hostId = $hostId; fingerprint = $fingerprint
+                generation = $nextGeneration; hostId = $hostId; fingerprint = $fingerprint
                 terminal = $false; completionAmbiguous = $false
                 declaration = $declaration
                 body = ($bodyObject | ConvertTo-Json -Depth 8 -Compress)
             }
-            # Persist request authority, including the exact generation, before
-            # the first network call.  No decrypted material is emitted.
-            Write-DpapiJsonAtomic -Path $requestPath -Value $state
-        }
-        if ([bool]$state.terminal) {
-            $nextGeneration = [int]$state.generation + 1
-            if ($nextGeneration -le 0) { Fail-Safe 'host_reauthorization_generation_invalid' }
-            $requestKey = [Guid]::NewGuid().ToString()
-            $declaration = New-InternalHolaCoordinatorReauthorizationDeclaration `
-                -RequestKey $requestKey -HostId $hostId -Fingerprint $fingerprint `
-                -Generation $nextGeneration
-            $oldBody = [string]$state.body | ConvertFrom-Json
-            $signature = $rsa.SignData([Text.Encoding]::UTF8.GetBytes(
-                (ConvertTo-CanonicalJson -Value $declaration)),
-                [Security.Cryptography.CryptoConfig]::MapNameToOID('SHA256'))
-            $bodyObject = [ordered]@{
-                declaration = $declaration
-                publicKey = [string]$oldBody.publicKey; keyFingerprint = $fingerprint
-                signature = [Convert]::ToBase64String($signature)
-            }
-            $state = [ordered]@{
-                endpoint = $endpointBase; requestKey = $requestKey; requestId = ''
-                generation = $nextGeneration; hostId = $hostId; fingerprint = $fingerprint
-                declaration = $declaration; terminal = $false; completionAmbiguous = $false
-                body = ($bodyObject | ConvertTo-Json -Depth 8 -Compress)
-            }
+            # Persist the exact signed request before submission. A lost
+            # response resumes these bytes, never a new context/generation.
             Write-DpapiJsonAtomic -Path $requestPath -Value $state
         }
         if ([string]::IsNullOrWhiteSpace([string]$state.requestId)) {
@@ -1951,7 +2321,7 @@ function Restore-HolaCoordinatorHostCredential {
                 $endpointBase + '/api/coordination/v2/host/reauthorization-requests') `
                 -ContentType 'application/json' -Body ([string]$state.body) -UseBasicParsing `
                 -MaximumRedirection 0 -ErrorAction Stop
-            } catch { Fail-Safe 'host_reauthorization_transport' -Detail (Get-HolaCoordinatorTransportFailureDetail -ErrorRecord $_) }
+            } catch { Fail-Safe 'host_reauthorization_transport' -Detail (Get-HolaCoordinatorRecoveryFailureDetail -ErrorRecord $_) }
             Assert-ExactPropertySet -Value $request -Names @(
                 'requestId', 'status', 'approvalUrl'
             ) -FailureCode 'host_reauthorization_response_shape'
@@ -1979,7 +2349,7 @@ function Restore-HolaCoordinatorHostCredential {
                 [Uri]::EscapeDataString([string]$state.requestId) + '/status') `
                 -Headers @{ 'x-hola-reauthorization-key' = [string]$state.requestKey } -UseBasicParsing `
             -MaximumRedirection 0 -ErrorAction Stop
-        } catch { Fail-Safe 'host_reauthorization_transport' -Detail (Get-HolaCoordinatorTransportFailureDetail -ErrorRecord $_) }
+        } catch { Fail-Safe 'host_reauthorization_transport' -Detail (Get-HolaCoordinatorRecoveryFailureDetail -ErrorRecord $_) }
         Assert-StrictUuid -Value ([string]$status.requestId) -FailureCode 'host_reauthorization_status_invalid'
         if ([string]$status.requestId -ne [string]$state.requestId) {
             Fail-Safe 'host_reauthorization_status_mismatch'
@@ -2061,7 +2431,7 @@ function Restore-HolaCoordinatorHostCredential {
             [Uri]::EscapeDataString([string]$state.requestId) + '/proof') `
             -ContentType 'application/json' -Body $proof -UseBasicParsing `
             -MaximumRedirection 0 -ErrorAction Stop
-        } catch { Fail-Safe 'host_reauthorization_transport' -Detail (Get-HolaCoordinatorTransportFailureDetail -ErrorRecord $_) }
+        } catch { Fail-Safe 'host_reauthorization_transport' -Detail (Get-HolaCoordinatorRecoveryFailureDetail -ErrorRecord $_) }
         Assert-ExactPropertySet -Value $issued -Names @('accessToken', 'expiresAt') `
             -FailureCode 'host_reauthorization_credential_shape'
         if ([string]$issued.accessToken -notmatch '^v2h_[A-Za-z0-9_-]{32,}$') {
@@ -2091,6 +2461,36 @@ function Restore-HolaCoordinatorHostCredential {
         }
     } finally {
         if ($null -ne $rsa) { $rsa.Dispose() }
+    }
+}
+function Restore-HolaCoordinatorHostCredential {
+    [CmdletBinding()]
+    param(
+        [Parameter(Mandatory = $true)]
+        [ValidatePattern('^https://')]
+        [string]$Endpoint
+    )
+    try {
+        return (Restore-InternalHolaCoordinatorHostCredential -Endpoint $Endpoint)
+    } catch {
+        # Preserve only recognized codes and recomputed fixed details. Never
+        # rethrow arbitrary CLR/PowerShell text, including key/DPAPI errors.
+        $message = [string]$_.Exception.Message
+        if ($message -cmatch '^hola_coordinator_host_reauthorization_transport :: http_status=(none|[45][0-9]{2}); reason=([A-Z][A-Z0-9_]{0,79}); next=') {
+            $httpStatus = $Matches[1]
+            $reason = $Matches[2]
+            $detail = Format-HolaCoordinatorRecoveryDetail -Reason $reason -HttpStatus $httpStatus
+            if ($message -ceq ('hola_coordinator_host_reauthorization_transport :: ' + $detail)) {
+                Fail-Safe 'host_reauthorization_transport' -Detail $detail
+            }
+        }
+        if ($message -cmatch '^hola_coordinator_([a-z0-9_]{1,80})$') {
+            $code = $Matches[1]
+            $next = Get-HolaCoordinatorRecoveryGuidance -Code $code
+            if ($null -ne $next) { Fail-Safe $code -Detail ('reason=' + $code + '; next=' + $next) }
+        }
+        Fail-Safe 'host_recovery_failed' -Detail (
+            Format-HolaCoordinatorRecoveryDetail -Reason 'LOCAL_RECOVERY_FAILURE')
     }
 }
 # END COORDINATION_REAUTHORIZATION_BOUNDARY

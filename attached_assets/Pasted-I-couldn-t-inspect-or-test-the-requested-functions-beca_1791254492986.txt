@@ -1,0 +1,70 @@
+I couldn’t inspect or test the requested functions because scripts/hola-coordinator.ps1 isn’t present in the available workspace, and a search under Documents\Codex found no copy. I made no changes and sent no network requests.
+Please provide the script or point me to its location. Then I can review the error handling and run the proposed classification against synthetic errors only.
+
+
+8:31 PM
+
+
+
+
+
+
+
+
+C:\Users\David\HolaHola\scripts
+
+
+
+
+
+
+
+8:33 PM
+
+
+
+
+
+
+Worked for 1m 17s
+
+
+
+Diagnosis: Invoke-HostAuthenticatedRequest catches the Invoke-RestMethod error but replaces it with hola_coordinator_runtime_bootstrap_transport. The failure is therefore hidden before Get-ServerRuntimeStatus can receive a response. The status function calls only the existing GET /api/coordination/v2/host/runtime-bootstrap/status route; it does not identify the cause of a failed request.
+Get-HolaCoordinatorTransportFailureDetail checks for an HTTP response and status code, but its fallback directly reads $ErrorRecord.Exception.Message. That can fail under strict mode when given an incomplete or unexpected error object. $Error is not needed here: the catch block’s $_ is the specific ErrorRecord for the failed request.
+PowerShell 5.1-compatible approach: Pass $_ from the catch to a defensive classifier. Walk the exception chain using checked PSObject.Properties lookups. If an exception has a response with a status code, report an HTTP rejection and that code. Otherwise, if it is a System.Net.WebException, report its Status (such as NameResolutionFailure or TrustFailure); classify other cases as unknown transport failures. Keep extraction best-effort and never let diagnostic code replace the original failure. Avoid logging request headers, tokens, or key material.
+I ran a synthetic classifier under Windows PowerShell 5.1 strict mode. It distinguished a synthetic HTTP 409, DNS NameResolutionFailure, and TLS TrustFailure; generic and incomplete errors returned unknown without throwing. The HTTP case used a synthetic response object, so this verifies the classification logic—not Invoke-RestMethod’s actual Windows PowerShell 5.1 error shape.
+No script changes or network requests were made. A live authenticated status check would need the separate approval you specified.
+
+
+8:34 PM
+
+
+
+
+
+
+
+
+please do what you can with live authentication
+
+
+
+
+
+
+
+8:38 PM
+
+
+
+
+
+
+Worked for 1m 55s
+
+
+
+The authenticated check did not reach the server. The status-only probe stopped locally with host_credential_corrupted while loading the saved host credential, before sending any request. I did not inspect or display credential contents.
+I also tried loading the launcher in an isolated Windows PowerShell 5.1 process, but that process reported scripts disabled. I did not change its execution policy. The status-only probe in the current PowerShell 7 process reached the local credential-loading failure instead.
+So there’s no live HTTP status to classify yet. The saved credential needs to be diagnosed through an authorized local recovery path before the existing GET status check can run. No files or state were changed, and no network request was made.

@@ -48,3 +48,11 @@ The rationale is preserved in
 unchanged. Before action, and even on matching retries, require unexpired
 evidence and fresh live agreement. Drift blocks action rather than silently
 substituting a newer release. Never describe this mechanism as a deploy pin.
+
+## Automatic deployment policy must be verified live
+
+Automatic deployment is a live Render setting, not a permanent property of the repository. Render's dashboard “Deploy a specific commit” action disables automatic deploys.
+
+**Why:** Earlier automatic-deployment observations stopped predicting production behavior when authenticated Render inspection showed auto-deploy disabled. Passing GitHub CI and an updated main branch did not themselves publish production. Render documents the dashboard action's effect at https://render.com/docs/deploys#deploying-a-specific-commit.
+
+**How to apply:** Read the existing service's actual auto-deploy policy before asserting that source synchronization will publish. Treat earlier observations and checked-in Blueprints as historical or desired configuration, not current authority. Keep manual exact-candidate publication unless the founder explicitly approves a cadence change; verify live commit and source digest before recording promotion.

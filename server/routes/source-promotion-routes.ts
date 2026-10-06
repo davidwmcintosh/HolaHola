@@ -135,7 +135,7 @@ export function registerSourcePromotionRoutes(
         res.status(result.replayed && result.request.status !== 'running' ? 200 : 202).json({
           ...result,
           next: result.request.status === 'succeeded'
-            ? 'Publish the exact SHA, then record matching Render release identity or an explicit Replit publication marker.'
+            ? 'Publish the exact validated SHA to Render with founder approval, then record its matching live release identity. Replit Publish alone is not production publication.'
             : 'Poll the request URL until it reaches a terminal state.',
           requestUrl: `/api/admin/source-promotion/requests/${result.request.requestId}`,
         });
@@ -176,9 +176,7 @@ export function registerSourcePromotionRoutes(
           ...result,
           verification: {
             mode: result.request.verificationMode,
-            note: result.request.verificationMode === 'render_release_health'
-              ? 'The exact commit and source-context digest must match the pinned HTTPS Render release identity.'
-              : 'The exact Replit publication marker must match the validated candidate.',
+            note: 'The exact commit and source-context digest must match the pinned HTTPS Render release identity. A Replit marker alone is not production evidence.',
           },
           requestUrl: `/api/admin/source-promotion/requests/${result.request.requestId}`,
         });

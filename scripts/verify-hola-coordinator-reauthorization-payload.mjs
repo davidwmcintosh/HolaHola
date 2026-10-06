@@ -16,13 +16,17 @@ const path = process.argv[2];
 assert.ok(path, 'payload path is required');
 const body = JSON.parse(readFileSync(path, 'utf8'));
 assert.deepEqual(Object.keys(body).sort(), ['declaration', 'keyFingerprint', 'publicKey', 'signature']);
-assert.deepEqual(Object.keys(body.declaration).sort(), [
+const recovery = body.declaration.kind === 'host_credential_recovery_context';
+assert.deepEqual(Object.keys(body.declaration).sort(), recovery ? [
+  'contextKey', 'expiresAt', 'hostId', 'issuedAt', 'keyFingerprint', 'kind',
+  'minimumGeneration', 'protocolVersion',
+] : [
   'expiresAt', 'hostId', 'issuedAt', 'keyFingerprint', 'kind',
   'protocolVersion', 'requestGeneration', 'requestKey',
 ]);
-assert.equal(body.declaration.kind, 'host_credential_reauthorization');
+assert.equal(body.declaration.kind, recovery ? 'host_credential_recovery_context' : 'host_credential_reauthorization');
 assert.equal(body.declaration.protocolVersion, 1);
-assert.ok(Number.isInteger(body.declaration.requestGeneration));
+assert.ok(Number.isInteger(recovery ? body.declaration.minimumGeneration : body.declaration.requestGeneration));
 assert.equal(body.declaration.keyFingerprint, body.keyFingerprint);
 
 const jwk = JSON.parse(body.publicKey);
@@ -33,7 +37,7 @@ assert.equal(fingerprint, body.keyFingerprint);
 
 const issuedAt = new Date(body.declaration.issuedAt);
 const expiresAt = new Date(body.declaration.expiresAt);
-assert.equal(expiresAt.getTime() - issuedAt.getTime(), 60 * 60_000);
+assert.equal(expiresAt.getTime() - issuedAt.getTime(), recovery ? 120_000 : 60 * 60_000);
 assert.equal(verify(
   'RSA-SHA256',
   Buffer.from(canonicalJson(body.declaration)),

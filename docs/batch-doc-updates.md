@@ -9,6 +9,139 @@
   boundaries. Development tests are distinct from deployed handoff evidence and
   native Windows offline-verifier receipts. No publication or Windows operation
   is authorized or claimed by this entry.
+## 2026-10-05 — Safe enrollment diagnostics, reporting-only preparation
+
+- The three enrollment HTTP catches retain `enrollment_transport`; their helper
+  now emits typed bounded metadata, case-sensitive allowlisted enrollment
+  reasons and fixed guidance. No raw body, exception message or arbitrary
+  identifier is reported. Enrollment and recovery guidance remain independent.
+- Shared parsing preserves the 4096-character body bound and 4097-character
+  legacy-stream limit. Root arrays are rejected before PowerShell can unwrap a
+  one-element array. Enrollment request persistence, exact retries,
+  bootstrap/founder gates, signing and credential custody are unchanged.
+- Expanded the synthetic diagnostics fixture with enrollment secret sentinels,
+  all allowed codes, malformed/unknown/case-mismatched/recovery-only codes,
+  boundary-size bodies, legacy streams and typed transport/status metadata.
+  Existing Windows CI wiring is retained and guarded by a focused source test.
+- Founder approved the scoped design and checkout work; Alden independently
+  approved its immutable shared-spec revision. Exported approved bytes are in
+  `docs/superpowers/specs/2026-10-05-safe-enrollment-diagnostics-design.md`.
+- Verification: 14 focused static checks passed; typecheck passed; system-health
+  Summary: "All checks passed — safe to mark done." The local Nix PowerShell
+  runtime hung even on a trivial command, so these PowerShell fixtures were
+  **not executed locally**. No native PowerShell 5.1 success is claimed.
+- No publication, real Windows action, enrollment/credential operation,
+  session initialization or Windows policy/trust change occurred. Fresh
+  exact-byte founder-gated GitHub-to-Render source/runtime publication and
+  separately authorized native Windows verification remain required.
+
+## 2026-10-05 — Automatic safe recovery diagnostics, local preparation
+
+- David chose automatic reporting over a separate diagnostic command. All four
+  recovery HTTP failure paths now use bounded HTTP metadata, exact allowlisted
+  reason codes, and fixed guidance, rather than raw response/exception text.
+  Enrollment's three legacy diagnostic call sites remain unchanged.
+- Recovery JSON parsing is limited to 4096 characters; the legacy response-stream
+  path reads at most 4097 and rejects oversized input. Unknown or malformed
+  responses and failed capture produce fixed fallbacks. Typed transport metadata
+  can identify timeout, connectivity, or TLS failure without reflecting messages.
+- The public recovery wrapper preserves recognized local failure codes and
+  recomputes recognized transport details. Unexpected local exceptions become
+  `host_recovery_failed`; no raw CLR/PowerShell text is rethrown. Script-loading
+  policy errors and parameter binding are outside that wrapper. Success/status
+  shapes, request persistence/retries, approval, signing, and key custody are
+  unchanged; the underlying lifecycle only moved behind the wrapper.
+- Added `scripts/test-hola-coordinator-recovery-diagnostics.ps1`, invoked by
+  the existing Windows reauthorization CI script. Synthetic cases cover secret
+  sentinels, unknown/malformed/oversized bodies, response-stream capture, invalid
+  status metadata, transport types and public-boundary error handling. These
+  PowerShell fixtures are **not executed locally**; Windows PowerShell 5.1
+  verification remains pending.
+- Verification: 24 focused Node checks passed, zero skips; typecheck passed;
+  health verifier: "All checks passed — safe to mark done." The application
+  restarted and its public landing page loaded. The initial independent review
+  request hit startup unavailability; the later request succeeded. Alden approved
+  the exact shared-spec design revision and found no implementation blockers.
+  The workspace design matches the reviewed immutable record in
+  `docs/superpowers/specs/2026-10-05-safe-recovery-diagnostics-design.md`.
+- No publication, real Windows command, live host/credential operation, runtime
+  session/init, or policy/trust change was performed. Changed source still needs
+  fresh exact-byte founder-gated GitHub-to-Render source/runtime publication and
+  native proof; neither static checks nor review establishes native success.
+
+## 2026-10-05 — Expired replacement host-credential recovery, local preparation
+
+- The founder approved server-guided recovery instead of client-only acceptance
+  or an operator-supplied generation. The recovery helper now accepts only
+  well-formed expired replacement material (or existing legacy material), gets
+  the next generation using an enrolled-key signature and a read-only context,
+  persists a fresh signed request before submission, and retains exact retries.
+  It does not trust the expired token, alter the host key, bypass approval, or
+  initialize a runtime.
+- Fresh server submissions check historical generations under the enrolled
+  host lock, after exact replay. A signed local minimum preserves retired
+  legacy generations even when they were never accepted by the server.
+  Pending/approved requests prevent a new context lookup without being changed.
+- Verification: 21 focused validation/contract/static checks passed; typecheck
+  passed; the health verifier reported "All checks passed — safe to mark done."
+  Three no-skip PostgreSQL checks passed on a disposable migrated local cluster,
+  then the cluster was removed. A running-development route check rejected
+  malformed, token-only, and signed unknown-host context requests with bounded
+  responses and no-store headers. The public landing page loaded.
+- The Windows PowerShell 5.1 regression script has new expired-material,
+  missing-state, invalid-context, exact-retry, founder-before-proof, and
+  synthetic approved-proof/store fixtures; it has **not** yet run on Windows.
+  Do not claim native execution or signing-policy compatibility from the
+  local static checks.
+- Design record: `docs/superpowers/specs/2026-10-05-coordinator-expired-replacement-recovery-design.md`
+  matches the exact independently approved shared-spec revision. Alden approved
+  that revision and reported no code blockers, but this is **not** a release
+  approval. No GitHub/Render publication, host mutation, trust/policy change,
+  or Windows recovery occurred. New source/runtime approvals and native proof
+  require the separately gated founder steps; existing release receipts
+  cannot cover these changed bytes. Diagnostic reporting remains deferred.
+
+## 2026-10-04 — Render-only production promotion
+
+- The founder confirmed Render as production for all builder runtimes. The
+  canonical source-control and shared promotion API now require exact live
+  Render evidence; a Replit-only hosting marker cannot append production
+  authority. Legitimate same-tree marker ancestry remains supported when
+  Render independently matches the prepared candidate.
+- Both initial and final live Render checks remain mandatory. Historical
+  receipts were not rewritten. Added regression checks for marker-only refusal,
+  marker-plus-Render acceptance, both failed live checks, and API rejection
+  before request persistence. Updated shared preparation guidance and added
+  `docs/render-production-release.md`.
+- Read-only GitHub inspection found the synchronized source's remote CI failing
+  a real-PostgreSQL concurrent review-assignment assertion (two successes).
+  No newer Render deployment record was present. Render's actual deployment
+  mode/CI gating remains unverified; no deployment or setting change was made.
+- Fixed that test's scheduling assumption by holding both real PostgreSQL reads
+  before either assignment can write. Retained the strict one-winner/CONFLICT
+  assertions and existing production CAS; no schema or production data-flow
+  change. All three checks passed on a migrated disposable local PostgreSQL
+  database, with no skipped coverage.
+- Typecheck, production build, source-control and promotion API fixtures
+  (including isolated-CI real-database notification coverage), source mutation
+  boundary, release transport safety, authenticated live API refusal, and
+  landing-page verification passed. System health reported no failures and two
+  app-route checks skipped during the parallel development restart; the app
+  subsequently reported ready. The exact-source publication gate and live
+  Render deployment remain pending, not claimed complete.
+
+## 2026-10-04 — Manual recovery of the pilot-expiry documentation
+
+- Reconstructed the expiry/replacement plan from the founder-supplied task 1698
+  completion summary after failed apply attempts; this is not the original
+  patch and does not establish a platform task merge.
+- Added explicit manual UTC 30-/7-/1-day reviews, read-only independently pinned
+  certificate inspection, publisher/rotation/timestamp tradeoffs, separate
+  approvals and fresh marked-download dummy-only replacement acceptance.
+- Alden's analysis-only review approved the proposed plan. Historical pilot
+  receipts and offline-finalizer instructions remain intact. No helper,
+  signature, Windows state, credential or publication changes; replacement
+  usability and task 1701 native verification remain unproven.
 
 ## 2026-10-04 — Offline Windows onboarding finalization
 
@@ -996,6 +1129,38 @@ and `git diff --check` pass.
   carries explicit source identity; capture IDs are never synthesized.
 
 # Batch Documentation Updates
+
+## Read-only Windows recovery clock preflight — 2026-10-05
+
+Added a bounded, non-secret clock diagnostic before protected recovery key
+decryption or draft effects. Server metadata reuses the signed context TTL and
+preserves zero future allowance; no auth validation or authority changes.
+Three two-second HTTPS samples with 512-byte caps and conservative uncertainty
+intervals distinguish definite ahead/behind from unknown. Windows Time service
+status and correction-command `not_run` remain independent.
+
+Operator: `Get-HolaCoordinatorClockPreflight -Endpoint <approved HTTPS endpoint>`
+is standalone read-only; the protected Restore command invokes the same check.
+Definite out-of-window stops preserve custody; unknown is explicitly advisory,
+not healthy. No resync, policy/service changes, DPAPI reset, real host access,
+credential issuance, session creation, or publication was performed.
+
+Coverage: actual PowerShell interval/custody suite, contract/route/static tests,
+and native PowerShell 5.1 Windows CI wiring. Local focused checks passed 29/29,
+typecheck passed, and system-health Summary: All checks passed — safe to mark
+done. Native Windows CI evidence is pending the exact source merge/push, not
+claimed from local PowerShell 7.4 execution. PowerShell is a Nix test dependency.
+Both Alden architectural engines cleared the design before implementation.
+Runbook and compatibility design retain every exact-source/runtime founder
+publication and approval stop; LITTLENEMO remains untouched.
+
+Additional verification: the restarted development endpoint returned bounded
+clock metadata and the app rendered normally. A real read-only HTTPS sampler
+run returned `unknown` with one valid sample, correctly not claiming alignment.
+The older reauthorization PowerShell suite fails locally at “Exact expired
+two-clock request was not recognized”; the identical failure was reproduced
+from unchanged HEAD scripts in a temporary baseline directory. This is not a
+new clock-check regression, and no native Windows result is inferred from it.
 
 ## Session September 2, 2026 — Language Hub scene mastery crash
 
@@ -7858,3 +8023,29 @@ migration has not been applied and requires a passing isolated gate first.
 There has been no source/runtime publication and no invitation or real
 credential issuance. No Alden review or notification is claimed; the
 generated `docs/alden-agent-handoff.md` snapshot was not edited directly.
+
+## 2026-10-05 — Coordinator ACL read-only false-positive correction
+
+**Local preparation only.** The founder approved the independently reviewed
+`docs/superpowers/specs/2026-10-05-coordinator-acl-write-mask-design.md`.
+`Assert-SidAcl` now classifies mutation using the eight primitive mutating
+FileSystemRights instead of FullControl/Modify composites that also contain
+read permissions. Legitimate read/execute/synchronize rules no longer intersect
+the mutation mask. Owner/trusted-writer identities, rejection branches,
+conservative Deny/InheritOnly handling, call sites and other custody checks
+remain unchanged.
+
+`scripts/test-hola-coordinator-acl.ps1` adds disposable native directory/file
+ACL fixtures and actual-guard mutation checks through the existing Windows
+reauthorization CI entrypoint. It includes the reported trusted-inherited plus
+explicit-read shape and each primitive mutating right.
+`server/scripts/test-coordination-v2-acl-mask.test.ts` adds supplementary
+source/SDK-bitmask contracts, registered in `scripts/run-ci-test-steps.mjs`.
+
+Focused local contracts and typecheck passed; system health had no failures,
+with two app-route skips while the dev server was stopped. Dev startup then
+succeeded. Alden approved the design and the production/code-test architecture.
+**Native Windows PowerShell 5.1 CI has not run.** No Windows host operations,
+credential changes, sessions, or publication occurred. A fresh founder-gated
+source/runtime publication is required before any host update or initialization
+retry; old release receipts do not authorize the changed launcher.

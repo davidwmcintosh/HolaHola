@@ -20,7 +20,10 @@ test("legacy material is recovery-only and runtime requires future expiry", () =
   assert.match(source, /host_credential_reauthorization_required/);
   assert.match(source, /Names @\('endpoint', 'accessToken', 'expiresAt'\)/);
   assert.match(source, /material\.expiresAt\)\.ToUniversalTime\(\) -le \[DateTime\]::UtcNow/);
-  assert.match(recovery, /materialNames\.Count -ne 2[\s\S]*notcontains 'endpoint'[\s\S]*notcontains 'accessToken'/);
+  assert.match(recovery, /materialNames\.Count -eq 2[\s\S]*contains 'endpoint'[\s\S]*contains 'accessToken'/);
+  assert.match(recovery, /materialNames\.Count -eq 3[\s\S]*contains 'expiresAt'/);
+  assert.match(recovery, /\$expiry -gt \[DateTime\]::UtcNow[\s\S]*host_credential_reauthorization_not_required/);
+  assert.match(recovery, /host_credential_expiry_invalid/);
   assert.match(recovery, /host_credential_reauthorization_not_required/);
 });
 
@@ -31,9 +34,10 @@ test("request state is persisted before submission and resumes exact generation"
   assert.match(recovery, /'requestKey', 'requestId', 'generation', 'hostId'/);
   assert.match(recovery, /terminal = \$false/);
   assert.match(recovery, /completionAmbiguous = \$false/);
-  assert.match(recovery, /nextGeneration = \[int\]\$state\.generation \+ 1/);
+  assert.match(recovery, /minimum = \[long\]\$state\.generation \+ 1/);
   assert.match(recovery, /requestGeneration = \$Generation/);
-  assert.match(recovery, /-Generation 1/);
+  assert.match(recovery, /nextGeneration = Get-InternalHolaCoordinatorRecoveryGeneration/);
+  assert.doesNotMatch(recovery, /-Generation 1/);
   assert.match(recovery, /\[int\]\$challenge\.requestGeneration -ne \[int\]\$state\.generation/);
 });
 
@@ -80,16 +84,16 @@ test("wire declarations and status branches are exact and terminal-safe", () => 
   assert.match(recovery, /nonce -notmatch '\^\[A-Za-z0-9_-\]\{32,\}\$'/);
   assert.match(recovery, /host_reauthorization_transport/);
   assert.match(recovery, /host_reauthorization_challenge_expired/);
-  const rollover = recovery.indexOf('$nextGeneration = [int]$state.generation + 1');
+  const rollover = recovery.indexOf('$nextGeneration = Get-InternalHolaCoordinatorRecoveryGeneration');
   assert.ok(rollover >= 0);
-  assert.ok(recovery.indexOf('if ([bool]$state.terminal)') < rollover);
+  assert.ok(recovery.indexOf('if ($null -eq $state -or [bool]$state.terminal)') < rollover);
   assert.doesNotMatch(recovery.slice(rollover - 200, rollover), /completionAmbiguous/);
 });
 
 test("reauthorization body and status transport keep request keys out of URLs and results", () => {
   const restore = recovery.slice(recovery.indexOf("function Restore-HolaCoordinatorHostCredential"));
   const bodyStarts = [...recovery.matchAll(/\$bodyObject = \[ordered\]@\{/g)].map((m) => m.index as number);
-  assert.equal(bodyStarts.length, 2);
+  assert.equal(bodyStarts.length, 1);
   for (const bodyStart of bodyStarts) {
     const bodyEnd = recovery.indexOf("\n            }", bodyStart);
     const body = recovery.slice(bodyStart, bodyEnd);
@@ -109,3 +113,87 @@ test("recovery never starts runtime lifecycle and never emits secrets", () => {
   assert.doesNotMatch(recovery, /Write-Host|Console\.Out|Write-Output/);
   assert.doesNotMatch(recovery, /accessToken\s*=\s*\[string\]\$issued\.accessToken[\s\S]{0,160}return/);
 });
+
+test("recovery context uses a separate signed two-minute purpose and no token authority", () => {
+  const helper = recovery.slice(recovery.indexOf('function Get-InternalHolaCoordinatorRecoveryGeneration'),
+    recovery.indexOf('function Restore-InternalHolaCoordinatorHostCredential'));
+  assert.match(helper, /kind = 'host_credential_recovery_context'/);
+  assert.match(helper, /expiresAt = \$capturedAt\.AddMinutes\(2\)/);
+  assert.match(helper, /minimumGeneration = \$MinimumGeneration/);
+  assert.match(helper, /ConvertTo-CanonicalJson -Value \$declaration/);
+  assert.match(helper, /\/api\/coordination\/v2\/host\/recovery-context/);
+  assert.match(helper, /'contextKey', 'nextGeneration', 'issuedAt', 'expiresAt'/);
+  assert.match(helper, /context\.contextKey -cne \[string\]\$declaration\.contextKey/);
+  assert.match(helper, /context\.nextGeneration -gt \[int\]::MaxValue/);
+  assert.doesNotMatch(helper, /accessToken|Write-Dpapi|Remove-Item|Authorization|v2h_/);
+});
+
+test("HTTP failure callers retain distinct enrollment and recovery reporting contracts", () => {
+  assert.equal((recovery.match(/Get-HolaCoordinatorRecoveryFailureDetail -ErrorRecord \$_/g) ?? []).length, 4);
+  assert.doesNotMatch(recovery, /Get-HolaCoordinatorTransportFailureDetail/);
+  const enrollment = source.slice(0, start);
+  assert.equal((enrollment.match(/Get-HolaCoordinatorTransportFailureDetail -ErrorRecord \$_/g) ?? []).length, 3);
+  assert.equal((enrollment.match(/Fail-Safe 'enrollment_transport' -Detail \(Get-HolaCoordinatorTransportFailureDetail -ErrorRecord \$_\)/g) ?? []).length, 3);
+  const wrapper = enrollment.slice(enrollment.indexOf("function Get-HolaCoordinatorTransportFailureDetail"),
+    enrollment.indexOf("function Get-HolaCoordinatorEnrollmentGuidance"));
+  assert.match(wrapper, /Get-InternalHolaCoordinatorHttpFailureDetail -ErrorRecord \$ErrorRecord -Context Enrollment/);
+  assert.doesNotMatch(wrapper, /ReadToEnd|\.Message|response=|error=/);
+  assert.match(recovery, /Get-InternalHolaCoordinatorHttpFailureDetail -ErrorRecord \$ErrorRecord -Context Recovery/);
+});
+
+test("shared HTTP diagnostics bound JSON and stream input and never echo error text", () => {
+  const reporter = recovery.slice(recovery.indexOf("function Get-InternalHolaCoordinatorHttpFailureDetail"),
+    recovery.indexOf("function New-InternalHolaCoordinatorReauthorizationDeclaration"));
+  assert.match(reporter, /New-Object char\[\] 4097/);
+  assert.match(reporter, /\$body\.Length -gt 4096/);
+  assert.match(reporter, /\$reader\.Read\(\$buffer, \$count, \$buffer\.Length - \$count\)/);
+  assert.match(reporter, /ConvertFrom-Json -InputObject \$body -ErrorAction Stop/);
+  assert.match(reporter, /\$body\.TrimStart\(\)\.StartsWith\('\{', \[StringComparison\]::Ordinal\)/);
+  assert.match(reporter, /StartsWith\('V2_HOST_', \[StringComparison\]::Ordinal\)/);
+  assert.match(reporter, /Get-InternalHolaCoordinatorDiagnosticGuidance -Code \$code\.Value -Context \$Context/);
+  assert.match(reporter, /TRANSPORT_TLS|TRANSPORT_TIMEOUT/);
+  assert.doesNotMatch(reporter, /ReadToEnd|Exception\.Message|Write-Host|Write-Output|Console|return \$body|response='/);
+  assert.doesNotMatch(reporter, /Write-Dpapi|Remove-Item|Invoke-RestMethod|Unprotect|FromXmlString/);
+});
+
+test("enrollment allowlist is ordinal and separate from recovery guidance", () => {
+  const guidance = source.slice(source.indexOf("function Get-HolaCoordinatorEnrollmentGuidance"),
+    source.indexOf("function Resolve-ApprovedNode"));
+  assert.match(guidance, /StringComparer\]::Ordinal/);
+  assert.match(guidance, /V2_HOST_BOOTSTRAP_CONSUMED/);
+  assert.doesNotMatch(guidance, /V2_HOST_REAUTH_|Get-HolaCoordinatorRecoveryGuidance|Invoke-RestMethod|Write-Dpapi|Remove-Item/);
+  const selector = recovery.slice(recovery.indexOf("function Get-InternalHolaCoordinatorDiagnosticGuidance"),
+    recovery.indexOf("function Format-InternalHolaCoordinatorHttpFailureDetail"));
+  assert.match(selector, /\$Context -ceq 'Enrollment'/);
+  assert.match(selector, /Get-HolaCoordinatorEnrollmentGuidance -Code \$Code/);
+  assert.match(selector, /Get-HolaCoordinatorRecoveryGuidance -Code \$Code/);
+});
+
+test("Windows CI retains the synthetic enrollment and recovery diagnostics fixture", () => {
+  const fixture = readFileSync("scripts/test-hola-coordinator-reauthorization.ps1", "utf8");
+  const workflow = readFileSync(".github/workflows/ci.yml", "utf8");
+  assert.match(fixture, /^\s*& \(Join-Path \$PSScriptRoot 'test-hola-coordinator-recovery-diagnostics\.ps1'\)/m);
+  assert.match(workflow, /shell: powershell\s+run: \.\\scripts\\test-hola-coordinator-reauthorization\.ps1/);
+});
+
+test("public recovery sanitizes local errors while preserving recognized failure codes", () => {
+  const wrapper = recovery.slice(recovery.indexOf("function Restore-HolaCoordinatorHostCredential"));
+  assert.match(wrapper, /Restore-InternalHolaCoordinatorHostCredential -Endpoint \$Endpoint/);
+  assert.match(wrapper, /Get-HolaCoordinatorRecoveryGuidance -Code \$code/);
+  assert.match(wrapper, /Fail-Safe \$code -Detail/);
+  assert.match(wrapper, /host_recovery_failed/);
+  assert.match(wrapper, /\$message -ceq \('hola_coordinator_host_reauthorization_transport :: ' \+ \$detail\)/);
+  assert.doesNotMatch(wrapper, /^\s*throw(?:\s|$)|Fail-Safe[^\n]*-Detail \$message|Write-Dpapi|Remove-Item/m);
+});
+
+test("native material fixtures match the strict JSON object boundary", () => {
+  const fixture = readFileSync("scripts/test-hola-coordinator-reauthorization.ps1", "utf8");
+
+  const workflow = readFileSync(".github/workflows/ci.yml", "utf8");
+  for (const name of ["expiredMaterial", "badMaterial", "futureMaterial"]) {
+    assert.match(fixture, new RegExp(`\\$${name} = \\[pscustomobject\\]\\[ordered\\]@\\{`));
+  }
+});
+
+  const selector = recovery.slice(recovery.indexOf("function Get-InternalHolaCoordinatorDiagnosticGuidance"),
+    recovery.indexOf("function Format-InternalHolaCoordinatorHttpFailureDetail"));

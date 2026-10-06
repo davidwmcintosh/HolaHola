@@ -209,3 +209,12 @@ entire extracted-tool suite pass.
 local imports and module-format metadata, but no credentials or private keys.
 For ownership bootstrap, keep the original task checkout as process.cwd() and
 run the extracted tool externally rather than editing an unverified checkout.
+
+## Date precision across canonical evidence creation and replay
+
+**Rule:** Never round-trip a JavaScript Date through String(date) when constructing signed or hashed evidence. Date.toString() loses milliseconds, whereas a database timestamp string can retain them.
+
+**Why:** A read-only reconstruction of eight historical runtime manifests matched their stored digests only when creation timestamps lost their milliseconds. Replay reconstructed the same records with database precision and rejected all eight. This was an evidence-serialization discrepancy, not damaged Windows credentials.
+
+**How to apply:** Verify canonical payloads across fresh in-memory values and actual database-driver results, including nonzero milliseconds. Historical signed evidence must remain verifiable against its original stored digest; do not rewrite digests or bypass integrity checks to repair a serialization change.
+

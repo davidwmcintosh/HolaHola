@@ -1129,7 +1129,7 @@ export class SourceControlService {
       const previous = await this.getStatus();
       const prepared = this.validPreparedCandidate(previous);
       if (prepared?.candidateSha === heads.local && previous?.state === 'ready_to_promote') {
-        await this.writePreservedReadyStatus(actor, heads, prepared, 'Awaiting explicit Replit Publish.');
+        await this.writePreservedReadyStatus(actor, heads, prepared, 'Awaiting explicit Render publication and matching live release evidence.');
         return {
           ok: true,
           state: 'ready_to_promote',
@@ -1354,7 +1354,7 @@ export class SourceControlService {
     }
     await this.writeStatus(
       'ready_to_promote',
-      'Validation passed. Use Replit Publish explicitly.',
+      'Validation passed. Publish the exact candidate to Render explicitly, then record its matching live release identity.',
       actor,
       verified.local,
       verified.github,
@@ -1417,6 +1417,11 @@ export class SourceControlService {
       await this.writeStatus('failed', error, actor, heads.local, heads.github);
       return { ok: false, state: 'failed', ...heads, error };
     }
+    if (!renderReference) {
+      const error = 'Production promotion requires verified Render release evidence. A Replit publication marker alone does not publish production. Use render-release:<commit-sha>:<source-context-sha256> for the explicitly prepared candidate.';
+      await this.writeStatus('failed', error, actor, heads.local, heads.github);
+      return { ok: false, state: 'failed', ...heads, error };
+    }
     if (renderReference && renderReference[1] !== sha) {
       const error = 'Promotion recording refused because the Render publication reference names a different commit.';
       await this.writeStatus('failed', error, actor, heads.local, heads.github);
@@ -1468,7 +1473,7 @@ export class SourceControlService {
       const markerMatches = publicationMarker.parentSha === sha
         && publicationMarker.treeSha === remoteProof.treeSha
         && publicationMarker.subject === 'Published your App'
-        && publicationReference === `replit-publish:${sha}:${publicationMarker.sha}`;
+        && renderReference[1] === sha;
       if (!markerMatches) {
         const error = 'Promotion recording refused because the local publication marker does not exactly match the validated candidate.';
         await this.writeStatus('failed', error, actor, heads.local, heads.github);
@@ -1486,11 +1491,6 @@ export class SourceControlService {
           return { ok: false, state: 'failed', ...heads, error };
         }
       }
-    }
-    if (!publicationMarker && !renderReference) {
-      const error = 'Promotion recording refused because exact-head publication requires verified Render release evidence.';
-      await this.writeStatus('failed', error, actor, heads.local, heads.github);
-      return { ok: false, state: 'failed', ...heads, error };
     }
     let renderReleaseEvidence: RenderReleaseEvidence | undefined;
     if (renderReference) {
@@ -1625,9 +1625,7 @@ export class SourceControlService {
     }
     await this.writeStatus(
       'synced',
-      renderReleaseEvidence
-        ? 'Verified Render release identity recorded for the current validated candidate.'
-        : 'Explicit Replit publish recorded for the current validated candidate.',
+      'Verified Render release identity recorded for the current validated candidate.',
       actor,
       heads.local,
       heads.github,
@@ -1637,11 +1635,9 @@ export class SourceControlService {
       promotedSha: sha,
       promotedBy: actor,
       promotionRequestId: operationId,
-      promotionVerificationMode: renderReleaseEvidence
-        ? publicationMarker
-          ? 'render_release_health_with_replit_publication_marker'
-          : 'render_release_health'
-        : 'operator_attestation_with_replit_publication_marker',
+      promotionVerificationMode: publicationMarker
+        ? 'render_release_health_with_replit_publication_marker'
+        : 'render_release_health',
       publicationReference,
       },
     );

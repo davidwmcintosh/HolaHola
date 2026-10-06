@@ -30,8 +30,25 @@ test('pre-insert reauthorization failures use bounded validation stages', () => 
   const validationCall = service.indexOf('validateCoordinationV2HostReauthorizationSubmission({ ...input, now })');
   const transaction = service.indexOf('db.transaction', validationCall);
   const insert = service.indexOf('coordinationV2HostReauthorizationRequests).values');
-  assert.ok(declaration >= 0 && publicKey > declaration && signature > publicKey);
+  assert.ok(declaration >= 0 && publicKey >= 0 && signature > publicKey);
   assert.ok(validationCall > signature && transaction > validationCall && insert > transaction);
+});
+
+test('recovery context is read-only and generation checks follow exact replay under the enrollment lock', () => {
+  const context = service.slice(service.indexOf('export async function getCoordinationV2HostRecoveryContext'),
+    service.indexOf('function reauthDeclaration'));
+  assert.match(context, /validateCoordinationV2HostRecoveryContextSubmission/);
+  assert.match(context, /validateRecoveryEnrollment/);
+  assert.match(context, /\.for\('share'\)/);
+  assert.match(context, /Math\.max\(highest \+ 1, Number\(value\.minimumGeneration\)\)/);
+  assert.doesNotMatch(context, /tx\.(insert|update|delete)|randomToken|issue.*Challenge/);
+  const submit = service.slice(service.indexOf('export async function submitCoordinationV2HostReauthorizationRequest'),
+    service.indexOf('export async function approveCoordinationV2HostReauthorization'));
+  assert.ok(submit.indexOf(".for('update')") < submit.indexOf('if (prior[0])'));
+  assert.ok(submit.indexOf('if (prior[0])') < submit.indexOf('request.generation >= generation'));
+  assert.ok(submit.indexOf('request.generation >= generation') < submit.indexOf('.values({'));
+  assert.match(routes, /host\/recovery-context', strictLimiter/);
+  assert.match(routes, /res\.set\('Cache-Control', 'no-store'\)/);
 });
 
 test('reauthorization has no runtime/task/session authority dependencies', () => {

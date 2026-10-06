@@ -1,0 +1,193 @@
+Both diagnostic processes ran with restricted tokens: TokenIsRestricted=1, TokenIsAppContainer=0, and TokenElevation=0. Their Windows SID and credential paths matched. I can’t inspect your existing PowerShell window’s token from here, so I can’t confirm whether its token differs. Both diagnostic processes failed at credential file read with System.UnauthorizedAccessException; neither reached DPAPI.
+The PowerShell versions were 5.1.26100.9444 and 7.6.5. Both initialized CurrentUserScope as CurrentUser. ProtectedData came from System.Security in 5.1 and System.Security.Cryptography.ProtectedData in 7. The file-read denial in restricted diagnostic processes does not establish that the credential data is corrupt.
+I tested the error classifier under Windows PowerShell 5.1 with synthetic errors: it reported a synthetic HTTP 409 and safe code, DNS NameResolutionFailure, TLS TrustFailure, and an unknown error without exposing messages. I did not send a request.
+Run this in your existing PowerShell window. It dot-sources the launcher, loads the saved identity without printing it, and allows only the existing authenticated GET status route. It does not retry initialization or change policy or files.
+& {
+    $ErrorActionPreference = 'Stop'
+    $diagState = @{ HttpStatus = $null; Failure = $null }
+    $identity = $null
+
+    try {
+        . 'C:\Users\David\HolaHola\scripts\hola-coordinator.ps1'
+
+        function Get-SafeStatusRouteFailure {
+            param([Parameter(Mandatory = $true)]$ErrorRecord)
+
+            $current = $null
+            $exceptionProperty = $ErrorRecord.PSObject.Properties['Exception']
+            if ($null -ne $exceptionProperty) {
+                $current = $exceptionProperty.Value
+            }
+
+            while ($null -ne $current) {
+                $responseProperty = $current.PSObject.Properties['Response']
+                if ($null -ne $responseProperty -and $null -ne $responseProperty.Value) {
+                    $response = $responseProperty.Value
+                    $statusProperty = $response.PSObject.Properties['StatusCode']
+
+                    if ($null -ne $statusProperty -and $null -ne $statusProperty.Value) {
+                        $status = [int]$statusProperty.Value
+                        $body = $null
+
+                        $detailsProperty = $ErrorRecord.PSObject.Properties['ErrorDetails']
+                        if ($null -ne $detailsProperty -and $null -ne $detailsProperty.Value) {
+                            $messageProperty = $detailsProperty.Value.PSObject.Properties['Message']
+                            if ($null -ne $messageProperty) {
+                                $body = [string]$messageProperty.Value
+                            }
+                        }
+
+                        if ([string]::IsNullOrWhiteSpace($body)) {
+                            $streamMethod = $response.PSObject.Methods['GetResponseStream']
+                            if ($null -ne $streamMethod) {
+                                try {
+                                    $stream = $response.GetResponseStream()
+                                    if ($null -ne $stream) {
+                                        $reader = New-Object System.IO.StreamReader($stream)
+                                        try { $body = $reader.ReadToEnd() }
+                                        finally { $reader.Dispose() }
+                                    }
+                                } catch {
+                                    $body = $null
+                                }
+                            }
+                        }
+
+                        $code = 'unavailable'
+                        if (-not [string]::IsNullOrWhiteSpace($body)) {
+                            try {
+                                $payload = $body | ConvertFrom-Json -ErrorAction Stop
+                                $candidate = $null
+                                $codeProperty = $payload.PSObject.Properties['code']
+
+                                if ($null -ne $codeProperty) {
+                                    $candidate = [string]$codeProperty.Value
+                                } else {
+                                    $errorProperty = $payload.PSObject.Properties['error']
+                                    if ($null -ne $errorProperty) {
+                                        if ($errorProperty.Value -is [string]) {
+                                            $candidate = [string]$errorProperty.Value
+                                        } elseif ($null -ne $errorProperty.Value) {
+                                            $nestedCode = $errorProperty.Value.PSObject.Properties['code']
+                                            if ($null -ne $nestedCode) {
+                                                $candidate = [string]$nestedCode.Value
+                                            }
+                                        }
+                                    }
+                                }
+
+                                if ($candidate -cmatch '^[A-Za-z0-9][A-Za-z0-9_.-]{0,79}$') {
+                                    $code = $candidate
+                                }
+                            } catch {
+                                $code = 'unavailable'
+                            }
+                        }
+
+                        return ('HTTP status=' + $status + '; errorCode=' + $code)
+                    }
+                }
+
+                if ($current -is [System.Net.WebException]) {
+                    return ('NETWORK exceptionType=' + $current.GetType().Name +
+                        '; status=' + [string]$current.Status)
+                }
+
+                $innerProperty = $current.PSObject.Properties['InnerException']
+                if ($null -eq $innerProperty) { break }
+                $current = $innerProperty.Value
+            }
+
+            if ($null -eq $current) {
+                return 'NETWORK exceptionType=unknown; status=unknown'
+            }
+            return ('NETWORK exceptionType=' + $current.GetType().Name + '; status=unknown')
+        }
+
+        function Invoke-HostAuthenticatedRequest {
+            param(
+                [Parameter(Mandatory = $true)][string]$Method,
+                [Parameter(Mandatory = $true)][string]$Endpoint,
+                [Parameter(Mandatory = $true)][string]$Path,
+                [Parameter(Mandatory = $true)]$Identity,
+                [AllowEmptyString()][string]$Body = ''
+            )
+
+            if ($Method -cne 'GET' -or
+                $Endpoint.TrimEnd('/') -cne 'https://getholahola.com' -or
+                $Path -cne '/api/coordination/v2/host/runtime-bootstrap/status' -or
+                $Body -ne '') {
+                throw 'Diagnostic scope guard blocked the request.'
+            }
+
+            $signature = $Identity.rsa.SignData(
+                [Text.Encoding]::UTF8.GetBytes([string]$Identity.accessToken),
+                [Security.Cryptography.CryptoConfig]::MapNameToOID('SHA256'))
+
+            $headers = @{
+                'x-coordination-v2-host-token' = [string]$Identity.accessToken
+                'x-coordination-v2-host-proof' = [Convert]::ToBase64String($signature)
+            }
+
+            try {
+                $response = Invoke-WebRequest -Method GET `
+                    -Uri ($Endpoint.TrimEnd('/') + $Path) `
+                    -Headers $headers -ContentType 'application/json' `
+                    -UseBasicParsing -MaximumRedirection 0 -ErrorAction Stop
+
+                $diagState.HttpStatus = [int]$response.StatusCode
+                return ($response.Content | ConvertFrom-Json -ErrorAction Stop)
+            } catch {
+                # Capture the original request error directly here.
+                $originalError = $_
+                $diagState.Failure = Get-SafeStatusRouteFailure -ErrorRecord $originalError
+                throw 'Diagnostic status request failed.'
+            }
+        }
+
+        $identity = Get-HostBootstrapIdentity
+        $null = Get-ServerRuntimeStatus -Identity $identity
+        'HTTP status=' + $diagState.HttpStatus + '; errorCode=none'
+    } catch {
+        if (-not [string]::IsNullOrWhiteSpace([string]$diagState.Failure)) {
+            $diagState.Failure
+        } elseif ($null -ne $diagState.HttpStatus) {
+            'HTTP status=' + $diagState.HttpStatus + '; errorCode=unavailable'
+        } else {
+            'Local identity/status failure; no request result.'
+        }
+    } finally {
+        if ($null -ne $identity -and $null -ne $identity.rsa) {
+            $identity.rsa.Dispose()
+        }
+    }
+}
+The output is limited to the HTTP status and safe error code, a network exception type/status, or a generic local-failure line if the identity cannot load. The RSA key object is disposed in finally.
+
+
+8:53 PM
+
+
+
+
+
+
+
+
+HTTP status=200; errorCode=none
+
+
+
+
+
+
+
+8:54 PM
+
+
+
+
+
+
+The authenticated status GET succeeded with HTTP 200. That confirms the endpoint was reachable and accepted the request at the time of this check; it rules out a current DNS/TLS/network failure for this route.
+It doesn’t reveal the cause of the earlier bootstrap transport failure, and the diagnostic intentionally didn’t print the status body. No recovery or state changes are indicated by this result alone.

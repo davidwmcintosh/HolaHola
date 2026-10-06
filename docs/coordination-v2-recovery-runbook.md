@@ -62,6 +62,81 @@ successful command may exit `0`.
 
 ## Common recovery cases
 
+### Windows credential recovery clock preflight
+
+`Restore-HolaCoordinatorHostCredential -Endpoint <approved HTTPS endpoint>`
+now runs a read-only clock preflight after validating the stored endpoint and
+before decrypting the enrolled private key, retiring a draft, or persisting a
+new request. To inspect only the clock (without reading DPAPI custody), use:
+
+```powershell
+Get-HolaCoordinatorClockPreflight -Endpoint <approved HTTPS endpoint>
+```
+
+Use the endpoint from the approved recovery setup, not a public NTP reference.
+The check performs at most three unauthenticated HTTPS GETs to
+`/api/coordination/v2/host/recovery-clock`. Each has a two-second total
+response/read deadline, a 512-byte body cap, no redirects, ordinary TLS
+verification, and no caching. A separate read-only Windows Time service query
+has a one-second child-process deadline. Scheduling overhead can add time;
+there are no retries beyond these three samples.
+
+The report contains only `clock`, local-minus-server `offsetMs`,
+`uncertaintyMs`, `validSamples`, `timeService`, and
+`correctionCommand=not_run`. Positive offset means the Windows host is ahead.
+No raw responses, exception text, machine names, keys, tokens, request bodies,
+or identifiers are reported.
+
+The threshold is **not** a general “acceptable Windows skew” constant.
+The signed recovery context rejects `issuedAt > server now` (zero future
+allowance) and `expiresAt <= server now`, with at most a two-minute lifetime.
+The diagnostic endpoint publishes that same service-owned TTL. Each sample
+uses midpoint local UTC minus server UTC, with uncertainty equal to half the
+monotonic round-trip duration plus both local wall-clock quantization errors
+(the Windows default 64-Hz cadence, 15.625 ms each), server millisecond
+resolution, and observed wall/monotonic duration disagreement. Disagreement
+greater than both local quantization errors makes the sample unknown.
+Different TTLs or nonoverlapping sample intervals are unknown; classification
+uses the conservative union of all three intervals, not just the best sample.
+
+- `ahead`: the entire interval is greater than zero. Recovery stops with
+  `host_recovery_clock_out_of_window` before custody changes.
+- `behind`: the entire interval is at or below minus the context TTL.
+  Recovery stops at the same boundary.
+- `within_window`: all three intervals lie strictly above minus the TTL and
+  at or below zero. This is a measurement, **not** proof of healthy ongoing
+  synchronization or a guarantee the later signed request will pass.
+- `unknown`: a missing, malformed, oversized, slow, inconsistent, or failed
+  sample, or an interval overlapping a boundary. Unknown is explicitly
+  advisory, never healthy; recovery retains its existing behavior and the
+  server remains authoritative. An older server without the endpoint is
+  unknown, not evidence of alignment.
+
+`timeService=stopped` can coexist with a small measured offset. A running
+service does not prove alignment. No resync is attempted; `not_run` is neither
+success nor failure. If an operator separately runs a correction with founder
+approval, record its outcome separately from independent offset measurements
+and service status. Do not infer a successful correction from later recovery
+acceptance.
+
+The verified incident involved a host about 1.5 seconds ahead: declaration
+validation failed during the signed recovery-context lookup **before a local
+request existed**. Later independent alignment samples and successful recovery
+with unchanged source did not prove why the offset disappeared. The resync
+command reported failure and a stopped service. Do not dump decrypted requests,
+clear DPAPI, reset generations, backdate declarations, or relax server checks
+to diagnose this case. Ask the founder before any manual clock correction.
+
+**Publication gate:** development tests are hermetic synthetic PowerShell
+fixtures, not LITTLENEMO tests. Before any real-host testing, follow the exact
+source/runtime sequence in the Windows compatibility design: commit/push exact
+source, prepare/verify fresh source promotion, stop for founder source
+publication, prepare/verify fresh runtime release, stop for founder runtime
+publication, then fast-forward the host to that exact commit and verify its
+tree. Never reuse a release for different bytes. Founder approval is also
+required before completing a replacement-credential request. No real host,
+credential, or session is changed by development validation.
+
 ### Preparation response lost
 
 Retry the complete preparation request with the same idempotency key only when
@@ -133,6 +208,39 @@ run as the same Windows user who prepared it. This does not protect against
 malicious software already running as that user. If local custody cannot be
 proved, stop with `preflight_failed` or `host_unavailable`; do not move the
 ciphertext or recreate authority from historical evidence.
+
+### Read-only clock preflight before Windows credential recovery
+
+Before sending a signed recovery-context or reauthorization declaration, inspect
+Windows time-service status and measure clock offset. For LITTLENEMO, the
+following reference was reachable; elsewhere use an approved reachable NTP
+reference rather than changing the configured time source:
+
+```powershell
+w32tm /query /status
+w32tm /stripchart /computer:time.windows.com /samples:5 /dataonly
+```
+
+These commands do not adjust the clock or configure the time service.
+Read both results independently: a stopped or unsynchronized service does not
+prove the current clock offset, and a small measured offset does not prove
+ongoing synchronization. A failed measurement is unknown, not a passing check.
+For stripchart, a negative offset means the local clock is ahead of the reference.
+HTTP Date headers alone are not a precise offset measurement.
+
+The server rejects recovery declarations issued in its future. On October 5,
+2026, LITTLENEMO received `V2_HOST_REAUTH_DECLARATION_INVALID` before any local
+request was saved while independent NTP samples showed it about 1.5 seconds
+ahead. The unchanged client and server accepted the retry after samples showed
+the offset had disappeared. The attempted resync reported failure and a stopped
+service; this does not establish what corrected the clock or that synchronization
+will continue.
+
+If a clock adjustment is needed, obtain explicit approval and keep any elevated
+time-service work separate from the original recovery window. Do not automatically
+resync, change time servers or service configuration, broaden timestamp acceptance,
+clear DPAPI state, or re-enroll the host. Re-measure before one bounded retry, then
+stop at the existing founder-approval boundary.
 
 ## Historical Gate 3 boundary
 

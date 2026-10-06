@@ -119,7 +119,7 @@ for (const action of ['prepare', 'record'] as const) {
         return ownershipResult('unknown_stop');
       });
       const input = action === 'record'
-        ? { idempotencyKey: `${action}-request-000001`, actor: 'claude-code', sha: 'a'.repeat(40) }
+        ? { idempotencyKey: `${action}-request-000001`, actor: 'claude-code', sha: 'a'.repeat(40), sourceContextSha256: 'b'.repeat(64) }
         : { idempotencyKey: `${action}-request-000001`, actor: 'claude-code' };
       // Neither action ever reaches execBridge here: `prepare` fails inside
       // it (the injected execBridge always throws) and `record` fails even

@@ -169,3 +169,21 @@ directly (or just proceed to the next command) rather than assuming the activati
 Tests that only exercise a fake/stub notification sink (most existing shared-spec Postgres tests)
 never hit this gate and need no such step.
 
+
+## PowerShell module discovery on Nix
+
+PowerShell module auto-discovery in this Nix sandbox can traverse the entire Nix store and make even a trivial command time out. Disabling module auto-loading and explicitly loading only the required standard modules by their exact PSHOME paths avoids the scan without changing execution policy.
+
+**Why:** A trivial output command repeatedly timed out; a syscall trace showed mass directory enumeration under the store. Direct console output with auto-loading disabled succeeded, and the hermetic suite completed after explicit standard-module imports.
+
+**How to apply:** For local PowerShell test runners on Nix, distinguish a module-discovery timeout from script failure. Keep this workaround in the local test invocation only; do not add execution-policy overrides or change native Windows recovery behavior.
+
+
+## PowerShell runtime startup availability
+
+Installing a PowerShell runtime does not establish that it can execute fixtures in a Replit Linux workspace. Verify a trivial noninteractive command before relying on it. If startup hangs independently of the project script, classify fixture execution as unavailable rather than treating a source check as an execution pass.
+
+**Why:** On October 5, 2026 the Nix PowerShell 7.4 runtime hung before emitting output even for a trivial command; reduced processor count and a minimal environment did not restore startup. The project diagnostics fixture could not be executed locally.
+
+**How to apply:** Separate runtime availability, synthetic fixture execution and native Windows PowerShell 5.1 verification. Never infer the latter from either package installation or Linux execution; it remains behind its separately authorized Windows path.
+

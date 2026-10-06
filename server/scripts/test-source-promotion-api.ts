@@ -1,6 +1,6 @@
 import assert from 'node:assert/strict';
 import express from 'express';
-import { mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
+import { mkdtempSync, readFileSync, readdirSync, rmSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { createServer } from 'node:http';
@@ -135,6 +135,7 @@ async function main(): Promise<void> {
         idempotencyKey: 'prepare-request-0001',
         actor: 'claude-code',
         sha: SHA,
+        sourceContextSha256: SOURCE_CONTEXT_SHA256,
       }),
       SourcePromotionConflictError,
       'an idempotency key cannot be reused for different payload or action',
@@ -144,6 +145,7 @@ async function main(): Promise<void> {
       idempotencyKey: 'record-stale-00001',
       actor: 'claude-code',
       sha: OTHER_SHA,
+      sourceContextSha256: SOURCE_CONTEXT_SHA256,
     });
     const staleResult = await service.waitForRequest(stale.request.requestId);
     assert.equal(staleResult?.status, 'failed');
@@ -160,6 +162,7 @@ async function main(): Promise<void> {
       idempotencyKey: 'record-no-manifest1',
       actor: 'claude-code',
       sha: SHA,
+      sourceContextSha256: SOURCE_CONTEXT_SHA256,
     });
     const missingManifestResult = await service.waitForRequest(missingManifest.request.requestId);
     assert.equal(missingManifestResult?.status, 'failed');
@@ -187,6 +190,27 @@ async function main(): Promise<void> {
       `render-release:${SHA}:${SOURCE_CONTEXT_SHA256}`,
     );
     assert.equal(executions, 2);
+
+    const requestFilesBeforeInvalidEvidence = readdirSync(requestsDir).sort();
+    for (const publicationReference of [
+      undefined,
+      `replit-publish:${SHA}:${OTHER_SHA}`,
+      `render-release:${OTHER_SHA}:${SOURCE_CONTEXT_SHA256}`,
+      `render-release:${SHA}:not-a-digest`,
+    ]) {
+      await assert.rejects(
+        service.record({
+          idempotencyKey: 'record-not-render-evidence',
+          actor: 'claude-code',
+          sha: SHA,
+          publicationReference,
+        }),
+        SourcePromotionInputError,
+      );
+    }
+    assert.deepEqual(readdirSync(requestsDir).sort(), requestFilesBeforeInvalidEvidence,
+      'invalid production evidence must be rejected before any request is persisted');
+    assert.equal(executions, 2, 'invalid production evidence must never execute the bridge');
 
     await assert.rejects(
       service.record({
