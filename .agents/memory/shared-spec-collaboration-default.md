@@ -92,3 +92,12 @@ new request promptly, don't rely on the mutation's success response alone
 (e.g. `POST /api/agent/team-room/message`, which returns a real
 `messageId`) and reference the exact review/revision id in it.
 
+
+## Bounded generated-snapshot refresh
+
+For a generated snapshot refresh, retrieve the current canonical document without also retrieving its entire revision history. Keep history access separate and bounded.
+
+**Why:** A handoff's current revision was available promptly, but the combined current-document-plus-history CLI refresh timed out after 60 seconds. The current snapshot alone was about 735 KB; historical retrieval is unnecessary for refreshing that snapshot.
+
+**How to apply:** When a generated handoff refresh stalls, distinguish the current-document read from history retrieval. Verify the current revision and generate the snapshot from it; do not manually merge competing generated snapshots or mistake a history timeout for a missing canonical document.
+
