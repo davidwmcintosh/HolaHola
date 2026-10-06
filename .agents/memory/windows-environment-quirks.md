@@ -45,13 +45,13 @@ Windows delivers `CTRL_CLOSE_EVENT` (same signal family as Ctrl+C/Ctrl+Break) to
 **How to apply:** any future Windows launcher script in this repo that spawns a long-running child via `ProcessStartInfo` needs `CreateNoWindow = $true` (or equivalent full detachment) before it can be trusted to survive the launcher's own terminal window closing or being reused for another task.
 
 
-## Coordinator V2 host scripts collapse all network failures into one opaque code
+## Host diagnostics never authorize manual replay
 
-`scripts/hola-coordinator.ps1`'s host enrollment/reauthorization functions (`Register-HolaCoordinatorHost`, `Restore-HolaCoordinatorHostCredential`) wrap every `Invoke-RestMethod` call in `try { ... } catch { Fail-Safe '<fixed-code>' }`. `Fail-Safe` discards `$_` entirely and throws a new plain-string exception, so a true network/TLS failure and a legitimate server-side 4xx/5xx rejection (bad fingerprint, idempotency conflict, validation error) both surface to the operator as the exact same generic message (e.g. `hola_coordinator_host_reauthorization_transport`).
+Treat host error reports as reporting, not authority to decrypt request state, reveal raw errors, replay proof, or reissue bootstrap material. Preserve local files and continue only through the approved lifecycle and founder gates.
 
-**Why:** hit this live diagnosing a real LITTLENEMO reauthorization failure (Sep 30 2026) — the generic error gave zero signal on whether the request even reached the server. Curling the production endpoint directly proved the route was healthy and correctly returning structured 422s for bad input, which narrowed the problem to "something about this specific signed request," not the transport layer itself.
+**Why:** A generic transport error does not establish whether a state-changing request reached the server. A prior workaround recommended exposing raw response text and replaying a persisted request; that advice is unsafe when an outcome is ambiguous. Truncation also cannot prevent secret disclosure.
 
-**How to apply:** don't trust the generic code alone. The function persists its fully-built, signed request body to a local DPAPI state file (`host-reauthorization-request.dpapi` / the analogous enrollment file) *before* attempting the network call. Dot-source the script (for its helper functions and script-scope variables like `$RuntimeBootstrapRoot`/`$CurrentUserScope`), `Read-DpapiJson` that file, and manually replay the exact same `Invoke-RestMethod` call *without* a swallowing try/catch — `$_.Exception.Response.StatusCode` and `$_.ErrorDetails.Message` (Windows PowerShell 5.1 populates this reliably for REST error bodies) then reveal the real status and JSON error code. This requires no edits to the reviewed script. In that session the root cause was never conclusively identified — the identical replayed request succeeded immediately after with zero changes, consistent with a one-off transient network blip rather than a real defect. Follow-up tracked to make the script itself surface this detail instead of requiring the workaround.
+**How to apply:** Use typed metadata, exact allowlisted reasons and fixed guidance to distinguish failure classes. Never recover missing diagnostic context by printing raw bodies or exception messages, or by manually replaying proof. Exact retry authority belongs to the established lifecycle, not its diagnostic formatter.
 
 
 ## PowerShell execution-policy diagnostics
@@ -156,3 +156,21 @@ Classify filesystem mutation using primitive mutating rights, not broad composit
 
 **How to apply:** Preserve trusted-owner/writer identities and unrelated custody checks. Test native ACL semantics in disposable Windows fixtures and prove both false-positive and missed-mutation regressions. Do not remove legitimate read-only host permissions to accommodate a classifier defect, and do not claim native success from text scanning alone.
 
+
+## Tooling checkout hashes versus Git blob line endings
+
+Windows tooling-checkout hashes can differ from reviewed Git-blob hashes solely
+because of CRLF line endings. Diagnose this by computing the exact deterministic
+CRLF rendering of the reviewed blob and comparing its hash, rather than
+assuming either code drift or equivalence.
+
+**Why:** A native Windows tooling inventory produced different hashes from the
+reviewed Linux files, but the reported hashes exactly matched their CRLF-only
+renderings. An unexplained mismatch and a demonstrated checkout transformation
+need different treatment.
+
+**How to apply:** Record both byte representations explicitly in the proposed
+tooling approval. Do not rewrite files to force a match, silently accept a
+different pin, or infer a checkout revision from a file hash. This diagnosis
+does not permit normalization of signed artifacts: approved helper prefixes and
+signed-package hashes must still match their exact independent bytes.

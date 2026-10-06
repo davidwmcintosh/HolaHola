@@ -42,6 +42,7 @@ $cases = @(
     @{ body = '{"error":null}'; reason = 'UNKNOWN_SERVER_ERROR' },
     @{ body = 'null'; reason = 'UNKNOWN_SERVER_ERROR' },
     @{ body = '[]'; reason = 'UNKNOWN_SERVER_ERROR' },
+    @{ body = '[{"error":{"code":"V2_HOST_REAUTH_GENERATION_CONFLICT"}}]'; reason = 'UNKNOWN_SERVER_ERROR' },
     @{ body = '{"error":'; reason = 'UNKNOWN_SERVER_ERROR' },
     @{ body = '<html>' + $sentinel + '</html>'; reason = 'UNKNOWN_SERVER_ERROR' },
     @{ body = (' ' * 4097) + '{"error":{"code":"V2_HOST_REAUTH_GENERATION_CONFLICT"}}'
@@ -77,6 +78,120 @@ foreach ($pair in @(
     Assert-Diagnostic ($detail -notmatch $sentinel) 'Exception message reflected'
 }
 Assert-Diagnostic ($null -eq (Get-HolaCoordinatorRecoveryGuidance -Code $sentinel)) 'Unknown reason was allowlisted'
+
+# Enrollment is a distinct allowlist over the same bounded extraction.
+# StreamOnly simulates the legacy Windows response-stream shape; running this
+# elsewhere does NOT constitute native Windows PowerShell 5.1 verification.
+$enrollmentCodes = @(
+    'V2_HOST_BOOTSTRAP_REQUIRED', 'V2_HOST_BOOTSTRAP_DENIED', 'V2_HOST_BOOTSTRAP_UNAVAILABLE',
+    'V2_HOST_BOOTSTRAP_CONSUMED', 'V2_HOST_FOUNDER_REQUIRED', 'V2_HOST_IDEMPOTENCY_CONFLICT',
+    'V2_HOST_REQUEST_NOT_FOUND', 'V2_HOST_REQUEST_EXPIRED', 'V2_HOST_REQUEST_TERMINAL',
+    'V2_HOST_CHALLENGE_INVALID', 'V2_HOST_CHALLENGE_EXPIRED', 'V2_HOST_PROOF_INVALID',
+    'V2_HOST_INVALID_REQUEST', 'V2_HOST_PROTOCOL_MISMATCH', 'V2_HOST_SOURCE_PROMOTION_REQUIRED',
+    'V2_HOST_DATABASE_UNAVAILABLE'
+)
+$enrollmentCases = @()
+foreach ($code in $enrollmentCodes) {
+    $enrollmentCases += @{
+        body = '{"error":{"code":"' + $code + '","message":"' + $sentinel + '"},"requestKey":"' +
+            $sentinel + '","nonce":"' + $sentinel + '","signature":"' + $sentinel +
+            '","accessToken":"' + $sentinel + '","url":"https://example.invalid/' + $sentinel + '"}'
+        reason = $code
+    }
+    $enrollmentCases += @{
+        body = '{"error":{"code":"' + $code.ToLowerInvariant() + '"}}'
+        reason = 'UNKNOWN_SERVER_ERROR'
+    }
+}
+$enrollmentCases += @(
+    @{ body = '{"error":{"code":"V2_HOST_REAUTH_GENERATION_CONFLICT"}}'; reason = 'UNKNOWN_SERVER_ERROR' },
+    @{ body = '{"error":{"code":"V2_HOST_REAUTH_PENDING_CONFLICT"}}'; reason = 'UNKNOWN_SERVER_ERROR' },
+    @{ body = '{"error":{"code":"V2_HOST_BOOTSTRAP_DENIED' + $sentinel + '"}}'; reason = 'UNKNOWN_SERVER_ERROR' },
+    @{ body = '{"error":{"code":"' + $sentinel + '"}}'; reason = 'UNKNOWN_SERVER_ERROR' },
+    @{ body = '{"error":{"code":409}}'; reason = 'UNKNOWN_SERVER_ERROR' },
+    @{ body = '{"error":{"code":[]}}'; reason = 'UNKNOWN_SERVER_ERROR' },
+    @{ body = '{"error":{"code":{}}}'; reason = 'UNKNOWN_SERVER_ERROR' },
+    @{ body = '{"error":{"code":null}}'; reason = 'UNKNOWN_SERVER_ERROR' },
+    @{ body = '{"error":null}'; reason = 'UNKNOWN_SERVER_ERROR' },
+    @{ body = '{"error":[]}'; reason = 'UNKNOWN_SERVER_ERROR' },
+    @{ body = '{}'; reason = 'UNKNOWN_SERVER_ERROR' },
+    @{ body = 'null'; reason = 'UNKNOWN_SERVER_ERROR' },
+    @{ body = '[]'; reason = 'UNKNOWN_SERVER_ERROR' },
+    @{ body = '[{"error":{"code":"V2_HOST_BOOTSTRAP_DENIED"}}]'; reason = 'UNKNOWN_SERVER_ERROR' },
+    @{ body = '"V2_HOST_BOOTSTRAP_DENIED"'; reason = 'UNKNOWN_SERVER_ERROR' },
+    @{ body = '{"error":'; reason = 'UNKNOWN_SERVER_ERROR' },
+    @{ body = '<html>' + $sentinel + '</html>'; reason = 'UNKNOWN_SERVER_ERROR' },
+    @{ body = ''; reason = 'UNKNOWN_SERVER_ERROR' },
+    @{ body = (' ' * 4097) + $sentinel; reason = 'RESPONSE_TOO_LARGE' }
+)
+$boundaryBody = '{"error":{"code":"V2_HOST_BOOTSTRAP_DENIED"}}'
+$enrollmentCases += @{
+    body = $boundaryBody + (' ' * (4096 - $boundaryBody.Length)); reason = 'V2_HOST_BOOTSTRAP_DENIED'
+}
+$enrollmentCases += @{
+    body = $boundaryBody + (' ' * (4097 - $boundaryBody.Length)); reason = 'RESPONSE_TOO_LARGE'
+}
+foreach ($case in $enrollmentCases) {
+    foreach ($streamOnly in @($false, $true)) {
+        $fixture = New-DiagnosticFixture -Body $case.body -StreamOnly:$streamOnly
+        $detail = Get-HolaCoordinatorTransportFailureDetail -ErrorRecord $fixture
+        $expected = 'http_status=409; reason=' + $case.reason + '; next=' +
+            (Get-HolaCoordinatorEnrollmentGuidance -Code $case.reason)
+        Assert-Diagnostic ($detail -ceq $expected) 'Enrollment report not fixed and allowlisted'
+        Assert-Diagnostic ($detail.Length -le 300) 'Enrollment report exceeds Fail-Safe bound'
+        Assert-Diagnostic ($detail -notmatch $sentinel) 'Enrollment secret reflected'
+        Assert-Diagnostic ($detail -notmatch 'requestKey|accessToken|nonce|signature|https://|<html>|response=|message=') `
+            'Enrollment raw error content reflected'
+        $observed = ''
+        try { Fail-Safe 'enrollment_transport' -Detail $detail }
+        catch { $observed = [string]$_.Exception.Message }
+        Assert-Diagnostic ($observed -ceq ('hola_coordinator_enrollment_transport :: ' + $expected)) `
+            'Enrollment failure code or detail changed at Fail-Safe boundary'
+    }
+}
+foreach ($status in @([Net.HttpStatusCode]::Forbidden, [int]400, [long]599)) {
+    $detail = Get-HolaCoordinatorTransportFailureDetail -ErrorRecord (
+        New-DiagnosticFixture -Status $status -Body $boundaryBody)
+    Assert-Diagnostic ($detail -cmatch ('^http_status=' + [string][int]$status + '; reason=V2_HOST_BOOTSTRAP_DENIED;')) `
+        'Typed enrollment HTTP status missing'
+}
+foreach ($status in @('409', -1, 200, 600, $null, $true, 409.0, $sentinel)) {
+    # Invalid status must neither parse the body nor attempt its legacy stream.
+    $fixture = New-DiagnosticFixture -Status $status -Body $boundaryBody -BrokenStream
+    $detail = Get-HolaCoordinatorTransportFailureDetail -ErrorRecord $fixture
+    Assert-Diagnostic ($detail -cmatch '^http_status=none; reason=TRANSPORT_UNKNOWN;') `
+        'Untrusted enrollment HTTP metadata accepted'
+    Assert-Diagnostic ($detail -notmatch $sentinel) 'Enrollment invalid status reflected'
+}
+foreach ($pair in @(
+    @{ status = [Net.WebExceptionStatus]::Timeout; reason = 'TRANSPORT_TIMEOUT' },
+    @{ status = [Net.WebExceptionStatus]::NameResolutionFailure; reason = 'TRANSPORT_CONNECTIVITY' },
+    @{ status = [Net.WebExceptionStatus]::ConnectFailure; reason = 'TRANSPORT_CONNECTIVITY' },
+    @{ status = [Net.WebExceptionStatus]::TrustFailure; reason = 'TRANSPORT_TLS' },
+    @{ status = [Net.WebExceptionStatus]::SecureChannelFailure; reason = 'TRANSPORT_TLS' },
+    @{ status = [Net.WebExceptionStatus]::UnknownError; reason = 'TRANSPORT_UNKNOWN' }
+)) {
+    $exception = [Net.WebException]::new($sentinel, $null, $pair.status, $null)
+    $detail = Get-HolaCoordinatorTransportFailureDetail -ErrorRecord ([pscustomobject]@{ Exception = $exception })
+    Assert-Diagnostic ($detail -ceq ('http_status=none; reason=' + $pair.reason + '; next=' +
+        (Get-HolaCoordinatorEnrollmentGuidance -Code $pair.reason))) 'Enrollment typed transport reason missing'
+    Assert-Diagnostic ($detail -notmatch $sentinel) 'Enrollment exception message reflected'
+}
+$detail = Get-HolaCoordinatorTransportFailureDetail -ErrorRecord (New-DiagnosticFixture -BrokenStream)
+Assert-Diagnostic ($detail -cmatch '^http_status=none; reason=DIAGNOSTIC_UNAVAILABLE;') 'Enrollment failed-stream fallback wrong'
+Assert-Diagnostic ($detail -notmatch $sentinel) 'Enrollment failed-stream text reflected'
+foreach ($fixture in @(
+    [pscustomobject]@{},
+    [pscustomobject]@{ Exception = [Exception]::new($sentinel) },
+    (New-DiagnosticFixture -Body ([pscustomobject]@{ Message = $sentinel }))
+)) {
+    $detail = Get-HolaCoordinatorTransportFailureDetail -ErrorRecord $fixture
+    Assert-Diagnostic ($detail -notmatch $sentinel) 'Malformed enrollment metadata reflected'
+    Assert-Diagnostic ($detail -match 'reason=(TRANSPORT_UNKNOWN|UNKNOWN_SERVER_ERROR);') 'Malformed enrollment fallback wrong'
+}
+Assert-Diagnostic ($null -eq (Get-HolaCoordinatorEnrollmentGuidance -Code $sentinel)) 'Enrollment unknown reason allowlisted'
+Assert-Diagnostic ($null -eq (Get-HolaCoordinatorEnrollmentGuidance -Code 'V2_HOST_REAUTH_GENERATION_CONFLICT')) `
+    'Recovery-only code leaked into enrollment allowlist'
 
 # Exercise the actual public boundary without touching recovery lifecycle state.
 $original = (Get-Item Function:\Restore-InternalHolaCoordinatorHostCredential).ScriptBlock
@@ -116,4 +231,4 @@ try {
 } finally {
     Set-Item Function:\script:Restore-InternalHolaCoordinatorHostCredential -Value $original
 }
-Write-Host '[coordinator-v2] Synthetic safe recovery diagnostic checks passed'
+Write-Host '[coordinator-v2] Synthetic safe enrollment and recovery diagnostic checks passed'

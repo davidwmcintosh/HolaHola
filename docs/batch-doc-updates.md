@@ -1,3 +1,29 @@
+## 2026-10-05 — Safe enrollment diagnostics, reporting-only preparation
+
+- The three enrollment HTTP catches retain `enrollment_transport`; their helper
+  now emits typed bounded metadata, case-sensitive allowlisted enrollment
+  reasons and fixed guidance. No raw body, exception message or arbitrary
+  identifier is reported. Enrollment and recovery guidance remain independent.
+- Shared parsing preserves the 4096-character body bound and 4097-character
+  legacy-stream limit. Root arrays are rejected before PowerShell can unwrap a
+  one-element array. Enrollment request persistence, exact retries,
+  bootstrap/founder gates, signing and credential custody are unchanged.
+- Expanded the synthetic diagnostics fixture with enrollment secret sentinels,
+  all allowed codes, malformed/unknown/case-mismatched/recovery-only codes,
+  boundary-size bodies, legacy streams and typed transport/status metadata.
+  Existing Windows CI wiring is retained and guarded by a focused source test.
+- Founder approved the scoped design and checkout work; Alden independently
+  approved its immutable shared-spec revision. Exported approved bytes are in
+  `docs/superpowers/specs/2026-10-05-safe-enrollment-diagnostics-design.md`.
+- Verification: 14 focused static checks passed; typecheck passed; system-health
+  Summary: "All checks passed — safe to mark done." The local Nix PowerShell
+  runtime hung even on a trivial command, so these PowerShell fixtures were
+  **not executed locally**. No native PowerShell 5.1 success is claimed.
+- No publication, real Windows action, enrollment/credential operation,
+  session initialization or Windows policy/trust change occurred. Fresh
+  exact-byte founder-gated GitHub-to-Render source/runtime publication and
+  separately authorized native Windows verification remain required.
+
 ## 2026-10-05 — Automatic safe recovery diagnostics, local preparation
 
 - David chose automatic reporting over a separate diagnostic command. All four

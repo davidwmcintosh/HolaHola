@@ -1,49 +1,16 @@
 # Alden ↔ Agent Handoff
 
-## From Agent — last updated: Mon, Oct 5, 11:31 PM
+## From Agent — last updated: Tue, Oct 6, 5:56 AM
 
-## 2026-10-05 — Coordinator V2 ACL mask correction (local preparation)
+Reporting-only enrollment diagnostics preparation is complete. Founder approved the design and primary checkout work in this chat. Alden independently claimed and approved shared-spec document 71938ae6-27fe-4d94-8e47-75646afb8bfd, revision be4d4fdd-e028-4b2a-8b2a-14e7704c41d2, review 4fc59370-bc91-4904-b35d-a545002dc824. Exported document bytes match SHA-256 5df4b8aaab069b3f180213cb89c67f18887425bc9a9f973fba29f0d179f1e19c. No linked coordination thread was supplied with this assignment.
 
-The founder approved the written narrow design for local implementation.
-The only production change is the primitive mutating-rights mask and its
-explanatory comment in `scripts/hola-coordinator.ps1`; owner/trusted SIDs,
-rejection branches, call sites, reparse checks, DPAPI custody, recovery,
-runtime, and session behavior remain unchanged.
+All three enrollment catch sites retain enrollment_transport. Their helper now selects a separate ordinal enrollment allowlist and fixed guidance over the shared bounded typed HTTP/transport extractor. The recovery wrapper and its allowlist remain distinct. Request persistence, exact retries, bootstrap/founder gates, signing, keys, credentials and enrollment lifecycle code are unchanged. A root-object delimiter check prevents PowerShell single-element-array unwrapping from accepting a malformed envelope.
 
-Added `scripts/test-hola-coordinator-acl.ps1` through the existing Windows
-PowerShell reauthorization CI entrypoint. Fixtures use owned disposable native
-ACL paths, a synthetic nonmember ACE SID, and no host credentials or lifecycle
-calls. Tests reproduce the reported trusted-inherited plus explicit-read shape;
-cover individual read rights, all eight primitive mutation bits, composite and
-mixed grants, directory/file paths, trusted FullControl, conservative mutating
-Deny/InheritOnly, and an in-memory native owner-rejection descriptor. Actual
-guard mutations test composite over-rejection and each omitted primitive bit.
+Expanded synthetic fixtures cover sentinel-bearing responses/exceptions, all enrollment codes, unknown/case-mismatched/recovery-only reasons, malformed envelopes, exact 4096/4097 limits, legacy streams, capture failures and typed status/transport metadata. Existing .github/workflows/ci.yml already reaches the diagnostics fixture through the reauthorization script; a static guard now asserts that wiring.
 
-Added supplementary Node contracts in
-`server/scripts/test-coordination-v2-acl-mask.test.ts`, registered in
-`scripts/run-ci-test-steps.mjs`. Focused local checks passed (five tests,
-including the existing PowerShell payload contract); typecheck passed.
-System-health verification found no failures and two skipped app-route warnings
-because the dev server was stopped at the time. The development workflow was
-then restarted successfully. Those route skips are not Windows acceptance.
+Verification: 14 focused Node static checks passed; npm run typecheck passed; system-health Summary: All checks passed — safe to mark done. Local Nix PowerShell 7.4 startup hung even on a trivial command, with reduced processor count and a minimal environment; the added PowerShell fixtures were NOT executed locally. The temporary runtime package was removed and no .replit dependency change remains.
 
-Independent design review f3ec195d-8a0c-4971-95f2-6bc31cc60e82 approved document
-842449f5-804d-41ef-bca0-2c8bd56141c2 / revision
-cf0e7282-8066-4d5f-b179-29251ca9be38; approval actor, policy, hash, and exported
-bytes were verified. Alden subsequently approved the production correction and
-test architecture by priority-task code review. Native execution has NOT run
-in this Linux workspace; PowerShell 5.1 Windows CI remains the next gate.
-
-No Windows permissions, trust, execution policy, DPAPI state, credentials,
-enrollment, runtime initialization, or coordinator sessions were changed or
-created. No source/runtime publication was requested or performed. The changed
-launcher bytes require fresh founder-gated exact-source GitHub-to-Render and
-runtime publication before a host can update and retry initialization. Old
-publication receipts cannot authorize the new bytes.
-
-The separate automatic clock-diagnostic task and Windows no-copy diagnostics
-task are not this work. Their status does not prove those changes landed in
-this worktree or authorize bundled publication.
+No publication, real Windows command, live enrollment/credential operation, session/runtime initialization or Windows policy/trust change was performed. Native Windows PowerShell 5.1 verification remains pending behind fresh exact-byte founder-gated GitHub-to-Render source/runtime publication and the separately authorized Windows test path. Do not interpret source checks as native success.
 ## From Agent — historical recovery pause diagnostics — Oct 3, 2026
 
 Capture health and Markdown status now explain historical recovery pauses by
