@@ -49,71 +49,38 @@ function Fail-Safe {
 }
 
 function Get-HolaCoordinatorTransportFailureDetail {
-    # Best-effort, never-throwing extraction of the HTTP status code and the
-    # server's own (already-safe) JSON error body from a failed
-    # Invoke-RestMethod call, so an operator can tell a rejected request
-    # (bad fingerprint, idempotency conflict, validation failure) apart from
-    # a genuine network/TLS failure instead of seeing one fixed generic code
-    # either way. A failure inside this diagnostic capture is swallowed so
-    # it can never mask or replace the real error.
+    # Enrollment reporting only: do not reflect raw bodies or exception text.
     param([Parameter(Mandatory = $true)]$ErrorRecord)
-    try {
-        $response = $null
-        $exceptionProperty = $ErrorRecord.PSObject.Properties['Exception']
-        if ($null -ne $exceptionProperty -and $null -ne $exceptionProperty.Value) {
-            $responseProperty = $exceptionProperty.Value.PSObject.Properties['Response']
-            if ($null -ne $responseProperty) { $response = $responseProperty.Value }
-        }
-        $statusCode = $null
-        if ($null -ne $response) {
-            $statusCodeProperty = $response.PSObject.Properties['StatusCode']
-            if ($null -ne $statusCodeProperty -and $null -ne $statusCodeProperty.Value) {
-                $statusCode = [int]$statusCodeProperty.Value
-            }
-        }
-        $bodyText = $null
-        $errorDetailsProperty = $ErrorRecord.PSObject.Properties['ErrorDetails']
-        if ($null -ne $errorDetailsProperty -and $null -ne $errorDetailsProperty.Value) {
-            $messageProperty = $errorDetailsProperty.Value.PSObject.Properties['Message']
-            if ($null -ne $messageProperty -and -not [string]::IsNullOrWhiteSpace([string]$messageProperty.Value)) {
-                $bodyText = [string]$messageProperty.Value
-            }
-        }
-        if ([string]::IsNullOrWhiteSpace($bodyText) -and $null -ne $response) {
-            # Older Windows PowerShell surfaces the failure as a WebException
-            # without populating ErrorDetails; read the response body once
-            # directly as a fallback.
-            $streamMethod = $response.PSObject.Methods['GetResponseStream']
-            if ($null -ne $streamMethod) {
-                $stream = $response.GetResponseStream()
-                if ($null -ne $stream) {
-                    $reader = New-Object IO.StreamReader($stream)
-                    try { $bodyText = $reader.ReadToEnd() } finally { $reader.Dispose() }
-                }
-            }
-        }
-        $segments = @()
-        if ($null -ne $statusCode) { $segments += ('http_status=' + $statusCode) }
-        if (-not [string]::IsNullOrWhiteSpace($bodyText)) {
-            $flatBody = ([string]$bodyText -replace '[\x00-\x1f\x7f]+', ' ').Trim()
-            if ($flatBody.Length -gt 0) {
-                $segments += ('response=' + $flatBody.Substring(0, [Math]::Min(300, $flatBody.Length)))
-            }
-        }
-        if ($segments.Count -eq 0) {
-            $messageText = [string]$ErrorRecord.Exception.Message
-            if (-not [string]::IsNullOrWhiteSpace($messageText)) {
-                $flatMessage = ($messageText -replace '[\x00-\x1f\x7f]+', ' ').Trim()
-                if ($flatMessage.Length -gt 0) {
-                    $segments += ('error=' + $flatMessage.Substring(0, [Math]::Min(300, $flatMessage.Length)))
-                }
-            }
-        }
-        if ($segments.Count -eq 0) { return 'no_diagnostic_available' }
-        return ($segments -join ' ')
-    } catch {
-        return 'diagnostic_capture_failed'
+    return (Get-InternalHolaCoordinatorHttpFailureDetail -ErrorRecord $ErrorRecord -Context Enrollment)
+}
+
+function Get-HolaCoordinatorEnrollmentGuidance {
+    param([Parameter(Mandatory = $true)][string]$Code)
+    $guidance = [Collections.Generic.Dictionary[string,string]]::new([StringComparer]::Ordinal)
+    $groups = @(
+        @{ codes = @('V2_HOST_BOOTSTRAP_REQUIRED', 'V2_HOST_BOOTSTRAP_DENIED',
+                    'V2_HOST_BOOTSTRAP_UNAVAILABLE', 'V2_HOST_BOOTSTRAP_CONSUMED')
+           next = 'Keep local files. Ask the founder to inspect bootstrap status; do not reissue or replace it.' },
+        @{ codes = @('V2_HOST_FOUNDER_REQUIRED')
+           next = 'Wait for founder approval. Keep the persisted request; do not submit proof manually.' },
+        @{ codes = @('V2_HOST_IDEMPOTENCY_CONFLICT')
+           next = 'Keep the exact persisted request. Ask the founder to locate it; do not create another.' },
+        @{ codes = @('V2_HOST_REQUEST_NOT_FOUND', 'V2_HOST_REQUEST_EXPIRED', 'V2_HOST_REQUEST_TERMINAL',
+                    'V2_HOST_CHALLENGE_INVALID', 'V2_HOST_CHALLENGE_EXPIRED', 'V2_HOST_PROOF_INVALID')
+           next = 'Keep local files. Ask the founder to inspect request and challenge status; do not replay proof.' },
+        @{ codes = @('V2_HOST_INVALID_REQUEST', 'V2_HOST_PROTOCOL_MISMATCH', 'V2_HOST_SOURCE_PROMOTION_REQUIRED')
+           next = 'Stop and verify approved client and server versions with the founder. Keep current files.' },
+        @{ codes = @('V2_HOST_DATABASE_UNAVAILABLE', 'UNKNOWN_SERVER_ERROR', 'RESPONSE_TOO_LARGE',
+                    'DIAGNOSTIC_UNAVAILABLE', 'TRANSPORT_UNKNOWN', 'TRANSPORT_TIMEOUT', 'TRANSPORT_CONNECTIVITY')
+           next = 'Outcome may be unknown. Keep the persisted request; ask the founder to inspect before retrying.' },
+        @{ codes = @('TRANSPORT_TLS')
+           next = 'Stop and verify HTTPS connectivity with the founder. Do not bypass certificate or trust checks.' }
+    )
+    foreach ($group in $groups) {
+        foreach ($item in $group.codes) { $guidance.Add([string]$item, [string]$group.next) }
     }
+    if ($guidance.ContainsKey($Code)) { return $guidance[$Code] }
+    return $null
 }
 
 function Resolve-ApprovedNode {
@@ -1809,8 +1776,30 @@ function Format-HolaCoordinatorRecoveryDetail {
     return ('http_status=' + $HttpStatus + '; reason=' + $Reason + '; next=' + $next)
 }
 
-function Get-HolaCoordinatorRecoveryFailureDetail {
-    param([Parameter(Mandatory = $true)]$ErrorRecord)
+function Get-InternalHolaCoordinatorDiagnosticGuidance {
+    param([string]$Code, [ValidateSet('Enrollment', 'Recovery')][string]$Context)
+    if ($Context -ceq 'Enrollment') { return (Get-HolaCoordinatorEnrollmentGuidance -Code $Code) }
+    return (Get-HolaCoordinatorRecoveryGuidance -Code $Code)
+}
+
+function Format-InternalHolaCoordinatorHttpFailureDetail {
+    param([string]$Reason, [string]$HttpStatus = 'none',
+          [ValidateSet('Enrollment', 'Recovery')][string]$Context)
+    if ($Context -ceq 'Recovery') {
+        return (Format-HolaCoordinatorRecoveryDetail -Reason $Reason -HttpStatus $HttpStatus)
+    }
+    $next = Get-HolaCoordinatorEnrollmentGuidance -Code $Reason
+    if ($null -eq $next) {
+        $Reason = 'DIAGNOSTIC_UNAVAILABLE'
+        $next = Get-HolaCoordinatorEnrollmentGuidance -Code $Reason
+    }
+    if ($HttpStatus -cnotmatch '^[45][0-9]{2}$') { $HttpStatus = 'none' }
+    return ('http_status=' + $HttpStatus + '; reason=' + $Reason + '; next=' + $next)
+}
+
+function Get-InternalHolaCoordinatorHttpFailureDetail {
+    param([Parameter(Mandatory = $true)]$ErrorRecord,
+          [Parameter(Mandatory = $true)][ValidateSet('Enrollment', 'Recovery')][string]$Context)
     try {
         $httpStatus = 'none'
         $reason = 'TRANSPORT_UNKNOWN'
@@ -1839,7 +1828,7 @@ function Get-HolaCoordinatorRecoveryFailureDetail {
                     ([Net.WebExceptionStatus]::SecureChannelFailure) { $reason = 'TRANSPORT_TLS' }
                 }
             }
-            return (Format-HolaCoordinatorRecoveryDetail -Reason $reason)
+            return (Format-InternalHolaCoordinatorHttpFailureDetail -Reason $reason -Context $Context)
         }
         $reason = 'UNKNOWN_SERVER_ERROR'
         $body = $null
@@ -1866,9 +1855,12 @@ function Get-HolaCoordinatorRecoveryFailureDetail {
             }
         }
         if ($null -ne $body -and $body.Length -gt 4096) {
-            return (Format-HolaCoordinatorRecoveryDetail -Reason 'RESPONSE_TOO_LARGE' -HttpStatus $httpStatus)
+            return (Format-InternalHolaCoordinatorHttpFailureDetail -Reason 'RESPONSE_TOO_LARGE' -HttpStatus $httpStatus -Context $Context)
         }
-        if (-not [string]::IsNullOrEmpty($body)) {
+        # PowerShell can unwrap a one-element JSON array on assignment. Check
+        # the root delimiter before parsing so that it cannot become an envelope.
+        if (-not [string]::IsNullOrEmpty($body) -and
+            $body.TrimStart().StartsWith('{', [StringComparison]::Ordinal)) {
             try {
                 $parsed = ConvertFrom-Json -InputObject $body -ErrorAction Stop
                 if ($null -ne $parsed -and $parsed -is [PSCustomObject]) {
@@ -1877,17 +1869,22 @@ function Get-HolaCoordinatorRecoveryFailureDetail {
                         $code = $errorProperty.Value.PSObject.Properties['code']
                         if ($null -ne $code -and $code.Value -is [string] -and
                             $code.Value.StartsWith('V2_HOST_', [StringComparison]::Ordinal) -and
-                            $null -ne (Get-HolaCoordinatorRecoveryGuidance -Code $code.Value)) {
+                            $null -ne (Get-InternalHolaCoordinatorDiagnosticGuidance -Code $code.Value -Context $Context)) {
                             $reason = $code.Value
                         }
                     }
                 }
             } catch { $reason = 'UNKNOWN_SERVER_ERROR' }
         }
-        return (Format-HolaCoordinatorRecoveryDetail -Reason $reason -HttpStatus $httpStatus)
+        return (Format-InternalHolaCoordinatorHttpFailureDetail -Reason $reason -HttpStatus $httpStatus -Context $Context)
     } catch {
-        return (Format-HolaCoordinatorRecoveryDetail -Reason 'DIAGNOSTIC_UNAVAILABLE')
+        return (Format-InternalHolaCoordinatorHttpFailureDetail -Reason 'DIAGNOSTIC_UNAVAILABLE' -Context $Context)
     }
+}
+
+function Get-HolaCoordinatorRecoveryFailureDetail {
+    param([Parameter(Mandatory = $true)]$ErrorRecord)
+    return (Get-InternalHolaCoordinatorHttpFailureDetail -ErrorRecord $ErrorRecord -Context Recovery)
 }
 
 function New-InternalHolaCoordinatorReauthorizationDeclaration {

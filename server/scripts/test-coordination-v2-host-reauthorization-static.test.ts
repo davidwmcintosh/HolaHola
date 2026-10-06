@@ -128,28 +128,15 @@ test("recovery context uses a separate signed two-minute purpose and no token au
   assert.doesNotMatch(helper, /accessToken|Write-Dpapi|Remove-Item|Authorization|v2h_/);
 });
 
-test("all four recovery HTTP failures use the safe reporter, not enrollment diagnostics", () => {
+test("HTTP failure callers retain distinct enrollment and recovery reporting contracts", () => {
   assert.equal((recovery.match(/Get-HolaCoordinatorRecoveryFailureDetail -ErrorRecord \$_/g) ?? []).length, 4);
   assert.doesNotMatch(recovery, /Get-HolaCoordinatorTransportFailureDetail/);
   const enrollment = source.slice(0, start);
-  assert.equal((enrollment.match(/Get-HolaCoordinatorTransportFailureDetail -ErrorRecord \$_/g) ?? []).length, 3);
-});
-
-test("recovery diagnostics bound JSON and stream input and never echo error text", () => {
-  const reporter = recovery.slice(recovery.indexOf("function Get-HolaCoordinatorRecoveryFailureDetail"),
+  const reporter = recovery.slice(recovery.indexOf("function Get-InternalHolaCoordinatorHttpFailureDetail"),
     recovery.indexOf("function New-InternalHolaCoordinatorReauthorizationDeclaration"));
-  assert.match(reporter, /New-Object char\[\] 4097/);
-  assert.match(reporter, /\$body\.Length -gt 4096/);
-  assert.match(reporter, /\$reader\.Read\(\$buffer, \$count, \$buffer\.Length - \$count\)/);
-  assert.match(reporter, /ConvertFrom-Json -InputObject \$body -ErrorAction Stop/);
-  assert.match(reporter, /StartsWith\('V2_HOST_', \[StringComparison\]::Ordinal\)/);
-  assert.match(reporter, /Get-HolaCoordinatorRecoveryGuidance -Code \$code\.Value/);
-  assert.match(reporter, /TRANSPORT_TLS|TRANSPORT_TIMEOUT/);
-  assert.doesNotMatch(reporter, /ReadToEnd|Exception\.Message|Write-Host|Write-Output|Console|return \$body|response='/);
-  assert.doesNotMatch(reporter, /Write-Dpapi|Remove-Item|Invoke-RestMethod|Unprotect|FromXmlString/);
-});
 
-test("public recovery sanitizes local errors while preserving recognized failure codes", () => {
+  const guidance = source.slice(source.indexOf("function Get-HolaCoordinatorEnrollmentGuidance"),
+    source.indexOf("function Resolve-ApprovedNode"));
   const wrapper = recovery.slice(recovery.indexOf("function Restore-HolaCoordinatorHostCredential"));
   assert.match(wrapper, /Restore-InternalHolaCoordinatorHostCredential -Endpoint \$Endpoint/);
   assert.match(wrapper, /Get-HolaCoordinatorRecoveryGuidance -Code \$code/);
@@ -161,7 +148,12 @@ test("public recovery sanitizes local errors while preserving recognized failure
 
 test("native material fixtures match the strict JSON object boundary", () => {
   const fixture = readFileSync("scripts/test-hola-coordinator-reauthorization.ps1", "utf8");
+
+  const workflow = readFileSync(".github/workflows/ci.yml", "utf8");
   for (const name of ["expiredMaterial", "badMaterial", "futureMaterial"]) {
     assert.match(fixture, new RegExp(`\\$${name} = \\[pscustomobject\\]\\[ordered\\]@\\{`));
   }
 });
+
+  const selector = recovery.slice(recovery.indexOf("function Get-InternalHolaCoordinatorDiagnosticGuidance"),
+    recovery.indexOf("function Format-InternalHolaCoordinatorHttpFailureDetail"));

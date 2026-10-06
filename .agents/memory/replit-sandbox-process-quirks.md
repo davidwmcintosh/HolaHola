@@ -178,3 +178,11 @@ PowerShell module auto-discovery in this Nix sandbox can traverse the entire Nix
 
 **How to apply:** For local PowerShell test runners on Nix, distinguish a module-discovery timeout from script failure. Keep this workaround in the local test invocation only; do not add execution-policy overrides or change native Windows recovery behavior.
 
+
+## PowerShell runtime startup availability
+
+Installing a PowerShell runtime does not establish that it can execute fixtures in a Replit Linux workspace. Verify a trivial noninteractive command before relying on it. If startup hangs independently of the project script, classify fixture execution as unavailable rather than treating a source check as an execution pass.
+
+**Why:** On October 5, 2026 the Nix PowerShell 7.4 runtime hung before emitting output even for a trivial command; reduced processor count and a minimal environment did not restore startup. The project diagnostics fixture could not be executed locally.
+
+**How to apply:** Separate runtime availability, synthetic fixture execution and native Windows PowerShell 5.1 verification. Never infer the latter from either package installation or Linux execution; it remains behind its separately authorized Windows path.
