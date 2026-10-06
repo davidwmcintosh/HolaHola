@@ -132,11 +132,51 @@ test("HTTP failure callers retain distinct enrollment and recovery reporting con
   assert.equal((recovery.match(/Get-HolaCoordinatorRecoveryFailureDetail -ErrorRecord \$_/g) ?? []).length, 4);
   assert.doesNotMatch(recovery, /Get-HolaCoordinatorTransportFailureDetail/);
   const enrollment = source.slice(0, start);
+  assert.equal((enrollment.match(/Get-HolaCoordinatorTransportFailureDetail -ErrorRecord \$_/g) ?? []).length, 3);
+  assert.equal((enrollment.match(/Fail-Safe 'enrollment_transport' -Detail \(Get-HolaCoordinatorTransportFailureDetail -ErrorRecord \$_\)/g) ?? []).length, 3);
+  const wrapper = enrollment.slice(enrollment.indexOf("function Get-HolaCoordinatorTransportFailureDetail"),
+    enrollment.indexOf("function Get-HolaCoordinatorEnrollmentGuidance"));
+  assert.match(wrapper, /Get-InternalHolaCoordinatorHttpFailureDetail -ErrorRecord \$ErrorRecord -Context Enrollment/);
+  assert.doesNotMatch(wrapper, /ReadToEnd|\.Message|response=|error=/);
+  assert.match(recovery, /Get-InternalHolaCoordinatorHttpFailureDetail -ErrorRecord \$ErrorRecord -Context Recovery/);
+});
+
+test("shared HTTP diagnostics bound JSON and stream input and never echo error text", () => {
   const reporter = recovery.slice(recovery.indexOf("function Get-InternalHolaCoordinatorHttpFailureDetail"),
     recovery.indexOf("function New-InternalHolaCoordinatorReauthorizationDeclaration"));
+  assert.match(reporter, /New-Object char\[\] 4097/);
+  assert.match(reporter, /\$body\.Length -gt 4096/);
+  assert.match(reporter, /\$reader\.Read\(\$buffer, \$count, \$buffer\.Length - \$count\)/);
+  assert.match(reporter, /ConvertFrom-Json -InputObject \$body -ErrorAction Stop/);
+  assert.match(reporter, /\$body\.TrimStart\(\)\.StartsWith\('\{', \[StringComparison\]::Ordinal\)/);
+  assert.match(reporter, /StartsWith\('V2_HOST_', \[StringComparison\]::Ordinal\)/);
+  assert.match(reporter, /Get-InternalHolaCoordinatorDiagnosticGuidance -Code \$code\.Value -Context \$Context/);
+  assert.match(reporter, /TRANSPORT_TLS|TRANSPORT_TIMEOUT/);
+  assert.doesNotMatch(reporter, /ReadToEnd|Exception\.Message|Write-Host|Write-Output|Console|return \$body|response='/);
+  assert.doesNotMatch(reporter, /Write-Dpapi|Remove-Item|Invoke-RestMethod|Unprotect|FromXmlString/);
+});
 
+test("enrollment allowlist is ordinal and separate from recovery guidance", () => {
   const guidance = source.slice(source.indexOf("function Get-HolaCoordinatorEnrollmentGuidance"),
     source.indexOf("function Resolve-ApprovedNode"));
+  assert.match(guidance, /StringComparer\]::Ordinal/);
+  assert.match(guidance, /V2_HOST_BOOTSTRAP_CONSUMED/);
+  assert.doesNotMatch(guidance, /V2_HOST_REAUTH_|Get-HolaCoordinatorRecoveryGuidance|Invoke-RestMethod|Write-Dpapi|Remove-Item/);
+  const selector = recovery.slice(recovery.indexOf("function Get-InternalHolaCoordinatorDiagnosticGuidance"),
+    recovery.indexOf("function Format-InternalHolaCoordinatorHttpFailureDetail"));
+  assert.match(selector, /\$Context -ceq 'Enrollment'/);
+  assert.match(selector, /Get-HolaCoordinatorEnrollmentGuidance -Code \$Code/);
+  assert.match(selector, /Get-HolaCoordinatorRecoveryGuidance -Code \$Code/);
+});
+
+test("Windows CI retains the synthetic enrollment and recovery diagnostics fixture", () => {
+  const fixture = readFileSync("scripts/test-hola-coordinator-reauthorization.ps1", "utf8");
+  const workflow = readFileSync(".github/workflows/ci.yml", "utf8");
+  assert.match(fixture, /^\s*& \(Join-Path \$PSScriptRoot 'test-hola-coordinator-recovery-diagnostics\.ps1'\)/m);
+  assert.match(workflow, /shell: powershell\s+run: \.\\scripts\\test-hola-coordinator-reauthorization\.ps1/);
+});
+
+test("public recovery sanitizes local errors while preserving recognized failure codes", () => {
   const wrapper = recovery.slice(recovery.indexOf("function Restore-HolaCoordinatorHostCredential"));
   assert.match(wrapper, /Restore-InternalHolaCoordinatorHostCredential -Endpoint \$Endpoint/);
   assert.match(wrapper, /Get-HolaCoordinatorRecoveryGuidance -Code \$code/);
