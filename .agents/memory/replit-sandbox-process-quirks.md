@@ -169,3 +169,12 @@ directly (or just proceed to the next command) rather than assuming the activati
 Tests that only exercise a fake/stub notification sink (most existing shared-spec Postgres tests)
 never hit this gate and need no such step.
 
+
+## PowerShell module discovery on Nix
+
+PowerShell module auto-discovery in this Nix sandbox can traverse the entire Nix store and make even a trivial command time out. Disabling module auto-loading and explicitly loading only the required standard modules by their exact PSHOME paths avoids the scan without changing execution policy.
+
+**Why:** A trivial output command repeatedly timed out; a syscall trace showed mass directory enumeration under the store. Direct console output with auto-loading disabled succeeded, and the hermetic suite completed after explicit standard-module imports.
+
+**How to apply:** For local PowerShell test runners on Nix, distinguish a module-discovery timeout from script failure. Keep this workaround in the local test invocation only; do not add execution-policy overrides or change native Windows recovery behavior.
+

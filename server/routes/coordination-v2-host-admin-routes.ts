@@ -17,6 +17,7 @@ import {
   completeCoordinationV2HostReauthorization,
   getCoordinationV2HostReauthorizationRequest,
   getCoordinationV2HostRecoveryContext,
+  getCoordinationV2RecoveryClock,
 } from '../services/coordination-v2-host-auth-service';
 import { CoordinationHostEnrollmentError } from '../services/coordination-host-enrollment-service';
 import { requireCoordinationV2HostIdentityAuth } from '../middleware/coordination-v2-host-auth';
@@ -67,6 +68,12 @@ export function registerCoordinationV2HostAdminRoutes(
   const submitReauthorizationRequest = dependencies.submitReauthorizationRequest
     ?? submitCoordinationV2HostReauthorizationRequest;
   const getRecoveryContext = dependencies.getRecoveryContext ?? getCoordinationV2HostRecoveryContext;
+
+  // Public time metadata, not an authority path. Never cache a clock sample.
+  app.get('/api/coordination/v2/host/recovery-clock', strictLimiter, (_req, res) => {
+    res.set('Cache-Control', 'no-store');
+    res.json(getCoordinationV2RecoveryClock());
+  });
 
   // Reauthorization is deliberately a separate protocol boundary. It does not
   // accept an expired credential, actor token, runtime credential, or session.

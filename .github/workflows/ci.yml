@@ -234,6 +234,10 @@ jobs:
         shell: powershell
         run: .\scripts\test-hola-coordinator-reauthorization.ps1
 
+      - name: Run read-only recovery clock checks (native PowerShell 5.1)
+        shell: powershell
+        run: .\scripts\test-hola-coordinator-clock-preflight.ps1
+
   test:
     if: ${{ always() }}
     needs:

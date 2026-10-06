@@ -16,6 +16,10 @@ function Assert-Test {
 $rsa = New-Object System.Security.Cryptography.RSACryptoServiceProvider 2048
 $originalRuntimeBootstrapRoot = $RuntimeBootstrapRoot
 $originalDeclarationHelper = (Get-Item Function:\New-InternalHolaCoordinatorReauthorizationDeclaration).ScriptBlock
+$originalClockHelper = (Get-Item Function:\Assert-InternalHolaCoordinatorClockPreflight).ScriptBlock
+# Clock behavior has its own real-PowerShell hermetic suite. Lifecycle fixtures
+# must not query example.invalid or a machine time service.
+function Assert-InternalHolaCoordinatorClockPreflight { param([string]$Endpoint) }
 $existingInvokeRestFunction = Get-Item Function:\script:Invoke-RestMethod -ErrorAction SilentlyContinue
 $testRoot = $null
 try {
@@ -407,6 +411,7 @@ try {
         Remove-Item Function:\script:Invoke-RestMethod -ErrorAction SilentlyContinue
     }
     $RuntimeBootstrapRoot = $originalRuntimeBootstrapRoot
+    Set-Item Function:\Assert-InternalHolaCoordinatorClockPreflight -Value $originalClockHelper
     $global:ReauthorizationTestBody = $null
     $global:ReauthorizationTestContextBody = $null
     $global:RecoveryContextCalls = $null
