@@ -1,0 +1,34 @@
+Yes, Luca asked me to bring Alden in on the step after the digest fix, especially the expiry question. I've done that, and found that deploying the fix from main won't unblock your install by itself.
+
+What Luca asked for
+
+Keep the full digest table.
+Have Alden review the safe next step after the digest fix.
+Check, read-only, whether the launcher rejects expired manifests, without weakening any expiry check.
+Send him proof that my report actually reached Alden.
+
+What the launcher code shows (read-only; the relevant check is identical at the deployed revision and on main)
+
+Expiry is still enforced. An expired manifest fails with runtime_manifest_expired. The issue-request path never passes the switch that would allow an expired one.
+Your Windows host is stuck in a loop. It saved a request key on Oct 1, but never saved the issue ID for it. So the server created an issue on Oct 1 whose response never got saved on your machine.
+The fix just swaps one error for another. If main is deployed and you retry with the same key:
+the digest check now passes;
+the server hands back the Oct 1 manifest, which has expired;
+the launcher correctly rejects it, before saving anything;
+every retry repeats the same failure.
+
+The launcher's built-in "rotate the key on expiry" step only runs when an issue ID was saved, so it never triggers here.
+
+Getting unstuck needs a design decision. I didn't propose one, because key rotation isn't authorized and allowExpiredReplay is paused. I asked Alden three questions:
+Should the server refuse an expired earlier issue with its own error code?
+What approved, auditable way should the launcher have to start a fresh request in this case?
+Should the launcher handle this case explicitly?
+
+Sent (delivery confirmed for each)
+
+To	Thread	Event	What
+Alden	e0bc86eb	8540fde3 (seq 3)	Read-only reconstruction report
+Alden	e0bc86eb	b6e4046e (seq 4)	Expiry analysis and the questions above
+Luca	8e2835de	3eeab1fb (seq 7)	Both Alden receipts, the expiry analysis, and that the digest table is kept in .local/diag/
+
+Alden hasn't replied to any of it yet, including the four earlier design questions. I'll check his thread whenever you'd like.

@@ -19,3 +19,38 @@ An explicitly approved untimestamped internal Windows pilot is a validity-bounde
 **Why:** The founder selected a no-timestamp pilot, and its marked-download smoke proved only that exact signer/package in the approved machine/user scope during validity. A future renewal decision must not silently inherit the historical exception.
 
 **How to apply:** Plan a manual review before expiry, stop on expiry or invalid signature/trust, and keep certificate creation/acquisition, signing, exact store trust, transfer and publication approvals separate. Require fresh marked-download dummy-only native evidence for the replacement; do not retrofit a success claim to the old download.
+
+## Offline verifier evidence is separate
+
+Offline Windows verifier acceptance needs its own separately approved native
+host, signed fixtures and independent artifact/signer pins. Keep native
+execution paused when those approvals are absent; preparation of a fixture
+matrix is not execution authority or completion evidence.
+
+**Why:** The founder explicitly withheld additional host/fixture approval and
+required actual new native receipts before accepting the offline verifier.
+Historical downloaded-pilot success tests a different path and cannot prove
+cache-only revocation or provider countersigner rejection.
+
+**How to apply:** Separate reviewed tooling and proposed expected outcomes from
+observed native results. Never use a historical pilot receipt as evidence for
+new offline trust/timestamp checks. Keep certificate acquisition, signing,
+trust/policy changes, transfer and publication behind their own approvals.
+
+## Product deployment is separate from test isolation
+
+The Windows product must be easily deployable on ordinary Windows machines,
+including Home. Sandbox and virtual machines are engineering-test isolation
+options, never customer installation prerequisites.
+
+**Why:** The founder explicitly clarified that "we are moving towards a product
+that can be installed on any windows machine. we need a solution that can be
+easily deployed." Requiring test infrastructure on the customer laptop confuses
+verification setup with shipping requirements.
+
+**How to apply:** Keep offline trust/timestamp fixture testing separate from
+product installation. Do not require an edition upgrade, Sandbox-enablement
+workaround, hypervisor or test CA import for customers. State the actual supported
+Windows versions/architectures and policy constraints honestly; this intent
+does not justify claiming universal compatibility without evidence.
+

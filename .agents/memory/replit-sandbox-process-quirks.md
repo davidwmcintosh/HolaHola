@@ -186,3 +186,4 @@ Installing a PowerShell runtime does not establish that it can execute fixtures 
 **Why:** On October 5, 2026 the Nix PowerShell 7.4 runtime hung before emitting output even for a trivial command; reduced processor count and a minimal environment did not restore startup. The project diagnostics fixture could not be executed locally.
 
 **How to apply:** Separate runtime availability, synthetic fixture execution and native Windows PowerShell 5.1 verification. Never infer the latter from either package installation or Linux execution; it remains behind its separately authorized Windows path.
+

@@ -48,6 +48,7 @@ import {
   getCoordinationThread,
 } from "./coordination-ledger-service";
 import { listCoordinationInbox } from "./coordination-inbox-service";
+import { listAldenCoordinationInbox, readAldenCoordinationMessage } from "./alden-coordination-read";
 import { OPERATIONS_CATALOG, toPublicOperationManifest } from "./operations-catalog";
 import { applyHandoffSection, shareAldenHandoffNote } from "./alden-handoff-shared-spec";
 import { listAldenSharedSpecReviews, readAldenSharedSpecReview, claimAldenSharedSpecReview, decideAldenSharedSpecReview } from "./alden-shared-spec-review";
@@ -682,15 +683,29 @@ export const ALDEN_TOOLS: AldenTool[] = [
   },
   {
     name: "list_coordination_inbox",
-    description: "Read your canonical coordination inbox — events other actors (a Luca runtime, Daniela, David) have addressed to you or delivered on threads you participate in, ordered oldest-first. Use this to check for replies before assuming a message went unanswered. Reading does not acknowledge the items. A call only ever returns up to `limit` items even when more are waiting: if the response's `window.complete` is false, the newest items (including a reply you care about) have NOT been returned yet — you must call again with `token` set to `window.nextToken` to advance. Passing `after` again on its own repeats the same page.",
-    gemini_description: "Read my canonical coordination inbox — events other actors have addressed to me or delivered on threads I'm part of, oldest first. Use to check for replies. Does not acknowledge items. If `window.complete` is false, newer items (maybe the reply I'm looking for) are still hidden — I must call again with `token` set to `window.nextToken` to see them; re-passing `after` alone just repeats the same page.",
+    description: "Read your canonical coordination inbox oldest first, up to five events per page. When window.complete is false, pass window.nextToken as token to read the next page; repeating after alone repeats the first page. contentComplete=false means only a preview was returned: use read_coordination_message with contentRead.thread_id and contentRead.event_id, starting at offset=0, then pass each nextOffset as offset to read every chunk before treating that message as read. window.complete describes paging, not whether previewed bodies were fully read. Reading never acknowledges.",
+    gemini_description: "Read my canonical coordination inbox oldest first, up to five events per page. When window.complete is false, pass window.nextToken as token to read the next page. contentComplete=false means only a preview was returned; use read_coordination_message with contentRead.thread_id and contentRead.event_id, starting at offset=0, then pass each nextOffset as offset to read every chunk before treating that message as read. window.complete describes paging, not full reading of previewed bodies. Reading never acknowledges.",
     input_schema: {
       type: "object" as const,
       properties: {
         after: { type: "number" as const, description: "Only for the very first call in a session: a numeric cursor (defaults to your last acknowledged position). Omit this once you have a token." },
         token: { type: "string" as const, description: "Continuation token from a previous call's `window.nextToken` — pass it back to advance past that page. Takes priority over `after` when both are set." },
-        limit: { type: "number" as const, description: "Max items to return per call (default 20, max 50). A low limit makes `window.complete: false` more likely — always check it before concluding there is nothing new." },
+        limit: { type: "number" as const, description: "Max items per call (default and maximum 5). Larger requests are capped at 5 to preserve complete paging metadata." },
       },
+    },
+  },
+  {
+    name: "read_coordination_message",
+    description: "Read the exact text of one event on a coordination thread you participate in, in bounded chunks. Start at offset=0, then pass the returned nextOffset as offset until complete=true; join chunks in offset order. contentSha256 identifies the complete canonical source. Never acknowledges inbox items or changes ownership or cursors.",
+    gemini_description: "Read the exact text of one event on a coordination thread I participate in, in bounded chunks. Start at offset=0, then pass the returned nextOffset as offset until complete=true; join chunks in offset order. contentSha256 identifies the complete canonical source. Never acknowledges inbox items or changes ownership or cursors.",
+    input_schema: {
+      type: "object" as const,
+      properties: {
+        thread_id: { type: "string" as const, description: "Thread ID from the inbox item." },
+        event_id: { type: "string" as const, description: "Exact event ID from the inbox item." },
+        offset: { type: "number" as const, description: "Zero-based UTF-16 offset; default 0. Continue with the previous nextOffset." },
+      },
+      required: ["thread_id", "event_id"],
     },
   },
   {
@@ -2884,27 +2899,16 @@ export async function executeAldenTool(
       }
 
       case "list_coordination_inbox": {
-        const token = typeof args.token === 'string' && args.token.trim() ? args.token.trim() : undefined;
-        const after = typeof args.after === 'number' ? args.after : undefined;
-        const limit = typeof args.limit === 'number' ? Math.min(args.limit, 50) : 20;
-
         try {
-          const result = await listCoordinationInbox('alden', { token, after, limit });
-          return {
-            data: {
-              items: result.items.map((item: any) => ({
-                threadId: item.thread.id,
-                threadTitle: item.thread.title,
-                eventType: item.event.eventType,
-                from: item.event.actor,
-                content: item.event.content,
-                sequence: item.event.sequence,
-                globalSequence: item.event.globalSequence,
-                createdAt: item.event.createdAt,
-              })),
-              window: result.window,
-            },
-          };
+          return { data: await listAldenCoordinationInbox(args, listCoordinationInbox) };
+        } catch (e: any) {
+          return { data: { error: e.message, code: e.code } };
+        }
+      }
+
+      case "read_coordination_message": {
+        try {
+          return { data: await readAldenCoordinationMessage(args, getCoordinationThread) };
         } catch (e: any) {
           return { data: { error: e.message, code: e.code } };
         }

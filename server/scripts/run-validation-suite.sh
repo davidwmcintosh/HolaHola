@@ -144,6 +144,7 @@ run_check "set-rolling-episode --self-check hang guard (fails fast instead of si
 run_check "Legacy watchdog source-identity repair fixtures" npx tsx --test server/scripts/repair-preincident-watchdog-source-identity.test.ts
 run_check "Claude Code/Replit agent inbox lifecycle" npx tsx server/scripts/test-agent-notes-inbox.ts
 run_check "Alden provider tool and consult-auth contract" npx tsx server/scripts/test-alden-provider-tool-projection.ts
+run_check "Alden lossless coordination paging and message chunks" npx tsx --test server/scripts/test-alden-coordination-read.test.ts
 run_check "Alden workspace-root portability guard" bash -c 'npx tsx server/scripts/test-alden-workspace-root-portability.ts && npx tsx server/scripts/test-alden-workspace-root-portability.ts --self-check'
 run_check "Alden dual-engine self-report guard" bash -c 'npx tsx server/scripts/test-alden-dual-engine-self-report.ts && npx tsx server/scripts/test-alden-dual-engine-self-report.ts --self-check'
 run_check "Linked-outcome messaging architecture" npx tsx server/scripts/test-linked-outcome-static-guard.ts

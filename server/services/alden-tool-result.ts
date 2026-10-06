@@ -1,0 +1,73 @@
+import { createHash } from "node:crypto";
+
+// Coordination pages/chunks have their own bounded, structured transport.
+// Never turn their valid JSON into an incomplete string.
+export const ALDEN_TOOL_RESULT_LIMIT = 12_000;
+const COMPLETE_RESULT_TOOLS = new Set([
+  "list_coordination_inbox",
+  "read_coordination_message",
+]);
+
+export function serializeAldenToolResult(name: string, data: unknown): string {
+  const result = JSON.stringify(data);
+  if (COMPLETE_RESULT_TOOLS.has(name)) {
+    if (result.length > ALDEN_TOOL_RESULT_LIMIT) {
+      throw new Error("coordination_tool_result_too_large: no content or paging token was delivered");
+    }
+    return result;
+  }
+  return result.length > ALDEN_TOOL_RESULT_LIMIT
+    ? result.slice(0, ALDEN_TOOL_RESULT_LIMIT)
+      + `\n... [truncated: ${result.length - ALDEN_TOOL_RESULT_LIMIT} chars omitted]`
+    : result;
+}
+
+export function isCompleteAldenResultTool(name: string): boolean {
+  return COMPLETE_RESULT_TOOLS.has(name);
+}
+
+// Evidence for the authenticated priority-task caller, not model-authored
+// assertions. Never include message text, credentials or signed window tokens.
+export function aldenCoordinationReadReceipt(name: string, data: any, args: Record<string, unknown> = {}) {
+  if (!COMPLETE_RESULT_TOOLS.has(name) || !data) return null;
+  const tokenHash = (value: unknown) => typeof value === "string"
+    ? createHash("sha256").update(value.trim(), "utf8").digest("hex") : null;
+  const request = name === "list_coordination_inbox"
+    ? { requestedTokenSha256: tokenHash(args.token) } : {};
+  if (data.error) {
+    return { tool: name, errorCode: data.code ?? "tool_error", ...request };
+  }
+  if (name === "list_coordination_inbox") {
+    return {
+      tool: name,
+      ...request,
+      window: {
+        after: data.window.after,
+        through: data.window.through,
+        complete: data.window.complete,
+        acknowledged: data.window.acknowledged,
+        hasNextToken: typeof data.window.nextToken === "string",
+        nextTokenSha256: tokenHash(data.window.nextToken),
+      },
+      items: data.items.map((item: any) => ({
+        threadId: item.threadId, eventId: item.eventId,
+        globalSequence: item.globalSequence, from: item.from, recipient: item.recipient,
+        contentComplete: item.contentComplete, totalCharacters: item.totalCharacters,
+        contentSha256: item.contentSha256,
+      })),
+    };
+  }
+  return {
+    tool: name,
+    threadId: data.threadId,
+    eventId: data.eventId,
+    globalSequence: data.globalSequence,
+    from: data.from,
+    recipient: data.recipient,
+    offset: data.offset,
+    nextOffset: data.nextOffset,
+    totalCharacters: data.totalCharacters,
+    contentSha256: data.contentSha256,
+    complete: data.complete,
+  };
+}

@@ -1,0 +1,35 @@
+Good morning. The diagnosis is done and my findings are with Alden for independent review. Nothing has been changed or run on your machine, and nothing was committed.
+
+One gap first: I couldn't find the Sandbox batch. It isn't anywhere in the repo, the uploads, the coordination inbox or the Luca notes, so I judged it only by what it's meant to do. If you put it in attached_assets/, I'll go through it line by line, and I won't run it.
+
+What's going wrong
+
+Windows Sandbox is a dead end on Windows 11 Home. It only exists on Pro, Enterprise and Education. Getting it would mean upgrading Windows, which I'm not proposing.
+The batch's package install goes against the approved design. That design rules out npm install on Windows; the signed runtime bootstrap is supposed to deliver Node and its modules. Packages installed by npm would be rejected by the launcher's own checks anyway. I recommend retiring the batch rather than fixing it.
+The "credential corrupted" error was misleading. The Windows-side agent ran its checks from a locked-down process that wasn't allowed to read the credential file. The launcher reports any read failure as "corrupted". When the same check ran in your own PowerShell window, it returned HTTP 200, so the credential is fine. Launcher commands need to run in your own window, not the agent's shell.
+Script blocking is the first barrier on a fresh Home install. Stock Home blocks script files by default, which is why the launcher wouldn't load in a fresh PowerShell. The fix is to allow scripts for that one window only, and only when you approve it each time. Pasted commands are not affected.
+The real blocker right now is on the server, not Windows. Last night's approved single request got a 422 rejection: the server's stored record of your existing setup request no longer matches what it rebuilds. That needs a fix on the server side. Don't start a fresh request to get around it, because that would leave the existing one stranded.
+The launcher hides these server errors. It reports every failure in this step as a generic "transport" error. That's why it took several rounds of you pasting terminal output to see the 422.
+
+Proposed install path (no Sandbox, no npm, no admin rights):
+
+Install Git for Windows; the built-in PowerShell 5.1 is enough.
+Use git clone instead of a browser download, so the files don't carry the "downloaded from the internet" mark.
+Paste one read-only check into your own PowerShell. It writes a single report file to %TEMP% that you attach once, instead of pasting output back and forth. The report contains no credentials or account names.
+Allow scripts for that window only, with your approval, then load the launcher.
+Run the existing runtime setup command. It installs Node and its modules from the signed server release, but stays blocked until item 5 is fixed on the server.
+
+I've also proposed five launcher changes for review: clear error codes for this step, separate codes for "access denied" versus "really corrupted", the read-only check, a short Windows 11 Home runbook, and Windows test fixtures. None is implemented. The read-only check has never been run, because there's no PowerShell in this environment.
+
+Where it stands:
+
+Proposal: shared-spec document 0adbe4e0…, waiting on Alden's review 777b4e42-3eea-4bc7-8305-d69c26309c00. I can't approve my own work, so Alden has to claim and decide it.
+Review request to Alden: coordination thread e0bc86eb-07c9-460e-8602-7c500854f730.
+Task 1706: I answered the Replit Agent's availability question with "unavailable", since this session runs in the cloud, not on Windows.
+Local copy of the proposal: windows-home-install-proposal.md in my scratchpad.
+
+Decisions for you:
+
+Send me the Sandbox batch file, if you want it reviewed line by line.
+Decide who fixes the 422 on the server. Commit 209c9a6, a design for repairing replayed timestamps, may already cover it.
+After Alden reviews, decide whether I should build the five proposed changes.

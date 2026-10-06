@@ -328,6 +328,20 @@ storage_version_token = "1790874978980291"
 content_type = "text/markdown"
 
 [[outputs]]
+id = "0BrgnHJAPOT3gzhLsGwxa"
+uri = "file://.local/task-1701-native-fixture-plan.md"
+type = "text"
+title = "Proposed offline Windows verification matrix — not approved"
+description = "Pinned tooling revision, pending host and independent fixture approvals, expected trust/timestamp outcomes, and native evidence requirements. No native execution has occurred; task remains incomplete."
+logical_id = "8070e146-f0fc-4068-b08b-d0e1ec892314"
+content_hash = "sha256:d0062a0ee89d631589ded8fe23e05b2c2c3fa2f7609e47c2839aa26bcae151c7"
+size = 13192
+mtime_ms = 1791092642532
+storage_uri = "gcs://replit-rams-assets-kirk/rams/assets/repl:3ca2376d-c3dc-490a-a375-6b2f97f7c281/8070e146-f0fc-4068-b08b-d0e1ec892314/66046424-eacc-4e8d-95e9-1b3c83387c8b"
+storage_version_token = "1791092650047137"
+content_type = "text/markdown"
+
+[[outputs]]
 id = "vuFKE0D3F2deQWqru80Z-"
 uri = "file://docs/superpowers/specs/2026-10-05-coordinator-acl-write-mask-design.md"
 type = "text"

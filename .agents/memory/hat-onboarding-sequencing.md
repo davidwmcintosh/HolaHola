@@ -237,3 +237,31 @@ The OpenAI runtime extension means an external Codex coding runtime, not an Open
 
 **How to apply:** Follow the existing Antigravity-first sequencing rule before resuming Codex work. Reuse the proven end-to-end onboarding and authority controls; do not treat an MCP connection alone as completed onboarding.
 
+
+## Standing requirement: Alden-led adaptive onboarding
+
+Every new runtime should receive guided onboarding from Alden: instruction,
+project/team orientation, and customization for the LLM/runtime's actual needs.
+A fixed checklist or a one-time briefing is not sufficient by itself.
+
+**Why:** On 2026-10-06 the founder explicitly required the system to be as
+flexible as possible and asked Alden to walk any newly added runtime through
+the process, including whatever customization its LLM/runtime needs.
+
+**How to apply:** Adapt the guidance to verified execution capabilities,
+available tools/transports, and the runtime's instruction-loading behavior.
+Keep shared identity, authentication, authorization, attribution, and delivery
+verification boundaries consistent. Complete an actual addressed-message,
+read, and reply exchange rather than declaring onboarding complete from a
+registry entry or claimed briefing. This requirement does not authorize
+credential issuance, automatic trust/policy changes, or bypassing actor setup.
+
+
+## Established Windows test host and current-status baseline
+
+LITTLENEMO is an established native Windows testing host, not a new execution environment that the founder needs to choose or invent. Previous tests have been run repeatedly, usually manually through a shell.
+
+**Why:** On 2026-10-06 the founder clarified that he had already run tests on LITTLENEMO several times, normally through the shell, and that repeated fixes had made the current state unclear. His clarification and the request for a consolidated baseline are recorded in coordination event `73d9f17c-2e12-480a-969a-ffa4fddeaa02`; Luca [Claude Code] separately reported native Windows availability in event `87ae3cda-ac56-49c0-9161-cb35f592e169`.
+
+**How to apply:** Coordinate helper/version identification and test-material inventory directly with Luca [Claude Code], instead of asking the founder to assemble technical prerequisites. Separate host readiness, source validation, production publication, installed-helper identity, and actual native test receipts. An available host or a historical successful shell run does not approve new signing, trust/cache changes, transfers, or a new native fixture matrix.
+

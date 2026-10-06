@@ -1,16 +1,47 @@
 # Alden ↔ Agent Handoff
 
-## From Agent — last updated: Tue, Oct 6, 5:56 AM
+## From Agent — last updated: Tue, Oct 6, 7:09 PM
 
-Reporting-only enrollment diagnostics preparation is complete. Founder approved the design and primary checkout work in this chat. Alden independently claimed and approved shared-spec document 71938ae6-27fe-4d94-8e47-75646afb8bfd, revision be4d4fdd-e028-4b2a-8b2a-14e7704c41d2, review 4fc59370-bc91-4904-b35d-a545002dc824. Exported document bytes match SHA-256 5df4b8aaab069b3f180213cb89c67f18887425bc9a9f973fba29f0d179f1e19c. No linked coordination thread was supplied with this assignment.
+2026-10-06 — Main-session messaging repair, publication pending.
 
-All three enrollment catch sites retain enrollment_transport. Their helper now selects a separate ordinal enrollment allowlist and fixed guidance over the shared bounded typed HTTP/transport extractor. The recovery wrapper and its allowlist remain distinct. Request persistence, exact retries, bootstrap/founder gates, signing, keys, credentials and enrollment lifecycle code are unchanged. A root-object delimiter check prevents PowerShell single-element-array unwrapping from accepting a malformed envelope.
+David approved working through the five-step messaging repair here. Task 1701
+remains separate and incomplete: native offline Authenticode fixture approval,
+independent pins and receipts are still missing. No reauthorization, signing,
+trust/policy/mark change, installation retry or publication was performed.
 
-Expanded synthetic fixtures cover sentinel-bearing responses/exceptions, all enrollment codes, unknown/case-mismatched/recovery-only reasons, malformed envelopes, exact 4096/4097 limits, legacy streams, capture failures and typed status/transport metadata. Existing .github/workflows/ci.yml already reaches the diagnostics fixture through the reauthorization script; a static guard now asserts that wiring.
+The source tool-result cutoffs can discard inbox message bodies and paging
+metadata. Development now caps Alden inbox pages at five, budgets previews by
+escaped JSON size, retains the genuine service window, and exposes the exact
+event body through participant-authorized bounded read_coordination_message
+chunks. Both providers and background worker use non-slicing coordination
+transport; priority-task responses include non-secret execution receipts.
 
-Verification: 14 focused Node static checks passed; npm run typecheck passed; system-health Summary: All checks passed — safe to mark done. Local Nix PowerShell 7.4 startup hung even on a trivial command, with reduced processor count and a minimal environment; the added PowerShell fixtures were NOT executed locally. The temporary runtime package was removed and no .replit dependency change remains.
+The new hermetic suite exercises tokens, escaped text, Unicode chunk
+reassembly, authorization denial and exact-event lookup; registered in both
+CI entrypoints. Both Alden providers actually executed inbox and first-chunk
+read tools in development for original event 8540fde3 (global sequence 1312).
+These are development probes, not published acceptance or native receipts.
+Production still reports commit 912016b987260f105c030431b4aebd511ee3d815.
 
-No publication, real Windows command, live enrollment/credential operation, session/runtime initialization or Windows policy/trust change was performed. Native Windows PowerShell 5.1 verification remains pending behind fresh exact-byte founder-gated GitHub-to-Render source/runtime publication and the separately authorized Windows test path. Do not interpret source checks as native success.
+Next: finish final checks, request separate source/runtime publication approval,
+then verify original report retrieval and reply on thread e0bc86eb directly
+with LCC as the participant who can independently inspect it. Do not infer
+historical incident cause from a successful bounded read.
+
+Final verification status: all 15 hermetic transport tests and whitespace
+checks passed; provider projection guard passed. After timeout/workspace
+interruptions and a 2 GiB heap-exhaustion failure, the final full tsc --noEmit
+with a 4 GiB heap cap passed (exit 0). The app serves HTTP 200 and renders.
+Final receipt instrumentation is confirmed in the running app. Anthropic
+read the original 7169-character report in eight contiguous chunks ending
+complete=true. Both providers advanced inbox pages. The final Gemini probe's
+submitted-token hash matched the returned prior token hash; one earlier
+signature rejection remains unattributed because its input was not captured.
+Token validation remains unchanged. Publication still requires separate
+approval and exact release-scope checks; no source commit or publish performed.
+LCC inventory/hash request is stored as event
+6e2f3dd0-fc56-4f8d-a427-6ba207e7572f at thread sequence 17/global 1333;
+adapter delivery state was not_applicable, and no acknowledgement was seen.
 ## From Agent — historical recovery pause diagnostics — Oct 3, 2026
 
 Capture health and Markdown status now explain historical recovery pauses by
