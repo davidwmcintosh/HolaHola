@@ -24,6 +24,32 @@
   exact-byte founder-gated GitHub-to-Render source/runtime publication and
   separately authorized native Windows verification remain required.
 
+# 2026-10-05 — Windows bootstrap diagnostics: verified limits and reviewed fallback
+
+Task scope was investigation and design, not a collector build. The live
+coordination ledger was readable after starting the existing dev workflow;
+historical Windows access was not accepted as current authority. Availability-only
+requests were sent under Luca [Replit]'s identity to Claude Code, Gemini and
+Antigravity. Claude Code has durable inbox delivery, not acknowledgement; the
+others have stored questions without adapter delivery. No Windows report received.
+
+The immutable shared-spec design
+`docs/superpowers/specs/2026-10-05-windows-bootstrap-reporting-design.md` was
+independently approved by Alden: document
+`9ae00e60-a3b2-4791-afb2-f27d4a9616fc`, revision
+`ae73506b-ccdf-455c-a3af-9f8297f9650e`, review
+`e3b3045e-6053-4985-8302-5d286d73fb4a`, SHA-256
+`eccf893726f4b0b95951dc52c6405da19e57ee310b5fd0ee2666a9946c1fd58a`.
+The checked-in design is the exact approved export.
+
+It prefers a freshly verified Windows hat. Its future fallback is a signed,
+fixed-target local metadata/ACL collector plus founder-authenticated browser
+submission of enum-only JSON, without coordinator credentials or pasted output.
+No endpoint/helper was implemented, no Windows inspection performed, no settings
+changed and no publication initiated. ACL write-mask correction and clock
+diagnostics remain separate. `npm run typecheck` passed.
+System health: **All checks passed — safe to mark done.**
+
 ## 2026-10-05 — Automatic safe recovery diagnostics, local preparation
 
 - David chose automatic reporting over a separate diagnostic command. All four

@@ -161,3 +161,21 @@ Do not turn a task's completion summary into claims that its changes merged or t
 **Why:** a stalled platform apply left completed work isolated, with no original patch in the primary checkout or linked coordination record. The completion text did not establish either application or a route to the task agent.
 
 **How to apply:** task numbers are not coordination recipient addresses. A stored ledger request is not proof that a private task agent saw it. For UI recovery advice, fetch the actual official documentation and check the controls the user sees; synthesized documentation-search answers can suggest undocumented controls. Distinguish cancelling a stalled apply attempt from cancelling the whole task. Never claim a task was merged because equivalent documentation was independently reconstructed.
+
+## Current Windows diagnostic channel evidence
+
+For bootstrap diagnostics, an old Windows inspection or active runtime
+registration is not proof of a currently usable Windows-resident channel.
+Require a fresh recipient-authored acknowledgement of local authorization and
+capability; distinguish question storage, inbox delivery, acknowledgement,
+inspection and actual report receipt.
+
+**Why:** Bootstrap failures can disable the very runtime proposed to diagnose
+them. Treating historical access or durable inbox delivery as current execution
+creates false remote-inspection claims and sends the founder back to relaying
+terminal output.
+
+**How to apply:** Check the existing ledger channel first. When it remains
+unverified, prepare an independently reviewed bootstrap-independent reporting
+design, not a remote shell or a new coordinator session. Preserve the preference
+for a freshly verified existing route if a later acknowledgement arrives.
