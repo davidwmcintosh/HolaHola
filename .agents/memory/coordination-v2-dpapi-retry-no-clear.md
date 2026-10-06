@@ -13,3 +13,27 @@ Never delete `host-material.dpapi` or `host-private-key.dpapi` — these are the
 
 **How to apply:** Before telling an operator to clear any Windows-side state for a Coordinator V2 retry, check this file first. The only other prerequisite is that the Windows checkout's git HEAD/tree actually matches the newly promoted commit (pull first).
 
+
+## Expired replay: approved recovery policy, not an implemented workaround
+
+The founder-approved recovery policy permits bounded client-managed rotation
+after retaining an expired replay as unverified evidence under DPAPI. This is
+not authority to install, acknowledge, trust, or execute from expired evidence.
+Keep the old binding and one durable successor so response-loss retries do
+not invent another generation. A well-formed invalid expired signature may
+trigger only a new authenticated issue; fresh installation still requires
+every existing signature, expiry, source, artifact, ACL, and trust check.
+
+**Why:** An idempotent request can exist on the server while its issue ID was
+never saved locally. Ordinary saved-issue rotation does not resolve that
+failure class. The policy explicitly accepts bounded discard/issue-volume
+risk without granting installation trust.
+
+**How to apply:** Do not present the approved design as already implemented.
+Recovery remains automatic client policy, never an operator instruction to
+clear DPAPI or supply a replacement key. Implementation and native synthetic
+fixtures require separate authorization and fresh exact-source and runtime
+publication gates before any changed launcher is exercised on Windows. See
+the reviewed expired-bootstrap recovery design and its separate founder
+approval record under docs/superpowers.
+
