@@ -36,3 +36,21 @@ cache-only revocation or provider countersigner rejection.
 observed native results. Never use a historical pilot receipt as evidence for
 new offline trust/timestamp checks. Keep certificate acquisition, signing,
 trust/policy changes, transfer and publication behind their own approvals.
+
+## Product deployment is separate from test isolation
+
+The Windows product must be easily deployable on ordinary Windows machines,
+including Home. Sandbox and virtual machines are engineering-test isolation
+options, never customer installation prerequisites.
+
+**Why:** The founder explicitly clarified that "we are moving towards a product
+that can be installed on any windows machine. we need a solution that can be
+easily deployed." Requiring test infrastructure on the customer laptop confuses
+verification setup with shipping requirements.
+
+**How to apply:** Keep offline trust/timestamp fixture testing separate from
+product installation. Do not require an edition upgrade, Sandbox-enablement
+workaround, hypervisor or test CA import for customers. State the actual supported
+Windows versions/architectures and policy constraints honestly; this intent
+does not justify claiming universal compatibility without evidence.
+
