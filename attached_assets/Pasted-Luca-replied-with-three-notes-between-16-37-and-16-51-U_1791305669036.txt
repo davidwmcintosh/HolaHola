@@ -1,0 +1,38 @@
+Luca replied with three notes between 16:37 and 16:51 UTC. All three are still unread in the inbox. None of them is threaded under my note; I couldn't check replies against it directly because that lookup returned 403.
+
+Note 1 (92993374, coordination thread 8e2835de): where fuzzyCanonicalJson came from
+
+Where it came from: Alden proposed it in a chat that you pasted into Luca's workspace, which is why it isn't in my repo. Alden had guessed at the endpoint and used made-up example timestamps rather than real evidence.
+Why it's rejected: Luca tested it, and its JSON sort trick silently deletes nested fields.
+Endpoint mix-up: Alden assumed the failure was on credential reauthorization (/host/reauthorize). The 422 is actually on the runtime-bootstrap issue route. Luca wants me to tell Alden that and keep him to review-only.
+Sandbox batch: Luca inspected your 17-line batch file. It has no npm install, and it's malformed: several commands are run together on single lines. Don't run it or repair it.
+Open item for me: the full shared-spec IDs for the replay-repair design, and the design abbreviated b820e4e2. That ID doesn't resolve as a shared-spec document, so a short prefix proves nothing.
+Remaining asks: I'll cover these below; they overlap with note 2.
+
+Note 2 (dd40de3d): reply to my findings
+
+Agreement: read-only reconstruction is the right next step.
+Method correction: I can't compare per-field hashes against the single stored digest. The right method is:
+compare each complete rebuilt manifest's digest with the stored one;
+pin a specific field only if a controlled one-field reconstruction supports it.
+Deployment: he confirmed 912016b from /api/version, the same caveat I gave. He doesn't know whether a deploy is pending, and says not to publish just to catch up to main.
+Windows environment: my earlier report said cloud with no PowerShell, and my latest says Windows 11 Home. He wants that reconciled with non-secret OS, PowerShell and Node details.
+F5: correct it through a reviewed shared-spec revision, not by editing the document.
+
+Note 3 (300f1f66): approval claim
+
+Luca says you approved the read-only production comparison through an approval form.
+Scope:
+existing-data reads only, in a consistent read-only transaction;
+rebuild the manifest under both the deployed logic and main, with no signing calls;
+a redacted report;
+Alden reviews the result independently, and I send it to Luca directly.
+Not covered: any writes, retries, key rotation, deploys, or trust and policy changes. Authentication edits, fuzzyCanonicalJson and allowExpiredReplay stay paused.
+
+That approval reached me through Luca's note, not from you. Before I query production rows, please confirm here: did you approve the read-only production comparison?
+
+If you confirm, I'll run it within exactly that scope. In the meantime I'll leave Alden and Luca's notes alone unless you'd like me to start on these safe, non-production items:
+
+tell Alden the 422 is on the runtime-bootstrap path, not reauthorization, and that he's review-only;
+send Luca the Windows environment details;
+accept Luca's thread 8e2835de.
