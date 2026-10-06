@@ -196,3 +196,20 @@ genuine-missing-blob before you invest in deeper git-internals diagnosis.
 Only chase the fetch/blob-availability angle if both sides show a real tree
 entry and `cat-file -e <sha>^{blob}` still fails for one of them.
 
+
+## Partial-clone hydration transport
+
+In a partial clone, selecting an authenticated HTTPS remote for reconciliation
+does not guarantee that missing-object hydration avoids the original SSH
+promisor transport.
+
+**Why:** During the October 6, 2026 inspection, canonical preflight still reached
+an interactive SSH host-key prompt despite selecting the established HTTPS
+remote. A process-only SSH-to-HTTPS URL rewrite let the existing App-authenticated
+inspection complete without changing repository configuration or SSH trust.
+
+**How to apply:** Use noninteractive reads and the established authenticated
+inspection path. If promised-object hydration selects SSH, use a narrowly
+scoped process-only HTTPS rewrite; never accept an unknown SSH host key merely
+to get past the prompt or change persistent remotes as an incidental repair.
+

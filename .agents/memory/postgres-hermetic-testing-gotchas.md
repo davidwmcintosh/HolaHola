@@ -122,3 +122,20 @@ PostgreSQL connection-string query arguments can override the URL hostname and d
 **Why:** node-postgres' connection-string parser gives query arguments precedence; a loopback-looking URL or private-looking database path can still resolve to a different host or database.
 
 **How to apply:** fail closed on target-changing URL parameters before opening even an administrative connection in a disposable-database harness. Verify both the driver's effective target and invocation ownership, not just that CI is enabled.
+
+## Canonical evidence adapter fidelity
+
+Canonical evidence diagnostics must reproduce the production database adapter's
+runtime value types, not just query the same rows with an interchangeable SQL
+client.
+
+**Why:** During the October 6, 2026 bootstrap diagnosis, a plain PostgreSQL
+client returned Date objects and made the old timestamp conversion appear to
+match stored evidence. The application's adapter returned timestamp strings
+and exposed the replay mismatch. Identical rows did not imply identical
+canonical bytes.
+
+**How to apply:** Check the actual adapter's value types before concluding a
+digest mismatch is resolved. Keep stored evidence unchanged and compare full
+canonical digests, rather than accepting approximate timestamp equivalence.
+

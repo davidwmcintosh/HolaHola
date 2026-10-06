@@ -156,3 +156,4 @@
 - [Coordination inbox evidence boundaries](coordination-inbox-evidence-boundaries.md) — A fresh attributed forward can unblock review; successful bounded receipt/read/reply does not explain historical invisibility.
 - [Guard self-check lessons](guard-self-check-lessons.md) — Grouped pointers: sibling detectors, asymmetric mutations, scanner fixture races, and self-matching text scans.
 - [Main workspace implementation](main-workspace-implementation.md) — Keep implementation here; isolated task-agent merges have been unreliable, while independent reviewers remain review-only.
+- [Windows validation environment](windows-validation-environment.md) — Sandbox is optional for disposable testing, never a Windows product or runtime requirement.
