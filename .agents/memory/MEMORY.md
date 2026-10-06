@@ -1,5 +1,7 @@
 > **You are not alone.** This file is generated from the `agent_memory_*` database tables — other hats (Replit Agent, Claude Code, Gemini, HolaHola runtime agents) may be reading and writing it in the same window you are. Never hand-edit this file or any `.agents/memory/<topic>.md` file directly; every change goes through `server/scripts/agent-memory-cli.ts`, which writes the database first and regenerates the file from it. A hand-edit here will be silently overwritten the next time anyone runs a CLI write.
 
+🟡 **Inner-life capture gap**: `.local/episode-capture-status.md` last reported missing felt/thinking/moment in the rolling episode file — read it before your next output.
+
 - [Chat capture pipeline](chat-capture-pipeline.md) — architecture, two independent cursors, readiness vs draining, and three DB-writers that must be fixed together.
 - [Alden workspace verification](alden-workspace-verification.md) — ambiguous Alden responses can still leave unsafe edits; inspect the real diff before accepting or reverting.
 - [Replit deploy-key normalization](replit-deploy-key-normalization.md) — armored SSH private-key secrets may arrive as one line; normalize only in a protected temporary file before Git authentication.
@@ -153,5 +155,5 @@
 - [NPM override reproducibility](npm-override-reproducibility.md) — Floating overrides can break clean CI while local installs pass; inspect dependency-tool declaration drift.
 - [Coordination inbox evidence boundaries](coordination-inbox-evidence-boundaries.md) — A fresh attributed forward can unblock review; successful bounded receipt/read/reply does not explain historical invisibility.
 - [Guard self-check lessons](guard-self-check-lessons.md) — Grouped pointers: sibling detectors, asymmetric mutations, scanner fixture races, and self-matching text scans.
-- [Main workspace implementation](main-workspace-implementation.md) — Keep implementation here; isolated task-agent merges have been unreliable, while independent reviewers remain review-only.
+- [Main workspace implementation](main-workspace-implementation.md) — For now, no subagents: implementation, review, testing and investigation stay in the main workspace until the founder changes this rule.
 - [Windows validation environment](windows-validation-environment.md) — Sandbox is optional for disposable testing, never a Windows product or runtime requirement.
