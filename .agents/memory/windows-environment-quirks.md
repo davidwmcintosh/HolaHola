@@ -219,3 +219,12 @@ Do not assume a Claude Desktop session supplies authentication to the desktop-bu
 
 **How to apply:** Verify a real authenticated noninteractive invocation under the intended Windows account and configuration directory. Login in one account/configuration is not proof of readiness under another. Keep authentication failure separate from HolaHola connectivity, and use local human browser sign-in rather than requesting tokens in chat.
 
+
+## Detached workers still inherit provider and billing configuration
+
+A subscription-authenticated Claude worker on LITTLENEMO must not blindly inherit its parent environment or load the project .env wholesale. Reported persistent API credentials and desktop-injected endpoint configuration can select a different authentication or billing route than intended.
+
+**Why:** The local pre-login report supplied on 2026-10-07 found a persistent user-level API key plus a process-only endpoint injected by Desktop; the earlier detached probe had inherited the endpoint despite running outside the interactive session.
+
+**How to apply:** Preserve unrelated persistent configuration. Construct or sanitize only the worker child environment, excluding conflicting provider/authentication overrides, and centralize that logic for interactive login and headless launches. Keep coordination-process configuration separate. Verify credential-source selection without displaying values; do not treat a detached process as an isolated environment.
+
