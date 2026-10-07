@@ -192,3 +192,12 @@ and do not infer a Windows failure or success from a Linux cmdlet stall.
 Respect native publication/authorization gates even when native fixtures are
 synthetic. Do not add a hanging exploratory check to mandatory CI.
 
+
+## Windows Time query prerequisite
+
+Do not assume Windows Time configuration queries work while the service is stopped. A native `w32tm /query /configuration` returned service-not-started (0x80070426), not configuration evidence.
+
+**Why:** A nominally read-only diagnostic required a running Windows Time service. Starting that service is a separate host mutation and may synchronize the clock through existing settings.
+
+**How to apply:** Inspect service state/startup type first. If stopped, obtain explicit approval before starting it; do not silently change startup mode, force a resync, or retry credential recovery. A failed configuration query says nothing about the configured time source.
+
