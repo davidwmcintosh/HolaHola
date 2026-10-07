@@ -246,3 +246,12 @@ Treat Desktop task status as a scheduling signal, not sufficient evidence that i
 
 **How to apply:** Require actual command output plus founder or host-side permission evidence for acceptance. Separate setup attempts from the measured activation. Prefer supported one-shot scheduling for bounded proofs, verify final disabled state, and account for per-run worktree/branch leftovers without deleting them absent authorization. A successful scheduled inbox GET does not establish recurring dispatch, coding readiness, or operation while Desktop is closed or the host asleep.
 
+
+## Desktop task approval captures variable reply arguments
+
+Desktop task in-app always-allow can save the full observed Bash command, including variable result arguments and quoting, rather than a helper-path prefix rule. Do not assume approving one invocation authorizes later variable-output invocations.
+
+**Why:** In the 2026-10-07 scheduled assignment-return setup, fetching and document reading worked, but host-side approvedPermissions contained the complete reply command with setup answer values. The UI did not offer a helper-scoped argument wildcard. The measured run was therefore not armed or scheduled. This is native host behavior, not a fact discoverable in repository code.
+
+**How to apply:** Inspect the actual saved rule before claiming autonomous variable-result delivery. Distinguish exact-command task approval from a user-settings helper wildcard that applies across sessions. Prefer investigating fixed-command bounded-result mechanisms; any wider settings rule needs explicit founder approval, disclosed cross-session scope, and an agreed removal plan. A setup dry run is not evidence of scheduled execution or actual return delivery.
+
