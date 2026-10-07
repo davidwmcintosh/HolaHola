@@ -47,3 +47,12 @@ Platform independence is the primary goal. The main secondary goal is expanding 
 
 **How to apply:** Use working, replaceable coding tools as a practical starting point; platform independence does not require recreating every vendor coding tool before useful work can begin. Keep Luca’s observation, multi-engine analysis, and coding capabilities independently usable. Do not make Antigravity integration, Windows reauthorization, or a complete custom execution framework a prerequisite for all of them. Preserve owned records and interfaces so the initial tool can be replaced.
 
+
+## Active workers rather than manual inbox checks
+
+Remote dispatch to execution workers is a worthwhile capability, distinct from ordinary messaging access. David reported on 2026-10-07 that his working Claude Code participant still requires him to ask it to check messages; the desired improvement is active consumption of assigned work, not merely another inbox.
+
+**Why:** A registered messaging participant does not act automatically. David explicitly valued the possibility of HolaHola controlling approved work on remote execution hosts, so do not treat all host-execution work as unnecessary simply because manual coding already works.
+
+**How to apply:** Distinguish messaging access, a resident watcher/dispatcher that triggers an agent, and bounded execution-host operations. State which is actually implemented and proven. Current V2 polling is task/session-scoped, not proof of an always-on agent fleet or remote control of an existing IDE conversation. Keep the dispatch protocol owned and workers/tool adapters replaceable; Windows remains a possible location, not a requirement of the goal.
+
