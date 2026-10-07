@@ -265,3 +265,12 @@ LITTLENEMO is an established native Windows testing host, not a new execution en
 
 **How to apply:** Coordinate helper/version identification and test-material inventory directly with Luca [Claude Code], instead of asking the founder to assemble technical prerequisites. Separate host readiness, source validation, production publication, installed-helper identity, and actual native test receipts. An available host or a historical successful shell run does not approve new signing, trust/cache changes, transfers, or a new native fixture matrix.
 
+
+## Ordinary participation is not V2 host onboarding
+
+Ordinary coding-hat participation in HolaHola messaging and shared documents is distinct from Coordinator V2 host enrollment. Do not make V2 Windows recovery, DPAPI custody, signed runtime installation, or a live V2 provider adapter prerequisites for the ordinary participation path.
+
+**Why:** On 2026-10-07 David clarified that Claude Code already codes, coordinates through messaging, and shares documents without special Windows-environment setup, and asked for the same path for Antigravity, Codex, or another tool. Earlier V2-first onboarding sequencing must not be applied to that narrower goal.
+
+**How to apply:** Start with a repository copy, the tool’s project instructions, its own attributed coordination identity/credential, and verification of canonical inbox/message and shared-spec access. Treat V2 execution-host acceptance as a separately requested capability. Do not impersonate Claude Code or reuse its credentials for another hat. The reported working Claude Code baseline is product evidence; it is not proof that another runtime’s credentials or access have already been verified.
+
