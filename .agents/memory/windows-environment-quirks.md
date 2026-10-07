@@ -228,3 +228,12 @@ Windows child processes inherit their actual parent process environment; a persi
 
 **How to apply:** Verify variable presence in the intended launch context without revealing values. Construct the worker environment deliberately for its chosen authentication profile instead of loading the full project .env or assuming persistent variables are present. Keep coordination configuration separate and preserve unrelated saved configuration. Centralize provider-profile handling so API and subscription launches do not silently change billing or routing.
 
+
+## Desktop host approval visibility
+
+Do not use a Desktop scheduled run’s own transcript as proof that no host permission prompts occurred. A model session may not observe approvals collected by the Desktop host.
+
+**Why:** On 2026-10-07, a successful scheduled inbox-read proof reported that no prompts were needed, but the founder had approved two Bash prompts. The corrected report preserved command-output evidence for authentication and inbox access while withdrawing the unattended-permission claim.
+
+**How to apply:** Verify prompts using founder observation or the task’s host-side permission panel. Separate successful manually approved execution from unattended readiness. Configure narrowly scoped per-task approvals only with founder authorization; neither Manual mode nor model self-report proves a run can proceed without intervention.
+
