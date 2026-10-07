@@ -213,11 +213,11 @@ The desktop-bundled Claude Code executable on LITTLENEMO is reported to live und
 
 ## Desktop authentication is not standalone worker authentication
 
-Do not assume a Claude Desktop session supplies authentication to the desktop-bundled executable when that executable is launched independently. Establish the standalone worker’s authentication through a supported CLI login or separately approved credential method; do not extract or copy desktop-session credentials.
+A failed detached Claude Code probe does not establish that LCC lacks authentication, that the computer lacks model access, or that a new login is necessary. Diagnose the failed launch against an existing successful execution context before changing authentication.
 
-**Why:** The LITTLENEMO no-tool launch report supplied on 2026-10-07 demonstrated that the executable could launch and emit structured output while failing before any model request because it had no standalone login. Anthropic’s official authentication documentation distinguishes Desktop OAuth from CLI credential sources.
+**Why:** On 2026-10-07 the experimental detached probe returned a login error while HolaHola access succeeded. David then clarified that LCC had already performed model-backed work in both cloud and local contexts over the preceding weeks. Describing LCC globally as not logged in incorrectly generalized one launch failure into the absence of working access.
 
-**How to apply:** Verify a real authenticated noninteractive invocation under the intended Windows account and configuration directory. Login in one account/configuration is not proof of readiness under another. Keep authentication failure separate from HolaHola connectivity, and use local human browser sign-in rather than requesting tokens in chat.
+**How to apply:** Identify the known-working launcher and compare executable, Windows user, configuration directory, provider endpoint, and credential-source presence with the failed probe, without exposing values or copying desktop-session credentials. An independently launched process does not necessarily reproduce its parent application’s supported launch context. Reuse the supported working path when possible; request new login or billing decisions only after identifying the actual missing requirement.
 
 
 ## Detached workers still inherit provider and billing configuration
