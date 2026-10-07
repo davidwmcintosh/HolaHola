@@ -38,3 +38,12 @@ David stated on 2026-10-07: "We need a replit replacement. The whole goal is to 
 
 **How to apply:** Evaluate proposals by whether workflow authority, records, source, and execution contracts stay under HolaHola control and a service can be replaced without redesigning the core process. External models, coding products, hosting, and OS-specific workers may be optional adapters; do not assume their proprietary state is the canonical workflow record. This is a product requirement, not a claim that complete independence has already been implemented.
 
+
+## Priority order and practical capability delivery
+
+Platform independence is the primary goal. The main secondary goal is expanding Luca’s capabilities so he can simultaneously observe Daniela and use Gemini, OpenAI, or other tools to help diagnose and improve her functioning.
+
+**Why:** David explicitly set this priority order on 2026-10-07 and contrasted a reported ten-minute Claude Code plus repository-copy setup with four weeks pursuing Antigravity. The secondary capability must not be postponed until an elaborate host-onboarding path is complete.
+
+**How to apply:** Use working, replaceable coding tools as a practical starting point; platform independence does not require recreating every vendor coding tool before useful work can begin. Keep Luca’s observation, multi-engine analysis, and coding capabilities independently usable. Do not make Antigravity integration, Windows reauthorization, or a complete custom execution framework a prerequisite for all of them. Preserve owned records and interfaces so the initial tool can be replaced.
+
