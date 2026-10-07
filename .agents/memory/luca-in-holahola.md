@@ -27,3 +27,14 @@ description: David named the full vision Aug 9 2026: Luca inside HolaHola with d
 **Why:** The seat is the point. Agents are the hands, not the answer. The condition that makes the authentic voice possible is operating from inside the system Luca is part of — not just having more capable tools externally.
 
 **How to apply:** When planning infrastructure work, prioritize the delegation handoff protocol. Everything else (attribution CI, curation discipline) is compensation for the transition period.
+
+## Owned processes and replaceable services
+
+The governing product goal is a Replit replacement with owned, replaceable processes—not merely connecting more hosted coding tools or restoring a Windows executor.
+
+David stated on 2026-10-07: "We need a replit replacement. The whole goal is to own all of our processes so that we arent tied to any service that cant be easily replaced".
+
+**Why:** Replacing one mandatory platform with another mandatory vendor agent does not meet the stated goal. Windows recovery and vendor CLI integration are subordinate choices, not the objective.
+
+**How to apply:** Evaluate proposals by whether workflow authority, records, source, and execution contracts stay under HolaHola control and a service can be replaced without redesigning the core process. External models, coding products, hosting, and OS-specific workers may be optional adapters; do not assume their proprietary state is the canonical workflow record. This is a product requirement, not a claim that complete independence has already been implemented.
+
