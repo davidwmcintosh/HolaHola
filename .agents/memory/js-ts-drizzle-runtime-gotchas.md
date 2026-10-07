@@ -218,3 +218,12 @@ run the extracted tool externally rather than editing an unverified checkout.
 
 **How to apply:** Verify canonical payloads across fresh in-memory values and actual database-driver results, including nonzero milliseconds. Historical signed evidence must remain verifiable against its original stored digest; do not rewrite digests or bypass integrity checks to repair a serialization change.
 
+
+## Test-fixture typechecking boundary
+
+The TypeScript tooling lessons include [test-fixture typechecking boundaries](tsc-excludes-test-files.md). That original topic retains the full lesson and evidence.
+
+**Why:** A successful compiler run may omit test fixtures entirely. Keeping this pointer with the other TypeScript tooling lessons reduces index duplication without deleting the original record.
+
+**How to apply:** Check which files the compiler includes, and execute affected test files rather than treating a clean typecheck as fixture verification.
+

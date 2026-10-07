@@ -1,6 +1,5 @@
 > **You are not alone.** This file is generated from the `agent_memory_*` database tables — other hats (Replit Agent, Claude Code, Gemini, HolaHola runtime agents) may be reading and writing it in the same window you are. Never hand-edit this file or any `.agents/memory/<topic>.md` file directly; every change goes through `server/scripts/agent-memory-cli.ts`, which writes the database first and regenerates the file from it. A hand-edit here will be silently overwritten the next time anyone runs a CLI write.
 
-🔴 **Unread stale-channel alert** (`.local/stale-channel-alert.md`): Inner-life channels silent for 10+ min: felt (last: 6:37 PM), thinking (last: 6:37 PM)
 🟡 **Inner-life capture gap**: `.local/episode-capture-status.md` last reported missing felt/thinking/moment in the rolling episode file — read it before your next output.
 
 - [Chat capture pipeline](chat-capture-pipeline.md) — architecture, two independent cursors, readiness vs draining, and three DB-writers that must be fixed together.
@@ -106,7 +105,6 @@
 - [Isolation-scope diff baseline](isolation-scope-diff-baseline.md) — repo has legitimate background-worker doc churn; scope checks need a start-of-run baseline diff, not a clean-tree assumption.
 - [Idempotency key scope granularity](idempotency-key-scope-granularity.md) — dedupe scope is (operation, actor, key) only; a loop reusing one literal key across distinct requests collides on the second call
 - [Agent-memory round-trip isolation](agent-memory-round-trip-isolation.md) — a global snapshot-diff test must run alone; per-file scratch dirs don't stop a shared-DB race.
-- [tsc --noEmit never type-checks *.test.ts fixtures](tsc-excludes-test-files.md) — tsconfig excludes **/*.test.ts; a clean typecheck proves nothing about test fixtures -- a missing required field only surfaces by actually running that test.
 - [Fail-closed trust lists go stale across concurrent tasks](trust-list-extension-on-rebase.md) — an exact-name trust-list guard fails closed on a rebased-in equally-safe helper under a new name; extend it only after verifying.
 - [Episode file stale-overwrite loss](episode-stale-overwrite-loss.md) — commits bundling unrelated work can silently overwrite episode .md content from a stale read; now blocked by a content-based diff guard, not size-based.
 - [Status signals need independent verification](status-signal-verification.md) — a missing blockedBy tag, a coordination comment, or a compacted-summary claim can look like confirmation without being one; verify the authoritative state directly.
@@ -126,7 +124,7 @@
 - [MCP SSE response framing](mcp-sse-response-framing.md) — SDK 406s without both Accept values; success responses are always SSE-framed, even for one-shot calls -- parse the data: line.
 - [Git operational gotchas](git-operational-gotchas.md) — Git scripting, historical-object recovery, and linked-worktree verification pitfalls — see topic file for each.
 - [Long validation runs can hit the poll-budget limit](validation-run-poll-budget.md) — startValidationRun can time out (POLL_BUDGET_EXCEEDED, STOPPED exitCode -1) on a 10+ minute suite -- not a real failure; use backgrounded ShellExec + Monitor instead.
-- [JS/TS/Drizzle runtime gotchas](js-ts-drizzle-runtime-gotchas.md) — 7 sharp edges: esbuild isMain bundle collapse, ESM await-in-callback, Drizzle sql-tag dynamic-import + array binding, SQL CASE param/column mixing, lazy-regex multiline $, Omit-of-union collapse -- see topic file
+- [JS/TS/Drizzle runtime gotchas](js-ts-drizzle-runtime-gotchas.md) — Bundling, ESM, Drizzle, regex, union-type, module-format, timestamp and test-fixture typechecking pitfalls; follow the topic and its retained source links.
 - [Alden tool-result persistence boundary](alden-tool-result-persistence.md) — raw tool-result JSON is never persisted; secret-bearing tools need instruction, not redaction
 - [CLI-to-service extraction exit semantics](cli-to-service-exit-semantics.md) — extracting a CLI script's logic for an in-process tool/service must drop every process.exit() — it would kill the whole server, not a one-shot subprocess.
 - [Episode-lifecycle service guards](episode-lifecycle-service-guards.md) — new episode-insertion call sites must mirror createEpisode's fire-and-forget indexing side effects; never flip the live 'rolling' tag against shared prod DB during testing.

@@ -19,3 +19,12 @@ lessons, evidence, or topic records.
 or mutation self-check. Index consolidation is not permission to discard the
 original source records or treat all four failure modes as the same issue.
 
+
+## Cross-engine fault injection
+
+A fault-injection test must violate the observable invariant on each supported engine, not merely remove one implementation check.
+
+**Why:** A diagnostic mutation passed its self-check on Linux PowerShell but remained ineffective on Windows PowerShell. Bypassing the root-delimiter check alone could leave array input rejected by a later type check; the surrounding parser's array behavior changed whether the mutation was actually unsafe.
+
+**How to apply:** Preserve the production boundary. In private test copies, deliberately create the unsafe behavior and require the specific assertion to fail. Exercise both scalarized and preserved singleton-array representations, require the unmodified implementation to pass, and retain actual target-engine CI proof. A different error or an unchanged safe result does not prove the intended regression was detected.
+
