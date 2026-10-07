@@ -77,9 +77,9 @@ The initial automatic-dispatch target is the existing full Claude Code installat
 
 ## Subscription authentication for initial standalone worker proof
 
-The existing-subscription selection applies to the initial standalone Claude Code proof, not to the overall worker architecture. Preserve flexibility to use the full Desktop application, subscription-authenticated headless Claude Code, API-backed headless Claude Code, and direct model API execution where appropriate. Do not delete saved API configuration to make the subscription test work.
+Preserve flexibility across full Claude Desktop, subscription-authenticated headless Claude Code, API-backed headless Claude Code, and direct model API execution. Select authentication and billing deliberately per launch profile; do not delete saved API configuration or remove a useful execution mode merely to avoid a login step.
 
-**Why:** David initially selected subscription authentication on 2026-10-07, then clarified that API-only execution in some circumstances and the full desktop application in others are desired for maximum flexibility. One test profile must not become a product-wide authentication restriction.
+**Why:** On 2026-10-07 David selected subscription authentication for the initial proof, clarified that API-only and full Desktop execution are both desired, and explicitly reaffirmed that a login step is acceptable when needed for maximum flexibility. The initial test profile is not a product-wide authentication restriction.
 
-**How to apply:** Choose authentication and billing deliberately per launch profile. Isolate inherited overrides for subscription runs; explicitly configure the provider endpoint and API credentials for API runs. HolaHola coordination authentication is separate from model-provider authentication. The initial login/probe approval is not permission to change persistent credentials, weaken execution policy, install software, or process the inbox backlog.
+**How to apply:** Use supported login for profiles that require it, and verify real capabilities rather than treating a no-tool authentication probe as worker acceptance. Isolate inherited overrides for subscription runs; configure provider endpoint and credentials deliberately for API runs. HolaHola coordination authentication is separate. Preserve the active Desktop setup and unrelated configuration; new installation, persistent credential changes, weakened execution policy, and backlog execution require their own authorization.
 
