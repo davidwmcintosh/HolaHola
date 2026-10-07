@@ -237,3 +237,12 @@ Do not use a Desktop scheduled run’s own transcript as proof that no host perm
 
 **How to apply:** Verify prompts using founder observation or the task’s host-side permission panel. Separate successful manually approved execution from unattended readiness. Configure narrowly scoped per-task approvals only with founder authorization; neither Manual mode nor model self-report proves a run can proceed without intervention.
 
+
+## Desktop scheduled-run status and persistent approval evidence
+
+Treat Desktop task status as a scheduling signal, not sufficient evidence that its command executed. For persistent narrowly scoped approval, use the in-app permission prompt and verify the host-saved exact-command rule; the Windows notification approval may be allow-once only.
+
+**Why:** The 2026-10-07 native proof required three setup attempts: a host restart interrupted a pending command yet the host recorded succeeded; notification approval ran the command but saved no permission; in-app always-allow saved the exact rule and the subsequent scheduled run needed no intervention. These host behaviors are not visible in repository code.
+
+**How to apply:** Require actual command output plus founder or host-side permission evidence for acceptance. Separate setup attempts from the measured activation. Prefer supported one-shot scheduling for bounded proofs, verify final disabled state, and account for per-run worktree/branch leftovers without deleting them absent authorization. A successful scheduled inbox GET does not establish recurring dispatch, coding readiness, or operation while Desktop is closed or the host asleep.
+
