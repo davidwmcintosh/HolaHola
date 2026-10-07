@@ -74,3 +74,12 @@ The initial automatic-dispatch target is the existing full Claude Code installat
 
 **How to apply:** Reuse the established repository and secure HolaHola connection. Verify CLI availability and unattended invocation locally before assuming the installation can be dispatched. Do not reinstall, reset credentials, resume unrelated Windows recovery, or assume a Unix launcher is appropriate.
 
+
+## Subscription authentication for initial standalone worker proof
+
+Use the existing Claude subscription for the initial standalone Claude Code worker proof, through supported local browser sign-in. Do not switch the worker to separately billed API authentication or mint a long-lived token without separate approval.
+
+**Why:** David explicitly selected existing-subscription authentication on 2026-10-07 after the standalone executable failed authentication while the canonical coordination inbox succeeded.
+
+**How to apply:** The human completes browser sign-in locally. Verify the worker launches under the same Windows user and Claude configuration context as that login. Keep the first proof to one no-tool invocation; this choice is not permission to reset credentials, weaken execution policy, install software, or process the inbox backlog.
+
