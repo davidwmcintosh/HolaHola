@@ -25,6 +25,15 @@ $caseInsensitiveGuidance = Replace-DiagnosticMutationOnce -Text $guidance `
     -Needle '[StringComparer]::Ordinal)' -Replacement '[StringComparer]::OrdinalIgnoreCase)'
 # Use the exact source spelling; a changed guard must invalidate the proof.
 $arrayGuard = '$body.TrimStart().StartsWith(''{'', [StringComparison]::Ordinal)'
+$parsedLine = '$parsed = ConvertFrom-Json -InputObject $body -ErrorAction Stop'
+# Removing only the delimiter guard does not admit an array on an engine that
+# preserves its array type. Model the actual unsafe behavior in the private
+# mutant: permit the array and unwrap its sole object before the type check.
+$rootArraySource = Replace-DiagnosticMutationOnce -Text $source -Needle $arrayGuard `
+    -Replacement ('(' + $arrayGuard + ' -or ($Context -ceq ''Enrollment'' -and $body.TrimStart().StartsWith(''['', [StringComparison]::Ordinal)))')
+$rootArraySource = Replace-DiagnosticMutationOnce -Text $rootArraySource -Needle $parsedLine `
+    -Replacement ($parsedLine + "`n                " +
+        'if ($parsed -is [Array] -and $parsed.Count -eq 1) { $parsed = $parsed[0] }')
 $mutations = @(
     @{
         name = 'raw-response'
@@ -45,8 +54,7 @@ $mutations = @(
     },
     @{
         name = 'root-array'
-        source = (Replace-DiagnosticMutationOnce -Text $source -Needle $arrayGuard `
-            -Replacement ('(' + $arrayGuard + ' -or ($Context -ceq ''Enrollment'' -and $body.TrimStart().StartsWith(''['', [StringComparison]::Ordinal)))'))
+        source = $rootArraySource
         failure = 'Enrollment malformed root array accepted'
     },
     @{ name = 'unmodified'; source = $source; failure = $null }
@@ -65,24 +73,38 @@ try {
         # These are built-in modules on Windows PowerShell 5.1 as well.
         $bootstrap = '$PSModuleAutoLoadingPreference = ''None''; ' +
             'foreach ($module in @(''Utility'', ''Management'')) { ' +
-            'Import-Module ([IO.Path]::Combine($PSHOME, ''Modules'', ''Microsoft.PowerShell.'' + $module, ''Microsoft.PowerShell.'' + $module + ''.psd1'')) }; ' +
-            '& ''' + $copy.Replace("'", "''") + ''' -SkipMutationChecks'
+            'Import-Module ([IO.Path]::Combine($PSHOME, ''Modules'', ''Microsoft.PowerShell.'' + $module, ''Microsoft.PowerShell.'' + $module + ''.psd1'')) }; '
+        # Exercise preserved singleton arrays on every engine, in addition to
+        # its real parser. This shim applies only inside synthetic child tests.
+        $preservedArrayParser = 'function ConvertFrom-Json { [CmdletBinding()] param([string]$InputObject); ' +
+            '$decoded = Microsoft.PowerShell.Utility\ConvertFrom-Json -InputObject $InputObject -ErrorAction Stop; ' +
+            'if ($InputObject.TrimStart().StartsWith(''['', [StringComparison]::Ordinal)) { ' +
+            'Write-Output -NoEnumerate @($decoded) } else { $decoded } }; '
+        $modes = @('native-parser')
+        if ($mutation.name -ceq 'root-array' -or $mutation.name -ceq 'unmodified') {
+            $modes += 'preserved-array-parser'
+        }
         # No policy override, profile, credential, runtime, or network operation.
         # Temporarily permit native stderr so Windows PowerShell's NativeCommandError
         # does not preempt inspection of the child's intended assertion failure.
-        $ErrorActionPreference = 'Continue'
-        try {
-            $output = (& $engine -NoLogo -NoProfile -NonInteractive -Command $bootstrap 2>&1 | Out-String)
-            $exitCode = $LASTEXITCODE
-        } finally { $ErrorActionPreference = 'Stop' }
-        if ($null -eq $mutation.failure) {
-            if ($exitCode -ne 0 -or -not $output.Contains('Synthetic safe enrollment and recovery diagnostic checks passed')) {
-                throw 'Unmodified synthetic diagnostic fixture failed'
+        foreach ($mode in $modes) {
+            $command = $bootstrap
+            if ($mode -ceq 'preserved-array-parser') { $command += $preservedArrayParser }
+            $command += '& ''' + $copy.Replace("'", "''") + ''' -SkipMutationChecks'
+            $ErrorActionPreference = 'Continue'
+            try {
+                $output = (& $engine -NoLogo -NoProfile -NonInteractive -Command $command 2>&1 | Out-String)
+                $exitCode = $LASTEXITCODE
+            } finally { $ErrorActionPreference = 'Stop' }
+            if ($null -eq $mutation.failure) {
+                if ($exitCode -ne 0 -or -not $output.Contains('Synthetic safe enrollment and recovery diagnostic checks passed')) {
+                    throw ('Unmodified synthetic diagnostic fixture failed: ' + $mode)
+                }
+            } elseif ($exitCode -eq 0 -or -not $output.Contains($mutation.failure)) {
+                throw ('Diagnostic mutation did not fail its intended assertion: ' + $mutation.name + '/' + $mode)
             }
-        } elseif ($exitCode -eq 0 -or -not $output.Contains($mutation.failure)) {
-            throw ('Diagnostic mutation did not fail its intended assertion: ' + $mutation.name)
+            Write-Host ('[coordinator-v2] Synthetic mutation proof passed: ' + $mutation.name + '/' + $mode)
         }
-        Write-Host ('[coordinator-v2] Synthetic mutation proof passed: ' + $mutation.name)
     }
 } finally {
     if ([IO.Directory]::Exists($root)) { [IO.Directory]::Delete($root, $true) }

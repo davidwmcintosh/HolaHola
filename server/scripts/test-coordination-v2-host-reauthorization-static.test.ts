@@ -190,8 +190,15 @@ test("enrollment diagnostic mutation proof stays synthetic and checks specific f
     assert.ok(fixture.includes(failure) && proof.includes(failure));
   }
   assert.match(proof, /GetTempPath\(\)/);
-  assert.match(proof, /-Command \$bootstrap/);
+  assert.match(proof, /-Command \$command/);
   assert.match(proof, /\$copy\.Replace[\s\S]*-SkipMutationChecks/);
+  assert.match(proof, /name = 'root-array'[\s\S]*source = \$rootArraySource/);
+  assert.match(proof, /-Text \$rootArraySource -Needle \$parsedLine/);
+  assert.ok(proof.includes('if ($parsed -is [Array] -and $parsed.Count -eq 1) { $parsed = $parsed[0] }'));
+  assert.match(proof, /preserved-array-parser/);
+  assert.match(proof, /Microsoft\.PowerShell\.Utility\\ConvertFrom-Json/);
+  assert.match(proof, /Write-Output -NoEnumerate @\(\$decoded\)/);
+  assert.match(proof, /\$mutation\.name -ceq 'root-array' -or \$mutation\.name -ceq 'unmodified'/);
   assert.match(proof, /\$exitCode -eq 0 -or -not \$output\.Contains\(\$mutation\.failure\)/);
   assert.match(proof, /finally[\s\S]*\[IO\.Directory\]::Delete\(\$root, \$true\)/);
   assert.doesNotMatch(proof, /-ExecutionPolicy|Invoke-RestMethod|Write-Dpapi|Initialize-HolaCoordinatorRuntime|Invoke-HolaCoordinator\b/);

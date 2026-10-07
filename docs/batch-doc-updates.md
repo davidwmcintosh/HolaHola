@@ -1,3 +1,19 @@
+## 2026-10-06 — Portable Windows diagnostic mutation proof
+
+- Corrected the private root-array mutant to simulate unsafe acceptance on
+  engines that preserve singleton-array types, as well as those that unwrap
+  them. The production launcher and diagnostic assertions are unchanged.
+- Added ordinary-parser and preserved-array-parser modes for the root-array
+  mutant and unmodified control. The mutant must fail the specific malformed
+  array assertion; the unmodified control must pass both modes.
+- Focused local verification passed: 16 static checks and seven synthetic
+  mutation/control executions under Linux PowerShell 7. These are not native
+  Windows acceptance or enrolled-host evidence.
+- GitHub-hosted Windows PowerShell CI is required on the resulting source.
+  Canonical source synchronization and fresh preparation remain separate
+  from founder-approved Render publication, runtime publication, and any
+  LITTLENEMO execution.
+
 ## 2026-10-06 — Expired bootstrap replay recovery, main-workspace implementation
 
 - Approved bounded recovery is implemented in the launcher: consistency-only

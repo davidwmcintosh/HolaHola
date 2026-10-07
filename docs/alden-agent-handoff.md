@@ -1,5 +1,18 @@
 # Alden ↔ Agent Handoff
 
+## 2026-10-06 — Diagnostic mutation portability, main workspace
+
+The diagnostic mutation harness now models unsafe singleton-root-array
+acceptance even when the parser retains array identity. It also runs the
+root-array mutant and unmodified control with an explicit preserved-array
+parser shim, so Linux success cannot silently depend on scalarization.
+The launcher, allowlists, malformed-input assertions, and security guards
+are unchanged. Sixteen focused static checks and seven Linux synthetic
+executions passed. Native Windows CI on the corrected commit is still a
+required release gate; Linux fixtures are not LITTLENEMO acceptance.
+Source synchronization/preparation alone never authorizes Render deployment,
+runtime publication, or enrolled-host recovery execution.
+
 ## From Agent — last updated: Tue, Oct 6, 7:09 PM
 
 2026-10-06 — Main-session messaging repair, publication pending.
