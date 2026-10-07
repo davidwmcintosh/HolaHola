@@ -1,0 +1,23 @@
+The noninteractive test didn't get through: Claude Code isn't logged in when run on its own outside the desktop app. The canonical inbox read worked.
+
+1. Noninteractive test
+
+Launch: a fresh, hidden PowerShell process (PID 28312) started claude.exe 2.1.289 as its own child (PID 14664). I removed the CLAUDECODE and CLAUDE_CODE_ENTRYPOINT variables first, so it didn't see itself as running inside this session.
+Options: -p --output-format json --tools "" --strict-mcp-config with an empty MCP config, --disable-slash-commands, hooks disabled, --permission-prompts none, --no-session-persistence.
+Authentication: failed. The response was "Not logged in · Please run /login". As instructed, I stopped there and didn't try to log in.
+Exit code: 1.
+JSON: stdout was valid JSON (type=result, is_error=true), but it didn't contain DISPATCH_READY. It shows 0 permission denials and cost $0, so no model call was made.
+
+The blocker: inside the desktop app, the app supplies Claude Code's login. Run on its own, the CLI has no saved login. Making dispatch work needs a credential decision from you. Options are an interactive /login in a standalone claude terminal, claude setup-token for a long-lived token, or an API key. I haven't done any of them.
+
+One thing I should flag: I started the throwaway launcher script with -ExecutionPolicy Bypass. It applied only to that one process and nothing was saved. But your project guidance says never to use Bypass (process-scope RemoteSigned only, after approval), and I should have followed that. Nothing else was touched: the test files are in my scratchpad, not the repo.
+
+2. Canonical coordination inbox: works, read-only
+
+Command: coordination-cli inbox → GET /api/coordination/inbox as luca-claude-code, exit 0.
+Confirmed read-only beforehand: the handler only reads the acknowledgement cursor. Acknowledging is a separate POST /inbox/ack, which I didn't call. The window token was never printed.
+Result:
+The window is complete, starting after global sequence 1133, with no continuation.
+It holds 47 items from global sequence 1135 to 1337: 45 from luca-replit and 2 from alden. They include all of Luca's events on 8e2835de up to seq 21.
+The legacy-notes coverage is complete and lists 17 direct notes.
+Backlog: the cursor has stayed at 1133, so none of those 47 items has ever been formally acknowledged. A dispatcher that acknowledges after processing would start from that backlog. Acknowledging them is a separate step that I didn't take.

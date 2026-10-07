@@ -210,3 +210,12 @@ The desktop-bundled Claude Code executable on LITTLENEMO is reported to live und
 
 **How to apply:** Resolve and validate the intended installed executable at launch, or separately approve a stable standalone installation. Do not silently choose an arbitrary version by directory-name sorting. CLI help working is not proof of authenticated noninteractive execution; test a real no-tool invocation on the target host before calling it dispatch-ready.
 
+
+## Desktop authentication is not standalone worker authentication
+
+Do not assume a Claude Desktop session supplies authentication to the desktop-bundled executable when that executable is launched independently. Establish the standalone worker’s authentication through a supported CLI login or separately approved credential method; do not extract or copy desktop-session credentials.
+
+**Why:** The LITTLENEMO no-tool launch report supplied on 2026-10-07 demonstrated that the executable could launch and emit structured output while failing before any model request because it had no standalone login. Anthropic’s official authentication documentation distinguishes Desktop OAuth from CLI credential sources.
+
+**How to apply:** Verify a real authenticated noninteractive invocation under the intended Windows account and configuration directory. Login in one account/configuration is not proof of readiness under another. Keep authentication failure separate from HolaHola connectivity, and use local human browser sign-in rather than requesting tokens in chat.
+
