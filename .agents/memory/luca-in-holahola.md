@@ -65,3 +65,12 @@ Prove automatic dispatch using the already-working Claude Code participant befor
 
 **How to apply:** Use an authorized assignment that is received automatically, acted on within its permitted scope, and reported back as the initial proof. Do not equate manual inbox access with automatic dispatch, or make Windows-specific host machinery a universal prerequisite.
 
+
+## Initial Claude Code worker environment
+
+The initial automatic-dispatch target is the existing full Claude Code installation on the Windows host LITTLENEMO, not a new installation or a Linux/WSL host.
+
+**Why:** David identified this as his working Claude Code environment on 2026-10-07 when asked where the first listener would run.
+
+**How to apply:** Reuse the established repository and secure HolaHola connection. Verify CLI availability and unattended invocation locally before assuming the installation can be dispatched. Do not reinstall, reset credentials, resume unrelated Windows recovery, or assume a Unix launcher is appropriate.
+
