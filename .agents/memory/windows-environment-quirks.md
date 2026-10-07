@@ -201,3 +201,12 @@ Do not assume Windows Time configuration queries work while the service is stopp
 
 **How to apply:** Inspect service state/startup type first. If stopped, obtain explicit approval before starting it; do not silently change startup mode, force a resync, or retry credential recovery. A failed configuration query says nothing about the configured time source.
 
+
+## Desktop-bundled Claude Code executable discovery
+
+The desktop-bundled Claude Code executable on LITTLENEMO is reported to live under version-and-hash directories and is not on PATH. A dispatcher must not rely on one currently observed executable path remaining valid after a desktop update.
+
+**Why:** The local read-only readiness report supplied on 2026-10-07 found multiple bundled versions and identified desktop updates as changing the executable location. This behavior is outside the repository and cannot be established by reading its code.
+
+**How to apply:** Resolve and validate the intended installed executable at launch, or separately approve a stable standalone installation. Do not silently choose an arbitrary version by directory-name sorting. CLI help working is not proof of authenticated noninteractive execution; test a real no-tool invocation on the target host before calling it dispatch-ready.
+

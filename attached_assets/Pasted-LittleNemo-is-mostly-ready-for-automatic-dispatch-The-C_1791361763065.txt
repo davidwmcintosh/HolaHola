@@ -1,0 +1,54 @@
+LittleNemo is mostly ready for automatic dispatch. The CLI works and the inbox connection works, but there are three blockers to sort out first, below. Nothing in the repo was changed and no other session was launched.
+
+Windows upgrade: confirmed. The registry now reports EditionID Professional, build 26300 (yesterday it said Core/Home). Some of what I've told Luca and Alden is now out of date:
+
+My diagnosis said Windows Sandbox can't exist on this machine. On Pro it can.
+My report to Luca on thread 8e2835de (seq 19) said Windows 11 Home.
+
+I haven't corrected either yet.
+
+1. Claude Code CLI
+
+Version: 2.1.289.
+Location: C:\Users\David\AppData\Roaming\Claude\claude-code\2.1.289\e1f0154146bb\claude.exe. This copy comes bundled with the desktop app; there's no standalone install. A 2.1.288 folder sits next to it.
+Not on PATH, so claude won't resolve in a shell.
+
+2. Repository checkout
+
+C:\Users\David\HolaHola, branch runtime-render-7a9f691-20261004-224743, HEAD d468ac7.
+The working tree is clean, and HEAD is exactly origin/main after a fetch. The branch name is misleading; it's just main's content.
+HEAD has moved since yesterday (912016b → d468ac7). The uncommitted docs/claude-code-to-luca.md refresh from yesterday is gone; something outside this session updated the checkout.
+Two other worktrees exist: C:\Users\David\HolaHola-claude-code (branch claude-code-session, b6eef0d) and C:\Users\David\HolaHola-antigravity.
+Luca says Replit's local main is at e4aa4b1. That isn't on GitHub as of my fetch.
+
+3. Noninteractive and structured output options (from --help only; I didn't run a -p session)
+
+Need	Option
+Run once and exit	-p / --print (skips the workspace-trust dialog)
+Structured output	--output-format json or stream-json; --json-schema <schema> to validate the result
+Streaming input	--input-format stream-json
+Permissions	--permission-mode (acceptEdits, auto, bypassPermissions, manual, dontAsk, plan); --permission-prompts none auto-denies anything that would prompt; --allowedTools / --disallowedTools
+Limits	--max-budget-usd. There is no --max-turns in this version's help.
+Sessions	--session-id <uuid>, --resume, --no-session-persistence
+Isolation	--bare, --safe-mode, --strict-mcp-config, --settings, --add-dir
+
+4. Coordination inbox connection: working
+
+Notes inbox: returned HTTP 200 with 49 items, all still marked unread. Those threads are read but were never formally closed.
+Coordination ledger: list and show both succeed as actor luca-claude-code.
+Credential: the legacy token COORDINATION_LUCA_CLAUDE_CODE_TOKEN, read from .env and sent as x-coordination-token. It is not the scoped broker that the shared instructions prefer. No credential values were displayed.
+
+Blockers for automatic dispatch
+
+The CLI path changes on every desktop update. Each update moves claude.exe to a new version-and-hash folder, so a hard-coded path will break. The dispatcher has to resolve it fresh each time, or use a standalone install (not done; you said no installs).
+Credentials aren't in the process environment. The token only exists in .env, and coordination-cli also needs COORDINATION_API_URL and COORDINATION_ACTOR set explicitly. A dispatched process gets none of that unless it loads .env (e.g. node --env-file=.env). It also runs on the legacy token rather than the broker. Moving to the broker is a separate decision.
+shared-spec-cli.ts silently does nothing on Windows. Its entrypoint check only matches forward-slash paths, so it exits 0 with no output. Any dispatched task that uses it will appear to succeed while doing nothing. I worked around it yesterday but didn't fix it.
+
+Also worth deciding: which checkout dispatched tasks should run in. The main checkout is the one you work in; HolaHola-claude-code looks intended for this.
+
+Pending from Luca: a new event on 8e2835de (seq 21, from yesterday 21:06 UTC). It asks for one current-status report covering:
+
+your Windows helper(s);
+the last successful founder-run result and the last remaining failure;
+which fixes are implemented, published, and retested on LittleNemo;
+which task 1701 cases have actual native receipts.
