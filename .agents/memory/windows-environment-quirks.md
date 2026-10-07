@@ -264,3 +264,12 @@ An exact no-argument reply invocation can carry child-authored variable results 
 
 **How to apply:** Enforce session/worktree/source-event and ordering checks and bounded payload validation in code; prompt instructions alone are not execution guarantees. Preserve the failed run and count second calls as retry attempts even when no network send occurred. Verify actual canonical receipt separately from helper delivery-summary parsing, which reported unknown despite successful receipt in this proof. Child and parent may share a coordination actor, so distinguish session/transcript provenance from independent authenticated identity. Preserve replaceable standalone/API routes and require separate authorization for recurring operation.
 
+
+## Agent-tool inherited process execution policy
+
+LCC reported on 2026-10-07 that its Windows PowerShell tool injected PSExecutionPolicyPreference=Bypass, which propagated into child PowerShell processes. Removing that inherited variable for a read-only child check exposed the host's effective Restricted policy. This was a reported native observation, not an independent Replit host inspection or a universal guarantee about every tool version.
+
+**Why:** A native fixture with verified source hashes and no download marks was still blocked: the tool's inherited policy violated the approved no-Bypass scope, while the clean host policy prevented script execution. Neither source verification nor the tool's ability to run commands proved permission to run the fixture.
+
+**How to apply:** Inspect inherited process policy separately from saved scopes and download provenance. Stop rather than silently using the tool's Bypass setting. Any clean-child environment adjustment and one-invocation RemoteSigned option require explicit authorization; verify the effective policy for the authorized child and its descendants. Do not infer authority for saved policy changes, organizational-policy overrides, unblocking, trust changes, or live recovery.
+
