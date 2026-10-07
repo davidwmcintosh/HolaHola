@@ -127,7 +127,7 @@ A Process-scope execution-policy adjustment does not persist into a new PowerShe
 
 **Why:** A repeated launcher-loading failure was caused by effective Restricted policy despite a verified source hash and no download-zone marker. Earlier session-only adjustments did not establish a permanent host configuration.
 
-**How to apply:** Run read-only policy checks first. If no Group Policy restriction is shown, verified local source with no download-zone marker may use Process-scope RemoteSigned only after explicit approval for that adjustment. Do not infer authority for Bypass, permanent policy changes, file unblocking, or credential approval.
+**How to apply:** Put read-only effective-policy, scope, and download-zone checks in the delivered operator commands before any checkout or protected-state changes. Treat this as a blocking prerequisite in every new PowerShell window, not an assumption based on source hashes or a previous successful session. If no Group Policy restriction is shown, verified local source with no download-zone marker may use Process-scope RemoteSigned only after explicit approval for that adjustment. Do not infer authority for Bypass, permanent policy changes, file unblocking, or credential approval.
 
 
 ## Clock freshness during Windows credential recovery
