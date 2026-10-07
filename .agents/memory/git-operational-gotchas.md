@@ -91,3 +91,12 @@ In a `blob:none` partial clone, an ordinary diff or commit may try to fetch prom
 **Why:** A restored workspace retained the linked-worktree metadata and files but lost the checkout's `.git` marker. Git silently found the enclosing main repository instead, returning its clean status and HEAD. The worktree list's prunable warning was the evidence that the apparent verification was against the wrong repository.
 
 **How to apply:** Require `rev-parse --show-toplevel` to equal the intended path. If the marker is missing, verify using the preserved linked-worktree git directory and an explicit work-tree path, or repair the linkage before relying on its status. Never delete a purportedly clean duplicate until its own HEAD, uncommitted/ignored files, and recoverable history have been checked.
+
+## Authorize Git filesystem access before acquiring a source lease
+
+Before starting an approved protected source operation in Replit, authorize its required Git filesystem access at process launch. A verification or release-recording operation may fetch Git refs and therefore write Git metadata; it is not filesystem-read-only.
+
+**Why:** Replit's Git permission guard can terminate the CLI outside its normal exception handling, leaving an abandoned source-control lease. A subsequent lock-refused operation changes the ready status and requires fresh preparation even when the source bytes have not changed.
+
+**How to apply:** For founder-authorized canonical Git operations, use the platform's documented process-scoped Git permission flag before acquiring the source lease. This does not authorize direct pushes or bypass source validation. If interrupted, preserve the lock, let the canonical expired-and-dead-owner recovery run, and explicitly prepare the same approved bytes before recording. Never hand-edit the ready status or receipt.
+
