@@ -255,3 +255,12 @@ Desktop task in-app always-allow can save the full observed Bash command, includ
 
 **How to apply:** Inspect the actual saved rule before claiming autonomous variable-result delivery. Distinguish exact-command task approval from a user-settings helper wildcard that applies across sessions. Prefer investigating fixed-command bounded-result mechanisms; any wider settings rule needs explicit founder approval, disclosed cross-session scope, and an agreed removal plan. A setup dry run is not evidence of scheduled execution or actual return delivery.
 
+
+## Transcript-bound exact-command return is a proof adapter
+
+An exact no-argument reply invocation can carry child-authored variable results by extracting a strictly bounded answer block from that child’s own session transcript. Use this only as an optional proof adapter, not an owned or stable execution interface.
+
+**Why:** Native dry-run evidence on 2026-10-07 showed correct extraction of an answer authored after canonical assignment retrieval, with exact task approvals and no wildcard or extra file-write permission. The method depends on undocumented transcript schema and persistence behavior; a human permission wait during setup may conceal timing failures in unattended operation.
+
+**How to apply:** Require session/worktree/source-event and ordering checks, bounded parsing and payload validation, and fail closed on missing or ambiguous data. Separate dry-run extraction from live scheduled delivery. Never treat the transcript as canonical workflow authority or expand polling/parsing to conceal a failure; retain replaceable standalone/API routes.
+
