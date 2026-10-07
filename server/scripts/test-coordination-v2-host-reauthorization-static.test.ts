@@ -204,6 +204,22 @@ test("enrollment diagnostic mutation proof stays synthetic and checks specific f
   assert.doesNotMatch(proof, /-ExecutionPolicy|Invoke-RestMethod|Write-Dpapi|Initialize-HolaCoordinatorRuntime|Invoke-HolaCoordinator\b/);
 });
 
+test("diagnostic child deadline remains bounded, owned, sanitized, and cleanup-tested", () => {
+  const proof = readFileSync("scripts/test-hola-coordinator-enrollment-diagnostic-mutations.ps1", "utf8");
+  const fixture = readFileSync("scripts/test-hola-coordinator-recovery-diagnostics.ps1", "utf8");
+  assert.match(proof, /ValidateRange\(1, 300\).*ChildTimeoutSeconds = 60/);
+  assert.match(proof, /ReadToEndAsync\(\)/);
+  assert.match(proof, /WaitForExit\(\$TimeoutSeconds \* 1000\)/);
+  assert.match(proof, /\$child\.Kill\(\)/);
+  assert.match(proof, /Diagnostic child timed out:.*\$Name/);
+  assert.match(proof, /\$child\.Dispose\(\)/);
+  assert.match(proof, /OwnedChildStopped/);
+  assert.match(proof, /CHILD_ERROR_CANARY/);
+  assert.match(proof, /Synthetic timeout temporary directory was not removed/);
+  assert.match(fixture, /diagnostic-mutations\.ps1'\) -VerifyChildTimeout/);
+  assert.doesNotMatch(proof, /Stop-Process|Get-Process -Name/);
+});
+
 test("public recovery sanitizes local errors while preserving recognized failure codes", () => {
   const wrapper = recovery.slice(recovery.indexOf("function Restore-HolaCoordinatorHostCredential"));
   assert.match(wrapper, /Restore-InternalHolaCoordinatorHostCredential -Endpoint \$Endpoint/);

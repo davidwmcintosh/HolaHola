@@ -67,6 +67,20 @@ const graceRaceRuntimeId = `${runtimeId}-grace-race`;
 let operatorRuntimeId = '';
 const operatorTaskRef = `operator-${Date.now()}`;
 
+function expiredOwnershipFixtureTimes(now: Date) {
+  const expiresAt = new Date(now.getTime() - 1);
+  const issuedAt = new Date(expiresAt.getTime() - 1);
+  return { issuedAt, expiresAt };
+}
+
+test('expired ownership fixture stays strictly ordered even in the issuance millisecond', () => {
+  const issuanceAndNow = new Date('2026-01-01T00:00:00.000Z');
+  const { issuedAt, expiresAt } = expiredOwnershipFixtureTimes(issuanceAndNow);
+  assert.ok(issuedAt < expiresAt);
+  assert.ok(expiresAt < issuanceAndNow);
+  assert.equal(expiresAt.getTime() - issuedAt.getTime(), 1);
+});
+
 function runProvisioningCli(args: string[], bundle: PublicProvisioningBundle) {
   return spawnSync(
     'npx',
@@ -652,12 +666,26 @@ databaseTest('operator provisioning is two-phase, receipt-bound, atomic, and con
   await decideChallenge(expired.challengeId, 'approved', 'founder-operator-test');
   await getSharedDb().transaction(async (tx) => {
     await tx.execute(sql`SET LOCAL session_replication_role = replica`);
-    const expiredAt = new Date(Date.now() - 1);
+    // Keep CHECK constraints active and prove equality is rejected regardless of
+    // clock speed. The savepoint confines this intentionally invalid update.
+    await tx.execute(sql`SAVEPOINT equal_receipt_expiry`);
+    await assert.rejects(
+      () => tx.update(taskOwnershipReceipts)
+        .set({ expiresAt: sql`${taskOwnershipReceipts.issuedAt}` })
+        .where(eq(taskOwnershipReceipts.challengeId, expired.challengeId)),
+      (error: unknown) => error instanceof Error && error.cause !== null &&
+        typeof error.cause === 'object' && 'constraint' in error.cause &&
+        error.cause.constraint === 'task_ownership_receipt_lifecycle',
+    );
+    await tx.execute(sql`ROLLBACK TO SAVEPOINT equal_receipt_expiry`);
+    const { issuedAt, expiresAt } = expiredOwnershipFixtureTimes(new Date());
+    // Backdate the whole synthetic interval rather than assuming the real
+    // clock advanced after issuance. All lifecycle CHECK constraints still run.
     await tx.update(taskOwnershipChallenges)
-      .set({ expiresAt: expiredAt })
+      .set({ createdAt: issuedAt, decidedAt: issuedAt, expiresAt })
       .where(eq(taskOwnershipChallenges.id, expired.challengeId));
     await tx.update(taskOwnershipReceipts)
-      .set({ expiresAt: expiredAt })
+      .set({ issuedAt, approvedAt: issuedAt, expiresAt })
       .where(eq(taskOwnershipReceipts.challengeId, expired.challengeId));
   });
   await assert.rejects(() => registerAntigravityRuntime(bundle, expired.challengeId), /challenge_expired/);

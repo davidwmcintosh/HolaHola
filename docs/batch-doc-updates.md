@@ -1,3 +1,28 @@
+## 2026-10-06 — Direct-workspace diagnostic timeout and expiry-fixture repair
+
+- Implemented both requested fixes in the main workspace, without delegation
+  or new task-assignment approval cards.
+- Diagnostic mutation children now have a configurable 60-second deadline
+  (1–300 seconds). Both output streams are drained asynchronously. Timeout
+  terminates only the owned child and reports its case name, not child output.
+  The synthetic sleeping-child proof verifies termination, safe reporting,
+  and finally-based temporary-directory cleanup; the normal diagnostic fixture
+  runs that proof automatically.
+- The expired ownership fixture now backdates a strictly ordered synthetic
+  interval instead of relying on the real clock advancing after issuance.
+  An explicit database savepoint proves equal receipt issuance/expiry is still
+  rejected by the unchanged lifecycle CHECK constraint. Production provenance
+  triggers, lifecycle constraints, credential services, and launcher are unchanged.
+- Focused verification: 17 static checks, seven Linux PowerShell mutation/control
+  executions, the sleeping-child timeout proof, and the real disposable-PostgreSQL
+  operator-provisioning case passed. These are not enrolled-host Windows evidence.
+- System-health verification exited successfully with two warnings: the two
+  app-route storage probes were skipped because the development server was not
+  running; direct storage reads passed. No application route changed in this work.
+- Canonical source synchronization and fresh preparation are required for the
+  corrected source. Neither authorizes Render publication, runtime publication,
+  credential operations, or LITTLENEMO execution.
+
 ## 2026-10-06 — Portable Windows diagnostic mutation proof
 
 - Corrected the private root-array mutant to simulate unsafe acceptance on

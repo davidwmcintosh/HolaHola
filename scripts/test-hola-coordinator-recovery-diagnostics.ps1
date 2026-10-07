@@ -245,5 +245,6 @@ try {
 }
 Write-Host '[coordinator-v2] Synthetic safe enrollment and recovery diagnostic checks passed'
 if (-not $SkipMutationChecks) {
+    & (Join-Path $PSScriptRoot 'test-hola-coordinator-enrollment-diagnostic-mutations.ps1') -VerifyChildTimeout
     & (Join-Path $PSScriptRoot 'test-hola-coordinator-enrollment-diagnostic-mutations.ps1')
 }

@@ -1,7 +1,54 @@
 # Synthetic-only mutation proof. This is not Windows policy, DPAPI, enrollment,
 # publication, or native Windows verification. Only private temporary copies run.
+[CmdletBinding()]
+param(
+    [ValidateRange(1, 300)][int]$ChildTimeoutSeconds = 60,
+    [switch]$VerifyChildTimeout
+)
 $ErrorActionPreference = 'Stop'
 Set-StrictMode -Version 2.0
+
+function Invoke-DiagnosticChild {
+    param([string]$Engine, [string]$Command, [string]$Name, [int]$TimeoutSeconds)
+    $start = New-Object System.Diagnostics.ProcessStartInfo
+    $start.FileName = $Engine
+    $encoded = [Convert]::ToBase64String([Text.Encoding]::Unicode.GetBytes($Command))
+    $start.Arguments = '-NoLogo -NoProfile -NonInteractive -EncodedCommand ' + $encoded
+    $start.UseShellExecute = $false
+    $start.CreateNoWindow = $true
+    $start.RedirectStandardOutput = $true
+    $start.RedirectStandardError = $true
+    $child = New-Object System.Diagnostics.Process
+    $child.StartInfo = $start
+    try {
+        if (-not $child.Start()) { throw ('Diagnostic child could not start: ' + $Name) }
+        # Drain both streams concurrently: waiting first can deadlock a verbose child.
+        $stdout = $child.StandardOutput.ReadToEndAsync()
+        $stderr = $child.StandardError.ReadToEndAsync()
+        if (-not $child.WaitForExit($TimeoutSeconds * 1000)) {
+            # This exact Process instance belongs to this invocation. Never kill
+            # unrelated PowerShell processes, or use a global process-name match.
+            $child.Kill()
+            if (-not $child.WaitForExit(5000)) {
+                throw ('Diagnostic child termination failed: ' + $Name)
+            }
+            $timeout = New-Object System.TimeoutException ('Diagnostic child timed out: ' + $Name)
+            $timeout.Data['OwnedChildStopped'] = $child.HasExited
+            throw $timeout
+        }
+        # A descendant must not keep redirected pipes open beyond our deadline.
+        if (-not [Threading.Tasks.Task]::WaitAll(
+            [Threading.Tasks.Task[]]@($stdout, $stderr), 5000)) {
+            throw ('Diagnostic child stream drain timed out: ' + $Name)
+        }
+        return [pscustomobject]@{
+            ExitCode = $child.ExitCode
+            Output = $stdout.Result + $stderr.Result
+        }
+    } finally {
+        $child.Dispose()
+    }
+}
 
 function Replace-DiagnosticMutationOnce {
     param([string]$Text, [string]$Needle, [string]$Replacement)
@@ -62,6 +109,22 @@ $mutations = @(
 $root = Join-Path ([IO.Path]::GetTempPath()) ('hola-diagnostic-mutations-' + [Guid]::NewGuid().ToString('N'))
 $engine = (Get-Process -Id $PID).Path
 try {
+    if ($VerifyChildTimeout) {
+        [void][IO.Directory]::CreateDirectory($root)
+        [IO.File]::WriteAllText((Join-Path $root 'cleanup-canary.txt'), 'synthetic fixture')
+        $caughtTimeout = $false
+        try {
+            $null = Invoke-DiagnosticChild -Engine $engine -Name 'synthetic-sleeping-child' `
+                -TimeoutSeconds 1 -Command '[Console]::Error.WriteLine("CHILD_ERROR_CANARY"); [Threading.Thread]::Sleep(30000)'
+        } catch {
+            if ($_.Exception.Message -cne 'Diagnostic child timed out: synthetic-sleeping-child' -or
+                $_.Exception.Data['OwnedChildStopped'] -ne $true) {
+                throw 'Synthetic child timeout did not stop its owned child with a safe diagnostic'
+            }
+            $caughtTimeout = $true
+        }
+        if (-not $caughtTimeout) { throw 'Synthetic sleeping child unexpectedly completed' }
+    } else {
     foreach ($mutation in $mutations) {
         $directory = Join-Path $root $mutation.name
         [void][IO.Directory]::CreateDirectory($directory)
@@ -85,17 +148,16 @@ try {
             $modes += 'preserved-array-parser'
         }
         # No policy override, profile, credential, runtime, or network operation.
-        # Temporarily permit native stderr so Windows PowerShell's NativeCommandError
-        # does not preempt inspection of the child's intended assertion failure.
+        # The owned process captures stderr directly, so a NativeCommandError
+        # cannot preempt inspection of the child's intended assertion failure.
         foreach ($mode in $modes) {
             $command = $bootstrap
             if ($mode -ceq 'preserved-array-parser') { $command += $preservedArrayParser }
             $command += '& ''' + $copy.Replace("'", "''") + ''' -SkipMutationChecks'
-            $ErrorActionPreference = 'Continue'
-            try {
-                $output = (& $engine -NoLogo -NoProfile -NonInteractive -Command $command 2>&1 | Out-String)
-                $exitCode = $LASTEXITCODE
-            } finally { $ErrorActionPreference = 'Stop' }
+            $result = Invoke-DiagnosticChild -Engine $engine -Command $command `
+                -Name ($mutation.name + '/' + $mode) -TimeoutSeconds $ChildTimeoutSeconds
+            $output = $result.Output
+            $exitCode = $result.ExitCode
             if ($null -eq $mutation.failure) {
                 if ($exitCode -ne 0 -or -not $output.Contains('Synthetic safe enrollment and recovery diagnostic checks passed')) {
                     throw ('Unmodified synthetic diagnostic fixture failed: ' + $mode)
@@ -106,8 +168,13 @@ try {
             Write-Host ('[coordinator-v2] Synthetic mutation proof passed: ' + $mutation.name + '/' + $mode)
         }
     }
+    }
 } finally {
     if ([IO.Directory]::Exists($root)) { [IO.Directory]::Delete($root, $true) }
+}
+if ($VerifyChildTimeout) {
+    if ([IO.Directory]::Exists($root)) { throw 'Synthetic timeout temporary directory was not removed' }
+    Write-Host '[coordinator-v2] Synthetic child timeout, safe diagnostic, and cleanup proof passed'
 }
 if ([IO.File]::ReadAllText($sourcePath) -cne $source -or [IO.File]::ReadAllText($fixturePath) -cne $fixture) {
     throw 'Original diagnostic source or fixture changed during mutation proof'
