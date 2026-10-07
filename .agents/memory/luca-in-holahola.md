@@ -56,3 +56,12 @@ Remote dispatch to execution workers is a worthwhile capability, distinct from o
 
 **How to apply:** Distinguish messaging access, a resident watcher/dispatcher that triggers an agent, and bounded execution-host operations. State which is actually implemented and proven. Current V2 polling is task/session-scoped, not proof of an always-on agent fleet or remote control of an existing IDE conversation. Keep the dispatch protocol owned and workers/tool adapters replaceable; Windows remains a possible location, not a requirement of the goal.
 
+
+## Prove automatic dispatch on the working tool first
+
+Prove automatic dispatch using the already-working Claude Code participant before adding another coding tool. Keep the dispatch interface portable across coding tools and operating systems; distinguish ordinary tool onboarding from execution-host automation.
+
+**Why:** David confirmed this approach on 2026-10-07 after clarifying that remote execution is valuable but Claude Code currently needs a manual request to check messages. This separates proving automation from diagnosing a new tool’s onboarding.
+
+**How to apply:** Use an authorized assignment that is received automatically, acted on within its permitted scope, and reported back as the initial proof. Do not equate manual inbox access with automatic dispatch, or make Windows-specific host machinery a universal prerequisite.
+
