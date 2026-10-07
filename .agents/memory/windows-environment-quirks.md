@@ -213,11 +213,11 @@ The desktop-bundled Claude Code executable on LITTLENEMO is reported to live und
 
 ## Desktop authentication is not standalone worker authentication
 
-Desktop-hosted Claude Code authentication is not automatically available to a separately launched executable. A failed detached probe must be compared with the known-working hosted session before deciding how to authenticate the worker.
+Standalone subscription login is conditional on choosing an independent CLI worker; it is not a general requirement for automatic HolaHola inbox handling or for the LCC Desktop session that already works. Do not repeatedly ask for browser login before checking whether the existing authenticated surface can perform the needed automation.
 
-**Why:** The LITTLENEMO comparison supplied on 2026-10-07 reported matching executable, Windows user, default Claude configuration directory, and normal Anthropic endpoint. Desktop supplied host-managed subscription authentication to the working session; the detached probe had no host-managed credential, no saved standalone login, and no process API key. David’s successful cloud/local work was real; the missing piece was authentication for that particular independently launched process.
+**Why:** The LITTLENEMO comparison showed that Desktop supplies host-managed authentication while the detached probe had neither that authentication nor an API key. David repeatedly questioned why his working LCC session needed another login. Anthropic’s Desktop scheduled-task documentation describes automatic local sessions with file/tool access while Desktop is open and the computer awake; installed-version support and HolaHola access from such a run remain unverified.
 
-**How to apply:** Use supported standalone authentication rather than extracting Desktop credentials. The approved initial subscription route can use local interactive browser login; a long-lived token is a separate choice, not a prerequisite. Preserve API configuration for other profiles. Do not describe the normal Anthropic endpoint as a Desktop-only endpoint or attribute the failed probe to an API key it did not contain.
+**How to apply:** First check the existing Desktop local-task capability when seeking to remove manual inbox prompting. Treat it as a replaceable executor adapter, not a requirement for HolaHola’s owned coordination protocol. If independence from Desktop is required, explicitly choose a supported API-backed or subscription-backed CLI profile; only the latter needs its own subscription authentication. Never extract Desktop credentials, infer lack of all model access from one failed launch, or change billing silently.
 
 
 ## Detached workers still inherit provider and billing configuration
