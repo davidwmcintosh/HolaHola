@@ -368,3 +368,17 @@ mtime_ms = 1791256593022
 storage_uri = "gcs://replit-rams-assets-kirk/rams/assets/repl:3ca2376d-c3dc-490a-a375-6b2f97f7c281/a69d9b2c-319e-4ea1-96c6-38b3adcf4463/976d1a41-ba7b-4cb1-aad6-1892cb754661"
 storage_version_token = "1791256594352452"
 content_type = "text/markdown"
+
+[[outputs]]
+id = "qAfUsR_XU7zt2UW3oPTpY"
+uri = "file://.local/littlenemo-published-release-operator-guide-2026-10-06.html"
+type = "html"
+title = "LITTLENEMO operator runbook — prepared only"
+description = "Two guarded PowerShell command blocks, exact published-source pins, safe-output instructions, and explicit stops before approval or credential replacement. No LITTLENEMO execution performed."
+logical_id = "ca031304-15ac-4cd9-aa51-c2f49c15ecaf"
+content_hash = "sha256:a025a6d7b027ff9d414d03b0448d9ebf79de667da7c12e7ad10eb54edbd0f32e"
+size = 15871
+mtime_ms = 1791345585014
+storage_uri = "gcs://replit-rams-assets-kirk/rams/assets/repl:3ca2376d-c3dc-490a-a375-6b2f97f7c281/ca031304-15ac-4cd9-aa51-c2f49c15ecaf/0daec48f-9c72-4edf-a27a-43998f1ce715"
+storage_version_token = "1791345631991217"
+content_type = "text/html"
