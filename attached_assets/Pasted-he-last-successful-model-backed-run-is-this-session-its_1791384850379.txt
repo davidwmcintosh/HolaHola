@@ -1,0 +1,27 @@
+he last successful model-backed run is this session itself, which the desktop app launched. I'll compare its launch context with the failed detached test, reporting names and presence only.
+
+The only model-backed run that has worked on this PC is this session, and it gets its login from the desktop app. No working standalone launch path exists today, so there is nothing yet to reuse for an independent listener.
+
+I have to own a mistake first: the output above printed your account email and your account and organization UUIDs from this session's environment. My filter only hid key and token values, and you asked me not to display account details. No secrets or tokens were shown.
+
+Working run (this session) vs. the failed detached test
+
+	This session (works)	Detached test (failed)
+Executable	…\claude-code\2.1.289\e1f0154146bb\claude.exe	same file
+Launched by	Claude desktop app (WindowsApps\Claude_2.26454.0.0\…\Claude.exe), as a hosted session	separate PowerShell → claude.exe -p
+Windows user	LITTLENEMO\David	same
+Claude config directory	default ~\.claude (CLAUDE_CONFIG_DIR not set)	same
+Provider endpoint	ANTHROPIC_BASE_URL = https://api.anthropic.com (set by desktop)	inherited the same value
+Credential source	Desktop app's subscription login, handed to the CLI in memory by the app (CLAUDE_CODE_SDK_HAS_HOST_AUTH_REFRESH=1, launch flag --await-initialize)	none
+ANTHROPIC_API_KEY in the process	absent (the desktop strips it, even though it's set at user level)	absent (inherited this session's environment)
+Saved standalone login (~\.claude\.credentials.json)	absent	absent
+
+Why the test failed. Everything matched except the credential. This session never stores a login on disk: the desktop app passes its subscription token straight to the CLI over the control channel it opens at launch. A process the desktop app doesn't host gets no token, there's no saved standalone login, and the API key wasn't in its environment, so it reported "Not logged in."
+
+Launch paths for automatic dispatch
+
+Desktop-hosted sessions. This is the only path proven to work with your subscription today. It needs the desktop app running and signed in, and dispatch would go through the app's own session or scheduled-task features rather than a separate listener calling claude.exe. I haven't tested whether those fit the listener design.
+Standalone with your subscription. Not set up. It needs either a one-time interactive claude /login, which creates ~\.claude\.credentials.json, or claude setup-token, which gives a long-lived subscription token passed to the worker as CLAUDE_CODE_OAUTH_TOKEN. Either way, ANTHROPIC_API_KEY must not be in the worker's environment. As far as I know Claude Code prefers an API key over a subscription login; I haven't checked that on this version. This path is the independent one the listener needs.
+Standalone with the API key. It would probably work immediately, because a normal terminal inherits your user-level ANTHROPIC_API_KEY, but it bills API/Console rather than your subscription.
+
+If the listener must run independently of the desktop app on your subscription, path 2 is the supported route. It needs your decision on the credential: login file versus setup-token, and how to keep ANTHROPIC_API_KEY out of the worker's environment. I haven't changed any credentials or started a login.

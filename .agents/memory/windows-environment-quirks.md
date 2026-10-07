@@ -213,18 +213,18 @@ The desktop-bundled Claude Code executable on LITTLENEMO is reported to live und
 
 ## Desktop authentication is not standalone worker authentication
 
-A failed detached Claude Code probe does not establish that LCC lacks authentication, that the computer lacks model access, or that a new login is necessary. Diagnose the failed launch against an existing successful execution context before changing authentication.
+Desktop-hosted Claude Code authentication is not automatically available to a separately launched executable. A failed detached probe must be compared with the known-working hosted session before deciding how to authenticate the worker.
 
-**Why:** On 2026-10-07 the experimental detached probe returned a login error while HolaHola access succeeded. David then clarified that LCC had already performed model-backed work in both cloud and local contexts over the preceding weeks. Describing LCC globally as not logged in incorrectly generalized one launch failure into the absence of working access.
+**Why:** The LITTLENEMO comparison supplied on 2026-10-07 reported matching executable, Windows user, default Claude configuration directory, and normal Anthropic endpoint. Desktop supplied host-managed subscription authentication to the working session; the detached probe had no host-managed credential, no saved standalone login, and no process API key. David’s successful cloud/local work was real; the missing piece was authentication for that particular independently launched process.
 
-**How to apply:** Identify the known-working launcher and compare executable, Windows user, configuration directory, provider endpoint, and credential-source presence with the failed probe, without exposing values or copying desktop-session credentials. An independently launched process does not necessarily reproduce its parent application’s supported launch context. Reuse the supported working path when possible; request new login or billing decisions only after identifying the actual missing requirement.
+**How to apply:** Use supported standalone authentication rather than extracting Desktop credentials. The approved initial subscription route can use local interactive browser login; a long-lived token is a separate choice, not a prerequisite. Preserve API configuration for other profiles. Do not describe the normal Anthropic endpoint as a Desktop-only endpoint or attribute the failed probe to an API key it did not contain.
 
 
 ## Detached workers still inherit provider and billing configuration
 
-A subscription-authenticated Claude worker on LITTLENEMO must not blindly inherit its parent environment or load the project .env wholesale. Reported persistent API credentials and desktop-injected endpoint configuration can select a different authentication or billing route than intended.
+Windows child processes inherit their actual parent process environment; a persistent user-level environment variable is not proof that a particular child received it. Detached launch is not environment isolation, nor does it reload every saved Windows user variable.
 
-**Why:** The local pre-login report supplied on 2026-10-07 found a persistent user-level API key plus a process-only endpoint injected by Desktop; the earlier detached probe had inherited the endpoint despite running outside the interactive session.
+**Why:** The LITTLENEMO launch comparison supplied on 2026-10-07 found a persistent user-level API key, but Desktop had excluded it from the hosted session and the detached child inherited that absence. The child did inherit the normal Anthropic endpoint. Earlier inference that the persistent API key would override that particular probe was incorrect.
 
-**How to apply:** Preserve unrelated persistent configuration. Construct or sanitize only the worker child environment, excluding conflicting provider/authentication overrides, and centralize that logic for interactive login and headless launches. Keep coordination-process configuration separate. Verify credential-source selection without displaying values; do not treat a detached process as an isolated environment.
+**How to apply:** Verify variable presence in the intended launch context without revealing values. Construct the worker environment deliberately for its chosen authentication profile instead of loading the full project .env or assuming persistent variables are present. Keep coordination configuration separate and preserve unrelated saved configuration. Centralize provider-profile handling so API and subscription launches do not silently change billing or routing.
 
