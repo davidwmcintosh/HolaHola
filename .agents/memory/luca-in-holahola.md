@@ -77,9 +77,9 @@ The initial automatic-dispatch target is the existing full Claude Code installat
 
 ## Subscription authentication for initial standalone worker proof
 
-Use the existing Claude subscription for the initial standalone Claude Code worker proof, through supported local browser sign-in. Do not switch the worker to separately billed API authentication or mint a long-lived token without separate approval.
+The existing-subscription selection applies to the initial standalone Claude Code proof, not to the overall worker architecture. Preserve flexibility to use the full Desktop application, subscription-authenticated headless Claude Code, API-backed headless Claude Code, and direct model API execution where appropriate. Do not delete saved API configuration to make the subscription test work.
 
-**Why:** David explicitly selected existing-subscription authentication on 2026-10-07 after the standalone executable failed authentication while the canonical coordination inbox succeeded.
+**Why:** David initially selected subscription authentication on 2026-10-07, then clarified that API-only execution in some circumstances and the full desktop application in others are desired for maximum flexibility. One test profile must not become a product-wide authentication restriction.
 
-**How to apply:** The human completes browser sign-in locally. Verify the worker launches under the same Windows user and Claude configuration context as that login. Keep the first proof to one no-tool invocation; this choice is not permission to reset credentials, weaken execution policy, install software, or process the inbox backlog.
+**How to apply:** Choose authentication and billing deliberately per launch profile. Isolate inherited overrides for subscription runs; explicitly configure the provider endpoint and API credentials for API runs. HolaHola coordination authentication is separate from model-provider authentication. The initial login/probe approval is not permission to change persistent credentials, weaken execution policy, install software, or process the inbox backlog.
 
