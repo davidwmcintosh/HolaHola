@@ -2,10 +2,11 @@
  * Local Read-only Worker v1 — staging writer and result validation (design §6.1, §6.5).
  *
  * Staging contains ONLY the selected files, written from `git cat-file blob`
- * bytes at the pinned commit. After writing, the tree is walked and any symbolic
- * link / junction (reported by lstat on Windows) fails the job. Results are
- * validated against the fixed schema and every citation is re-read from the
- * staged bytes the supervisor wrote — never taken from harness output.
+ * bytes at the pinned commit. The supervisor keeps those blob bytes in memory as
+ * the immutable baseline (F7). After the harness runs, the staged tree must be
+ * byte-identical to that baseline (no changed, added, linked or replaced entry),
+ * and every citation is computed from the baseline bytes — never from harness
+ * output and never from a re-read of the mutable staged files.
  */
 import { execFileSync } from 'node:child_process';
 import { lstatSync, mkdirSync, readFileSync, readdirSync, rmSync, writeFileSync } from 'node:fs';
@@ -14,9 +15,13 @@ import {
   answerWithCitationsSchema, sha256Hex, type WorkerCitationRecord,
 } from '../../../shared/worker-contracts';
 
-export function stageFiles(input: { repoRoot: string; commit: string; files: readonly { path: string }[]; stagingDir: string }): void {
+/** What was staged: the directory plus the exact Git blob bytes written into it, keyed by repository path. */
+export type StagedInput = { dir: string; baseline: ReadonlyMap<string, Buffer> };
+
+export function stageFiles(input: { repoRoot: string; commit: string; files: readonly { path: string }[]; stagingDir: string }): StagedInput {
   mkdirSync(input.stagingDir, { recursive: true });
   if (readdirSync(input.stagingDir).length > 0) throw new Error('staging_not_empty');
+  const baseline = new Map<string, Buffer>();
   for (const f of input.files) {
     const bytes = execFileSync('git', ['cat-file', 'blob', `${input.commit}:${f.path}`], { cwd: input.repoRoot, maxBuffer: 1024 * 1024 });
     const dest = join(input.stagingDir, ...f.path.split('/'));
@@ -24,8 +29,10 @@ export function stageFiles(input: { repoRoot: string; commit: string; files: rea
     if (rel.startsWith('..') || rel.includes(`..${sep}`)) throw new Error('staging_escape');
     mkdirSync(dirname(dest), { recursive: true });
     writeFileSync(dest, bytes, { flag: 'wx' });
+    baseline.set(f.path, Buffer.from(bytes));
   }
   assertNoLinks(input.stagingDir);
+  return { dir: input.stagingDir, baseline };
 }
 
 /** Fails if any entry under root is a symbolic link or junction. */
@@ -42,18 +49,58 @@ export function assertNoLinks(root: string): void {
   }
 }
 
+/**
+ * Post-run check (F7): the staged tree holds exactly the baseline files with
+ * exactly the baseline bytes. Any link, extra entry, missing file, hard link or
+ * changed byte is reported; the caller treats it as confinement_violation.
+ */
+export function verifyStagedTree(staged: StagedInput): { ok: true } | { ok: false; detail: string } {
+  const parents = new Set<string>();
+  for (const p of staged.baseline.keys()) {
+    const segs = p.split('/');
+    for (let i = 1; i < segs.length; i += 1) parents.add(segs.slice(0, i).join('/'));
+  }
+  const seen = new Set<string>();
+  const stack = [''];
+  try {
+    while (stack.length) {
+      const relDir = stack.pop()!;
+      for (const name of readdirSync(join(staged.dir, ...relDir.split('/').filter(Boolean)))) {
+        const rel = relDir ? `${relDir}/${name}` : name;
+        const st = lstatSync(join(staged.dir, ...rel.split('/')));
+        if (st.isSymbolicLink()) return { ok: false, detail: 'staged_entry_is_link' };
+        if (st.isDirectory()) {
+          if (!parents.has(rel)) return { ok: false, detail: 'staged_extra_directory' };
+          stack.push(rel);
+          continue;
+        }
+        const expected = staged.baseline.get(rel);
+        if (!expected || !st.isFile()) return { ok: false, detail: 'staged_extra_entry' };
+        if (st.nlink > 1) return { ok: false, detail: 'staged_file_hard_linked' };
+        const now = readFileSync(join(staged.dir, ...rel.split('/')));
+        if (now.length !== expected.length || sha256Hex(now) !== sha256Hex(expected)) return { ok: false, detail: 'staged_file_changed' };
+        seen.add(rel);
+      }
+    }
+  } catch {
+    return { ok: false, detail: 'staged_tree_unreadable' };
+  }
+  if (seen.size !== staged.baseline.size) return { ok: false, detail: 'staged_file_missing' };
+  return { ok: true };
+}
+
 export function removeStaging(dir: string): void {
   rmSync(dir, { recursive: true, force: true });
 }
 
 export type HarnessOutcome =
   | { ok: true; answer: unknown; citations: WorkerCitationRecord[]; costTelemetryUsd: number }
-  | { ok: false; failureClass: 'schema_invalid' | 'citation_mismatch' | 'auth_required' | 'harness_unavailable'; detail: string };
+  | { ok: false; failureClass: 'schema_invalid' | 'citation_mismatch' | 'auth_required' | 'harness_unavailable' | 'confinement_violation'; detail: string };
 
 const MAX_EXCERPT = 2000;
 
-/** Validates `claude -p --output-format json` stdout and re-reads each citation from staging. */
-export function validateHarnessOutput(stdout: string, stagingDir: string, stagedPaths: ReadonlySet<string>): HarnessOutcome {
+/** Validates `claude -p --output-format json` stdout; citations come from the immutable baseline bytes. */
+export function validateHarnessOutput(stdout: string, baseline: ReadonlyMap<string, Buffer>): HarnessOutcome {
   let parsed: Record<string, unknown>;
   try { parsed = JSON.parse(stdout.trim()) as Record<string, unknown>; } catch { return { ok: false, failureClass: 'schema_invalid', detail: 'output_not_json' }; }
   if (parsed.type !== 'result') return { ok: false, failureClass: 'schema_invalid', detail: 'output_not_result' };
@@ -68,9 +115,9 @@ export function validateHarnessOutput(stdout: string, stagingDir: string, staged
 
   const citations: WorkerCitationRecord[] = [];
   for (const c of answer.data.citations) {
-    if (!stagedPaths.has(c.path)) return { ok: false, failureClass: 'citation_mismatch', detail: 'citation_path_not_staged' };
-    const text = readFileSync(join(stagingDir, ...c.path.split('/')), 'utf8');
-    const lines = text.split(/\r?\n/);
+    const bytes = baseline.get(c.path);
+    if (!bytes) return { ok: false, failureClass: 'citation_mismatch', detail: 'citation_path_not_staged' };
+    const lines = bytes.toString('utf8').split(/\r?\n/);
     if (c.endLine > lines.length) return { ok: false, failureClass: 'citation_mismatch', detail: 'citation_beyond_file' };
     const excerpt = lines.slice(c.startLine - 1, c.endLine).join('\n');
     if (excerpt.length > MAX_EXCERPT) return { ok: false, failureClass: 'citation_mismatch', detail: 'citation_excerpt_too_long' };

@@ -186,3 +186,20 @@ test('test hooks are refused unless explicitly allowed', { skip }, async () => {
   assert.equal((await exitOf(h)).code, 70);
   assert.equal(h.statuses.some((s) => s.event === 'created'), false);
 });
+
+test('F5 launcher spawn failure settles exited with spawnFailed (no process created) and never throws', { skip }, async () => {
+  const h = startJobLauncher({ exe: PS, args: ['-NoProfile', '-Command', 'exit 0'], cwd: 'C:\\lrw-does-not-exist-\\x', env: ENV() });
+  const e = await exitOf(h, 15_000);
+  assert.equal((e as { spawnFailed?: boolean }).spawnFailed, true);
+  assert.equal(h.child.pid, undefined);
+  assert.equal(h.terminate(), false, 'control line cannot be delivered to a launcher that never started');
+});
+
+test('F5 harness stdout retention is bounded and overflow is flagged', { skip }, async () => {
+  // ~6 MiB from a synthetic non-model process; only 4 MiB may be retained.
+  const h = startJobLauncher({ exe: PS, args: ['-NoProfile', '-Command', "[Console]::Out.Write(('x' * 6291456))"], cwd: process.cwd(), env: ENV() });
+  const e = await exitOf(h, 60_000);
+  assert.equal(e.code, 0);
+  assert.equal(h.overflow.stdout, true);
+  assert.ok(h.harnessStdout.reduce((n, b) => n + b.length, 0) <= 4 * 1024 * 1024);
+});

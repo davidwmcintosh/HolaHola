@@ -3,7 +3,7 @@ import test from 'node:test';
 import { buildCompletionEvidence, claimKeyFor } from '../../../shared/worker-contracts';
 import { FakeLedger } from './fake-ledger';
 import {
-  checkFence, decideClaimOutcome, decideResend, decideWatchdog, freezeOutboxEntry, outboxBlocksClaims,
+  checkFence, decideClaimOutcome, decideResend, decideWatchdog, freezeOutboxEntry, isIntactOutboxEntry, outboxBlocksClaims,
   reconcileOutboxEntry, selectOwnRecoveries, type WatchdogInput,
 } from './lifecycle';
 
@@ -125,12 +125,29 @@ test('watchdog: revocation stops with owner write; two consecutive unknown reads
   assert.deepEqual(decideWatchdog(wd({ consecutiveUnknown: 1 })), { action: 'continue', consecutiveUnknown: 0 });
 });
 
-test('outbox: reconciliation matches key + operation + content digests', () => {
-  const e = freezeOutboxEntry('k1', 'completed', { a: 1 }, [{ type: 'commit' }]);
+const op = (key: string, eventType: 'completed' | 'blocked', payload: unknown, evidence: unknown[] = [], content = 'c') =>
+  freezeOutboxEntry({ key, threadId: T, op: eventType, eventType, content, recipientActor: null, claimKey: 'claim-k', payload, evidence });
+
+test('outbox: reconciliation matches key + operation + payload + evidence + content', () => {
+  const e = op('k1', 'completed', { a: 1 }, [{ type: 'commit' }]);
+  const ev = (o: Record<string, unknown>) => ({ idempotencyKey: 'k1', eventType: 'completed', payload: { a: 1 }, evidence: [{ type: 'commit' }], content: 'c', ...o });
   assert.equal(reconcileOutboxEntry(e, []), 'absent');
-  assert.equal(reconcileOutboxEntry(e, [{ idempotencyKey: 'k1', eventType: 'completed', payload: { a: 1 }, evidence: [{ type: 'commit' }] }]), 'sent');
-  assert.equal(reconcileOutboxEntry(e, [{ idempotencyKey: 'k1', eventType: 'completed', payload: { a: 2 }, evidence: [{ type: 'commit' }] }]), 'idempotency_conflict');
-  assert.equal(reconcileOutboxEntry(e, [{ idempotencyKey: 'k1', eventType: 'blocked', payload: { a: 1 }, evidence: [{ type: 'commit' }] }]), 'idempotency_conflict');
+  assert.equal(reconcileOutboxEntry(e, [ev({})]), 'sent');
+  assert.equal(reconcileOutboxEntry(e, [ev({ payload: { a: 2 } })]), 'idempotency_conflict');
+  assert.equal(reconcileOutboxEntry(e, [ev({ eventType: 'blocked' })]), 'idempotency_conflict');
+  assert.equal(reconcileOutboxEntry(e, [ev({ content: 'other' })]), 'idempotency_conflict', 'same payload, different content is not the frozen operation');
+  assert.equal(reconcileOutboxEntry(e, [ev({ content: undefined })]), 'idempotency_conflict', 'missing content is not a match');
+});
+
+test('outbox: only complete v2 entries whose digests match their bytes are intact', () => {
+  const e = op('k1', 'blocked', { a: 1 });
+  assert.equal(isIntactOutboxEntry(e), true);
+  assert.equal(isIntactOutboxEntry(JSON.parse(JSON.stringify(e))), true, 'survives a persistence round trip');
+  assert.equal(isIntactOutboxEntry({ ...e, content: 'tampered' }), false);
+  assert.equal(isIntactOutboxEntry({ ...e, payload: { a: 2 } }), false);
+  assert.equal(isIntactOutboxEntry({ ...e, claimKey: null }), false, 'an owner write must be bound to a claim');
+  const { version: _v, ...legacy } = e;
+  assert.equal(isIntactOutboxEntry(legacy), false, 'pre-v2 entries are refused, not guessed');
 });
 
 test('outbox: sequence conflicts refresh and resend at most 5 times; others at most 3; abandoned entries do not block', () => {
@@ -138,10 +155,12 @@ test('outbox: sequence conflicts refresh and resend at most 5 times; others at m
   assert.deepEqual(decideResend('sequence_conflict', 5), { action: 'give_up', state: 'send_ambiguous' });
   assert.deepEqual(decideResend('timeout', 2), { action: 'resend', refreshSequence: false });
   assert.deepEqual(decideResend('timeout', 3), { action: 'give_up', state: 'send_ambiguous' });
-  const sent = { ...freezeOutboxEntry('a', 'completed', {}), state: 'sent' as const };
-  const abandoned = { ...freezeOutboxEntry('b', 'blocked', {}), state: 'abandoned_authority_lost' as const };
-  assert.equal(outboxBlocksClaims([sent, abandoned]), false);
-  assert.equal(outboxBlocksClaims([sent, { ...freezeOutboxEntry('c', 'completed', {}), state: 'send_ambiguous' as const }]), true);
+  const sent = { ...op('a', 'completed', {}), state: 'sent' as const };
+  const abandoned = { ...op('b', 'blocked', {}), state: 'abandoned_authority_lost' as const };
+  const neverApplied = { ...op('d', 'blocked', {}), state: 'not_applied' as const };
+  assert.equal(outboxBlocksClaims([sent, abandoned, neverApplied]), false);
+  assert.equal(outboxBlocksClaims([sent, { ...op('c', 'completed', {}), state: 'send_ambiguous' as const }]), true);
+  assert.equal(outboxBlocksClaims([{ ...op('e', 'completed', {}), state: 'pending' as const }]), true);
 });
 
 test('recovery touches only threads this worker owns with THIS instanceId (§5.9)', () => {

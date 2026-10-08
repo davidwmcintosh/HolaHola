@@ -10,7 +10,7 @@ import { sha256Hex, canonicalJson } from '../../../shared/worker-contracts';
 // ---------------------------------------------------------------------------
 
 export type LedgerAppendResult =
-  | { ok: true; deduplicated: boolean; event: { eventType: string; payload: Record<string, unknown> } }
+  | { ok: true; deduplicated: boolean; event: { eventType: string; payload: Record<string, unknown>; evidence?: unknown[]; content?: string } }
   | { ok: false; errorCode: string; httpStatus?: number };
 
 export type ClaimDecision =
@@ -111,36 +111,79 @@ export function decideWatchdog(i: WatchdogInput): WatchdogDecision {
 // §5.7 Outbox reconciliation
 // ---------------------------------------------------------------------------
 
+export type OutboxOp = 'accept' | 'completed' | 'blocked' | 'rejected' | 'interrupted';
+export type OutboxState =
+  | 'pending' | 'sent' | 'send_ambiguous' | 'abandoned_authority_lost' | 'idempotency_conflict'
+  /** Proven never applied (CAS/transition refusal, or key absent on reconciliation of a claim). Terminal. */
+  | 'not_applied';
+
+/**
+ * The complete, immutable write operation (F3): every retry and every restart
+ * replays exactly these bytes. `claimKey` binds an owner write to the claim it
+ * belongs to; it is null only for pre-claim rejection comments.
+ */
 export type OutboxEntry = {
+  version: 2;
   key: string;
-  eventType: string;
+  threadId: string;
+  op: OutboxOp;
+  eventType: 'accepted' | 'completed' | 'blocked' | 'comment';
+  content: string;
+  recipientActor: string | null;
+  claimKey: string | null;
   payload: unknown;
   evidence: unknown[];
   payloadSha256: string;
   evidenceSha256: string;
-  state: 'pending' | 'sent' | 'send_ambiguous' | 'abandoned_authority_lost' | 'idempotency_conflict';
+  contentSha256: string;
+  state: OutboxState;
   attempts: number;
 };
 
-export function freezeOutboxEntry(key: string, eventType: string, payload: unknown, evidence: unknown[] = []): OutboxEntry {
+export type OutboxOperation = Pick<OutboxEntry, 'key' | 'threadId' | 'op' | 'eventType' | 'content' | 'recipientActor' | 'claimKey' | 'payload' | 'evidence'>;
+
+export function freezeOutboxEntry(o: OutboxOperation): OutboxEntry {
   return {
-    key, eventType, payload, evidence,
-    payloadSha256: sha256Hex(canonicalJson(payload)),
-    evidenceSha256: sha256Hex(canonicalJson(evidence)),
+    version: 2, key: o.key, threadId: o.threadId, op: o.op, eventType: o.eventType, content: o.content,
+    recipientActor: o.recipientActor, claimKey: o.claimKey, payload: o.payload, evidence: o.evidence,
+    payloadSha256: sha256Hex(canonicalJson(o.payload)),
+    evidenceSha256: sha256Hex(canonicalJson(o.evidence)),
+    contentSha256: sha256Hex(o.content),
     state: 'pending', attempts: 0,
   };
 }
 
-export type ThreadEventLite = { idempotencyKey: string; eventType: string; payload: unknown; evidence: unknown[] };
+/** A persisted entry is usable only if it is a complete v2 record whose digests still match its bytes. */
+export function isIntactOutboxEntry(e: unknown): e is OutboxEntry {
+  const x = e as Partial<OutboxEntry> | null;
+  if (!x || x.version !== 2 || typeof x.key !== 'string' || typeof x.threadId !== 'string' || typeof x.content !== 'string') return false;
+  if (!['accept', 'completed', 'blocked', 'rejected', 'interrupted'].includes(String(x.op))) return false;
+  if (!['accepted', 'completed', 'blocked', 'comment'].includes(String(x.eventType))) return false;
+  if (!Array.isArray(x.evidence) || (x.claimKey !== null && typeof x.claimKey !== 'string')) return false;
+  if (x.recipientActor !== null && typeof x.recipientActor !== 'string') return false;
+  if (x.op !== 'rejected' && x.claimKey === null) return false;
+  return sha256Hex(canonicalJson(x.payload)) === x.payloadSha256
+    && sha256Hex(canonicalJson(x.evidence)) === x.evidenceSha256
+    && sha256Hex(x.content) === x.contentSha256;
+}
 
-/** Matches by key AND operation AND content digests; a key match with other content is a conflict. */
+export type ThreadEventLite = { idempotencyKey: string; eventType: string; payload: unknown; evidence: unknown[]; content?: string };
+
+/**
+ * Matches by key AND operation AND payload, evidence and content; a key match
+ * with anything else is a conflict. A missing content field is not a match.
+ */
+export function eventMatchesEntry(entry: OutboxEntry, e: Pick<ThreadEventLite, 'eventType' | 'payload' | 'evidence' | 'content'>): boolean {
+  return e.eventType === entry.eventType
+    && sha256Hex(canonicalJson(e.payload ?? {})) === entry.payloadSha256
+    && sha256Hex(canonicalJson(e.evidence ?? [])) === entry.evidenceSha256
+    && typeof e.content === 'string' && sha256Hex(e.content) === entry.contentSha256;
+}
+
 export function reconcileOutboxEntry(entry: OutboxEntry, events: readonly ThreadEventLite[]): 'sent' | 'absent' | 'idempotency_conflict' {
   const hit = events.find((e) => e.idempotencyKey === entry.key);
   if (!hit) return 'absent';
-  const same = hit.eventType === entry.eventType
-    && sha256Hex(canonicalJson(hit.payload)) === entry.payloadSha256
-    && sha256Hex(canonicalJson(hit.evidence ?? [])) === entry.evidenceSha256;
-  return same ? 'sent' : 'idempotency_conflict';
+  return eventMatchesEntry(entry, hit) ? 'sent' : 'idempotency_conflict';
 }
 
 export type ResendDecision = { action: 'resend'; refreshSequence: boolean } | { action: 'give_up'; state: 'send_ambiguous' };
@@ -151,7 +194,7 @@ export function decideResend(failureCode: string, attempts: number): ResendDecis
   return attempts < 3 ? { action: 'resend', refreshSequence: false } : { action: 'give_up', state: 'send_ambiguous' };
 }
 
-/** Entries that block new claims: anything unresolved except authority-lost abandonment. */
+/** Entries that block new claims: anything unresolved. Sent, never-applied and authority-lost entries are terminal. */
 export function outboxBlocksClaims(entries: readonly OutboxEntry[]): boolean {
   return entries.some((e) => e.state === 'pending' || e.state === 'send_ambiguous' || e.state === 'idempotency_conflict');
 }

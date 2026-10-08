@@ -6,7 +6,7 @@
  * The model process never receives the coordination token (buildHarnessEnv).
  */
 import { execFileSync } from 'node:child_process';
-import { randomBytes } from 'node:crypto';
+import { randomBytes, randomUUID } from 'node:crypto';
 import {
   closeSync, existsSync, mkdirSync, openSync, readFileSync, readdirSync, renameSync, unlinkSync, writeFileSync, writeSync,
 } from 'node:fs';
@@ -17,7 +17,7 @@ import type { CharterRecord } from './authority';
 import { startJobLauncher } from './job-launcher';
 import type { LedgerAppendResult, OutboxEntry, RemoteRead } from './lifecycle';
 import { parseLsTreeZ } from './paths';
-import { removeStaging, stageFiles, validateHarnessOutput } from './staging';
+import { removeStaging, stageFiles, validateHarnessOutput, verifyStagedTree } from './staging';
 import type { HostPort, JobsPage, LaunchHandle, LedgerPort, StateStore, ThreadView } from './supervisor';
 
 // ---------------------------------------------------------------------------
@@ -73,6 +73,7 @@ export function createHttpLedgerPort(baseUrl: string, token: string, fetchImpl: 
             latestSequence: t.latestSequence, sourceReference: t.sourceReference ?? null },
           events: (r.json.events ?? []).map((e: Record<string, any>) => ({
             idempotencyKey: e.idempotencyKey, eventType: e.eventType, payload: e.payload ?? {}, evidence: e.evidence ?? [],
+            content: typeof e.content === 'string' ? e.content : undefined,
             sequence: e.sequence, actor: e.actor, createdAt: e.createdAt,
           })),
         },
@@ -85,7 +86,17 @@ export function createHttpLedgerPort(baseUrl: string, token: string, fetchImpl: 
         ...(input.evidence && input.evidence.length ? { evidence: input.evidence } : {}),
         ...(input.payload ? { payload: input.payload } : {}),
       }, input.idempotencyKey, 15_000);
-      if (r.status === 200 || r.status === 201) return { ok: true, deduplicated: r.json.deduplicated === true, event: { eventType: r.json.event?.eventType, payload: r.json.event?.payload ?? {} } };
+      if (r.status === 200 || r.status === 201) {
+        const ev = r.json.event ?? {};
+        return {
+          ok: true, deduplicated: r.json.deduplicated === true,
+          event: {
+            eventType: ev.eventType, payload: ev.payload ?? {},
+            ...(Array.isArray(ev.evidence) ? { evidence: ev.evidence } : {}),
+            ...(typeof ev.content === 'string' ? { content: ev.content } : {}),
+          },
+        };
+      }
       if (r.status === 0) return { ok: false, errorCode: r.json.code === 'timeout' ? 'timeout' : 'network_error' };
       return { ok: false, errorCode: String(r.json.code ?? 'unknown'), httpStatus: r.status };
     },
@@ -100,7 +111,11 @@ export function createHostPort(input: { repoRoot: string; stagingRoot: string })
   const git = (...args: string[]) => execFileSync('git', args, { cwd: input.repoRoot, encoding: 'utf8', maxBuffer: 64 * 1024 * 1024 });
   return {
     now: () => Date.now(),
-    sleep: (ms) => new Promise((r) => setTimeout(r, ms)),
+    sleep: (ms, signal) => new Promise<void>((resolve) => {
+      if (signal?.aborted) { resolve(); return; }
+      const t = setTimeout(resolve, ms);
+      signal?.addEventListener('abort', () => { clearTimeout(t); resolve(); }, { once: true });
+    }),
     async fetchOrigin() { try { git('fetch', '--quiet', 'origin', 'main'); return true; } catch { return false; } },
     commitExists(c) { try { git('cat-file', '-e', `${c}^{commit}`); return true; } catch { return false; } },
     isAncestorOfOriginMain(c) { try { git('merge-base', '--is-ancestor', c, 'origin/main'); return true; } catch { return false; } },
@@ -125,14 +140,19 @@ export function createHostPort(input: { repoRoot: string; stagingRoot: string })
     },
     stage(commit, files) {
       const dir = join(input.stagingRoot, randomBytes(4).toString('hex'), 'in');
-      stageFiles({ repoRoot: input.repoRoot, commit, files, stagingDir: dir });
-      return dir;
+      return stageFiles({ repoRoot: input.repoRoot, commit, files, stagingDir: dir });
     },
     removeStaging: (dir) => removeStaging(join(dir, '..')),
+    verifyStaged: verifyStagedTree,
     validate: validateHarnessOutput,
     launch(cfg): LaunchHandle {
       const h = startJobLauncher({ exe: cfg.exe, args: cfg.args, cwd: cfg.cwd, env: cfg.env });
-      return { terminate: h.terminate, killLauncher: h.killLauncher, exited: h.exited, stdout: () => Buffer.concat(h.harnessStdout).toString('utf8') };
+      return {
+        terminate: h.terminate,
+        killLauncher: h.killLauncher,
+        exited: h.exited.then((e) => ({ code: e.code, spawnFailed: e.spawnFailed })),
+        stdout: () => ({ text: Buffer.concat(h.harnessStdout).toString('utf8'), overflow: h.overflow.stdout }),
+      };
     },
     env: () => ({ ...process.env }),
   };
@@ -142,15 +162,36 @@ export function createHostPort(input: { repoRoot: string; stagingRoot: string })
 // File state store
 // ---------------------------------------------------------------------------
 
-function processIdentity(pid: number): { creationDate: string; executablePath: string } | null {
+/**
+ * F6: a process identity read is tri-state. `absent` is returned ONLY when the
+ * query itself succeeded and found no such process; any query failure is
+ * `unknown`, which never counts as proof that a lock is stale.
+ */
+export type ProcessIdentityRead =
+  | { state: 'present'; creationDate: string; executablePath: string }
+  | { state: 'absent' }
+  | { state: 'unknown' };
+
+export function readProcessIdentity(pid: number): ProcessIdentityRead {
+  if (!Number.isSafeInteger(pid) || pid <= 0) return { state: 'unknown' };
   try {
     const out = execFileSync(`${process.env.SystemRoot ?? 'C:\\Windows'}\\System32\\WindowsPowerShell\\v1.0\\powershell.exe`,
       ['-NoLogo', '-NoProfile', '-NonInteractive', '-Command',
-        `$p = Get-CimInstance Win32_Process -Filter "ProcessId=${Math.trunc(pid)}"; if ($p) { $p.CreationDate.ToUniversalTime().ToString('o') + '|' + $p.ExecutablePath }`],
-      { encoding: 'utf8', windowsHide: true }).trim();
-    if (!out) return null;
-    const [creationDate, executablePath] = out.split('|');
-    return { creationDate, executablePath };
+        `$ErrorActionPreference='Stop'; $p = @(Get-CimInstance Win32_Process -Filter "ProcessId=${pid}"); if ($p.Count -eq 0) { 'ABSENT' } elseif ($p.Count -eq 1 -and $p[0].CreationDate -and $p[0].ExecutablePath) { 'PRESENT|' + $p[0].CreationDate.ToUniversalTime().ToString('o') + '|' + $p[0].ExecutablePath } else { 'UNKNOWN' }`],
+      { encoding: 'utf8', windowsHide: true, timeout: 20_000 }).trim();
+    if (out === 'ABSENT') return { state: 'absent' };
+    const m = /^PRESENT\|([^|]+)\|(.+)$/.exec(out);
+    return m ? { state: 'present', creationDate: m[1], executablePath: m[2] } : { state: 'unknown' };
+  } catch { return { state: 'unknown' }; }
+}
+
+type LockRecord = { pid: number; creationDate: string; executablePath: string; runNonce: string };
+
+function parseLock(raw: string): LockRecord | null {
+  try {
+    const j = JSON.parse(raw) as Partial<LockRecord>;
+    if (!Number.isSafeInteger(j.pid) || typeof j.creationDate !== 'string' || typeof j.executablePath !== 'string' || typeof j.runNonce !== 'string') return null;
+    return j as LockRecord;
   } catch { return null; }
 }
 
@@ -164,41 +205,90 @@ export function defaultStateDir(): string {
   return join(process.env.LOCALAPPDATA ?? '', 'HolaHola', 'worker');
 }
 
-export function createFileStateStore(dir: string = defaultStateDir()): StateStore {
+export type FileStateStoreOptions = {
+  /** Identity reader (tests inject failures); defaults to the CIM query above. */
+  identity?: (pid: number) => ProcessIdentityRead;
+  /** Test seam: runs inside the reclaim mutex, after the stale record is re-verified and before it is replaced. */
+  beforeReclaimReplace?: () => void;
+};
+
+export function createFileStateStore(dir: string = defaultStateDir(), opts: FileStateStoreOptions = {}): StateStore {
   if (/^\\\\/.test(dir) || !/^[A-Za-z]:\\/.test(dir)) throw new Error('state_dir_must_be_local_drive');
   for (const d of [dir, join(dir, 'outbox'), join(dir, 'receipts'), join(dir, 'launched')]) mkdirSync(d, { recursive: true });
+  const identity = opts.identity ?? readProcessIdentity;
   const lockPath = join(dir, 'supervisor.lock');
+  const reclaimPath = join(dir, 'supervisor.lock.reclaim');
   const instPath = join(dir, 'instance.json');
   const scanPath = join(dir, 'scan.json');
+  let ownRecord: string | null = null;
+
+  const createLock = (record: string): boolean => {
+    let fd: number;
+    try { fd = openSync(lockPath, 'wx'); } catch { return false; }
+    try { writeSync(fd, record); } finally { closeSync(fd); }
+    return true;
+  };
+
   return {
     instanceId() {
       if (!existsSync(instPath)) {
-        try { writeFileSync(instPath, JSON.stringify({ instanceId: crypto.randomUUID(), createdAt: new Date().toISOString() }), { flag: 'wx' }); } catch { /* raced: read below */ }
+        try { writeFileSync(instPath, JSON.stringify({ instanceId: randomUUID(), createdAt: new Date().toISOString() }), { flag: 'wx' }); } catch { /* raced: read below */ }
       }
       return JSON.parse(readFileSync(instPath, 'utf8')).instanceId as string;
     },
     acquireLock(runNonce, reclaimStale) {
-      const me = processIdentity(process.pid);
-      const record = JSON.stringify({ pid: process.pid, creationDate: me?.creationDate ?? null, executablePath: me?.executablePath ?? process.execPath, runNonce });
-      const tryCreate = () => { const fd = openSync(lockPath, 'wx'); writeSync(fd, record); closeSync(fd); };
-      try { tryCreate(); return { ok: true }; } catch { /* exists */ }
+      // A lock we cannot later prove is ours (no confirmed own identity) is never created.
+      const me = identity(process.pid);
+      if (me.state !== 'present') return { ok: false, reason: 'own_identity_unknown' };
+      const record = JSON.stringify({ pid: process.pid, creationDate: me.creationDate, executablePath: me.executablePath, runNonce } satisfies LockRecord);
+      if (createLock(record)) { ownRecord = record; return { ok: true }; }
       if (!reclaimStale) return { ok: false, reason: 'held' };
-      let held: { pid: number; creationDate: string | null; executablePath: string };
-      try { held = JSON.parse(readFileSync(lockPath, 'utf8')); } catch { return { ok: false, reason: 'lock_unreadable' }; }
-      const live = processIdentity(held.pid);
-      // Reclaim only if no live process matches pid AND creation time AND image.
-      if (live && live.creationDate === held.creationDate && live.executablePath === held.executablePath) return { ok: false, reason: 'held_by_live_process' };
-      unlinkSync(lockPath);
-      try { tryCreate(); return { ok: true }; } catch { return { ok: false, reason: 'held' }; }
+
+      let raw: string;
+      try { raw = readFileSync(lockPath, 'utf8'); } catch { return { ok: false, reason: 'lock_unreadable' }; }
+      const held = parseLock(raw);
+      if (!held) return { ok: false, reason: 'lock_unreadable' };
+      const live = identity(held.pid);
+      if (live.state === 'unknown') return { ok: false, reason: 'holder_identity_unknown' };
+      if (live.state === 'present' && live.creationDate === held.creationDate && live.executablePath === held.executablePath) {
+        return { ok: false, reason: 'held_by_live_process' };
+      }
+      // Confirmed stale: no process, or the pid now belongs to a different process (PID reuse).
+      let mutex: number;
+      try { mutex = openSync(reclaimPath, 'wx'); } catch { return { ok: false, reason: 'reclaim_in_progress' }; }
+      try {
+        writeSync(mutex, record);
+        let again: string;
+        try { again = readFileSync(lockPath, 'utf8'); } catch { again = ''; }
+        if (again !== raw) return { ok: false, reason: 'lock_changed' };
+        opts.beforeReclaimReplace?.();
+        // Preserve the stale record as evidence; rename is atomic and never touches a replaced lock's bytes.
+        try { renameSync(lockPath, `${lockPath}.stale.${sha256Hex(raw).slice(0, 16)}`); } catch { return { ok: false, reason: 'lock_changed' }; }
+        if (!createLock(record)) return { ok: false, reason: 'held' };
+        ownRecord = record;
+        return { ok: true };
+      } finally {
+        closeSync(mutex);
+        try { unlinkSync(reclaimPath); } catch { /* best effort; a leftover mutex makes the next reclaim refuse */ }
+      }
     },
-    releaseLock() { try { unlinkSync(lockPath); } catch { /* already gone */ } },
+    releaseLock() {
+      if (ownRecord === null) return { released: false, reason: 'not_acquired' };
+      let raw: string;
+      try { raw = readFileSync(lockPath, 'utf8'); } catch { ownRecord = null; return { released: false, reason: 'lock_missing' }; }
+      if (raw !== ownRecord) return { released: false, reason: 'lock_owned_by_another_record' };
+      try { unlinkSync(lockPath); } catch { return { released: false, reason: 'unlink_failed' }; }
+      ownRecord = null;
+      return { released: true };
+    },
     outbox() {
-      return readdirSync(join(dir, 'outbox')).filter((f) => f.endsWith('.json'))
-        .map((f) => JSON.parse(readFileSync(join(dir, 'outbox', f), 'utf8')) as OutboxEntry);
+      return readdirSync(join(dir, 'outbox')).filter((f) => f.endsWith('.json')).map((f) => {
+        try { return JSON.parse(readFileSync(join(dir, 'outbox', f), 'utf8')) as unknown; } catch { return { corrupt: f }; }
+      });
     },
-    saveOutbox(_threadId, _op, entry) { atomicWrite(join(dir, 'outbox', `${sha256Hex(entry.key).slice(0, 24)}.json`), JSON.stringify(entry)); },
+    saveOutbox(entry: OutboxEntry) { atomicWrite(join(dir, 'outbox', `${sha256Hex(entry.key).slice(0, 24)}.json`), JSON.stringify(entry)); },
     receipt(threadId, kind, data) {
-      atomicWrite(join(dir, 'receipts', `${threadId}.${kind}.${Date.now()}.json`), JSON.stringify({ threadId, kind, at: new Date().toISOString(), data }));
+      atomicWrite(join(dir, 'receipts', `${threadId}.${kind}.${Date.now()}.${randomBytes(2).toString('hex')}.json`), JSON.stringify({ threadId, kind, at: new Date().toISOString(), data }));
     },
     launched: (key) => existsSync(join(dir, 'launched', sha256Hex(key).slice(0, 32))),
     markLaunched: (key) => { writeFileSync(join(dir, 'launched', sha256Hex(key).slice(0, 32)), key, { flag: 'w' }); },

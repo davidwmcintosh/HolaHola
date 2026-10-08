@@ -5,7 +5,7 @@ import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import test from 'node:test';
 import { sha256Hex } from '../../../shared/worker-contracts';
-import { assertNoLinks, stageFiles, validateHarnessOutput } from './staging';
+import { assertNoLinks, stageFiles, validateHarnessOutput, verifyStagedTree } from './staging';
 
 function tempRepo() {
   const dir = mkdtempSync(join(tmpdir(), 'lrw-repo-'));
@@ -19,12 +19,15 @@ function tempRepo() {
   return { dir, commit: git('rev-parse', 'HEAD') };
 }
 
-test('staging writes only selected files from commit blobs, not the working tree', () => {
+test('staging writes only selected files from commit blobs, not the working tree; baseline holds those blob bytes', () => {
   const { dir, commit } = tempRepo();
   const staging = mkdtempSync(join(tmpdir(), 'lrw-in-'));
   try {
-    stageFiles({ repoRoot: dir, commit, files: [{ path: 'docs/a.md' }], stagingDir: staging });
+    const staged = stageFiles({ repoRoot: dir, commit, files: [{ path: 'docs/a.md' }], stagingDir: staging });
     assert.equal(readFileSync(join(staging, 'docs', 'a.md'), 'utf8'), 'line1\nline2\nline3\n');
+    assert.equal(staged.baseline.get('docs/a.md')!.toString('utf8'), 'line1\nline2\nline3\n');
+    assert.equal(staged.baseline.size, 1);
+    assert.deepEqual(verifyStagedTree(staged), { ok: true });
     assert.throws(() => readFileSync(join(staging, 'docs', 'secret.md')));
     assert.throws(() => stageFiles({ repoRoot: dir, commit, files: [{ path: 'docs/a.md' }], stagingDir: staging }), /staging_not_empty/);
   } finally { rmSync(dir, { recursive: true, force: true }); rmSync(staging, { recursive: true, force: true }); }
@@ -39,43 +42,78 @@ test('a link or junction anywhere in staging fails the check', (t) => {
   } finally { rmSync(root, { recursive: true, force: true }); }
 });
 
-function stagingWith(text: string) {
-  const dir = mkdtempSync(join(tmpdir(), 'lrw-val-'));
-  mkdirSync(join(dir, 'docs'));
-  writeFileSync(join(dir, 'docs', 'a.md'), text);
-  return dir;
-}
+const baselineOf = (text: string) => new Map([['docs/a.md', Buffer.from(text, 'utf8')]]);
 const out = (structured: unknown, extra: Record<string, unknown> = {}) => JSON.stringify({ type: 'result', is_error: false, structured_output: structured, total_cost_usd: 0.12, ...extra });
 
-test('valid output yields citations re-read from staged bytes with supervisor-computed digests', () => {
-  const dir = stagingWith('alpha\nbeta\ngamma\n');
-  try {
-    const r = validateHarnessOutput(out({ summary: 's', findings: [], citations: [{ path: 'docs/a.md', startLine: 2, endLine: 3 }] }), dir, new Set(['docs/a.md']));
-    assert.equal(r.ok, true);
-    if (r.ok) {
-      assert.equal(r.citations[0].excerpt, 'beta\ngamma');
-      assert.equal(r.citations[0].excerptSha256, sha256Hex(Buffer.from('beta\ngamma', 'utf8')));
-      assert.equal(r.costTelemetryUsd, 0.12);
-    }
-  } finally { rmSync(dir, { recursive: true, force: true }); }
+test('valid output yields citations computed from the immutable baseline with supervisor-computed digests', () => {
+  const r = validateHarnessOutput(out({ summary: 's', findings: [], citations: [{ path: 'docs/a.md', startLine: 2, endLine: 3 }] }), baselineOf('alpha\nbeta\ngamma\n'));
+  assert.equal(r.ok, true);
+  if (r.ok) {
+    assert.equal(r.citations[0].excerpt, 'beta\ngamma');
+    assert.equal(r.citations[0].excerptSha256, sha256Hex(Buffer.from('beta\ngamma', 'utf8')));
+    assert.equal(r.costTelemetryUsd, 0.12);
+  }
 });
 
-test('citations outside staging or beyond the file are citation_mismatch', () => {
-  const dir = stagingWith('one\n');
-  try {
-    const bad1 = validateHarnessOutput(out({ summary: 's', findings: [], citations: [{ path: 'server/x.ts', startLine: 1, endLine: 1 }] }), dir, new Set(['docs/a.md']));
-    assert.deepEqual(bad1, { ok: false, failureClass: 'citation_mismatch', detail: 'citation_path_not_staged' });
-    const bad2 = validateHarnessOutput(out({ summary: 's', findings: [], citations: [{ path: 'docs/a.md', startLine: 1, endLine: 9 }] }), dir, new Set(['docs/a.md']));
-    assert.deepEqual(bad2, { ok: false, failureClass: 'citation_mismatch', detail: 'citation_beyond_file' });
-  } finally { rmSync(dir, { recursive: true, force: true }); }
+test('citations outside the baseline or beyond the file are citation_mismatch', () => {
+  const base = baselineOf('one\n');
+  const bad1 = validateHarnessOutput(out({ summary: 's', findings: [], citations: [{ path: 'server/x.ts', startLine: 1, endLine: 1 }] }), base);
+  assert.deepEqual(bad1, { ok: false, failureClass: 'citation_mismatch', detail: 'citation_path_not_staged' });
+  const bad2 = validateHarnessOutput(out({ summary: 's', findings: [], citations: [{ path: 'docs/a.md', startLine: 1, endLine: 9 }] }), base);
+  assert.deepEqual(bad2, { ok: false, failureClass: 'citation_mismatch', detail: 'citation_beyond_file' });
 });
 
 test('malformed output, schema violations and harness errors map to closed failure classes', () => {
-  const dir = stagingWith('x\n');
+  const base = baselineOf('x\n');
+  const cls = (s: string) => (validateHarnessOutput(s, base) as { failureClass: string }).failureClass;
+  assert.equal(cls('not json'), 'schema_invalid');
+  assert.equal(cls(out({ summary: 1 })), 'schema_invalid');
+  assert.equal(cls(JSON.stringify({ type: 'result', is_error: true, result: 'Not logged in · Please run /login' })), 'auth_required');
+  assert.equal(cls(JSON.stringify({ type: 'result', is_error: true, result: 'boom' })), 'harness_unavailable');
+});
+
+test('F7: changed, same-length-changed, added or removed staged bytes fail the post-run check; citations never use mutated bytes', () => {
+  const { dir, commit } = tempRepo();
+  const all: string[] = [];
+  const mk = () => {
+    const staging = mkdtempSync(join(tmpdir(), 'lrw-in-'));
+    all.push(staging);
+    return stageFiles({ repoRoot: dir, commit, files: [{ path: 'docs/a.md' }], stagingDir: staging });
+  };
   try {
-    assert.equal((validateHarnessOutput('not json', dir, new Set()) as { failureClass: string }).failureClass, 'schema_invalid');
-    assert.equal((validateHarnessOutput(out({ summary: 1 }), dir, new Set()) as { failureClass: string }).failureClass, 'schema_invalid');
-    assert.equal((validateHarnessOutput(JSON.stringify({ type: 'result', is_error: true, result: 'Not logged in · Please run /login' }), dir, new Set()) as { failureClass: string }).failureClass, 'auth_required');
-    assert.equal((validateHarnessOutput(JSON.stringify({ type: 'result', is_error: true, result: 'boom' }), dir, new Set()) as { failureClass: string }).failureClass, 'harness_unavailable');
-  } finally { rmSync(dir, { recursive: true, force: true }); }
+    const changed = mk();
+    writeFileSync(join(changed.dir, 'docs', 'a.md'), 'line1\nFORGED\nline3\n');
+    assert.deepEqual(verifyStagedTree(changed), { ok: false, detail: 'staged_file_changed' });
+    const r = validateHarnessOutput(out({ summary: 's', findings: [], citations: [{ path: 'docs/a.md', startLine: 2, endLine: 2 }] }), changed.baseline);
+    assert.equal(r.ok && r.citations[0].excerpt, 'line2', 'excerpt comes from the pinned blob, not the forged file');
+
+    const sameLength = mk();
+    writeFileSync(join(sameLength.dir, 'docs', 'a.md'), 'line1\nlinE2\nline3\n');
+    assert.deepEqual(verifyStagedTree(sameLength), { ok: false, detail: 'staged_file_changed' });
+
+    const added = mk();
+    writeFileSync(join(added.dir, 'docs', 'b.md'), 'new');
+    assert.deepEqual(verifyStagedTree(added), { ok: false, detail: 'staged_extra_entry' });
+
+    const removed = mk();
+    rmSync(join(removed.dir, 'docs', 'a.md'));
+    assert.deepEqual(verifyStagedTree(removed), { ok: false, detail: 'staged_file_missing' });
+  } finally {
+    rmSync(dir, { recursive: true, force: true });
+    for (const d of all) rmSync(d, { recursive: true, force: true });
+  }
+});
+
+test('F7: a staged directory replaced by a junction is rejected', (t) => {
+  const { dir, commit } = tempRepo();
+  const staging = mkdtempSync(join(tmpdir(), 'lrw-in-'));
+  try {
+    const staged = stageFiles({ repoRoot: dir, commit, files: [{ path: 'docs/a.md' }], stagingDir: staging });
+    rmSync(join(staging, 'docs'), { recursive: true, force: true });
+    try { symlinkSync(join(dir, 'docs'), join(staging, 'docs'), 'junction'); } catch { t.skip('cannot create junction here'); return; }
+    assert.deepEqual(verifyStagedTree(staged), { ok: false, detail: 'staged_entry_is_link' });
+  } finally {
+    rmSync(staging, { recursive: true, force: true });
+    rmSync(dir, { recursive: true, force: true });
+  }
 });

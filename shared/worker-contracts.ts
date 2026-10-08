@@ -367,6 +367,6 @@ export function claimKeyFor(instanceId: string, threadId: string, runNonce: stri
   return `lrw.${instanceId}.${threadId}.accept.${runNonce}.${observedSequence}`;
 }
 
-export function writeKeyFor(instanceId: string, threadId: string, op: 'completed' | 'blocked' | 'rejected' | 'progress', claimKey: string): string {
+export function writeKeyFor(instanceId: string, threadId: string, op: 'completed' | 'blocked' | 'rejected' | 'progress' | 'interrupted', claimKey: string): string {
   return `lrw.${instanceId}.${threadId}.${op}.${sha256Hex(claimKey).slice(0, 8)}`;
 }

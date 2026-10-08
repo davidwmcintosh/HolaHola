@@ -32,11 +32,11 @@ export class FakeLedger {
 
   append(input: {
     threadId: string; actor: string; eventType: string; idempotencyKey: string; expectedSequence: number;
-    payload?: Record<string, unknown>; evidence?: unknown[]; recipientActor?: string;
+    payload?: Record<string, unknown>; evidence?: unknown[]; recipientActor?: string; content?: string;
   }): LedgerAppendResult {
     // (1) idempotency lookup first — a replay returns the original event regardless of current state.
     const existing = this.events.find((e) => e.actor === input.actor && e.idempotencyKey === input.idempotencyKey);
-    if (existing) return { ok: true, deduplicated: true, event: { eventType: existing.eventType, payload: existing.payload as Record<string, unknown> } };
+    if (existing) return { ok: true, deduplicated: true, event: { eventType: existing.eventType, payload: existing.payload as Record<string, unknown>, evidence: existing.evidence, content: existing.content } };
     const t = this.threads.get(input.threadId);
     if (!t) return { ok: false, errorCode: 'thread_not_found', httpStatus: 404 };
     if (![t.originActor, t.intendedRecipient, t.currentOwner].includes(input.actor)) return { ok: false, errorCode: 'not_participant', httpStatus: 403 };
@@ -59,14 +59,14 @@ export class FakeLedger {
     const sequence = t.latestSequence + 1;
     this.events.push({
       threadId: t.id, sequence, actor: input.actor, eventType: et, idempotencyKey: input.idempotencyKey,
-      payload: input.payload ?? {}, evidence: input.evidence ?? [],
+      payload: input.payload ?? {}, evidence: input.evidence ?? [], content: input.content ?? '',
     });
     t.latestSequence = sequence;
     if (et === 'accepted') { t.currentOwner = input.actor; t.state = 'accepted'; }
     else if (et === 'reassigned') { t.currentOwner = null; t.intendedRecipient = input.recipientActor!; t.state = 'reassigned'; }
     else if (et === 'progress') t.state = 'in_progress';
     else if (et === 'blocked' || et === 'completed') t.state = et;
-    return { ok: true, deduplicated: false, event: { eventType: et, payload: input.payload ?? {} } };
+    return { ok: true, deduplicated: false, event: { eventType: et, payload: input.payload ?? {}, evidence: input.evidence ?? [], content: input.content ?? '' } };
   }
 
   latestAcceptedClaimKey(threadId: string): string | null {

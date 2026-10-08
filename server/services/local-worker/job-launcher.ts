@@ -246,17 +246,32 @@ export function buildEnvBlock(env: Record<string, string>): string {
 
 export type LauncherStatus = { event: string; [k: string]: unknown };
 
+/** Retention bounds (F5): nothing the harness or launcher prints can grow supervisor memory without limit. */
+export const LAUNCHER_BOUNDS = Object.freeze({ stdoutBytes: 4 * 1024 * 1024, statusEntries: 256, stderrLines: 256, lineChars: 4000 });
+
+export type LauncherExit = {
+  code: number | null;
+  signal: NodeJS.Signals | null;
+  /** True only when Node reports the launcher process was never created (no pid): no harness can exist. */
+  spawnFailed: boolean;
+  /** Any child/pipe error observed (spawn, stdin, stdout, stderr). */
+  error: string | null;
+};
+
 export type LauncherHandle = {
   child: ChildProcessWithoutNullStreams;
   nonce: string;
   statuses: LauncherStatus[];
   harnessStdout: Buffer[];
   harnessStderr: string[];
-  terminate(): void;
+  /** Set when any retention bound was hit; the run must not be treated as a complete result. */
+  overflow: { stdout: boolean; statuses: boolean; stderr: boolean };
+  /** Returns false when the control line could not be written (launcher unresponsive). */
+  terminate(): boolean;
   list(): void;
   /** Kills the LAUNCHER through Node's own child handle (identity-bound). Never a numeric PID. */
   killLauncher(): void;
-  exited: Promise<{ code: number | null; signal: NodeJS.Signals | null }>;
+  exited: Promise<LauncherExit>;
 };
 
 export type LaunchConfig = {
@@ -284,26 +299,53 @@ export function startJobLauncher(cfg: LaunchConfig): LauncherHandle {
   const statuses: LauncherStatus[] = [];
   const harnessStdout: Buffer[] = [];
   const harnessStderr: string[] = [];
-  child.stdout.on('data', (b: Buffer) => harnessStdout.push(b));
+  const overflow = { stdout: false, statuses: false, stderr: false };
+  let stdoutBytes = 0;
+  let firstError: string | null = null;
+  const noteError = (where: string) => (e: Error) => { firstError ??= `${where}:${(e as NodeJS.ErrnoException).code ?? e.name}`; };
+  child.stdin.on('error', noteError('stdin'));
+  child.stdout.on('error', noteError('stdout'));
+  child.stderr.on('error', noteError('stderr'));
+  child.stdout.on('data', (b: Buffer) => {
+    if (stdoutBytes + b.length > LAUNCHER_BOUNDS.stdoutBytes) { overflow.stdout = true; return; }
+    stdoutBytes += b.length; harnessStdout.push(b);
+  });
   let errBuf = '';
   child.stderr.on('data', (b: Buffer) => {
     errBuf += b.toString('utf8');
+    if (errBuf.length > LAUNCHER_BOUNDS.lineChars * 4 && errBuf.indexOf('\n') < 0) { overflow.stderr = true; errBuf = ''; return; }
     let i: number;
     while ((i = errBuf.indexOf('\n')) >= 0) {
-      const line = errBuf.slice(0, i).replace(/\r$/, ''); errBuf = errBuf.slice(i + 1);
-      if (line.startsWith('S:')) { try { statuses.push(JSON.parse(line.slice(2))); } catch { statuses.push({ event: 'malformed_status' }); } }
-      else if (line.startsWith('H:')) harnessStderr.push(line.slice(2));
+      const line = errBuf.slice(0, i).replace(/\r$/, '').slice(0, LAUNCHER_BOUNDS.lineChars); errBuf = errBuf.slice(i + 1);
+      if (line.startsWith('S:')) {
+        if (statuses.length >= LAUNCHER_BOUNDS.statusEntries) { overflow.statuses = true; continue; }
+        try { statuses.push(JSON.parse(line.slice(2))); } catch { statuses.push({ event: 'malformed_status' }); }
+      } else if (line.startsWith('H:')) {
+        if (harnessStderr.length >= LAUNCHER_BOUNDS.stderrLines) { overflow.stderr = true; continue; }
+        harnessStderr.push(line.slice(2));
+      }
     }
   });
+  // Settles on 'exit' OR on a spawn error (which may never be followed by 'exit').
+  const exited = new Promise<LauncherExit>((resolve) => {
+    child.on('exit', (code, signal) => resolve({ code, signal, spawnFailed: false, error: firstError }));
+    child.on('error', (e) => {
+      noteError('child')(e);
+      if (child.pid === undefined) resolve({ code: null, signal: null, spawnFailed: true, error: firstError });
+    });
+  });
+  const write = (line: string): boolean => {
+    if (!child.stdin.writable) return false;
+    try { child.stdin.write(line); return true; } catch (e) { noteError('stdin')(e as Error); return false; }
+  };
   const cmdLine = [cfg.exe, ...cfg.args].map(quoteWindowsArg).join(' ');
-  child.stdin.write(`${Buffer.from(LAUNCHER_SCRIPT, 'utf8').toString('base64')}\n`);
-  child.stdin.write(`${JSON.stringify({ exe: cfg.exe, cmdLine, cwd: cfg.cwd, envBlock: buildEnvBlock(cfg.env), nonce, testHooks: cfg.testHooks ?? [] })}\n`);
-  const exited = new Promise<{ code: number | null; signal: NodeJS.Signals | null }>((resolve) => child.on('exit', (code, signal) => resolve({ code, signal })));
+  write(`${Buffer.from(LAUNCHER_SCRIPT, 'utf8').toString('base64')}\n`);
+  write(`${JSON.stringify({ exe: cfg.exe, cmdLine, cwd: cfg.cwd, envBlock: buildEnvBlock(cfg.env), nonce, testHooks: cfg.testHooks ?? [] })}\n`);
   return {
-    child, nonce, statuses, harnessStdout, harnessStderr, exited,
-    terminate: () => { child.stdin.write(`TERMINATE ${nonce}\n`); },
-    list: () => { child.stdin.write(`LIST ${nonce}\n`); },
-    killLauncher: () => { child.kill('SIGKILL'); },
+    child, nonce, statuses, harnessStdout, harnessStderr, overflow, exited,
+    terminate: () => write(`TERMINATE ${nonce}\n`),
+    list: () => { write(`LIST ${nonce}\n`); },
+    killLauncher: () => { try { child.kill('SIGKILL'); } catch (e) { noteError('kill')(e as Error); } },
   };
 }
 
