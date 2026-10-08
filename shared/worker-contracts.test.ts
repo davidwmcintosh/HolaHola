@@ -3,7 +3,7 @@ import test from 'node:test';
 import {
   WORKER_MINIMUM_DENYLIST, answerWithCitationsSchema, assertSendablePayload, buildCompletionEvidence,
   canonicalJson, charterBodyDigest, claimKeyFor, normalizeWorkerQuestion, parseWorkerJob,
-  validateWorkerCharterBody, workerFailureSchema, workerResultSchema, writeKeyFor,
+  validateCreatePayload, validateWorkerCharterBody, workerFailureSchema, workerResultSchema, writeKeyFor,
   type WorkerCharterBody,
 } from './worker-contracts';
 
@@ -134,6 +134,13 @@ test('result and failure payload schemas are strict; failure evidence has no fre
   assert.equal(workerFailureSchema.safeParse({ ...base, evidence: { ...base.evidence, stderr: 'leak' } }).success, false);
   assert.equal(workerFailureSchema.safeParse({ ...base, failureClass: 'made_up' }).success, false);
   assert.equal(workerResultSchema.safeParse({}).success, false);
+});
+
+test('thread-create payload gate accepts only a strictly valid worker job (§4.3)', () => {
+  assert.equal(validateCreatePayload(job(), CREATED).ok, true);
+  assert.deepEqual(validateCreatePayload({ payloadKind: 'observation_source' }, CREATED), { ok: false, reason: 'payload_schema_not_supported' });
+  assert.deepEqual(validateCreatePayload([1], CREATED), { ok: false, reason: 'payload_not_object' });
+  assert.equal(validateCreatePayload({ ...job(), extra: true }, CREATED).ok, false);
 });
 
 test('sendable payload check rejects oversize and secret-looking content', () => {

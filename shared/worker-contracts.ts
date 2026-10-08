@@ -177,6 +177,18 @@ export function parseWorkerJob(payload: unknown, createdAt: string): ParseOutcom
   return { ok: true, value: { ...parsed.data, question: question.value } };
 }
 
+/**
+ * Narrow gate for structured payloads on thread creation (design §4.3): the only
+ * payload a created event may carry through the HTTP create route is a strictly
+ * valid worker job, checked against the current time. Anything else is refused so
+ * reserved payload kinds cannot be injected through thread creation.
+ */
+export function validateCreatePayload(payload: unknown, nowIso: string): ParseOutcome<WorkerJob> {
+  if (!payload || typeof payload !== 'object' || Array.isArray(payload)) return { ok: false, reason: 'payload_not_object' };
+  if ((payload as { schema?: unknown }).schema !== WORKER_JOB_SCHEMA) return { ok: false, reason: 'payload_schema_not_supported' };
+  return parseWorkerJob(payload, nowIso);
+}
+
 // ---------------------------------------------------------------------------
 // Charter (design §3.4)
 // ---------------------------------------------------------------------------
