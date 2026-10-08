@@ -295,7 +295,52 @@ export function parseMembersStatus(s: LauncherStatus): MembersSnapshot | null {
 }
 
 /** Retention bounds (F5): nothing the harness or launcher prints can grow supervisor memory without limit. */
-export const LAUNCHER_BOUNDS = Object.freeze({ stdoutBytes: 4 * 1024 * 1024, statusEntries: 256, stderrLines: 256, lineChars: 4000 });
+export const LAUNCHER_BOUNDS = Object.freeze({ stdoutBytes: 4 * 1024 * 1024, statusEntries: 256, stderrLines: 256, lineChars: 4000, memberRepliesRetained: 8 });
+
+/**
+ * Parses the launcher's stderr protocol. Monitoring replies ("members") do NOT enter the
+ * bounded diagnostic history: they are counted (stable reply number n = 1, 2, ...) and only
+ * the latest few are retained, so routine §5.6 monitoring can never exhaust the history
+ * budget that keeps lifecycle events such as "terminated" (review 58d3fcaf item 1.2).
+ */
+export function createLauncherStatusSink() {
+  const statuses: LauncherStatus[] = [];
+  const harnessStderr: string[] = [];
+  const overflow = { statuses: false, stderr: false };
+  const replies = new Map<number, LauncherStatus>();
+  let received = 0;
+  let buf = '';
+  const line = (raw: string) => {
+    const l = raw.replace(/\r$/, '').slice(0, LAUNCHER_BOUNDS.lineChars);
+    if (l.startsWith('S:')) {
+      let s: LauncherStatus;
+      try { s = JSON.parse(l.slice(2)); } catch { s = { event: 'malformed_status' }; }
+      if (s && s.event === 'members') {
+        received += 1;
+        replies.set(received, s);
+        replies.delete(received - LAUNCHER_BOUNDS.memberRepliesRetained);
+        return;
+      }
+      if (statuses.length >= LAUNCHER_BOUNDS.statusEntries) { overflow.statuses = true; return; }
+      statuses.push(s);
+    } else if (l.startsWith('H:')) {
+      if (harnessStderr.length >= LAUNCHER_BOUNDS.stderrLines) { overflow.stderr = true; return; }
+      harnessStderr.push(l.slice(2));
+    }
+  };
+  return {
+    statuses, harnessStderr, overflow,
+    push(chunk: string) {
+      buf += chunk;
+      if (buf.length > LAUNCHER_BOUNDS.lineChars * 4 && buf.indexOf('\n') < 0) { overflow.stderr = true; buf = ''; return; }
+      let i: number;
+      while ((i = buf.indexOf('\n')) >= 0) { const l = buf.slice(0, i); buf = buf.slice(i + 1); line(l); }
+    },
+    membersReceived: () => received,
+    /** The n-th monitoring reply if still retained (replies arrive in LIST order). */
+    memberReply: (n: number) => replies.get(n) ?? null,
+  };
+}
 
 export type LauncherExit = {
   code: number | null;
@@ -346,10 +391,12 @@ export function startJobLauncher(cfg: LaunchConfig): LauncherHandle {
   const child = spawn(`${launcherEnv.SystemRoot}\\System32\\WindowsPowerShell\\v1.0\\powershell.exe`,
     ['-NoLogo', '-NoProfile', '-NonInteractive', '-EncodedCommand', encoded],
     { cwd: cfg.cwd, env: launcherEnv, windowsHide: true, stdio: ['pipe', 'pipe', 'pipe'] });
-  const statuses: LauncherStatus[] = [];
+  const sink = createLauncherStatusSink();
+  const statuses = sink.statuses;
   const harnessStdout: Buffer[] = [];
-  const harnessStderr: string[] = [];
-  const overflow = { stdout: false, statuses: false, stderr: false };
+  const harnessStderr = sink.harnessStderr;
+  const overflow = { stdout: false, get statuses() { return sink.overflow.statuses; }, get stderr() { return sink.overflow.stderr; } };
+  let listsSent = 0;
   let stdoutBytes = 0;
   let firstError: string | null = null;
   const noteError = (where: string) => (e: Error) => { firstError ??= `${where}:${(e as NodeJS.ErrnoException).code ?? e.name}`; };
@@ -360,22 +407,7 @@ export function startJobLauncher(cfg: LaunchConfig): LauncherHandle {
     if (stdoutBytes + b.length > LAUNCHER_BOUNDS.stdoutBytes) { overflow.stdout = true; return; }
     stdoutBytes += b.length; harnessStdout.push(b);
   });
-  let errBuf = '';
-  child.stderr.on('data', (b: Buffer) => {
-    errBuf += b.toString('utf8');
-    if (errBuf.length > LAUNCHER_BOUNDS.lineChars * 4 && errBuf.indexOf('\n') < 0) { overflow.stderr = true; errBuf = ''; return; }
-    let i: number;
-    while ((i = errBuf.indexOf('\n')) >= 0) {
-      const line = errBuf.slice(0, i).replace(/\r$/, '').slice(0, LAUNCHER_BOUNDS.lineChars); errBuf = errBuf.slice(i + 1);
-      if (line.startsWith('S:')) {
-        if (statuses.length >= LAUNCHER_BOUNDS.statusEntries) { overflow.statuses = true; continue; }
-        try { statuses.push(JSON.parse(line.slice(2))); } catch { statuses.push({ event: 'malformed_status' }); }
-      } else if (line.startsWith('H:')) {
-        if (harnessStderr.length >= LAUNCHER_BOUNDS.stderrLines) { overflow.stderr = true; continue; }
-        harnessStderr.push(line.slice(2));
-      }
-    }
-  });
+  child.stderr.on('data', (b: Buffer) => sink.push(b.toString('utf8')));
   // Settles on 'exit' OR on a spawn error (which may never be followed by 'exit').
   const exited = new Promise<LauncherExit>((resolve) => {
     child.on('exit', (code, signal) => resolve({ code, signal, spawnFailed: false, error: firstError }));
@@ -395,13 +427,14 @@ export function startJobLauncher(cfg: LaunchConfig): LauncherHandle {
     child, nonce, statuses, harnessStdout, harnessStderr, overflow, exited,
     terminate: () => write(`TERMINATE ${nonce}\n`),
     list: () => { write(`LIST ${nonce}\n`); },
+    // Replies are correlated by their stable sequence number: this request's reply is the
+    // listsSent-th one. A late reply to an earlier timed-out LIST is never mistaken for it.
     listMembers: async (timeoutMs) => {
-      const before = statuses.length;
-      if (overflow.statuses || !write(`LIST ${nonce}\n`)) return null;
+      if (!write(`LIST ${nonce}\n`)) return null;
+      const n = ++listsSent;
       const deadline = Date.now() + timeoutMs;
       while (Date.now() < deadline) {
-        const reply = statuses.slice(before).find((s) => s.event === 'members');
-        if (reply) return parseMembersStatus(reply);
+        if (sink.membersReceived() >= n) { const r = sink.memberReply(n); return r ? parseMembersStatus(r) : null; }
         await new Promise((r) => setTimeout(r, 25));
       }
       return null;

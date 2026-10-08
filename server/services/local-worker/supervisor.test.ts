@@ -516,11 +516,51 @@ test('F4 an API-profile job with no designated key fails BEFORE claim', async ()
 // --- F5: independent deadlines, bounded fallback, uncertain exits ----------------------
 
 test('F5 remote reads that stall across the local deadline: the run still stops on its own timer (timeout)', async () => {
-  const s = setup({ launch: 'hang' });
+  // 30 s runtime: the local deadline falls before the 15 s + 30 s unconfirmed-authority bound.
+  const s = setup({ launch: 'hang', jobOver: { limits: { maxRuntimeSec: 30 } } });
   s.hooks.onAppend = (_T, et) => { if (et === 'accepted') s.hooks.charterStalls = true; return undefined; };
   const r = await runSupervisor(opts(), s.ledger, s.host, s.state);
   assert.deepEqual(r.outcomes, [{ threadId: s.T, outcome: 'timeout' }]);
   assert.equal((s.events('blocked')[0].payload as { failureClass: string }).failureClass, 'timeout');
+  assert.ok(s.listCallsHost() >= 13, `monitoring continued while the read stalled (LIST calls ${s.listCallsHost()})`);
+});
+
+// --- Review 58d3fcaf item 1.1: monitoring is independent of in-flight remote reads -------------
+
+test('R5 a stalled remote read coexists with a later unexpected image: the image stop happens on the 2 s cadence', async () => {
+  // The first remote read starts at 15 s and never settles; the unexpected image appears on LIST call 10 (20 s).
+  const s = setup({ launch: 'hang', members: (n) => ({ listOk: true, active: 2, processes: [
+    { pid: 10, state: 'member', image: 'C:\\x\\claude.exe' },
+    ...(n >= 10 ? [{ pid: 12, state: 'member' as const, image: 'C:\\Windows\\System32\\cmd.exe' }] : []),
+  ] }) });
+  s.hooks.onAppend = (_T, et) => { if (et === 'accepted') s.hooks.charterStalls = true; return undefined; };
+  const r = await runSupervisor(opts(), s.ledger, s.host, s.state);
+  assert.deepEqual(r.outcomes, [{ threadId: s.T, outcome: 'confinement_violation' }]);
+  assert.equal(s.listCallsHost(), 10, 'stopped at the first LIST that saw the image, not after the stalled read');
+});
+
+test('R5 a remote read pending for 30 s is unconfirmed authority: authority_unknown (owner write deferred); monitoring ran throughout', async () => {
+  const s = setup({ launch: 'hang' });
+  s.hooks.onAppend = (_T, et) => { if (et === 'accepted') s.hooks.charterStalls = true; return undefined; };
+  const r = await runSupervisor(opts(), s.ledger, s.host, s.state);
+  assert.deepEqual(r.outcomes, [{ threadId: s.T, outcome: 'authority_unknown' }]);
+  assert.equal(s.events('blocked').length, 0);
+  assert.ok(s.receipts.some((x) => x.kind === 'remote_read_unconfirmed'));
+  assert.ok(s.listCallsHost() >= 21, `LIST calls continued during the pending read (${s.listCallsHost()})`);
+});
+
+test('R5 only one remote read pair is ever in flight (serialized, no overlapping or stale authority results)', async () => {
+  const s = setup({ launch: 'hang', jobOver: { limits: { maxRuntimeSec: 120 } } });
+  let inFlight = 0; let maxInFlight = 0; let calls = 0;
+  const orig = s.ledger.showThread.bind(s.ledger);
+  s.ledger.showThread = async (id) => {
+    calls += 1; inFlight += 1; maxInFlight = Math.max(maxInFlight, inFlight);
+    try { await new Promise((r) => setImmediate(r)); await new Promise((r) => setImmediate(r)); return await orig(id); } finally { inFlight -= 1; }
+  };
+  const r = await runSupervisor(opts(), s.ledger, s.host, s.state);
+  assert.deepEqual(r.outcomes, [{ threadId: s.T, outcome: 'timeout' }]);
+  assert.equal(maxInFlight, 1);
+  assert.ok(calls >= 5);
 });
 
 test('F5 an exit that never settles after TERMINATE and the launcher kill: bounded, termination_unverified, staging preserved, no ledger write', async () => {

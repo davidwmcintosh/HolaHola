@@ -10,7 +10,7 @@ import { dirname, join } from 'node:path';
 import test from 'node:test';
 import { fileURLToPath } from 'node:url';
 import {
-  BOOTSTRAP_SCRIPT, LAUNCHER_SCRIPT, buildEnvBlock, interpretLauncherExit, quoteWindowsArg, startJobLauncher,
+  BOOTSTRAP_SCRIPT, LAUNCHER_SCRIPT, buildEnvBlock, createLauncherStatusSink, interpretLauncherExit, parseMembersStatus, quoteWindowsArg, startJobLauncher,
 } from './job-launcher';
 import { judgeMembers } from './supervisor';
 
@@ -32,14 +32,8 @@ async function exitOf(h: ReturnType<typeof startJobLauncher>, ms = 30_000) {
   return Promise.race([h.exited, wait(ms).then(() => ({ code: -999, signal: null }))]);
 }
 async function membersOf(h: ReturnType<typeof startJobLauncher>): Promise<number[]> {
-  const before = h.statuses.length;
-  h.list();
-  for (let i = 0; i < 40; i += 1) {
-    await wait(100);
-    const m = h.statuses.slice(before).find((s) => s.event === 'members');
-    if (m) return (m.pids as number[]) ?? [];
-  }
-  return [];
+  const snap = await h.listMembers(4000);
+  return snap ? snap.processes.filter((p) => p.state === 'member').map((p) => p.pid) : [];
 }
 const sleeperArgs = (inner = '') => ['-NoLogo', '-NoProfile', '-NonInteractive', '-Command',
   `${inner}Start-Process -WindowStyle Hidden -FilePath $env:ComSpec -ArgumentList "/c ping -n 120 127.0.0.1 >nul"; Start-Sleep 120`];
@@ -56,6 +50,25 @@ test('buildEnvBlock is sorted, NUL-separated, double-NUL terminated and rejects 
   assert.equal(buildEnvBlock({ b: '2', A: '1' }), 'A=1\0b=2\0\0');
   assert.throws(() => buildEnvBlock({ 'A=B': '1' }));
   assert.throws(() => buildEnvBlock({ A: 'x\0y' }));
+});
+
+test('review 58d3fcaf 1.2: >256 healthy monitoring replies never exhaust the history; lifecycle statuses stay retained; replies correlate by number', () => {
+  const sink = createLauncherStatusSink();
+  const reply = (pid: number) => `S:{"event":"members","listOk":true,"pids":[${pid}],"processes":[{"pid":${pid},"state":"member","image":"C:\\\\x\\\\claude.exe"}],"active":1}\n`;
+  sink.push('S:{"event":"running","rootPid":1}\n');
+  for (let i = 1; i <= 1000; i += 1) sink.push(reply(i));
+  sink.push('S:{"event":"terminated","verified":true}\r\n');
+  assert.equal(sink.membersReceived(), 1000);
+  assert.equal(sink.overflow.statuses, false, 'monitoring replies do not consume the status budget');
+  assert.deepEqual(sink.statuses.map((s) => s.event), ['running', 'terminated'], 'termination acknowledgement retained');
+  assert.equal(parseMembersStatus(sink.memberReply(1000)!)!.processes[0].pid, 1000, 'reply n is the n-th reply');
+  assert.equal(sink.memberReply(1), null, 'only the latest replies are retained (memory bounded)');
+  // A late reply to an earlier request is never returned for a later request number.
+  assert.equal(sink.memberReply(1001), null);
+  // Lifecycle history itself stays bounded.
+  for (let i = 0; i < 300; i += 1) sink.push('S:{"event":"noise"}\n');
+  assert.equal(sink.statuses.length, 256);
+  assert.equal(sink.overflow.statuses, true);
 });
 
 test('launcher exit interpretation', () => {

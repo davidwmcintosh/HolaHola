@@ -126,6 +126,10 @@ const TERMINATE_WAIT_MS = 15_000;
 const KILL_WAIT_MS = 15_000;
 const MONITOR_LIST_TIMEOUT_MS = 1_500;
 const MONITOR_EXIT_GRACE_MS = 500;
+/** Two watchdog intervals without a settled authority read = no confirmed authority for 30 s (§5.6). */
+const REMOTE_UNCONFIRMED_MS = 2 * 15_000;
+
+type RemotePair = { started: number; done: boolean; value: [RemoteRead<CharterRecord>, RemoteRead<ThreadView>] | null };
 
 /**
  * §5.6 verdict over one LIST snapshot. Snapshots are observations only: they never
@@ -404,6 +408,7 @@ export async function runSupervisor(o: SupervisorOptions, ledger: LedgerPort, ho
           const exitedP = h.exited.then((v) => { exit.done = true; exit.value = v; return v; });
           let unknown = 0;
           let lastRemote = started;
+          let remote: RemotePair | null = null;
           const systemRoot = host.env().SystemRoot ?? 'C:\\Windows';
           let stop: { failureClass: WorkerFailureClass; ownerWritable: boolean; detail?: string } | null = null;
           // F5: local deadlines are enforced by their own timer; remote reads never delay them.
@@ -433,22 +438,33 @@ export async function runSupervisor(o: SupervisorOptions, ledger: LedgerPort, ho
               break;
             }
 
-            if (host.now() - lastRemote < WATCHDOG_TICK_MS) continue;
-            lastRemote = host.now();
-            const reads = Promise.all([ledger.getCharter(o.charterId, charterVersion), ledger.showThread(threadId)]);
-            const rr = await raceTimer(host, reads, earliest() - host.now(), exitedP);
-            if (rr.kind === 'also') break; // harness exited while reads were pending
-            if (rr.kind === 'timer') continue; // local deadline reached first: handled at loop top
-            const [cr, tr] = rr.value;
-            const fence: RemoteRead<{ currentOwner: string | null; state: string; latestAcceptedClaimKey: string | null }> = tr.ok ? { ok: true, value: fenceOf(tr.value) } : tr;
-            const wd = decideWatchdog({
-              nowMs: host.now(), runDeadlineMs: deadline.run, windowEndMs: deadline.window, jobDeadlineMs: deadline.job,
-              charterRead: cr.ok ? { ok: true, value: { approvalState: cr.value.approvalState } } : cr,
-              threadRead: fence, consecutiveUnknown: unknown, workerActor: o.workerActor, claimKey,
-            });
-            if (wd.action === 'continue') { unknown = wd.consecutiveUnknown; continue; }
-            stop = { failureClass: wd.failureClass, ownerWritable: wd.ownerWritable };
-            break;
+            // Review 58d3fcaf 1.1: remote authority checks never suspend monitoring or local
+            // deadlines. At most one (serialized) read pair is in flight; its result is consumed
+            // on a later tick. A pair still pending after REMOTE_UNCONFIRMED_MS means no confirmed
+            // authority for that long: authority_unknown (owner write deferred, as designed).
+            if (remote && remote.done) {
+              const [cr, tr] = remote.value!;
+              remote = null;
+              const fence: RemoteRead<{ currentOwner: string | null; state: string; latestAcceptedClaimKey: string | null }> = tr.ok ? { ok: true, value: fenceOf(tr.value) } : tr;
+              const wd = decideWatchdog({
+                nowMs: host.now(), runDeadlineMs: deadline.run, windowEndMs: deadline.window, jobDeadlineMs: deadline.job,
+                charterRead: cr.ok ? { ok: true, value: { approvalState: cr.value.approvalState } } : cr,
+                threadRead: fence, consecutiveUnknown: unknown, workerActor: o.workerActor, claimKey,
+              });
+              if (wd.action !== 'continue') { stop = { failureClass: wd.failureClass, ownerWritable: wd.ownerWritable }; break; }
+              unknown = wd.consecutiveUnknown;
+            } else if (remote && host.now() - remote.started >= REMOTE_UNCONFIRMED_MS) {
+              state.receipt(threadId, 'remote_read_unconfirmed', { claimKey, pendingMs: host.now() - remote.started });
+              stop = { failureClass: 'authority_unknown', ownerWritable: false };
+              break;
+            }
+            if (!remote && host.now() - lastRemote >= WATCHDOG_TICK_MS) {
+              lastRemote = host.now();
+              const pair: RemotePair = { started: host.now(), done: false, value: null };
+              void Promise.all([ledger.getCharter(o.charterId, charterVersion), ledger.showThread(threadId)])
+                .then((v) => { pair.value = v; pair.done = true; }, () => { pair.value = [{ ok: false, error: 'network' }, { ok: false, error: 'network' }]; pair.done = true; });
+              remote = pair;
+            }
           }
 
           if (stop) {
