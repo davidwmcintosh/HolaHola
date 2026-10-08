@@ -118,6 +118,8 @@ commands.splice(safetyInsertion, 0,
   // launcher and Windows state-store cases report SKIPPED off Windows.
   'npx tsx --test shared/worker-contracts.test.ts server/services/local-worker/paths.test.ts server/services/local-worker/authority.test.ts server/services/local-worker/lifecycle.test.ts server/services/local-worker/adapter.test.ts server/services/local-worker/staging.test.ts server/services/local-worker/supervisor.test.ts server/services/local-worker/ports.test.ts server/routes/worker-charter-routes.test.ts',
   'npx tsx --test --test-concurrency=1 server/services/local-worker/job-launcher.test.ts',
+  // Real-ledger + charter-table proof; runs only against the verified job-local CI database.
+  'npx tsx --test --test-concurrency=1 server/scripts/test-local-worker-postgres.test.ts',
 
   // Coordination CLI cross-invocation credential cache: lets a runtime run
   // more than one coordination-cli.ts command per bootstrap instead of
