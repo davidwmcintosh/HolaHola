@@ -9,6 +9,11 @@
  * luca-claude-code coordination token in COORDINATION_LUCA_CLAUDE_CODE_TOKEN.
  * The token is used only by the supervisor's HTTP port and is never passed to
  * the harness. Founder-run only; this CLI never schedules itself.
+ *
+ * API-profile jobs are NOT available from this CLI: it supplies no designated API key
+ * (no credential handling in this phase), so the supervisor refuses such jobs before
+ * any claim (decision ineligible:api_key_not_configured). Only the subscription profile
+ * can run, and only after a separate qualification gate.
  */
 import { createFileStateStore, createHostPort, createHttpLedgerPort, defaultStateDir } from '../services/local-worker/ports';
 import { runSupervisor } from '../services/local-worker/supervisor';

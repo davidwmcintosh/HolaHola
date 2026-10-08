@@ -67,6 +67,10 @@ test('malformed output, schema violations and harness errors map to closed failu
   const base = baselineOf('x\n');
   const cls = (s: string) => (validateHarnessOutput(s, base) as { failureClass: string }).failureClass;
   assert.equal(cls('not json'), 'schema_invalid');
+  // Review item 4: valid JSON that is not an object is rejected normally, never thrown.
+  for (const s of ['null', ' null ', '[]', '"result"', '42', 'true']) {
+    assert.deepEqual(validateHarnessOutput(s, base), { ok: false, failureClass: 'schema_invalid', detail: 'output_not_object' }, s);
+  }
   assert.equal(cls(out({ summary: 1 })), 'schema_invalid');
   assert.equal(cls(JSON.stringify({ type: 'result', is_error: true, result: 'Not logged in · Please run /login' })), 'auth_required');
   assert.equal(cls(JSON.stringify({ type: 'result', is_error: true, result: 'boom' })), 'harness_unavailable');

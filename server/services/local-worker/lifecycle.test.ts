@@ -3,8 +3,8 @@ import test from 'node:test';
 import { buildCompletionEvidence, claimKeyFor } from '../../../shared/worker-contracts';
 import { FakeLedger } from './fake-ledger';
 import {
-  checkFence, decideClaimOutcome, decideResend, decideWatchdog, freezeOutboxEntry, isIntactOutboxEntry, outboxBlocksClaims,
-  reconcileOutboxEntry, selectOwnRecoveries, type WatchdogInput,
+  checkFence, compareEventToEntry, decideClaimOutcome, decideResend, decideWatchdog, freezeOutboxEntry, isIntactOutboxEntry, outboxBlocksClaims,
+  reconcileOutboxEntry, selectOwnRecoveries, type ThreadEventLite, type WatchdogInput,
 } from './lifecycle';
 
 const W = 'luca-claude-code';
@@ -130,13 +130,26 @@ const op = (key: string, eventType: 'completed' | 'blocked', payload: unknown, e
 
 test('outbox: reconciliation matches key + operation + payload + evidence + content', () => {
   const e = op('k1', 'completed', { a: 1 }, [{ type: 'commit' }]);
-  const ev = (o: Record<string, unknown>) => ({ idempotencyKey: 'k1', eventType: 'completed', payload: { a: 1 }, evidence: [{ type: 'commit' }], content: 'c', ...o });
+  const ev = (o: Record<string, unknown>) => ({ idempotencyKey: 'k1', eventType: 'completed', payload: { a: 1 }, evidence: [{ type: 'commit' }], content: 'c', recipientActor: null, ...o }) as ThreadEventLite;
   assert.equal(reconcileOutboxEntry(e, []), 'absent');
   assert.equal(reconcileOutboxEntry(e, [ev({})]), 'sent');
   assert.equal(reconcileOutboxEntry(e, [ev({ payload: { a: 2 } })]), 'idempotency_conflict');
   assert.equal(reconcileOutboxEntry(e, [ev({ eventType: 'blocked' })]), 'idempotency_conflict');
   assert.equal(reconcileOutboxEntry(e, [ev({ content: 'other' })]), 'idempotency_conflict', 'same payload, different content is not the frozen operation');
-  assert.equal(reconcileOutboxEntry(e, [ev({ content: undefined })]), 'idempotency_conflict', 'missing content is not a match');
+  assert.equal(reconcileOutboxEntry(e, [ev({ recipientActor: 'alden' })]), 'idempotency_conflict', 'recipient is part of the frozen operation');
+  // Review item 3: an omitted field is never filled from the request; equality stays unproven.
+  assert.equal(reconcileOutboxEntry(e, [ev({ content: undefined })]), 'unverifiable');
+  assert.equal(reconcileOutboxEntry(e, [ev({ evidence: undefined })]), 'unverifiable');
+  assert.equal(reconcileOutboxEntry(e, [ev({ recipientActor: undefined })]), 'unverifiable');
+  assert.equal(reconcileOutboxEntry(e, [ev({ content: undefined, payload: { a: 2 } })]), 'idempotency_conflict', 'a present mismatch wins over an omission');
+});
+
+test('compareEventToEntry: append responses are compared without synthesizing omitted fields', () => {
+  const e = op('k1', 'blocked', { a: 1 });
+  assert.equal(compareEventToEntry(e, { eventType: 'blocked', payload: { a: 1 }, evidence: [], content: 'c', recipientActor: null }), 'match');
+  assert.equal(compareEventToEntry(e, { eventType: 'blocked', payload: { a: 1 } }), 'incomplete');
+  assert.equal(compareEventToEntry(e, { eventType: 'blocked', payload: { a: 1 }, evidence: [], content: 'c' }), 'incomplete', 'recipient omitted');
+  assert.equal(compareEventToEntry(e, { eventType: 'blocked', payload: { a: 1 }, evidence: [{}], content: 'c', recipientActor: null }), 'mismatch');
 });
 
 test('outbox: only complete v2 entries whose digests match their bytes are intact', () => {

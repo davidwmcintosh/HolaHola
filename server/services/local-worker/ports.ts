@@ -72,8 +72,11 @@ export function createHttpLedgerPort(baseUrl: string, token: string, fetchImpl: 
           thread: { id: t.id, state: t.state, originActor: t.originActor, intendedRecipient: t.intendedRecipient, currentOwner: t.currentOwner ?? null,
             latestSequence: t.latestSequence, sourceReference: t.sourceReference ?? null },
           events: (r.json.events ?? []).map((e: Record<string, any>) => ({
-            idempotencyKey: e.idempotencyKey, eventType: e.eventType, payload: e.payload ?? {}, evidence: e.evidence ?? [],
+            // Missing fields stay undefined (unknown); they are never defaulted into a match.
+            idempotencyKey: e.idempotencyKey, eventType: e.eventType, payload: e.payload,
+            evidence: Array.isArray(e.evidence) ? e.evidence : undefined,
             content: typeof e.content === 'string' ? e.content : undefined,
+            recipientActor: e.recipientActor === null || typeof e.recipientActor === 'string' ? e.recipientActor : undefined,
             sequence: e.sequence, actor: e.actor, createdAt: e.createdAt,
           })),
         },
@@ -91,9 +94,10 @@ export function createHttpLedgerPort(baseUrl: string, token: string, fetchImpl: 
         return {
           ok: true, deduplicated: r.json.deduplicated === true,
           event: {
-            eventType: ev.eventType, payload: ev.payload ?? {},
+            eventType: ev.eventType, payload: ev.payload,
             ...(Array.isArray(ev.evidence) ? { evidence: ev.evidence } : {}),
             ...(typeof ev.content === 'string' ? { content: ev.content } : {}),
+            ...(ev.recipientActor === null || typeof ev.recipientActor === 'string' ? { recipientActor: ev.recipientActor } : {}),
           },
         };
       }
@@ -150,6 +154,7 @@ export function createHostPort(input: { repoRoot: string; stagingRoot: string })
       return {
         terminate: h.terminate,
         killLauncher: h.killLauncher,
+        listMembers: h.listMembers,
         exited: h.exited.then((e) => ({ code: e.code, spawnFailed: e.spawnFailed })),
         stdout: () => ({ text: Buffer.concat(h.harnessStdout).toString('utf8'), overflow: h.overflow.stdout }),
       };

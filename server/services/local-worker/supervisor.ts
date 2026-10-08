@@ -15,10 +15,10 @@ import {
   type WorkerCharterBody, type WorkerFailureClass, type WorkerJob,
 } from '../../../shared/worker-contracts';
 import { evaluateJobAuthority, type CharterRecord } from './authority';
-import { buildHarnessArgs, buildHarnessEnv, buildPrompt, configDigest, isQualified, type AdapterName } from './adapter';
-import { interpretLauncherExit } from './job-launcher';
+import { MONITOR_INTERVAL_MS, buildHarnessArgs, buildHarnessEnv, buildPrompt, configDigest, isAllowedImage, isQualified, type AdapterName } from './adapter';
+import { interpretLauncherExit, type MembersSnapshot } from './job-launcher';
 import {
-  checkFence, decideClaimOutcome, decideResend, decideWatchdog, eventMatchesEntry, freezeOutboxEntry, isIntactOutboxEntry,
+  checkFence, compareEventToEntry, decideClaimOutcome, decideResend, decideWatchdog, freezeOutboxEntry, isIntactOutboxEntry,
   outboxBlocksClaims, reconcileOutboxEntry, selectOwnRecoveries, type LedgerAppendResult, type OutboxEntry,
   type OutboxOperation, type RemoteRead, type ThreadEventLite,
 } from './lifecycle';
@@ -53,6 +53,8 @@ export type LaunchHandle = {
   killLauncher(): void;
   exited: Promise<LaunchExit>;
   stdout(): { text: string; overflow: boolean };
+  /** §5.6 monitoring: one bounded LIST round trip; null when no well-formed reply arrived. */
+  listMembers(timeoutMs: number): Promise<MembersSnapshot | null>;
 };
 
 export interface HostPort {
@@ -122,6 +124,23 @@ const MAX_DISCOVERY_PAGES = 1000;
 const WATCHDOG_TICK_MS = 15_000;
 const TERMINATE_WAIT_MS = 15_000;
 const KILL_WAIT_MS = 15_000;
+const MONITOR_LIST_TIMEOUT_MS = 1_500;
+const MONITOR_EXIT_GRACE_MS = 500;
+
+/**
+ * §5.6 verdict over one LIST snapshot. Snapshots are observations only: they never
+ * select a kill target; any stop goes through the launcher's job-handle termination.
+ * No reply, a failed job query or an unreadable member is `unknown`; a member whose
+ * image is outside the approved policy is `violation`.
+ */
+export function judgeMembers(m: MembersSnapshot | null, harnessPath: string, systemRoot: string):
+  { kind: 'ok' } | { kind: 'unknown'; reason: string } | { kind: 'violation'; images: string[] } {
+  if (!m) return { kind: 'unknown', reason: 'no_reply' };
+  if (!m.listOk) return { kind: 'unknown', reason: 'job_list_failed' };
+  if (m.processes.some((p) => p.state === 'unknown')) return { kind: 'unknown', reason: 'member_unreadable' };
+  const bad = m.processes.filter((p) => p.state === 'member' && !isAllowedImage(p.image!, harnessPath, systemRoot)).map((p) => p.image!);
+  return bad.length ? { kind: 'violation', images: bad } : { kind: 'ok' };
+}
 
 type Ctx = {
   o: SupervisorOptions; ledger: LedgerPort; host: HostPort; state: StateStore;
@@ -288,11 +307,16 @@ export async function runSupervisor(o: SupervisorOptions, ledger: LedgerPort, ho
           expectedSequence: seq, idempotencyKey: entry.key, content: entry.content, payload: entry.payload as Record<string, unknown>,
         });
         if (r.ok) {
-          if (!appendMatches(entry, r)) { state.saveOutbox({ ...entry, state: 'idempotency_conflict' }); report.halted = 'claim_idempotency_conflict'; return 'unresolved'; }
-          state.saveOutbox({ ...entry, state: 'sent' });
-          // The ledger returned exactly this claim: it is the fence. Launch at most once per key.
-          if (state.launched(entry.key)) { report.decisions.push({ threadId, decision: 'claim:already_launched' }); return 'lost'; }
-          return 'launch';
+          const cmp = compareEventToEntry(entry, r.event);
+          if (cmp === 'mismatch') { state.saveOutbox({ ...entry, state: 'idempotency_conflict' }); report.halted = 'claim_idempotency_conflict'; return 'unresolved'; }
+          if (cmp === 'match') {
+            state.saveOutbox({ ...entry, state: 'sent' });
+            // The ledger returned exactly this claim: it is the fence. Launch at most once per key.
+            if (state.launched(entry.key)) { report.decisions.push({ threadId, decision: 'claim:already_launched' }); return 'lost'; }
+            return 'launch';
+          }
+          // Incomplete response: equality is unproven. Read back the committed event; unknown stays unresolved.
+          return readBackClaim(entry, 'claim:response_incomplete');
         }
         const cd = decideClaimOutcome({ attemptKey: entry.key, result: r, alreadyLaunchedKeys: new Set() });
         if (cd.action === 'skip') {
@@ -307,15 +331,22 @@ export async function runSupervisor(o: SupervisorOptions, ledger: LedgerPort, ho
           report.halted = `claim_${cd.reason}`;
           return 'unresolved';
         }
-        // Ambiguous: read the thread for this exact key.
+        return readBackClaim(entry, 'claim:committed_reply_lost');
+      }
+
+      /** Reads the thread for this exact claim key; launches only on a proven, fenced match. */
+      async function readBackClaim(entry: OutboxEntry, committedLabel: string): Promise<'launch' | 'lost' | 'not_applied' | 'unresolved'> {
+        const threadId = entry.threadId;
         const view = await ledger.showThread(threadId);
-        if (!view.ok) {
+        const unresolved = (label: string) => {
           state.saveOutbox({ ...entry, state: 'send_ambiguous' });
-          report.decisions.push({ threadId, decision: 'claim:unresolved' });
+          report.decisions.push({ threadId, decision: label });
           report.halted = 'claim_unresolved';
-          return 'unresolved';
-        }
+          return 'unresolved' as const;
+        };
+        if (!view.ok) return unresolved('claim:unresolved');
         const rec = reconcileOutboxEntry(entry, view.value.events);
+        if (rec === 'unverifiable') return unresolved('claim:unverifiable');
         if (rec === 'idempotency_conflict') {
           state.saveOutbox({ ...entry, state: 'idempotency_conflict' });
           report.decisions.push({ threadId, decision: 'claim:idempotency_conflict' });
@@ -330,7 +361,7 @@ export async function runSupervisor(o: SupervisorOptions, ledger: LedgerPort, ho
           return 'unresolved';
         }
         state.saveOutbox({ ...entry, state: 'sent' });
-        report.decisions.push({ threadId, decision: 'claim:committed_reply_lost' });
+        report.decisions.push({ threadId, decision: committedLabel });
         return launchIfFenced(entry, view.value);
       }
 
@@ -372,15 +403,38 @@ export async function runSupervisor(o: SupervisorOptions, ledger: LedgerPort, ho
           const exit: { done: boolean; value: LaunchExit | null } = { done: false, value: null };
           const exitedP = h.exited.then((v) => { exit.done = true; exit.value = v; return v; });
           let unknown = 0;
-          let stop: { failureClass: WorkerFailureClass; ownerWritable: boolean } | null = null;
+          let lastRemote = started;
+          const systemRoot = host.env().SystemRoot ?? 'C:\\Windows';
+          let stop: { failureClass: WorkerFailureClass; ownerWritable: boolean; detail?: string } | null = null;
           // F5: local deadlines are enforced by their own timer; remote reads never delay them.
+          // §5.6: every MONITOR_INTERVAL_MS a bounded LIST checks every job member's image.
           while (!exit.done) {
             const ls = localStop();
             if (ls) { stop = { failureClass: ls, ownerWritable: true }; break; }
-            await raceTimer(host, exitedP, Math.min(WATCHDOG_TICK_MS, earliest() - host.now()));
+            await raceTimer(host, exitedP, Math.min(MONITOR_INTERVAL_MS, earliest() - host.now()));
             if (exit.done) break;
             const ls2 = localStop();
             if (ls2) { stop = { failureClass: ls2, ownerWritable: true }; break; }
+
+            const mon = await raceTimer(host, h.listMembers(MONITOR_LIST_TIMEOUT_MS), MONITOR_LIST_TIMEOUT_MS, exitedP);
+            if (mon.kind === 'also') break; // harness exited during the LIST
+            const verdict = judgeMembers(mon.kind === 'value' ? mon.value : null, harness.path, systemRoot);
+            if (verdict.kind === 'unknown') {
+              // An exit racing the LIST is a normal end, not a monitoring failure.
+              const grace = await raceTimer(host, exitedP, MONITOR_EXIT_GRACE_MS);
+              if (grace.kind === 'value') break;
+              state.receipt(threadId, 'monitor_unknown', { claimKey, reason: verdict.reason });
+              stop = { failureClass: 'confinement_violation', ownerWritable: true, detail: 'monitoring_unknown' };
+              break;
+            }
+            if (verdict.kind === 'violation') {
+              state.receipt(threadId, 'monitor_violation', { claimKey, images: verdict.images });
+              stop = { failureClass: 'confinement_violation', ownerWritable: true, detail: 'unexpected_image' };
+              break;
+            }
+
+            if (host.now() - lastRemote < WATCHDOG_TICK_MS) continue;
+            lastRemote = host.now();
             const reads = Promise.all([ledger.getCharter(o.charterId, charterVersion), ledger.showThread(threadId)]);
             const rr = await raceTimer(host, reads, earliest() - host.now(), exitedP);
             if (rr.kind === 'also') break; // harness exited while reads were pending
@@ -400,7 +454,7 @@ export async function runSupervisor(o: SupervisorOptions, ledger: LedgerPort, ho
           if (stop) {
             const t = await terminateBounded(host, h, exitedP);
             if (t !== 'verified') { preserveStaging = true; return await fail('termination_unverified', 'run', false); }
-            return await fail(stop.failureClass, 'run', stop.ownerWritable);
+            return await fail(stop.failureClass, 'run', stop.ownerWritable, stop.detail);
           }
 
           const ev = exit.value!;
@@ -410,20 +464,29 @@ export async function runSupervisor(o: SupervisorOptions, ledger: LedgerPort, ho
           if (kind === 'harness_unavailable') return await fail('harness_unavailable', 'launch', true, 'launcher_setup_failed', { harnessExitCode: ev.code });
           if (kind === 'terminated_verified') return await fail('harness_unavailable', 'run', true, 'unexpected_launcher_termination', { harnessExitCode: ev.code });
 
-          const out = h.stdout();
-          if (out.overflow) return await fail('schema_invalid', 'validate', true, 'output_too_large');
-          const tree = host.verifyStaged(staged);
-          if (!tree.ok) return await fail('confinement_violation', 'validate', true, tree.detail);
-          const v = host.validate(out.text, staged.baseline);
-          if (!v.ok) return await fail(v.failureClass, 'validate', true, v.detail);
-          const result = {
-            schema: WORKER_RESULT_SCHEMA, jobThreadId: threadId, instanceId, runNonce, claimKey, charterId: job.charterId,
-            charterVersion: job.charterVersion, authProfile: job.authProfile, model: job.model, harness: 'claude-cli' as const,
-            harnessVersion: harness.version, harnessSha256: harness.sha256, configDigest: configDigest(o.adapter, job.authProfile),
-            answer: v.answer, citations: v.citations, costTelemetryUsd: v.costTelemetryUsd, costBasis: 'client_estimate' as const,
-            durationMs: Math.max(0, host.now() - started),
-          };
-          return await sendResult(ctx, { threadId, claimKey, started, result, evidence: buildCompletionEvidence(job.commit, v.citations) });
+          // Review item 4: any unexpected exception while validating becomes a fenced failure, never an escape.
+          let prepared: { result: Record<string, unknown>; evidence: unknown[] };
+          try {
+            const out = h.stdout();
+            if (out.overflow) return await fail('schema_invalid', 'validate', true, 'output_too_large');
+            const tree = host.verifyStaged(staged);
+            if (!tree.ok) return await fail('confinement_violation', 'validate', true, tree.detail);
+            const v = host.validate(out.text, staged.baseline);
+            if (!v.ok) return await fail(v.failureClass, 'validate', true, v.detail);
+            prepared = {
+              result: {
+                schema: WORKER_RESULT_SCHEMA, jobThreadId: threadId, instanceId, runNonce, claimKey, charterId: job.charterId,
+                charterVersion: job.charterVersion, authProfile: job.authProfile, model: job.model, harness: 'claude-cli' as const,
+                harnessVersion: harness.version, harnessSha256: harness.sha256, configDigest: configDigest(o.adapter, job.authProfile),
+                answer: v.answer, citations: v.citations, costTelemetryUsd: v.costTelemetryUsd, costBasis: 'client_estimate' as const,
+                durationMs: Math.max(0, host.now() - started),
+              },
+              evidence: buildCompletionEvidence(job.commit, v.citations),
+            };
+          } catch {
+            return await fail('schema_invalid', 'validate', true, 'validation_exception');
+          }
+          return await sendResult(ctx, { threadId, claimKey, started, ...prepared });
         } finally {
           if (staged) {
             if (preserveStaging) state.receipt(threadId, 'staging_preserved', { dir: staged.dir, claimKey });
@@ -475,17 +538,13 @@ function blockingOutbox(state: StateStore): boolean {
   return raw.some((e) => !isIntactOutboxEntry(e)) || outboxBlocksClaims(raw as OutboxEntry[]);
 }
 
-/** The ledger's returned event must be exactly the frozen operation (fields the response omits are not trusted as matches). */
-function appendMatches(entry: OutboxEntry, r: Extract<LedgerAppendResult, { ok: true }>): boolean {
-  const ev = r.event;
-  return eventMatchesEntry(entry, {
-    eventType: ev.eventType, payload: ev.payload,
-    evidence: ev.evidence ?? entry.evidence,
-    content: ev.content ?? entry.content,
-  });
-}
 
 type DeliverOutcome = 'sent' | 'authority_lost' | 'unresolved' | 'conflict';
+
+/** Unproven state: an entry still awaiting its own authority keeps waiting; anything else blocks claims. */
+function unresolvedState(e: OutboxEntry): OutboxEntry {
+  return e.state === 'awaiting_authority' ? e : { ...e, state: 'send_ambiguous' };
+}
 
 /**
  * Delivers one frozen operation (§5.7, F3). Every attempt re-reads the thread,
@@ -515,6 +574,7 @@ async function deliver(ctx: Ctx, entry: OutboxEntry): Promise<DeliverOutcome> {
     const rec = reconcileOutboxEntry(e, view.value.events);
     if (rec === 'sent') { state.saveOutbox({ ...e, state: 'sent' }); return 'sent'; }
     if (rec === 'idempotency_conflict') { state.saveOutbox({ ...e, state: 'idempotency_conflict' }); return 'conflict'; }
+    if (rec === 'unverifiable') { state.saveOutbox(unresolvedState(e)); return 'unresolved'; }
     if (ownerWrite) {
       const fence = checkFence(fenceOf(view.value), o.workerActor, e.claimKey!);
       if (!fence.ok) return abandon(`fence_${fence.reason}`);
@@ -524,9 +584,16 @@ async function deliver(ctx: Ctx, entry: OutboxEntry): Promise<DeliverOutcome> {
       payload: e.payload as Record<string, unknown>, evidence: e.evidence, ...(e.recipientActor ? { recipientActor: e.recipientActor } : {}),
     });
     if (r.ok) {
-      if (!appendMatches(e, r)) { state.saveOutbox({ ...e, state: 'idempotency_conflict' }); return 'conflict'; }
-      state.saveOutbox({ ...e, state: 'sent' });
-      return 'sent';
+      const cmp = compareEventToEntry(e, r.event);
+      if (cmp === 'mismatch') { state.saveOutbox({ ...e, state: 'idempotency_conflict' }); return 'conflict'; }
+      if (cmp === 'match') { state.saveOutbox({ ...e, state: 'sent' }); return 'sent'; }
+      // Review item 3: an incomplete response never proves equality. Read back the committed event.
+      const back = await ledger.showThread(e.threadId);
+      const brec = back.ok ? reconcileOutboxEntry(e, back.value.events) : 'unverifiable';
+      if (brec === 'sent') { state.saveOutbox({ ...e, state: 'sent' }); return 'sent'; }
+      if (brec === 'idempotency_conflict') { state.saveOutbox({ ...e, state: 'idempotency_conflict' }); return 'conflict'; }
+      state.saveOutbox(unresolvedState(e));
+      return 'unresolved';
     }
     if (['not_participant', 'invalid_transition'].includes(r.errorCode) || r.httpStatus === 403) {
       if (ownerWrite) return abandon(r.errorCode);
@@ -574,6 +641,19 @@ function failurePayload(ctx: Ctx, a: { threadId: string; claimKey: string; start
 async function failRun(ctx: Ctx, a: { threadId: string; claimKey: string; started: number; failureClass: WorkerFailureClass; stage: string; ownerWritable: boolean; detail: string; extra: Record<string, unknown> }): Promise<string> {
   const payload = failurePayload(ctx, a);
   const valid = workerFailureSchema.safeParse(payload).success && assertSendablePayload(payload).ok;
+  if (a.failureClass === 'authority_unknown' && valid) {
+    // Review item 2 / §5.6: preserve the exact blocked failure bound to THIS claim; it is
+    // delivered only once that claim's authority is re-confirmed (recoverOwn), else abandoned.
+    ctx.state.receipt(a.threadId, a.failureClass, payload);
+    ctx.state.saveOutbox({
+      ...freezeOutboxEntry({
+        key: writeKeyFor(ctx.instanceId, a.threadId, 'blocked', a.claimKey), threadId: a.threadId, op: 'blocked', eventType: 'blocked',
+        content: 'Local Read-only Worker stopped: authority_unknown', recipientActor: null, claimKey: a.claimKey, payload, evidence: [],
+      }),
+      state: 'awaiting_authority',
+    });
+    return a.failureClass;
+  }
   if (!a.ownerWritable || !valid) {
     ctx.state.receipt(a.threadId, a.failureClass, payload);
     for (const raw of ctx.state.outbox()) {
@@ -642,6 +722,7 @@ async function reconcileOutbox(ctx: Ctx): Promise<'ok' | string> {
       if (!view.ok) return 'outbox_unresolved';
       const rec = reconcileOutboxEntry(e, view.value.events);
       if (rec === 'idempotency_conflict') { state.saveOutbox({ ...e, state: 'idempotency_conflict' }); return 'idempotency_conflict'; }
+      if (rec === 'unverifiable') return 'outbox_unresolved';
       state.saveOutbox({ ...e, state: rec === 'sent' ? 'sent' : 'not_applied' });
       continue;
     }
@@ -661,6 +742,14 @@ async function reconcileOutbox(ctx: Ctx): Promise<'ok' | string> {
  */
 async function recoverOwn(ctx: Ctx): Promise<'ok' | 'incomplete'> {
   const { ledger, state, o } = ctx;
+  // Review item 2: a frozen authority_unknown failure is written once its exact claim is
+  // re-confirmed (deliver re-fences); a lost or superseded claim abandons it; unknown keeps waiting.
+  for (const e of state.outbox().filter(isIntactOutboxEntry) as OutboxEntry[]) {
+    if (e.state !== 'awaiting_authority') continue;
+    const d = await deliver(ctx, e);
+    if (d === 'conflict') { ctx.report.halted = 'idempotency_conflict'; return 'ok'; }
+    if (d !== 'unresolved') ctx.report.outcomes.push({ threadId: e.threadId, outcome: d === 'sent' ? 'recovered_authority_unknown' : `authority_unknown_${d}` });
+  }
   let after = 0;
   const candidates: { threadId: string; view: ThreadView }[] = [];
   for (let pages = 0; ; pages += 1) {
@@ -681,7 +770,7 @@ async function recoverOwn(ctx: Ctx): Promise<'ok' | 'incomplete'> {
     return { threadId: c.threadId, state: c.view.thread.state, currentOwner: c.view.thread.currentOwner, latestAcceptedPayload: (acc[acc.length - 1]?.payload ?? null) as Record<string, unknown> | null };
   }), o.workerActor, ctx.instanceId);
   const unresolved = new Set((state.outbox().filter(isIntactOutboxEntry) as OutboxEntry[])
-    .filter((e) => e.op !== 'accept' && (e.state === 'pending' || e.state === 'send_ambiguous')).map((e) => e.claimKey));
+    .filter((e) => e.op !== 'accept' && (e.state === 'pending' || e.state === 'send_ambiguous' || e.state === 'awaiting_authority')).map((e) => e.claimKey));
   for (const threadId of own) {
     const c = candidates.find((x) => x.threadId === threadId)!;
     const claimKey = latestClaimKey(c.view);

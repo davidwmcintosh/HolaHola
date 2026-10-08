@@ -101,8 +101,11 @@ const MAX_EXCERPT = 2000;
 
 /** Validates `claude -p --output-format json` stdout; citations come from the immutable baseline bytes. */
 export function validateHarnessOutput(stdout: string, baseline: ReadonlyMap<string, Buffer>): HarnessOutcome {
-  let parsed: Record<string, unknown>;
-  try { parsed = JSON.parse(stdout.trim()) as Record<string, unknown>; } catch { return { ok: false, failureClass: 'schema_invalid', detail: 'output_not_json' }; }
+  let raw: unknown;
+  try { raw = JSON.parse(stdout.trim()); } catch { return { ok: false, failureClass: 'schema_invalid', detail: 'output_not_json' }; }
+  // JSON null, arrays and primitives are valid JSON but never a harness result object.
+  if (raw === null || typeof raw !== 'object' || Array.isArray(raw)) return { ok: false, failureClass: 'schema_invalid', detail: 'output_not_object' };
+  const parsed = raw as Record<string, unknown>;
   if (parsed.type !== 'result') return { ok: false, failureClass: 'schema_invalid', detail: 'output_not_result' };
   if (parsed.is_error === true) {
     const result = String(parsed.result ?? '');

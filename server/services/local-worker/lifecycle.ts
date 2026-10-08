@@ -10,7 +10,7 @@ import { sha256Hex, canonicalJson } from '../../../shared/worker-contracts';
 // ---------------------------------------------------------------------------
 
 export type LedgerAppendResult =
-  | { ok: true; deduplicated: boolean; event: { eventType: string; payload: Record<string, unknown>; evidence?: unknown[]; content?: string } }
+  | { ok: true; deduplicated: boolean; event: { eventType: string; payload?: Record<string, unknown>; evidence?: unknown[]; content?: string; recipientActor?: string | null } }
   | { ok: false; errorCode: string; httpStatus?: number };
 
 export type ClaimDecision =
@@ -115,7 +115,13 @@ export type OutboxOp = 'accept' | 'completed' | 'blocked' | 'rejected' | 'interr
 export type OutboxState =
   | 'pending' | 'sent' | 'send_ambiguous' | 'abandoned_authority_lost' | 'idempotency_conflict'
   /** Proven never applied (CAS/transition refusal, or key absent on reconciliation of a claim). Terminal. */
-  | 'not_applied';
+  | 'not_applied'
+  /**
+   * A blocked authority_unknown failure frozen when authority could not be confirmed (§5.6).
+   * Delivered only once that exact claim's authority is re-confirmed; abandoned if lost.
+   * Does not block other claims.
+   */
+  | 'awaiting_authority';
 
 /**
  * The complete, immutable write operation (F3): every retry and every restart
@@ -167,23 +173,44 @@ export function isIntactOutboxEntry(e: unknown): e is OutboxEntry {
     && sha256Hex(x.content) === x.contentSha256;
 }
 
-export type ThreadEventLite = { idempotencyKey: string; eventType: string; payload: unknown; evidence: unknown[]; content?: string };
+/**
+ * A field the server did not return is `undefined` (unknown); `null` is a returned
+ * value. Nothing is ever filled in from the requested operation.
+ */
+export type ThreadEventLite = {
+  idempotencyKey: string; eventType: string; payload: unknown;
+  evidence: unknown[] | undefined; content?: string; recipientActor?: string | null;
+};
+
+export type EventComparison = 'match' | 'mismatch' | 'incomplete';
 
 /**
- * Matches by key AND operation AND payload, evidence and content; a key match
- * with anything else is a conflict. A missing content field is not a match.
+ * Compares a returned event with the complete frozen operation: eventType, payload,
+ * evidence, content and recipient. Any returned field that differs is a mismatch;
+ * if nothing differs but a field was not returned, equality is unproven (incomplete).
  */
-export function eventMatchesEntry(entry: OutboxEntry, e: Pick<ThreadEventLite, 'eventType' | 'payload' | 'evidence' | 'content'>): boolean {
-  return e.eventType === entry.eventType
-    && sha256Hex(canonicalJson(e.payload ?? {})) === entry.payloadSha256
-    && sha256Hex(canonicalJson(e.evidence ?? [])) === entry.evidenceSha256
-    && typeof e.content === 'string' && sha256Hex(e.content) === entry.contentSha256;
+export function compareEventToEntry(entry: OutboxEntry, e: {
+  eventType: string; payload?: unknown; evidence?: unknown[]; content?: string; recipientActor?: string | null;
+}): EventComparison {
+  let incomplete = false;
+  if (e.eventType !== entry.eventType) return 'mismatch';
+  if (e.payload === undefined) incomplete = true;
+  else if (sha256Hex(canonicalJson(e.payload)) !== entry.payloadSha256) return 'mismatch';
+  if (e.evidence === undefined) incomplete = true;
+  else if (sha256Hex(canonicalJson(e.evidence)) !== entry.evidenceSha256) return 'mismatch';
+  if (e.content === undefined) incomplete = true;
+  else if (sha256Hex(e.content) !== entry.contentSha256) return 'mismatch';
+  if (e.recipientActor === undefined) incomplete = true;
+  else if (e.recipientActor !== entry.recipientActor) return 'mismatch';
+  return incomplete ? 'incomplete' : 'match';
 }
 
-export function reconcileOutboxEntry(entry: OutboxEntry, events: readonly ThreadEventLite[]): 'sent' | 'absent' | 'idempotency_conflict' {
+/** 'unverifiable': the key exists but the read omitted a field, so neither sent nor conflict is proven. */
+export function reconcileOutboxEntry(entry: OutboxEntry, events: readonly ThreadEventLite[]): 'sent' | 'absent' | 'idempotency_conflict' | 'unverifiable' {
   const hit = events.find((e) => e.idempotencyKey === entry.key);
   if (!hit) return 'absent';
-  return eventMatchesEntry(entry, hit) ? 'sent' : 'idempotency_conflict';
+  const c = compareEventToEntry(entry, hit);
+  return c === 'match' ? 'sent' : c === 'mismatch' ? 'idempotency_conflict' : 'unverifiable';
 }
 
 export type ResendDecision = { action: 'resend'; refreshSequence: boolean } | { action: 'give_up'; state: 'send_ambiguous' };
@@ -194,7 +221,10 @@ export function decideResend(failureCode: string, attempts: number): ResendDecis
   return attempts < 3 ? { action: 'resend', refreshSequence: false } : { action: 'give_up', state: 'send_ambiguous' };
 }
 
-/** Entries that block new claims: anything unresolved. Sent, never-applied and authority-lost entries are terminal. */
+/**
+ * Entries that block new claims: anything unresolved. Sent, never-applied and
+ * authority-lost entries are terminal; awaiting_authority waits on its own claim only.
+ */
 export function outboxBlocksClaims(entries: readonly OutboxEntry[]): boolean {
   return entries.some((e) => e.state === 'pending' || e.state === 'send_ambiguous' || e.state === 'idempotency_conflict');
 }

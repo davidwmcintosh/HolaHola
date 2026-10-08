@@ -46,7 +46,25 @@ export function adapterConfig(adapter: AdapterName, profile: AuthProfile) {
     envAllowlist: [...HARNESS_ENV_ALLOWLIST],
     apiKeyPassed: profile === 'api',
     maxBudgetFlag: profile === 'api',
+    imagePolicy: IMAGE_POLICY_VERSION,
+    monitorIntervalMs: MONITOR_INTERVAL_MS,
   };
+}
+
+/**
+ * §5.6 image policy (digest-covered via adapterConfig). A job member may only be the
+ * exact qualified harness executable or the system console host. Anything else —
+ * including a legitimate child the harness turns out to need — is confinement_violation
+ * until a reviewed policy change and requalification. The real image set of a
+ * model run is unknown until the separate qualification smoke.
+ */
+export const IMAGE_POLICY_VERSION = 'lrw-images.v1:harness-exe+system32-conhost';
+export const MONITOR_INTERVAL_MS = 2000;
+
+export function isAllowedImage(image: string, harnessPath: string, systemRoot: string): boolean {
+  const norm = (p: string) => p.replace(/\//g, '\\').toLowerCase();
+  const allowed = [norm(harnessPath), norm(`${systemRoot}\\System32\\conhost.exe`)];
+  return allowed.includes(norm(image));
 }
 
 export function configDigest(adapter: AdapterName, profile: AuthProfile): string {

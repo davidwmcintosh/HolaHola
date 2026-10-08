@@ -12,12 +12,15 @@ import { fileURLToPath } from 'node:url';
 import {
   BOOTSTRAP_SCRIPT, LAUNCHER_SCRIPT, buildEnvBlock, interpretLauncherExit, quoteWindowsArg, startJobLauncher,
 } from './job-launcher';
+import { judgeMembers } from './supervisor';
 
 const WIN = process.platform === 'win32';
 const skip = WIN ? false : 'native Windows Job Object test (not run on this platform)';
 const PS = `${process.env.SystemRoot}\\System32\\WindowsPowerShell\\v1.0\\powershell.exe`;
 const ENV = () => ({
-  SystemRoot: process.env.SystemRoot!, ComSpec: process.env.ComSpec!, PATH: `${process.env.SystemRoot}\\System32`,
+  // PATHEXT is required for cmd to resolve `ping` to PING.EXE. Before 2026-10-08 it was missing here, so the
+  // sleeper's cmd -> ping grandchild exited at once ("'ping' is not recognized") and was never a job member.
+  SystemRoot: process.env.SystemRoot!, ComSpec: process.env.ComSpec!, PATH: `${process.env.SystemRoot}\\System32`, PATHEXT: process.env.PATHEXT ?? '.COM;.EXE;.BAT;.CMD',
   TEMP: process.env.TEMP ?? '', TMP: process.env.TMP ?? '',
 });
 const wait = (ms: number) => new Promise((r) => setTimeout(r, ms));
@@ -70,10 +73,19 @@ test('static: no PID-based or tree kill path exists in worker sources', () => {
     assert.equal(/taskkill/i.test(src), false, `${f} mentions taskkill`);
     assert.equal(/process\.kill\(/.test(src), false, `${f} calls process.kill`);
     assert.equal(/\/T\s+\/F/.test(src), false, `${f} has a /T /F tree kill`);
-    assert.equal(/OpenProcess\b/.test(src), false, `${f} opens processes by PID`);
+    if (f !== 'job-launcher.ts') assert.equal(/OpenProcess\b/.test(src), false, `${f} opens processes by PID`);
   }
+  const launcher = readFileSync(join(dir, 'job-launcher.ts'), 'utf8');
   // The only kill the launcher wrapper performs is on its own Node child handle.
-  assert.match(readFileSync(join(dir, 'job-launcher.ts'), 'utf8'), /child\.kill\('SIGKILL'\)/);
+  assert.match(launcher, /child\.kill\('SIGKILL'\)/);
+  // §5.6 monitoring opens listed pids ONLY with query-limited access (no terminate right),
+  // at exactly one call site, and TerminateProcess is only ever applied to the owned root handle.
+  const opens = launcher.match(/OpenProcess\((?:[^()]|\([^()]*\))*\)/g) ?? [];
+  assert.deepEqual(opens, ['OpenProcess(uint access, bool inherit, int pid)', 'OpenProcess(PROCESS_QUERY_LIMITED_INFORMATION, false, (int)pid)']);
+  assert.match(launcher, /const uint PROCESS_QUERY_LIMITED_INFORMATION = 0x1000;/);
+  const csharp = launcher.slice(launcher.indexOf('const CSHARP'), launcher.indexOf('const HOST_PS'));
+  const terminates = csharp.match(/TerminateProcess\(([^,)]*)/g) ?? [];
+  assert.deepEqual([...new Set(terminates)], ['TerminateProcess(IntPtr proc', 'TerminateProcess(hProcess']);
 });
 
 test('bootstrap refuses a launcher whose sha256 does not match the pin', { skip }, async () => {
@@ -92,7 +104,11 @@ test('child and grandchild are job members and TERMINATE ends both with verifica
   const h = startJobLauncher({ exe: PS, args: sleeperArgs('Write-Output "hello"; '), cwd: process.cwd(), env: ENV() });
   await wait(6000);
   const pids = await membersOf(h);
-  assert.ok(pids.length >= 2, `expected >=2 job members, got ${JSON.stringify(pids)}`);
+  // A count alone is not proof (conhost.exe is also a member): require the actual cmd and ping descendants.
+  const snap = await h.listMembers(5000);
+  const images = (snap?.processes ?? []).map((p) => (p.image ?? '').toLowerCase());
+  assert.ok(images.some((i) => i.endsWith('\\cmd.exe')) && images.some((i) => i.endsWith('\\ping.exe')), `descendants: ${images.join(', ')}`);
+  assert.ok(pids.length >= 3, `expected >=3 job members, got ${JSON.stringify(pids)}`);
   h.terminate();
   const ex = await exitOf(h);
   assert.equal(interpretLauncherExit(ex.code), 'terminated_verified');
@@ -100,6 +116,33 @@ test('child and grandchild are job members and TERMINATE ends both with verifica
   await wait(500);
   for (const pid of pids) assert.equal(alive(pid), false, `job member ${pid} survived`);
   assert.match(Buffer.concat(h.harnessStdout).toString(), /hello/);
+});
+
+test('§5.6 LIST reports every job member with a membership-verified image; the policy flags non-harness images (native)', { skip }, async () => {
+  const h = startJobLauncher({ exe: PS, args: sleeperArgs(), cwd: process.cwd(), env: ENV() });
+  try {
+    // Poll (bounded) until the sleeper's cmd/ping descendants exist.
+    let snap = await h.listMembers(5000);
+    for (let i = 0; i < 30 && !(snap?.processes ?? []).some((p) => /ping\.exe$/i.test(p.image ?? '')); i += 1) {
+      await wait(1000);
+      snap = await h.listMembers(5000);
+    }
+    assert.ok(snap, 'LIST reply within the bound');
+    assert.equal(snap!.listOk, true);
+    assert.equal(snap!.processes.some((p) => p.state === 'unknown'), false, JSON.stringify(snap));
+    const images = snap!.processes.filter((p) => p.state === 'member').map((p) => p.image!.toLowerCase());
+    const sys32 = `${process.env.SystemRoot}\\System32\\`.toLowerCase();
+    assert.ok(images.includes(PS.toLowerCase()), `root image present: ${images.join(', ')}`);
+    assert.ok(images.includes(`${sys32}cmd.exe`) && images.includes(`${sys32}ping.exe`), `descendants present: ${images.join(', ')}`);
+    // With the PowerShell sleeper standing in for the harness, its cmd/ping descendants violate the image policy.
+    const v = judgeMembers(snap, PS, process.env.SystemRoot!);
+    assert.equal(v.kind, 'violation');
+    assert.ok(v.kind === 'violation' && v.images.some((i) => /ping\.exe$/i.test(i)));
+  } finally {
+    h.terminate();
+    const ex = await exitOf(h);
+    assert.equal(interpretLauncherExit(ex.code), 'terminated_verified');
+  }
 });
 
 test('an out-of-job process survives job termination (no tree kill)', { skip }, async () => {

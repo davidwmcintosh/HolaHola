@@ -16,7 +16,8 @@
  *      handle), verify ActiveProcesses == 0, explicit cleanup. Never a numeric PID.
  *   6. Control on stdin: "TERMINATE <nonce>" -> TerminateJobObject(own handle), poll
  *      ActiveProcesses to 0 (<= 10 s) -> verified/unverified; "LIST <nonce>" -> job
- *      member process ids (monitoring only, never kill targets).
+ *      member process ids, each with an image path read through a query-limited handle
+ *      that IsProcessInJob confirms is still a member (monitoring only, never kill targets).
  * Protocol: harness stdout is relayed raw to launcher stdout; harness stderr lines are
  * relayed as "H:<line>"; launcher status lines are "S:<json>" on stderr.
  * Test hooks exist only when env LRW_ALLOW_TEST_HOOKS=1 AND the config requests them;
@@ -63,6 +64,10 @@ public static class LrwJobLauncher {
   [DllImport("kernel32.dll", SetLastError=true)] static extern bool CloseHandle(IntPtr h);
   [DllImport("kernel32.dll", SetLastError=true)] static extern bool CreatePipe(out IntPtr r, out IntPtr w, ref SECURITY_ATTRIBUTES sa, int size);
   [DllImport("kernel32.dll", SetLastError=true)] static extern bool SetHandleInformation(IntPtr h, int mask, int flags);
+  [DllImport("kernel32.dll", SetLastError=true)] static extern IntPtr OpenProcess(uint access, bool inherit, int pid);
+  [DllImport("kernel32.dll", SetLastError=true, CharSet=CharSet.Unicode)] static extern bool QueryFullProcessImageNameW(IntPtr h, int flags, StringBuilder name, ref int size);
+  // Monitoring only: a query-limited handle carries no terminate right and is never used to kill.
+  const uint PROCESS_QUERY_LIMITED_INFORMATION = 0x1000;
 
   const uint EXTENDED_STARTUPINFO_PRESENT = 0x00080000, CREATE_SUSPENDED = 0x4, CREATE_NO_WINDOW = 0x08000000, CREATE_UNICODE_ENVIRONMENT = 0x400;
   const int STARTF_USESTDHANDLES = 0x100, HANDLE_FLAG_INHERIT = 1;
@@ -88,14 +93,39 @@ public static class LrwJobLauncher {
     while (waited <= ms) { uint n = ActiveCount(); if (n == 0) return true; Thread.Sleep(100); waited += 100; }
     return false;
   }
-  static string ListMembers() {
+  // Job member pids from JobObjectBasicProcessIdList; null when the query fails.
+  static List<long> MemberPids() {
     int size = 8 + 8 * 512; IntPtr buf = Marshal.AllocHGlobal(size);
     try {
-      if (!QueryInformationJobObject(job, 3, buf, size, IntPtr.Zero)) return "[]";
-      int n = Marshal.ReadInt32(buf, 4); var ids = new List<string>();
-      for (int i = 0; i < n && i < 512; i++) ids.Add(((long)Marshal.ReadIntPtr(buf, 8 + i * IntPtr.Size)).ToString());
-      return "[" + string.Join(",", ids.ToArray()) + "]";
+      if (!QueryInformationJobObject(job, 3, buf, size, IntPtr.Zero)) return null;
+      int n = Marshal.ReadInt32(buf, 4); var ids = new List<long>();
+      for (int i = 0; i < n && i < 512; i++) ids.Add((long)Marshal.ReadIntPtr(buf, 8 + i * IntPtr.Size));
+      return ids;
     } finally { Marshal.FreeHGlobal(buf); }
+  }
+  // Image of one listed pid, bound to the job by IsProcessInJob on the opened handle, so a
+  // reused pid is reported as "gone" rather than misattributed. Never a kill target.
+  static string Describe(long pid) {
+    IntPtr h = OpenProcess(PROCESS_QUERY_LIMITED_INFORMATION, false, (int)pid);
+    if (h == IntPtr.Zero) {
+      int e = Marshal.GetLastWin32Error();
+      return "{\"pid\":" + pid + ",\"state\":\"" + (e == 87 ? "gone" : "unknown") + "\",\"win32\":" + e + "}";
+    }
+    try {
+      bool member;
+      if (!IsProcessInJob(h, job, out member)) return "{\"pid\":" + pid + ",\"state\":\"unknown\",\"win32\":" + Marshal.GetLastWin32Error() + "}";
+      if (!member) return "{\"pid\":" + pid + ",\"state\":\"gone\"}";
+      var sb = new StringBuilder(1024); int n = sb.Capacity;
+      if (!QueryFullProcessImageNameW(h, 0, sb, ref n)) return "{\"pid\":" + pid + ",\"state\":\"unknown\",\"win32\":" + Marshal.GetLastWin32Error() + "}";
+      return "{\"pid\":" + pid + ",\"state\":\"member\",\"image\":\"" + Esc(sb.ToString()) + "\"}";
+    } finally { CloseHandle(h); }
+  }
+  static string ListMembers() {
+    var ids = MemberPids();
+    if (ids == null) return "{\"event\":\"members\",\"listOk\":false,\"pids\":[],\"processes\":[],\"active\":" + ActiveCount() + "}";
+    var pids = new List<string>(); var procs = new List<string>();
+    foreach (long pid in ids) { pids.Add(pid.ToString()); procs.Add(Describe(pid)); }
+    return "{\"event\":\"members\",\"listOk\":true,\"pids\":[" + string.Join(",", pids.ToArray()) + "],\"processes\":[" + string.Join(",", procs.ToArray()) + "],\"active\":" + ActiveCount() + "}";
   }
   static void Cleanup() {
     if (attrList != IntPtr.Zero) { DeleteProcThreadAttributeList(attrList); Marshal.FreeHGlobal(attrList); attrList = IntPtr.Zero; }
@@ -168,7 +198,7 @@ public static class LrwJobLauncher {
       while ((line = Console.In.ReadLine()) != null) {
         var parts = line.Trim().Split(' ');
         if (parts.Length != 2 || parts[1] != nonce) continue;
-        if (parts[0] == "LIST") Status("{\"event\":\"members\",\"pids\":" + ListMembers() + ",\"active\":" + ActiveCount() + "}");
+        if (parts[0] == "LIST") Status(ListMembers());
         if (parts[0] == "TERMINATE") {
           bool ok = TerminateAndVerify(10000) && !hkVerifyFail;
           Status("{\"event\":\"terminated\",\"verified\":" + (ok ? "true" : "false") + "}");
@@ -246,6 +276,24 @@ export function buildEnvBlock(env: Record<string, string>): string {
 
 export type LauncherStatus = { event: string; [k: string]: unknown };
 
+/** One LIST reply: every job member pid with its membership-verified image, or why it is not known. */
+export type MembersSnapshot = {
+  listOk: boolean;
+  active: number;
+  processes: { pid: number; state: 'member' | 'gone' | 'unknown'; image?: string }[];
+};
+
+export function parseMembersStatus(s: LauncherStatus): MembersSnapshot | null {
+  if (s.event !== 'members' || typeof s.listOk !== 'boolean' || !Array.isArray(s.processes) || typeof s.active !== 'number') return null;
+  const processes: MembersSnapshot['processes'] = [];
+  for (const p of s.processes as Record<string, unknown>[]) {
+    if (!p || typeof p.pid !== 'number' || !['member', 'gone', 'unknown'].includes(String(p.state))) return null;
+    if (p.state === 'member' && typeof p.image !== 'string') return null;
+    processes.push({ pid: p.pid, state: p.state as 'member' | 'gone' | 'unknown', ...(typeof p.image === 'string' ? { image: p.image } : {}) });
+  }
+  return { listOk: s.listOk, active: s.active, processes };
+}
+
 /** Retention bounds (F5): nothing the harness or launcher prints can grow supervisor memory without limit. */
 export const LAUNCHER_BOUNDS = Object.freeze({ stdoutBytes: 4 * 1024 * 1024, statusEntries: 256, stderrLines: 256, lineChars: 4000 });
 
@@ -269,6 +317,8 @@ export type LauncherHandle = {
   /** Returns false when the control line could not be written (launcher unresponsive). */
   terminate(): boolean;
   list(): void;
+  /** §5.6 monitoring: one LIST round trip, bounded; null when no well-formed reply arrives in time. */
+  listMembers(timeoutMs: number): Promise<MembersSnapshot | null>;
   /** Kills the LAUNCHER through Node's own child handle (identity-bound). Never a numeric PID. */
   killLauncher(): void;
   exited: Promise<LauncherExit>;
@@ -345,6 +395,17 @@ export function startJobLauncher(cfg: LaunchConfig): LauncherHandle {
     child, nonce, statuses, harnessStdout, harnessStderr, overflow, exited,
     terminate: () => write(`TERMINATE ${nonce}\n`),
     list: () => { write(`LIST ${nonce}\n`); },
+    listMembers: async (timeoutMs) => {
+      const before = statuses.length;
+      if (overflow.statuses || !write(`LIST ${nonce}\n`)) return null;
+      const deadline = Date.now() + timeoutMs;
+      while (Date.now() < deadline) {
+        const reply = statuses.slice(before).find((s) => s.event === 'members');
+        if (reply) return parseMembersStatus(reply);
+        await new Promise((r) => setTimeout(r, 25));
+      }
+      return null;
+    },
     killLauncher: () => { try { child.kill('SIGKILL'); } catch (e) { noteError('kill')(e as Error); } },
   };
 }
