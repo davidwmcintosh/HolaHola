@@ -1,0 +1,316 @@
+/**
+ * Local Read-only Worker v1 — Windows Job Object launcher (design §5.6, rev b8fe5e66).
+ *
+ * The supervisor never spawns the harness directly. It spawns
+ *   powershell.exe -NoLogo -NoProfile -NonInteractive -EncodedCommand <LAUNCHER_SCRIPT>
+ * which compiles a small C# helper (Add-Type) that:
+ *   1. CreateJobObject(NULL)  -> non-inheritable, never duplicated, sole handle;
+ *      limits KILL_ON_JOB_CLOSE | DIE_ON_UNHANDLED_EXCEPTION; no breakaway flags.
+ *   2. STARTUPINFOEX with PROC_THREAD_ATTRIBUTE_JOB_LIST = {job} (child is CREATED
+ *      inside the job) and PROC_THREAD_ATTRIBUTE_HANDLE_LIST = {stdin/stdout/stderr
+ *      pipe ends only}, so the job handle is never inherited.
+ *   3. CreateProcessW(EXTENDED_STARTUPINFO_PRESENT|CREATE_SUSPENDED|CREATE_NO_WINDOW|
+ *      CREATE_UNICODE_ENVIRONMENT). Any attribute/creation failure => no child.
+ *   4. IsProcessInJob(hProcess, hJob) must be TRUE before ResumeThread.
+ *   5. Post-creation setup failure => TerminateJobObject + TerminateProcess(owned
+ *      handle), verify ActiveProcesses == 0, explicit cleanup. Never a numeric PID.
+ *   6. Control on stdin: "TERMINATE <nonce>" -> TerminateJobObject(own handle), poll
+ *      ActiveProcesses to 0 (<= 10 s) -> verified/unverified; "LIST <nonce>" -> job
+ *      member process ids (monitoring only, never kill targets).
+ * Protocol: harness stdout is relayed raw to launcher stdout; harness stderr lines are
+ * relayed as "H:<line>"; launcher status lines are "S:<json>" on stderr.
+ * Test hooks exist only when env LRW_ALLOW_TEST_HOOKS=1 AND the config requests them;
+ * they are part of the config object, so any hooked config has a different digest
+ * and can never match a qualified configuration.
+ */
+import { spawn, type ChildProcessWithoutNullStreams } from 'node:child_process';
+import { randomUUID } from 'node:crypto';
+import { sha256Hex } from '../../../shared/worker-contracts';
+
+const CSHARP = String.raw`
+using System;
+using System.Collections.Generic;
+using System.IO;
+using System.Runtime.InteropServices;
+using System.Text;
+using System.Threading;
+using Microsoft.Win32.SafeHandles;
+
+public static class LrwJobLauncher {
+  [StructLayout(LayoutKind.Sequential)] struct IO_COUNTERS { public ulong a,b,c,d,e,f; }
+  [StructLayout(LayoutKind.Sequential)] struct BASIC_LIMIT { public long PerProcessUserTimeLimit; public long PerJobUserTimeLimit; public uint LimitFlags; public UIntPtr MinimumWorkingSetSize; public UIntPtr MaximumWorkingSetSize; public uint ActiveProcessLimit; public UIntPtr Affinity; public uint PriorityClass; public uint SchedulingClass; }
+  [StructLayout(LayoutKind.Sequential)] struct EXT_LIMIT { public BASIC_LIMIT Basic; public IO_COUNTERS Io; public UIntPtr ProcessMemoryLimit; public UIntPtr JobMemoryLimit; public UIntPtr PeakProcessMemoryUsed; public UIntPtr PeakJobMemoryUsed; }
+  [StructLayout(LayoutKind.Sequential)] struct BASIC_ACCOUNTING { public long TotalUserTime; public long TotalKernelTime; public long ThisPeriodTotalUserTime; public long ThisPeriodTotalKernelTime; public uint TotalPageFaultCount; public uint TotalProcesses; public uint ActiveProcesses; public uint TotalTerminatedProcesses; }
+  [StructLayout(LayoutKind.Sequential, CharSet=CharSet.Unicode)] struct STARTUPINFO { public int cb; public string lpReserved; public string lpDesktop; public string lpTitle; public int dwX; public int dwY; public int dwXSize; public int dwYSize; public int dwXCountChars; public int dwYCountChars; public int dwFillAttribute; public int dwFlags; public short wShowWindow; public short cbReserved2; public IntPtr lpReserved2; public IntPtr hStdInput; public IntPtr hStdOutput; public IntPtr hStdError; }
+  [StructLayout(LayoutKind.Sequential)] struct STARTUPINFOEX { public STARTUPINFO StartupInfo; public IntPtr lpAttributeList; }
+  [StructLayout(LayoutKind.Sequential)] struct PROCESS_INFORMATION { public IntPtr hProcess; public IntPtr hThread; public int dwProcessId; public int dwThreadId; }
+  [StructLayout(LayoutKind.Sequential)] struct SECURITY_ATTRIBUTES { public int nLength; public IntPtr lpSecurityDescriptor; public bool bInheritHandle; }
+
+  [DllImport("kernel32.dll", SetLastError=true, CharSet=CharSet.Unicode)] static extern IntPtr CreateJobObjectW(IntPtr a, string name);
+  [DllImport("kernel32.dll", SetLastError=true)] static extern bool SetInformationJobObject(IntPtr job, int cls, ref EXT_LIMIT info, int len);
+  [DllImport("kernel32.dll", SetLastError=true)] static extern bool QueryInformationJobObject(IntPtr job, int cls, out BASIC_ACCOUNTING info, int len, IntPtr ret);
+  [DllImport("kernel32.dll", SetLastError=true)] static extern bool QueryInformationJobObject(IntPtr job, int cls, IntPtr info, int len, IntPtr ret);
+  [DllImport("kernel32.dll", SetLastError=true)] static extern bool TerminateJobObject(IntPtr job, uint code);
+  [DllImport("kernel32.dll", SetLastError=true)] static extern bool IsProcessInJob(IntPtr proc, IntPtr job, out bool result);
+  [DllImport("kernel32.dll", SetLastError=true)] static extern bool InitializeProcThreadAttributeList(IntPtr list, int count, int flags, ref IntPtr size);
+  [DllImport("kernel32.dll", SetLastError=true)] static extern bool UpdateProcThreadAttribute(IntPtr list, uint flags, IntPtr attr, IntPtr value, IntPtr size, IntPtr prev, IntPtr retSize);
+  [DllImport("kernel32.dll", SetLastError=true)] static extern void DeleteProcThreadAttributeList(IntPtr list);
+  [DllImport("kernel32.dll", SetLastError=true, CharSet=CharSet.Unicode)] static extern bool CreateProcessW(string app, StringBuilder cmd, IntPtr pa, IntPtr ta, bool inherit, uint flags, IntPtr env, string cwd, ref STARTUPINFOEX si, out PROCESS_INFORMATION pi);
+  [DllImport("kernel32.dll", SetLastError=true)] static extern uint ResumeThread(IntPtr thread);
+  [DllImport("kernel32.dll", SetLastError=true)] static extern bool TerminateProcess(IntPtr proc, uint code);
+  [DllImport("kernel32.dll", SetLastError=true)] static extern uint WaitForSingleObject(IntPtr h, uint ms);
+  [DllImport("kernel32.dll", SetLastError=true)] static extern bool GetExitCodeProcess(IntPtr h, out uint code);
+  [DllImport("kernel32.dll", SetLastError=true)] static extern bool CloseHandle(IntPtr h);
+  [DllImport("kernel32.dll", SetLastError=true)] static extern bool CreatePipe(out IntPtr r, out IntPtr w, ref SECURITY_ATTRIBUTES sa, int size);
+  [DllImport("kernel32.dll", SetLastError=true)] static extern bool SetHandleInformation(IntPtr h, int mask, int flags);
+
+  const uint EXTENDED_STARTUPINFO_PRESENT = 0x00080000, CREATE_SUSPENDED = 0x4, CREATE_NO_WINDOW = 0x08000000, CREATE_UNICODE_ENVIRONMENT = 0x400;
+  const int STARTF_USESTDHANDLES = 0x100, HANDLE_FLAG_INHERIT = 1;
+  static readonly IntPtr ATTR_HANDLE_LIST = (IntPtr)0x20002, ATTR_JOB_LIST = (IntPtr)0x2000D;
+  const uint LIMIT_KILL_ON_CLOSE = 0x2000, LIMIT_DIE_ON_UNHANDLED = 0x400;
+
+  static IntPtr job = IntPtr.Zero, hProcess = IntPtr.Zero, hThread = IntPtr.Zero, attrList = IntPtr.Zero;
+  static readonly object outLock = new object();
+  static Stream stdoutRaw;
+
+  static string Esc(string s) { return s.Replace("\\","\\\\").Replace("\"","\\\""); }
+  public static void Status(string json) { lock(outLock) { Console.Error.WriteLine("S:" + json); Console.Error.Flush(); } }
+
+  static uint ActiveCount() {
+    BASIC_ACCOUNTING a;
+    if (!QueryInformationJobObject(job, 1, out a, Marshal.SizeOf(typeof(BASIC_ACCOUNTING)), IntPtr.Zero)) return uint.MaxValue;
+    return a.ActiveProcesses;
+  }
+  static bool TerminateAndVerify(int ms) {
+    TerminateJobObject(job, 0xC0000005);
+    if (hProcess != IntPtr.Zero) TerminateProcess(hProcess, 0xC0000005);
+    int waited = 0;
+    while (waited <= ms) { uint n = ActiveCount(); if (n == 0) return true; Thread.Sleep(100); waited += 100; }
+    return false;
+  }
+  static string ListMembers() {
+    int size = 8 + 8 * 512; IntPtr buf = Marshal.AllocHGlobal(size);
+    try {
+      if (!QueryInformationJobObject(job, 3, buf, size, IntPtr.Zero)) return "[]";
+      int n = Marshal.ReadInt32(buf, 4); var ids = new List<string>();
+      for (int i = 0; i < n && i < 512; i++) ids.Add(((long)Marshal.ReadIntPtr(buf, 8 + i * IntPtr.Size)).ToString());
+      return "[" + string.Join(",", ids.ToArray()) + "]";
+    } finally { Marshal.FreeHGlobal(buf); }
+  }
+  static void Cleanup() {
+    if (attrList != IntPtr.Zero) { DeleteProcThreadAttributeList(attrList); Marshal.FreeHGlobal(attrList); attrList = IntPtr.Zero; }
+    if (hThread != IntPtr.Zero) { CloseHandle(hThread); hThread = IntPtr.Zero; }
+    if (hProcess != IntPtr.Zero) { CloseHandle(hProcess); hProcess = IntPtr.Zero; }
+  }
+
+  // Returns the launcher exit code. Job handle is closed only by process exit.
+  public static int Run(string exe, string cmdLine, string cwd, string envBlock, string nonce, string hooks, bool allowHooks) {
+    bool hkJobListFail = allowHooks && hooks.Contains("fail_job_list");
+    bool hkPause = allowHooks && hooks.Contains("pause_before_resume");
+    bool hkResumeFail = allowHooks && hooks.Contains("fail_resume");
+    bool hkNotInJob = allowHooks && hooks.Contains("fake_not_in_job");
+    bool hkVerifyFail = allowHooks && hooks.Contains("fail_cleanup_verify");
+    if (hooks.Length > 0 && !allowHooks) { Status("{\"event\":\"setup_failed\",\"stage\":\"hooks_not_allowed\"}"); return 70; }
+
+    job = CreateJobObjectW(IntPtr.Zero, null);
+    if (job == IntPtr.Zero) { Status("{\"event\":\"setup_failed\",\"stage\":\"create_job\",\"win32\":" + Marshal.GetLastWin32Error() + "}"); return 71; }
+    var lim = new EXT_LIMIT(); lim.Basic.LimitFlags = LIMIT_KILL_ON_CLOSE | LIMIT_DIE_ON_UNHANDLED;
+    if (!SetInformationJobObject(job, 9, ref lim, Marshal.SizeOf(typeof(EXT_LIMIT)))) { Status("{\"event\":\"setup_failed\",\"stage\":\"job_limits\"}"); return 71; }
+
+    var sa = new SECURITY_ATTRIBUTES(); sa.nLength = Marshal.SizeOf(sa); sa.bInheritHandle = true;
+    IntPtr inR, inW, outR, outW, errR, errW;
+    if (!CreatePipe(out inR, out inW, ref sa, 0) || !CreatePipe(out outR, out outW, ref sa, 0) || !CreatePipe(out errR, out errW, ref sa, 0)) { Status("{\"event\":\"setup_failed\",\"stage\":\"pipes\"}"); return 72; }
+    SetHandleInformation(inW, HANDLE_FLAG_INHERIT, 0); SetHandleInformation(outR, HANDLE_FLAG_INHERIT, 0); SetHandleInformation(errR, HANDLE_FLAG_INHERIT, 0);
+
+    IntPtr size = IntPtr.Zero; InitializeProcThreadAttributeList(IntPtr.Zero, 2, 0, ref size);
+    attrList = Marshal.AllocHGlobal(size);
+    if (!InitializeProcThreadAttributeList(attrList, 2, 0, ref size)) { Status("{\"event\":\"setup_failed\",\"stage\":\"attr_init\"}"); Cleanup(); return 73; }
+    IntPtr jobArr = Marshal.AllocHGlobal(IntPtr.Size); Marshal.WriteIntPtr(jobArr, job);
+    IntPtr hList = Marshal.AllocHGlobal(IntPtr.Size * 3); Marshal.WriteIntPtr(hList, 0, inR); Marshal.WriteIntPtr(hList, IntPtr.Size, outW); Marshal.WriteIntPtr(hList, IntPtr.Size * 2, errW);
+    bool jobAttrOk = !hkJobListFail && UpdateProcThreadAttribute(attrList, 0, ATTR_JOB_LIST, jobArr, (IntPtr)IntPtr.Size, IntPtr.Zero, IntPtr.Zero);
+    if (!jobAttrOk) { Status("{\"event\":\"setup_failed\",\"stage\":\"job_list_attribute\",\"win32\":" + Marshal.GetLastWin32Error() + "}"); Cleanup(); return 74; }
+    if (!UpdateProcThreadAttribute(attrList, 0, ATTR_HANDLE_LIST, hList, (IntPtr)(IntPtr.Size * 3), IntPtr.Zero, IntPtr.Zero)) { Status("{\"event\":\"setup_failed\",\"stage\":\"handle_list_attribute\"}"); Cleanup(); return 74; }
+
+    var si = new STARTUPINFOEX(); si.StartupInfo.cb = Marshal.SizeOf(typeof(STARTUPINFOEX)); si.StartupInfo.dwFlags = STARTF_USESTDHANDLES;
+    si.StartupInfo.hStdInput = inR; si.StartupInfo.hStdOutput = outW; si.StartupInfo.hStdError = errW; si.lpAttributeList = attrList;
+    IntPtr env = Marshal.StringToHGlobalUni(envBlock);
+    PROCESS_INFORMATION pi;
+    bool created = CreateProcessW(exe, new StringBuilder(cmdLine), IntPtr.Zero, IntPtr.Zero, true,
+      EXTENDED_STARTUPINFO_PRESENT | CREATE_SUSPENDED | CREATE_NO_WINDOW | CREATE_UNICODE_ENVIRONMENT, env, cwd, ref si, out pi);
+    Marshal.FreeHGlobal(env);
+    CloseHandle(inR); CloseHandle(outW); CloseHandle(errW); CloseHandle(inW);
+    if (!created) { Status("{\"event\":\"setup_failed\",\"stage\":\"create_process\",\"win32\":" + Marshal.GetLastWin32Error() + "}"); Cleanup(); return 75; }
+    hProcess = pi.hProcess; hThread = pi.hThread;
+
+    bool inJob; bool q = IsProcessInJob(hProcess, job, out inJob);
+    if (hkNotInJob) inJob = false;
+    if (!q || !inJob) {
+      bool ok = TerminateAndVerify(10000) && !hkVerifyFail;
+      Status("{\"event\":\"setup_failed\",\"stage\":\"membership\",\"cleanup\":\"" + (ok ? "verified" : "unverified") + "\"}"); Cleanup(); return ok ? 76 : 79;
+    }
+    Status("{\"event\":\"created\",\"rootPid\":" + pi.dwProcessId + ",\"suspended\":true}");
+    if (hkPause) { Status("{\"event\":\"paused_before_resume\"}"); Thread.Sleep(60000); }
+    if (hkResumeFail || ResumeThread(hThread) == 0xFFFFFFFF) {
+      bool ok = TerminateAndVerify(10000) && !hkVerifyFail;
+      Status("{\"event\":\"setup_failed\",\"stage\":\"resume\",\"cleanup\":\"" + (ok ? "verified" : "unverified") + "\"}"); Cleanup(); return ok ? 77 : 79;
+    }
+    Status("{\"event\":\"running\",\"rootPid\":" + pi.dwProcessId + "}");
+
+    stdoutRaw = Console.OpenStandardOutput();
+    var outPipe = new FileStream(new SafeFileHandle(outR, true), FileAccess.Read);
+    var errPipe = new StreamReader(new FileStream(new SafeFileHandle(errR, true), FileAccess.Read), Encoding.UTF8);
+    var tOut = new Thread(() => { var b = new byte[8192]; int n; while ((n = outPipe.Read(b, 0, b.Length)) > 0) { lock(outLock) { stdoutRaw.Write(b, 0, n); stdoutRaw.Flush(); } } });
+    var tErr = new Thread(() => { string line; while ((line = errPipe.ReadLine()) != null) { lock(outLock) { Console.Error.WriteLine("H:" + line); Console.Error.Flush(); } } });
+    tOut.IsBackground = true; tErr.IsBackground = true; tOut.Start(); tErr.Start();
+
+    var ctl = new Thread(() => {
+      string line;
+      while ((line = Console.In.ReadLine()) != null) {
+        var parts = line.Trim().Split(' ');
+        if (parts.Length != 2 || parts[1] != nonce) continue;
+        if (parts[0] == "LIST") Status("{\"event\":\"members\",\"pids\":" + ListMembers() + ",\"active\":" + ActiveCount() + "}");
+        if (parts[0] == "TERMINATE") {
+          bool ok = TerminateAndVerify(10000) && !hkVerifyFail;
+          Status("{\"event\":\"terminated\",\"verified\":" + (ok ? "true" : "false") + "}");
+          Environment.Exit(ok ? 80 : 79);
+        }
+      }
+    });
+    ctl.IsBackground = true; ctl.Start();
+
+    WaitForSingleObject(hProcess, 0xFFFFFFFF);
+    uint code; GetExitCodeProcess(hProcess, out code);
+    tOut.Join(5000); tErr.Join(5000);
+    uint remaining = ActiveCount();
+    if (remaining != 0) {
+      bool ok = TerminateAndVerify(10000) && !hkVerifyFail;
+      Status("{\"event\":\"root_exited\",\"exitCode\":" + code + ",\"descendantsTerminated\":true,\"verified\":" + (ok ? "true" : "false") + "}");
+      Cleanup(); return ok ? 0 : 79;
+    }
+    Status("{\"event\":\"root_exited\",\"exitCode\":" + code + ",\"verified\":true}");
+    Cleanup();
+    return 0;
+  }
+}
+`;
+
+/** PowerShell host script: reads one JSON config line from stdin, then runs the helper. */
+const HOST_PS = `
+$ErrorActionPreference = 'Stop'
+try { Add-Type -TypeDefinition @'
+${CSHARP}
+'@ -Language CSharp } catch { [Console]::Error.WriteLine('S:{"event":"setup_failed","stage":"add_type"}'); exit 78 }
+$cfg = [Console]::In.ReadLine() | ConvertFrom-Json
+$allow = ($env:LRW_ALLOW_TEST_HOOKS -eq '1')
+$hooks = [string]::Join(',', @($cfg.testHooks))
+exit [LrwJobLauncher]::Run([string]$cfg.exe, [string]$cfg.cmdLine, [string]$cfg.cwd, [string]$cfg.envBlock, [string]$cfg.nonce, $hooks, $allow)
+`;
+
+export const LAUNCHER_SCRIPT = HOST_PS;
+/** Part of the adapter configDigest (§6.3). */
+export const LAUNCHER_SHA256 = sha256Hex(Buffer.from(HOST_PS, 'utf8'));
+
+/**
+ * The full launcher exceeds the 32,767-character command-line limit as
+ * -EncodedCommand, so a small bootstrap receives it as the first stdin line
+ * (base64 UTF-8), verifies its sha256 against the pinned LAUNCHER_SHA256, and
+ * only then runs it. A mismatch exits 78 (setup failure, no harness).
+ */
+export const BOOTSTRAP_SCRIPT = `$ErrorActionPreference='Stop'
+$b=[Convert]::FromBase64String([Console]::In.ReadLine())
+$h=[BitConverter]::ToString([Security.Cryptography.SHA256]::Create().ComputeHash($b)).Replace('-','').ToLowerInvariant()
+if($h -ne '${LAUNCHER_SHA256}'){[Console]::Error.WriteLine('S:{"event":"setup_failed","stage":"launcher_digest"}');exit 78}
+. ([ScriptBlock]::Create([Text.Encoding]::UTF8.GetString($b)))`;
+
+/** Windows command-line quoting per CommandLineToArgvW rules. */
+export function quoteWindowsArg(arg: string): string {
+  if (arg.length > 0 && !/[\s"]/.test(arg)) return arg;
+  let out = '"';
+  let backslashes = 0;
+  for (const ch of arg) {
+    if (ch === '\\') { backslashes += 1; continue; }
+    if (ch === '"') { out += '\\'.repeat(backslashes * 2 + 1) + '"'; backslashes = 0; continue; }
+    out += '\\'.repeat(backslashes) + ch; backslashes = 0;
+  }
+  return `${out}${'\\'.repeat(backslashes * 2)}"`;
+}
+
+/** Unicode environment block: sorted KEY=VALUE entries, NUL-separated, double-NUL terminated. */
+export function buildEnvBlock(env: Record<string, string>): string {
+  const entries = Object.entries(env).sort(([a], [b]) => a.toUpperCase().localeCompare(b.toUpperCase()));
+  for (const [k, v] of entries) {
+    if (!k || k.includes('=') || k.includes('\0') || v.includes('\0')) throw new Error('env_invalid_entry');
+  }
+  return `${entries.map(([k, v]) => `${k}=${v}`).join('\0')}\0\0`;
+}
+
+export type LauncherStatus = { event: string; [k: string]: unknown };
+
+export type LauncherHandle = {
+  child: ChildProcessWithoutNullStreams;
+  nonce: string;
+  statuses: LauncherStatus[];
+  harnessStdout: Buffer[];
+  harnessStderr: string[];
+  terminate(): void;
+  list(): void;
+  /** Kills the LAUNCHER through Node's own child handle (identity-bound). Never a numeric PID. */
+  killLauncher(): void;
+  exited: Promise<{ code: number | null; signal: NodeJS.Signals | null }>;
+};
+
+export type LaunchConfig = {
+  exe: string;
+  args: readonly string[];
+  cwd: string;
+  env: Record<string, string>;
+  testHooks?: readonly string[];
+  /** Only for tests: allow the launcher to honour testHooks. */
+  allowTestHooks?: boolean;
+};
+
+export function startJobLauncher(cfg: LaunchConfig): LauncherHandle {
+  if (process.platform !== 'win32') throw new Error('job_launcher_requires_windows');
+  const nonce = randomUUID();
+  const encoded = Buffer.from(BOOTSTRAP_SCRIPT, 'utf16le').toString('base64');
+  const launcherEnv: Record<string, string> = {
+    SystemRoot: process.env.SystemRoot ?? 'C:\\Windows',
+    TEMP: process.env.TEMP ?? '', TMP: process.env.TMP ?? '',
+    ...(cfg.allowTestHooks ? { LRW_ALLOW_TEST_HOOKS: '1' } : {}),
+  };
+  const child = spawn(`${launcherEnv.SystemRoot}\\System32\\WindowsPowerShell\\v1.0\\powershell.exe`,
+    ['-NoLogo', '-NoProfile', '-NonInteractive', '-EncodedCommand', encoded],
+    { cwd: cfg.cwd, env: launcherEnv, windowsHide: true, stdio: ['pipe', 'pipe', 'pipe'] });
+  const statuses: LauncherStatus[] = [];
+  const harnessStdout: Buffer[] = [];
+  const harnessStderr: string[] = [];
+  child.stdout.on('data', (b: Buffer) => harnessStdout.push(b));
+  let errBuf = '';
+  child.stderr.on('data', (b: Buffer) => {
+    errBuf += b.toString('utf8');
+    let i: number;
+    while ((i = errBuf.indexOf('\n')) >= 0) {
+      const line = errBuf.slice(0, i).replace(/\r$/, ''); errBuf = errBuf.slice(i + 1);
+      if (line.startsWith('S:')) { try { statuses.push(JSON.parse(line.slice(2))); } catch { statuses.push({ event: 'malformed_status' }); } }
+      else if (line.startsWith('H:')) harnessStderr.push(line.slice(2));
+    }
+  });
+  const cmdLine = [cfg.exe, ...cfg.args].map(quoteWindowsArg).join(' ');
+  child.stdin.write(`${Buffer.from(LAUNCHER_SCRIPT, 'utf8').toString('base64')}\n`);
+  child.stdin.write(`${JSON.stringify({ exe: cfg.exe, cmdLine, cwd: cfg.cwd, envBlock: buildEnvBlock(cfg.env), nonce, testHooks: cfg.testHooks ?? [] })}\n`);
+  const exited = new Promise<{ code: number | null; signal: NodeJS.Signals | null }>((resolve) => child.on('exit', (code, signal) => resolve({ code, signal })));
+  return {
+    child, nonce, statuses, harnessStdout, harnessStderr, exited,
+    terminate: () => { child.stdin.write(`TERMINATE ${nonce}\n`); },
+    list: () => { child.stdin.write(`LIST ${nonce}\n`); },
+    killLauncher: () => { child.kill('SIGKILL'); },
+  };
+}
+
+/** Launcher exit codes: 0 root exited & job empty; 70-78 setup failures (no harness ran); 79 unverified; 80 terminated & verified. */
+export function interpretLauncherExit(code: number | null): 'completed' | 'harness_unavailable' | 'termination_unverified' | 'terminated_verified' {
+  if (code === 0) return 'completed';
+  if (code === 80) return 'terminated_verified';
+  if (code !== null && code >= 70 && code <= 78) return 'harness_unavailable';
+  return 'termination_unverified';
+}
