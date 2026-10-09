@@ -123,6 +123,9 @@ commands.splice(safetyInsertion, 0,
   // D1: structured create-payload wiring through the real route/auth, client and CLI;
   // acceptance cases run only against the verified job-local CI database.
   'npx tsx --test --test-concurrency=1 server/scripts/test-worker-job-create-wiring.test.ts',
+  // Real-HTTP / exact-envelope proof: the real supervisor and production HTTP port against the
+  // production coordination and charter routes; runs only on the verified job-local CI database.
+  'npx tsx --test --test-concurrency=1 server/scripts/test-local-worker-real-http.test.ts',
 
   // Coordination CLI cross-invocation credential cache: lets a runtime run
   // more than one coordination-cli.ts command per bootstrap instead of
