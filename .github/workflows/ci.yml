@@ -262,6 +262,17 @@ jobs:
         shell: pwsh
         run: npx --no-install tsx --test --test-concurrency=1 server/services/local-worker/job-launcher.test.ts
 
+      - name: Run Local Read-only Worker native Windows state store tests
+        shell: pwsh
+        run: |
+          npx --no-install tsx --test --test-concurrency=1 --test-reporter=tap server/services/local-worker/ports.test.ts | Tee-Object -Variable tap
+          $code = $LASTEXITCODE
+          if ($code -ne 0) { Write-Error "[ci] ports.test.ts exited with $code"; exit $code }
+          # The Windows-gated state-store tests must actually run here, not skip.
+          $summary = $tap | Select-String -Pattern '^# skipped (\d+)$' | Select-Object -Last 1
+          $skipped = if ($summary) { $summary.Matches[0].Groups[1].Value } else { 'missing' }
+          if ($skipped -ne '0') { Write-Error "[ci] ports.test.ts skipped count was '$skipped', expected 0"; exit 1 }
+
   test:
     if: ${{ always() }}
     needs:
