@@ -284,7 +284,7 @@ const canon = (v: unknown) => mods.contracts.canonicalJson(v);
 // Proofs (real routes, real HTTP port, real database)
 // ---------------------------------------------------------------------------
 
-test('charter-gate negatives: neither the originator nor the worker can create, approve or revoke a charter; no credential is refused too', { skip }, async () => {
+test('charter-gate negatives: neither the originator nor the worker can create, approve or revoke a charter', { skip }, async () => {
   const id = randomUUID();
   for (const actor of [ORIGIN, W] as const) {
     const c = await call('POST', '/api/worker-charters', actor, { id, body: charterBody() });
@@ -297,8 +297,9 @@ test('charter-gate negatives: neither the originator nor the worker can create, 
       assert.ok(r.status === 401 || r.status === 403, `${actor} ${op} must be refused (got ${r.status})`);
     }
   }
-  const anon = await call('POST', `/api/worker-charters/${ch.id}/versions/1/revoke`, null, {});
-  assert.ok(anon.status >= 400, `unauthenticated revoke must be refused (got ${anon.status})`);
+  // No no-token case here: without x-coordination-token the production gate falls through to the
+  // founder web-session chain (Passport/session from setupAuth), which this test app deliberately
+  // does not install — CI run 38006302656 showed that case only exercises missing session wiring.
   const still = await call('GET', `/api/worker-charters/${ch.id}/versions/1`, W);
   assert.equal(still.body.approvalState, 'approved', 'refused calls changed nothing');
 });

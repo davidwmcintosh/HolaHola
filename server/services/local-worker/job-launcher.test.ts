@@ -115,17 +115,30 @@ test('bootstrap refuses a launcher whose sha256 does not match the pin', { skip 
 
 test('child and grandchild are job members and TERMINATE ends both with verification', { skip }, async () => {
   const h = startJobLauncher({ exe: PS, args: sleeperArgs('Write-Output "hello"; '), cwd: process.cwd(), env: ENV() });
-  await wait(6000);
-  const pids = await membersOf(h);
-  // A count alone is not proof (conhost.exe is also a member): require the actual cmd and ping descendants.
-  const snap = await h.listMembers(5000);
-  const images = (snap?.processes ?? []).map((p) => (p.image ?? '').toLowerCase());
-  assert.ok(images.some((i) => i.endsWith('\\cmd.exe')) && images.some((i) => i.endsWith('\\ping.exe')), `descendants: ${images.join(', ')}`);
-  assert.ok(pids.length >= 3, `expected >=3 job members, got ${JSON.stringify(pids)}`);
-  h.terminate();
-  const ex = await exitOf(h);
-  assert.equal(interpretLauncherExit(ex.code), 'terminated_verified');
-  assert.equal(h.statuses.at(-1)?.verified, true);
+  let pids: number[] = [];
+  let terminated = false;
+  try {
+    // Poll (bounded, 30 s) until the sleeper's cmd and ping descendants exist: a fixed 6 s wait
+    // was too short on GitHub's windows-latest runner (CI run 38006302656).
+    // A count alone is not proof (conhost.exe is also a member): require the actual cmd and ping images.
+    let snap = await h.listMembers(5000);
+    const has = (s: typeof snap) => {
+      const im = (s?.processes ?? []).filter((p) => p.state === 'member').map((p) => (p.image ?? '').toLowerCase());
+      return im.some((i) => i.endsWith('\\cmd.exe')) && im.some((i) => i.endsWith('\\ping.exe'));
+    };
+    for (let i = 0; i < 30 && !has(snap); i += 1) { await wait(1000); snap = await h.listMembers(5000); }
+    const images = (snap?.processes ?? []).map((p) => (p.image ?? '').toLowerCase());
+    assert.ok(has(snap), `descendants: ${images.join(', ')}`);
+    pids = (snap?.processes ?? []).filter((p) => p.state === 'member').map((p) => p.pid);
+    assert.ok(pids.length >= 3, `expected >=3 job members, got ${JSON.stringify(pids)}`);
+    h.terminate();
+    terminated = true;
+    const ex = await exitOf(h);
+    assert.equal(interpretLauncherExit(ex.code), 'terminated_verified');
+    assert.equal(h.statuses.at(-1)?.verified, true);
+  } finally {
+    if (!terminated) { h.terminate(); await exitOf(h); }
+  }
   await wait(500);
   for (const pid of pids) assert.equal(alive(pid), false, `job member ${pid} survived`);
   assert.match(Buffer.concat(h.harnessStdout).toString(), /hello/);
