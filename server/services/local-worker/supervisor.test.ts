@@ -43,6 +43,7 @@ type SetupOpts = {
   stage?: HostPort['stage'];
   launchThrows?: boolean;
   stdoutText?: string;
+  treeSize?: number;
   members?: (n: number) => MembersSnapshot | null;
   pageMode?: 'normal' | 'incompleteThenFail' | 'staleCount' | 'freshCountFails' | 'freshCountHigher';
 };
@@ -51,8 +52,8 @@ function charterBody(o: SetupOpts): WorkerCharterBody {
   return {
     schema: 'hh.worker.charter.v1', workerActor: W, host: 'LITTLENEMO', originators: ['luca-replit'], kinds: ['doc_inspect'],
     pathAllowlist: ['docs/**'], pathDenylist: [...WORKER_MINIMUM_DENYLIST], authProfiles: o.authProfiles ?? ['subscription'], models: ['sonnet'],
-    qualifiedHarnesses: o.qualified === false ? [] : (['subscription', 'api'] as const).map((p) => (
-      { adapter: 'claude-cli' as const, executableSha256: EXE_SHA, version: '2.1.289', configDigest: configDigest('claude-cli', p), qualificationRef: 'test' })),
+    qualifiedHarnesses: o.qualified === false ? [] : (['claude-cli', 'claude-cli-nofiletools'] as const).flatMap((a) => (['subscription', 'api'] as const).map((p) => (
+      { adapter: a, executableSha256: EXE_SHA, version: '2.1.289', configDigest: configDigest(a, p), qualificationRef: 'test' }))),
     limits: { maxJobsPerWindow: 5, maxRuntimeSec: 600, maxApiBudgetUsdPerJob: 1, pollIntervalSec: 300, ...o.charterOver },
     window: { notBefore: '2026-10-08T00:00:00.000Z', notAfter: '2026-10-09T00:00:00.000Z' },
   };
@@ -134,6 +135,7 @@ function setup(opts: SetupOpts = {}) {
   let sleeps = 0;
   let launches = 0;
   let listCallsHost = 0;
+  const launchCfgs: { exe: string; args: string[]; cwd: string; env: Record<string, string> }[] = [];
   let exitNow: (v: LaunchExit) => void = () => undefined;
   const host: HostPort = {
     now: () => now,
@@ -145,15 +147,16 @@ function setup(opts: SetupOpts = {}) {
     fetchOrigin: async () => true,
     commitExists: (c) => c === COMMIT,
     isAncestorOfOriginMain: (c) => c === COMMIT,
-    lsTree: () => [{ mode: '100644', type: 'blob', size: 30, path: 'docs/a.md' }],
+    lsTree: () => [{ mode: '100644', type: 'blob', size: opts.treeSize ?? 30, path: 'docs/a.md' }],
     resolveHarness: async () => ({ path: 'C:\\x\\claude.exe', version: '2.1.289', sha256: EXE_SHA }),
     stage: opts.stage ?? ((_c, files): StagedInput => { staged.push(...files.map((f) => f.path)); return { dir: 'C:\\hh-w\\test\\in', baseline: new Map([['docs/a.md', Buffer.from('x')]]) }; }),
     removeStaging: (d) => { removed.push(d); },
     verifyStaged: opts.verifyStaged ?? (() => ({ ok: true })),
     validate: opts.validate ?? goodValidate,
-    launch: () => {
+    launch: (cfg) => {
       if (opts.launchThrows) throw new Error('spawn EINVAL');
       launches += 1;
+      launchCfgs.push(cfg);
       const mode = opts.launch ?? 'ok';
       let resolveExit!: (v: LaunchExit) => void;
       const exited = new Promise<LaunchExit>((r) => { resolveExit = r; });
@@ -200,7 +203,7 @@ function setup(opts: SetupOpts = {}) {
   const entries = () => [...outbox.values()] as OutboxEntry[];
   return {
     fake, ledger, host, state, appends, staged, removed, receipts, outbox, entries, hooks, scan, ids, T: ids[0],
-    launches: () => launches, listCalls: () => listCalls, listCallsHost: () => listCallsHost, exitNow: (v: LaunchExit) => exitNow(v), setLocked: (v: boolean) => { locked = v; },
+    launches: () => launches, launchCfgs, listCalls: () => listCalls, listCallsHost: () => listCallsHost, exitNow: (v: LaunchExit) => exitNow(v), setLocked: (v: boolean) => { locked = v; },
     events: (type: string) => fake.events.filter((e) => e.eventType === type),
   };
 }
@@ -783,4 +786,49 @@ test('R4 a throwing validation port becomes a fenced blocked failure, never an e
   const t = setup({ verifyStaged: () => { throw new Error('io'); } });
   const r2 = await runSupervisor(opts(), t.ledger, t.host, t.state);
   assert.deepEqual(r2.outcomes, [{ threadId: t.T, outcome: 'schema_invalid' }]);
+});
+
+// --- Review 610d057b F-B: execute-to-prompt wiring for claude-cli-nofiletools ---------------------
+
+test('F-B the no-file-tools adapter launches with --tools "" and a prompt embedding ONLY the staged baseline bytes', async () => {
+  const s = setup({ stage: () => ({ dir: 'C:\\hh-w\\nf\\in', baseline: new Map([['docs/a.md', Buffer.from('approved line one\napproved line two\n')]]) }) });
+  const r = await runSupervisor(opts({ adapter: 'claude-cli-nofiletools' }), s.ledger, s.host, s.state);
+  assert.deepEqual(r.outcomes, [{ threadId: s.T, outcome: 'completed' }]);
+  assert.equal(s.launchCfgs.length, 1);
+  const args = s.launchCfgs[0].args;
+  assert.equal(args[args.indexOf('--tools') + 1], '');
+  const prompt = args[args.indexOf('-p') + 1];
+  assert.ok(prompt.includes('APPROVED EXCERPTS (the only content you may use):\n--- docs/a.md ---\napproved line one\napproved line two\n'));
+  assert.ok(s.receipts.some((x) => x.kind === 'nofiletools_excerpts' && (x.data.files as { path: string }[])[0].path === 'docs/a.md'));
+});
+
+test('F-B the file-tools adapter never embeds staged content in its prompt', async () => {
+  const s = setup({ stage: () => ({ dir: 'C:\\hh-w\\ft\\in', baseline: new Map([['docs/a.md', Buffer.from('secret-looking-but-staged\n')]]) }) });
+  await runSupervisor(opts(), s.ledger, s.host, s.state);
+  const prompt = s.launchCfgs[0].args[s.launchCfgs[0].args.indexOf('-p') + 1];
+  assert.equal(prompt.includes('APPROVED EXCERPTS'), false);
+  assert.equal(prompt.includes('secret-looking-but-staged'), false);
+});
+
+test('F-B an over-bound selection is a deterministic job-intrinsic refusal BEFORE claim (no truncation, no launch)', async () => {
+  const s = setup({ treeSize: 20_001 });
+  const r = await runSupervisor(opts({ adapter: 'claude-cli-nofiletools', untilMs: T0 + 1 }), s.ledger, s.host, s.state);
+  assert.equal(s.events('accepted').length, 0);
+  assert.equal(s.launches(), 0);
+  assert.ok(r.decisions.some((d) => d.decision === 'ineligible:path_file_exceeds_nofiletools_bound'));
+  const c = s.events('comment');
+  assert.equal(c.length, 1);
+  assert.equal((c[0].payload as { reasonCode: string }).reasonCode, 'path_file_exceeds_nofiletools_bound');
+});
+
+test('F-B non-UTF-8 or missing staged input after claim is a fenced blocked failure, never a launch', async () => {
+  const s = setup({ stage: () => ({ dir: 'C:\\hh-w\\nf2\\in', baseline: new Map([['docs/a.md', Buffer.from([0xff, 0xfe, 0x00])]]) }) });
+  const r = await runSupervisor(opts({ adapter: 'claude-cli-nofiletools' }), s.ledger, s.host, s.state);
+  assert.deepEqual(r.outcomes, [{ threadId: s.T, outcome: 'harness_unavailable' }]);
+  assert.equal(s.launches(), 0);
+  assert.equal((s.events('blocked')[0].payload as { detail: string }).detail, 'nofiletools_input_not_utf8');
+  const m = setup({ stage: () => ({ dir: 'C:\\hh-w\\nf3\\in', baseline: new Map() }) });
+  const rm = await runSupervisor(opts({ adapter: 'claude-cli-nofiletools' }), m.ledger, m.host, m.state);
+  assert.deepEqual(rm.outcomes, [{ threadId: m.T, outcome: 'harness_unavailable' }]);
+  assert.equal((m.events('blocked')[0].payload as { detail: string }).detail, 'nofiletools_input_missing');
 });

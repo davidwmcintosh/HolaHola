@@ -15,7 +15,10 @@ import {
   type WorkerCharterBody, type WorkerFailureClass, type WorkerJob,
 } from '../../../shared/worker-contracts';
 import { evaluateJobAuthority, type CharterRecord } from './authority';
-import { MONITOR_INTERVAL_MS, buildHarnessArgs, buildHarnessEnv, buildPrompt, configDigest, isAllowedImage, isQualified, type AdapterName } from './adapter';
+import {
+  MONITOR_INTERVAL_MS, buildHarnessArgs, buildHarnessEnv, buildPrompt, configDigest, isAllowedImage, isQualified,
+  nofiletoolsExcerpts, nofiletoolsSizeCheck, type AdapterName,
+} from './adapter';
 import { interpretLauncherExit, type MembersSnapshot } from './job-launcher';
 import {
   checkFence, compareEventToEntry, decideClaimOutcome, decideResend, decideWatchdog, freezeOutboxEntry, isIntactOutboxEntry,
@@ -251,16 +254,20 @@ export async function runSupervisor(o: SupervisorOptions, ledger: LedgerPort, ho
           tree: typeof jobPayload.commit === 'string' ? host.lsTree(jobPayload.commit) : null,
           harnessQualified: qualified,
         });
-        if (!decision.eligible) {
-          report.decisions.push({ threadId, decision: `ineligible:${decision.reason}` });
-          if (isJobIntrinsic(decision.reason)) {
+        // F-B: the no-file-tools adapter embeds staged content, so its byte bounds are part of
+        // eligibility (checked on Git tree sizes before claim; a job-intrinsic refusal).
+        const nofiletoolsBound = decision.eligible && o.adapter === 'claude-cli-nofiletools' ? nofiletoolsSizeCheck(decision.stagingFiles) : { ok: true as const };
+        if (!decision.eligible || !nofiletoolsBound.ok) {
+          const reasonCode = !decision.eligible ? decision.reason : (nofiletoolsBound as { reason: string }).reason;
+          report.decisions.push({ threadId, decision: `ineligible:${reasonCode}` });
+          if (isJobIntrinsic(reasonCode)) {
             if (!o.planOnly && view.value.thread.intendedRecipient === o.workerActor && ['created', 'delivered'].includes(view.value.thread.state)) {
-              const r = await sendRejection(ctx, view.value, decision.reason);
+              const r = await sendRejection(ctx, view.value, reasonCode);
               if (r === 'conflict') { report.halted = 'idempotency_conflict'; return 'terminal'; }
             }
             return 'terminal';
           }
-          return PERMANENT_FOR_WORKER.has(decision.reason) ? 'terminal' : 'retry';
+          return PERMANENT_FOR_WORKER.has(reasonCode) ? 'terminal' : 'retry';
         }
         // F4: the harness configuration must be complete BEFORE claiming (e.g. the designated API key).
         try { buildHarnessEnv(decision.job.authProfile, host.env(), o.designatedApiKey); } catch (e) {
@@ -399,8 +406,18 @@ export async function runSupervisor(o: SupervisorOptions, ledger: LedgerPort, ho
           }
           let launchCfg: { exe: string; args: string[]; cwd: string; env: Record<string, string> };
           try {
-            launchCfg = { exe: harness.path, args: buildHarnessArgs(job, o.adapter, buildPrompt(job)), cwd: staged.dir, env: buildHarnessEnv(job.authProfile, host.env(), o.designatedApiKey) };
+            launchCfg = { exe: harness.path, args: [], cwd: staged.dir, env: buildHarnessEnv(job.authProfile, host.env(), o.designatedApiKey) };
           } catch { return await fail('harness_unavailable', 'launch', true, 'harness_config_invalid'); }
+          // F-B: claude-cli-nofiletools gets ONLY the approved staged baseline content, bounded and
+          // UTF-8 checked; any refusal is deterministic and nothing is truncated or read live.
+          let excerpts: { path: string; text: string }[] | undefined;
+          if (o.adapter === 'claude-cli-nofiletools') {
+            const ex = nofiletoolsExcerpts(files, staged.baseline);
+            if (!ex.ok) return await fail('harness_unavailable', 'staging', true, ex.reason);
+            excerpts = ex.excerpts.map(({ path, text }) => ({ path, text }));
+            state.receipt(threadId, 'nofiletools_excerpts', { claimKey, files: ex.excerpts.map(({ path, sha256 }) => ({ path, sha256 })) });
+          }
+          try { launchCfg.args = buildHarnessArgs(job, o.adapter, buildPrompt(job, excerpts)); } catch { return await fail('harness_unavailable', 'launch', true, 'harness_config_invalid'); }
           let h: LaunchHandle;
           try { h = host.launch(launchCfg); } catch { return await fail('harness_unavailable', 'launch', true, 'launch_failed'); }
 

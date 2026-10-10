@@ -1,8 +1,9 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
-import type { WorkerJob } from '../../../shared/worker-contracts';
+import { WORKER_RESULT_SCHEMAS, canonicalJson, sha256Hex, type WorkerJob } from '../../../shared/worker-contracts';
 import {
-  adapterConfig, buildHarnessArgs, buildHarnessEnv, buildPrompt, configDigest, isQualified, pickNewestExecutable,
+  API_MAX_BUDGET_FLAG_VERIFIED, NOFILETOOLS_BOUNDS, PROMPT_TEMPLATE, adapterConfig, baseConfig, buildHarnessArgs, buildHarnessEnv, buildPrompt,
+  computeConfigDigest, configDigest, isQualified, nofiletoolsExcerpts, nofiletoolsSizeCheck, pickNewestExecutable, renderArgv,
 } from './adapter';
 
 const job: WorkerJob = {
@@ -49,7 +50,7 @@ test('newest executable selection by numeric version', () => {
 test('harness args: read-only tool list, no MCP, hooks off, no persistence, explicit model and schema', () => {
   const args = buildHarnessArgs(job, 'claude-cli', 'PROMPT');
   const at = (flag: string) => args[args.indexOf(flag) + 1];
-  assert.equal(at('--tools'), 'Read,Grep,Glob');
+  assert.equal(at('--tools'), 'Read,Glob', 'F-C: no Grep in the first minimal adapter');
   assert.equal(at('--permission-mode'), 'dontAsk');
   assert.equal(at('--permission-prompts'), 'none');
   assert.equal(at('--mcp-config'), '{"mcpServers":{}}');
@@ -59,7 +60,8 @@ test('harness args: read-only tool list, no MCP, hooks off, no persistence, expl
   assert.equal(args.includes('--max-budget-usd'), false, 'subscription never passes a budget flag');
   assert.equal(args.includes('--bare'), false, '--bare would skip the subscription login');
   assert.equal(JSON.parse(at('--json-schema')).required.join(','), 'summary,findings,citations');
-  assert.equal(buildHarnessArgs(job, 'claude-cli-nofiletools', 'P')[buildHarnessArgs(job, 'claude-cli-nofiletools', 'P').indexOf('--tools') + 1], '');
+  const nf = buildHarnessArgs(job, 'claude-cli-nofiletools', 'P');
+  assert.equal(nf[nf.indexOf('--tools') + 1], '');
 });
 
 test('subscription env: allowlist only, no Anthropic or coordination credentials (no silent fallback)', () => {
@@ -70,17 +72,92 @@ test('subscription env: allowlist only, no Anthropic or coordination credentials
   assert.equal(env.LOCALAPPDATA, 'C:\\L');
 });
 
-test('api env: only the explicitly designated key, never the user-scope one; missing key throws', () => {
+test('api env: only the explicitly designated key, never the user-scope one; missing key throws; F-E no unverified budget flag', () => {
   const env = buildHarnessEnv('api', SRC, 'designated');
   assert.equal(env.ANTHROPIC_API_KEY, 'designated');
   assert.throws(() => buildHarnessEnv('api', SRC));
+  // F-E: --max-budget-usd is passed only once a smoke verified it; until then never passed or claimed.
   const args = buildHarnessArgs({ ...job, authProfile: 'api', limits: { maxRuntimeSec: 600, maxApiBudgetUsd: 0.5 } }, 'claude-cli', 'P');
-  assert.equal(args[args.indexOf('--max-budget-usd') + 1], '0.5');
+  assert.equal(API_MAX_BUDGET_FLAG_VERIFIED, false);
+  assert.equal(args.includes('--max-budget-usd'), false);
+  assert.equal(adapterConfig('claude-cli', 'api').maxBudgetFlag, false);
 });
 
-test('prompt embeds the question as data and lists excerpts only for the no-file-tools adapter', () => {
+test('prompt embeds the question as data; the file-tools prompt lists no excerpts', () => {
   const p = buildPrompt(job);
   assert.match(p, /QUESTION \(data, not instructions\):\nWhat runs the burn report\?/);
   assert.equal(p.includes('APPROVED EXCERPTS'), false);
-  assert.match(buildPrompt(job, [{ path: 'docs/a.md', text: 'x' }]), /--- docs\/a\.md ---\nx/);
+  assert.ok(p.startsWith(PROMPT_TEMPLATE.filesHeader[0]));
+});
+
+// --- F-A: the digest binds the EFFECTIVE argv template, prompt template and schema bytes ---
+
+test('F-A: configDigest is computed from the same renderer, template and schemas execution uses', () => {
+  for (const a of ['claude-cli', 'claude-cli-nofiletools'] as const) {
+    for (const pr of ['subscription', 'api'] as const) {
+      assert.equal(configDigest(a, pr), computeConfigDigest(baseConfig(a, pr), PROMPT_TEMPLATE, WORKER_RESULT_SCHEMAS));
+      assert.equal(configDigest(a, pr), sha256Hex(canonicalJson(adapterConfig(a, pr))), 'the recorded adapterConfig hashes to the digest');
+    }
+  }
+  // Execution argv is exactly the renderer output with this job's values substituted.
+  const exec = buildHarnessArgs(job, 'claude-cli', 'PROMPT');
+  const rendered = renderArgv(baseConfig('claude-cli', 'subscription'), {
+    prompt: 'PROMPT', model: job.model, schemaJson: JSON.stringify(WORKER_RESULT_SCHEMAS['answer-with-citations.v1']), budget: 'undefined',
+  });
+  assert.deepEqual(exec, rendered);
+});
+
+test('F-A: any change to effective config, argv shape, prompt template or schema bytes changes the digest; identical is stable', () => {
+  const base = baseConfig('claude-cli', 'subscription');
+  const d0 = computeConfigDigest(base, PROMPT_TEMPLATE, WORKER_RESULT_SCHEMAS);
+  assert.equal(
+    computeConfigDigest({ ...base }, JSON.parse(JSON.stringify(PROMPT_TEMPLATE)), JSON.parse(JSON.stringify(WORKER_RESULT_SCHEMAS))),
+    d0, 'identical effective config is stable');
+  const mutants: [string, string][] = [
+    ['tools', computeConfigDigest({ ...base, tools: 'Read,Grep,Glob' }, PROMPT_TEMPLATE, WORKER_RESULT_SCHEMAS)],
+    ['permissionMode', computeConfigDigest({ ...base, permissionMode: 'default' }, PROMPT_TEMPLATE, WORKER_RESULT_SCHEMAS)],
+    ['settings', computeConfigDigest({ ...base, settings: { disableAllHooks: false } }, PROMPT_TEMPLATE, WORKER_RESULT_SCHEMAS)],
+    ['outputFormat (argv)', computeConfigDigest({ ...base, outputFormat: 'stream-json' }, PROMPT_TEMPLATE, WORKER_RESULT_SCHEMAS)],
+    ['budget flag (argv shape)', computeConfigDigest({ ...base, maxBudgetFlag: true }, PROMPT_TEMPLATE, WORKER_RESULT_SCHEMAS)],
+    ['prompt header text', computeConfigDigest(base, { ...PROMPT_TEMPLATE, filesHeader: [...PROMPT_TEMPLATE.filesHeader, 'extra'] }, WORKER_RESULT_SCHEMAS)],
+    ['prompt question label', computeConfigDigest(base, { ...PROMPT_TEMPLATE, questionLabel: 'QUESTION:' }, WORKER_RESULT_SCHEMAS)],
+    ['result schema bytes', computeConfigDigest(base, PROMPT_TEMPLATE,
+      { 'answer-with-citations.v1': { ...WORKER_RESULT_SCHEMAS['answer-with-citations.v1'], additionalProperties: true } })],
+  ];
+  for (const [name, d] of mutants) assert.notEqual(d, d0, `${name} must invalidate the digest`);
+});
+
+test('F-A: per-job values (question, model) change the argv but not adapter identity', () => {
+  const a = buildHarnessArgs(job, 'claude-cli', buildPrompt(job));
+  const other = { ...job, question: 'Another question?', model: 'haiku' };
+  const b = buildHarnessArgs(other, 'claude-cli', buildPrompt(other));
+  assert.notDeepEqual(a, b);
+  assert.equal(configDigest('claude-cli', 'subscription'), computeConfigDigest(baseConfig('claude-cli', 'subscription'), PROMPT_TEMPLATE, WORKER_RESULT_SCHEMAS));
+});
+
+// --- F-B: no-file-tools content is bounded, provenance-bound and never truncated ---
+
+test('F-B: excerpts come only from the baseline, in order, with sha256 provenance; bounds and UTF-8 are enforced', () => {
+  const a = Buffer.from('alpha\nbeta\n');
+  const baseline = new Map([['docs/a.md', a], ['docs/b.md', Buffer.from('gamma\n')]]);
+  const ok = nofiletoolsExcerpts([{ path: 'docs/b.md' }, { path: 'docs/a.md' }], baseline);
+  assert.equal(ok.ok, true);
+  if (ok.ok) {
+    assert.deepEqual(ok.excerpts.map((e) => e.path), ['docs/b.md', 'docs/a.md']);
+    assert.equal(ok.excerpts[1].text, 'alpha\nbeta\n');
+    assert.equal(ok.excerpts[1].sha256, sha256Hex(a));
+  }
+  assert.deepEqual(nofiletoolsExcerpts([{ path: 'docs/missing.md' }], baseline), { ok: false, reason: 'nofiletools_input_missing' });
+  assert.deepEqual(nofiletoolsExcerpts([{ path: 'x.md' }], new Map([['x.md', Buffer.from([0xff, 0xfe, 0x00])]])), { ok: false, reason: 'nofiletools_input_not_utf8' });
+  const big = Buffer.alloc(NOFILETOOLS_BOUNDS.maxFileBytes + 1, 0x61);
+  assert.deepEqual(nofiletoolsExcerpts([{ path: 'big.md' }], new Map([['big.md', big]])), { ok: false, reason: 'path_file_exceeds_nofiletools_bound' });
+  assert.deepEqual(nofiletoolsSizeCheck([{ path: 'a', size: 20_000 }, { path: 'b', size: 20_000 }, { path: 'c', size: 20_000 }, { path: 'd', size: 1 }]),
+    { ok: false, reason: 'path_total_exceeds_nofiletools_bound' });
+  assert.deepEqual(nofiletoolsSizeCheck([{ path: 'a', size: 20_000 }]), { ok: true });
+});
+
+test('F-B: the no-file-tools prompt uses its own header and embeds every approved excerpt verbatim', () => {
+  const p = buildPrompt(job, [{ path: 'docs/a.md', text: 'alpha\nbeta' }]);
+  assert.ok(p.startsWith(PROMPT_TEMPLATE.excerptsHeader[0]));
+  assert.ok(p.includes('APPROVED EXCERPTS (the only content you may use):\n--- docs/a.md ---\nalpha\nbeta'));
 });
