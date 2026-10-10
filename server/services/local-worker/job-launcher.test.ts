@@ -113,11 +113,15 @@ test('bootstrap refuses a launcher whose sha256 does not match the pin', { skip 
   assert.match(err, /launcher_digest/);
 });
 
-// Wall-clock bounds for the two phases of the grandchild test (CI run 38022306429: no cmd/ping
-// member appeared and the old message could not say why). Readiness: the root has printed "hello",
-// proving PowerShell is executing the command before Start-Process. Membership: cmd and ping are
-// both job members. Each bound is a deadline, not an iteration count; a LIST in flight at the
-// deadline may overrun it by at most its own 5 s timeout.
+// Wall-clock observation budgets for the two phases of the grandchild test (CI run 38022306429:
+// no cmd/ping member appeared and the old message could not say why). Readiness: "hello" has been
+// observed on the root's stdout. Membership: cmd and ping are both observed as job members. Each
+// budget is a deadline, not an iteration count: no LIST starts after it, the pause between LISTs
+// is cut to the time remaining, and a LIST already in flight may finish up to its own 5 s timeout
+// late (plus scheduling jitter). These are finite diagnostic budgets, not measured or proven
+// performance thresholds and not a flake fix: 60 s is a generous choice with no cold-start data
+// behind it, kept well inside the sleepers' 120 s lifetime so cmd/ping cannot expire before the
+// membership phase ends (worst case before cleanup: 60 + 30 + 5 s plus jitter).
 const GRANDCHILD_READY_MS = 60_000;
 const GRANDCHILD_MEMBERS_MS = 30_000;
 
@@ -133,10 +137,11 @@ function launcherDiagnostics(h: ReturnType<typeof startJobLauncher>, info: Recor
   });
 }
 
-test('child and grandchild are job members and TERMINATE ends both with verification', { skip }, async () => {
+test('child and grandchild are job members and TERMINATE ends both with verification', { skip }, async (t) => {
   const t0 = Date.now();
-  // Same sleeper as sleeperArgs, but the root also reports the pid Start-Process returned, so a
-  // failure distinguishes "Start-Process never returned" from "cmd started, then left the job".
+  // Same sleeper as sleeperArgs, but the root also prints the pid Start-Process returned. Seeing
+  // "started:<pid>" shows Start-Process returned a created process; it does not by itself show
+  // that process was ever observed as a job member, nor why it is absent from later snapshots.
   const args = ['-NoLogo', '-NoProfile', '-NonInteractive', '-Command',
     'Write-Output "hello"; $c = Start-Process -PassThru -WindowStyle Hidden -FilePath $env:ComSpec -ArgumentList "/c ping -n 120 127.0.0.1 >nul"; '
     + 'Write-Output "started:$($c.Id)"; Start-Sleep 120'];
@@ -146,7 +151,8 @@ test('child and grandchild are job members and TERMINATE ends both with verifica
   let pids: number[] = [];
   let terminated = false;
   try {
-    // Phase 1 (readiness): distinguishes "PowerShell never ran the command" from later failures.
+    // Phase 1 (readiness). "no_hello" means "hello" was not observed within the budget, not that
+    // PowerShell never executed anything; the stdout tail shows what was observed.
     const helloSeen = () => Buffer.concat(h.harnessStdout).toString('utf8').includes('hello');
     const readyDeadline = Date.now() + GRANDCHILD_READY_MS;
     while (!helloSeen() && launcherExit === null && Date.now() < readyDeadline) await wait(250);
@@ -167,12 +173,14 @@ test('child and grandchild are job members and TERMINATE ends both with verifica
       const s = await h.listMembers(5000);
       if (s) { lists.ok += 1; snap = s; } else lists.timedOut += 1;
       if (has(snap) || launcherExit !== null) break;
-      await wait(1000);
+      await wait(Math.min(1000, Math.max(0, membersDeadline - Date.now())));
     } while (Date.now() < membersDeadline);
     const images = (snap?.processes ?? []).map((p) => `${p.pid}:${p.state}:${(p.image ?? '').toLowerCase()}`);
     assert.ok(has(snap), `hello_without_descendants: ${launcherDiagnostics(h, {
       phase: 'members', readyMs, membersMs: Date.now() - t0 - readyMs, lists, lastMembers: images, launcherExit,
     })}`);
+    // Phase timings on success too (a TAP diagnostic line), so passing CI runs record them.
+    t.diagnostic(`grandchild phases: readyMs=${readyMs} membersMs=${Date.now() - t0 - readyMs} lists=${JSON.stringify(lists)}`);
     pids = (snap?.processes ?? []).filter((p) => p.state === 'member').map((p) => p.pid);
     assert.ok(pids.length >= 3, `expected >=3 job members, got ${JSON.stringify(pids)}`);
     h.terminate();
