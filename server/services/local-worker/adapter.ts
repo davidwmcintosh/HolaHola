@@ -107,30 +107,69 @@ export function renderArgv(cfg: BaseConfig, v: ArgvValues): string[] {
   return args;
 }
 
+/** Per-job values substituted into the prompt; placeholders stand in for them in the digest. */
+export type PromptValues = { kind: string; question: string; excerpts?: readonly { path: string; text: string }[] };
+
 /**
- * Pure digest over the EFFECTIVE configuration: the fixed fields, the canonical argv template
- * rendered by renderArgv with placeholders, the prompt template bytes and the result-schema
- * registry bytes. Per-job values (question, model, schema choice, budget) stay out of adapter
- * identity and are bound to the job receipt instead.
+ * The ONE prompt renderer: execution (buildPrompt) and the digest both use it (F-A), so fixed
+ * rendering behaviour (line order, separators, excerpt framing, substitution) is bound into
+ * qualification identity, not only the template bytes. Replacer functions insert per-job values
+ * literally (no `$&`-style expansion).
  */
-export function computeConfigDigest(cfg: BaseConfig, promptTemplate: unknown, resultSchemas: unknown): string {
-  return sha256Hex(canonicalJson({
-    ...cfg,
-    argvTemplateSha256: sha256Hex(canonicalJson(renderArgv(cfg, ARGV_PLACEHOLDERS))),
-    promptTemplateSha256: sha256Hex(canonicalJson(promptTemplate)),
-    resultSchemasSha256: sha256Hex(canonicalJson(resultSchemas)),
-  }));
+export function renderPrompt(t: PromptTemplate, v: PromptValues): string {
+  const lines = [
+    ...(v.excerpts ? t.excerptsHeader : t.filesHeader),
+    '',
+    t.kindLine.replace('{kind}', () => v.kind),
+    t.questionLabel,
+    v.question,
+  ];
+  if (v.excerpts) {
+    lines.push('', t.excerptsLabel);
+    for (const e of v.excerpts) lines.push(t.excerptHeader.replace('{path}', () => e.path), e.text);
+  }
+  return lines.join('\n');
 }
 
-/** Digest-covered configuration as recorded in receipts: fixed fields plus effective-template hashes. */
-export function adapterConfig(adapter: AdapterName, profile: AuthProfile) {
-  const cfg = baseConfig(adapter, profile);
+const PROMPT_PLACEHOLDERS = Object.freeze({
+  files: Object.freeze({ kind: '\u0000kind\u0000', question: '\u0000question\u0000' }),
+  // Two excerpts, so the framing between consecutive excerpts is bound too.
+  excerpts: Object.freeze({
+    kind: '\u0000kind\u0000',
+    question: '\u0000question\u0000',
+    excerpts: Object.freeze([
+      Object.freeze({ path: '\u0000path1\u0000', text: '\u0000text1\u0000' }),
+      Object.freeze({ path: '\u0000path2\u0000', text: '\u0000text2\u0000' }),
+    ]),
+  }),
+});
+
+/**
+ * The EFFECTIVE configuration identity: the fixed fields, the argv template rendered by
+ * renderArgv with placeholders, the prompt skeletons rendered by renderPrompt with placeholders
+ * (file-tools and no-file-tools layouts), the prompt template bytes and the result-schema
+ * registry bytes. Per-job values (kind, question, excerpt paths and content, model, schema
+ * choice, budget) stay out of adapter identity and are bound to the job receipt instead.
+ * Receipts record this object and configDigest is its hash, so the two cannot drift.
+ */
+export function effectiveConfig(cfg: BaseConfig, promptTemplate: PromptTemplate, resultSchemas: unknown) {
   return {
     ...cfg,
     argvTemplateSha256: sha256Hex(canonicalJson(renderArgv(cfg, ARGV_PLACEHOLDERS))),
-    promptTemplateSha256: sha256Hex(canonicalJson(PROMPT_TEMPLATE)),
-    resultSchemasSha256: sha256Hex(canonicalJson(WORKER_RESULT_SCHEMAS)),
+    promptTemplateSha256: sha256Hex(canonicalJson(promptTemplate)),
+    promptRenderFilesSha256: sha256Hex(renderPrompt(promptTemplate, PROMPT_PLACEHOLDERS.files)),
+    promptRenderExcerptsSha256: sha256Hex(renderPrompt(promptTemplate, PROMPT_PLACEHOLDERS.excerpts)),
+    resultSchemasSha256: sha256Hex(canonicalJson(resultSchemas)),
   };
+}
+
+export function computeConfigDigest(cfg: BaseConfig, promptTemplate: PromptTemplate, resultSchemas: unknown): string {
+  return sha256Hex(canonicalJson(effectiveConfig(cfg, promptTemplate, resultSchemas)));
+}
+
+/** Digest-covered configuration as recorded in receipts. */
+export function adapterConfig(adapter: AdapterName, profile: AuthProfile) {
+  return effectiveConfig(baseConfig(adapter, profile), PROMPT_TEMPLATE, WORKER_RESULT_SCHEMAS);
 }
 
 /**
@@ -183,19 +222,7 @@ export function sha256File(path: string): Promise<string> {
 
 /** Renders from the fixed PROMPT_TEMPLATE; the question is embedded as data, never as instructions. */
 export function buildPrompt(job: WorkerJob, excerpts?: readonly { path: string; text: string }[]): string {
-  const t = PROMPT_TEMPLATE;
-  const lines = [
-    ...(excerpts ? t.excerptsHeader : t.filesHeader),
-    '',
-    t.kindLine.replace('{kind}', job.kind),
-    t.questionLabel,
-    job.question,
-  ];
-  if (excerpts) {
-    lines.push('', t.excerptsLabel);
-    for (const e of excerpts) lines.push(t.excerptHeader.replace('{path}', e.path), e.text);
-  }
-  return lines.join('\n');
+  return renderPrompt(PROMPT_TEMPLATE, { kind: job.kind, question: job.question, ...(excerpts ? { excerpts } : {}) });
 }
 
 export function buildHarnessArgs(job: WorkerJob, adapter: AdapterName, prompt: string): string[] {
@@ -224,7 +251,9 @@ export function nofiletoolsSizeCheck(files: readonly { path: string; size: numbe
 
 export function nofiletoolsExcerpts(files: readonly { path: string }[], baseline: ReadonlyMap<string, Buffer>):
   { ok: true; excerpts: { path: string; text: string; sha256: string }[] } | { ok: false; reason: string } {
-  const decoder = new TextDecoder('utf-8', { fatal: true });
+  // ignoreBOM keeps a leading U+FEFF in the text, so each excerpt is exactly the baseline
+  // bytes its provenance hash covers (no silent normalization).
+  const decoder = new TextDecoder('utf-8', { fatal: true, ignoreBOM: true });
   const sized = files.map((f) => ({ path: f.path, size: baseline.get(f.path)?.length ?? -1 }));
   if (sized.some((f) => f.size < 0)) return { ok: false, reason: 'nofiletools_input_missing' };
   const bounded = nofiletoolsSizeCheck(sized);

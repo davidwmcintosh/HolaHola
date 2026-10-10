@@ -3,8 +3,10 @@ import test from 'node:test';
 import { WORKER_RESULT_SCHEMAS, canonicalJson, sha256Hex, type WorkerJob } from '../../../shared/worker-contracts';
 import {
   API_MAX_BUDGET_FLAG_VERIFIED, NOFILETOOLS_BOUNDS, PROMPT_TEMPLATE, adapterConfig, baseConfig, buildHarnessArgs, buildHarnessEnv, buildPrompt,
-  computeConfigDigest, configDigest, isQualified, nofiletoolsExcerpts, nofiletoolsSizeCheck, pickNewestExecutable, renderArgv,
+  computeConfigDigest, configDigest, effectiveConfig, isQualified, nofiletoolsExcerpts, nofiletoolsSizeCheck, pickNewestExecutable,
+  renderArgv, renderPrompt,
 } from './adapter';
+import { validateHarnessOutput } from './staging';
 
 const job: WorkerJob = {
   schema: 'hh.worker.job.v1', kind: 'doc_inspect', repository: 'davidwmcintosh/HolaHola', commit: 'a'.repeat(40),
@@ -127,6 +129,48 @@ test('F-A: any change to effective config, argv shape, prompt template or schema
   for (const [name, d] of mutants) assert.notEqual(d, d0, `${name} must invalidate the digest`);
 });
 
+// Pinned qualification identities. Any source change that alters the effective config, argv
+// renderer, prompt template OR prompt renderer must change one of these, forcing a deliberate
+// update here and a requalification; a mismatch is never fixed by bumping a version label.
+const PINNED_DIGESTS = {
+  'claude-cli/subscription': '8919f77e78c460f35dd8a6a61c0bcb6d5bc791380191e358f10e84d92c3efa3c',
+  'claude-cli/api': 'd5f3dbb32ad057d06a0e6da2766b60e857ffef98e1747d8fb4d72977136c1b16',
+  'claude-cli-nofiletools/subscription': '4c93a9b74a25a152159226edf2f4e74d4189dee4bc59b7a18ae302eba73274a0',
+  'claude-cli-nofiletools/api': 'f5f69c89ce628c859ef8f8cd1fc0cdae6b1c5cddc27b2a884385972a26df9145',
+} as const;
+
+test('F-A: qualification identities are pinned (renderer and template changes are visible)', () => {
+  for (const key of Object.keys(PINNED_DIGESTS) as (keyof typeof PINNED_DIGESTS)[]) {
+    const [a, pr] = key.split('/') as ['claude-cli' | 'claude-cli-nofiletools', 'subscription' | 'api'];
+    assert.equal(configDigest(a, pr), PINNED_DIGESTS[key], `${key} identity changed: requalify and update the pin deliberately`);
+  }
+});
+
+test('F-A: execution prompts are the renderer output, and both rendered skeletons are in adapter identity', () => {
+  const ex = [{ path: 'docs/a.md', text: 'alpha' }, { path: 'docs/b.md', text: 'beta' }];
+  assert.equal(buildPrompt(job), renderPrompt(PROMPT_TEMPLATE, { kind: job.kind, question: job.question }));
+  assert.equal(buildPrompt(job, ex), renderPrompt(PROMPT_TEMPLATE, { kind: job.kind, question: job.question, excerpts: ex }));
+  for (const a of ['claude-cli', 'claude-cli-nofiletools'] as const) {
+    const cfg = adapterConfig(a, 'subscription');
+    assert.match(cfg.promptRenderFilesSha256, /^[0-9a-f]{64}$/);
+    assert.match(cfg.promptRenderExcerptsSha256, /^[0-9a-f]{64}$/);
+    assert.notEqual(cfg.promptRenderFilesSha256, cfg.promptRenderExcerptsSha256);
+  }
+  // A template change reaches identity through the rendered skeleton, not only the template hash.
+  const base = baseConfig('claude-cli', 'subscription');
+  const changed = { ...PROMPT_TEMPLATE, excerptHeader: '=== {path} ===' };
+  const e0 = effectiveConfig(base, PROMPT_TEMPLATE, WORKER_RESULT_SCHEMAS);
+  const e1 = effectiveConfig(base, changed, WORKER_RESULT_SCHEMAS);
+  assert.notEqual(e1.promptRenderExcerptsSha256, e0.promptRenderExcerptsSha256);
+  assert.equal(e1.promptRenderFilesSha256, e0.promptRenderFilesSha256, 'the file-tools layout has no excerpt framing');
+});
+
+test('F-A: per-job values are inserted literally, never expanded as replacement patterns', () => {
+  const p = renderPrompt(PROMPT_TEMPLATE, { kind: "doc_$&_$'", question: 'q', excerpts: [{ path: 'docs/$&$1.md', text: 't' }] });
+  assert.ok(p.includes("KIND: doc_$&_$'\n"));
+  assert.ok(p.includes('--- docs/$&$1.md ---\nt'));
+});
+
 test('F-A: per-job values (question, model) change the argv but not adapter identity', () => {
   const a = buildHarnessArgs(job, 'claude-cli', buildPrompt(job));
   const other = { ...job, question: 'Another question?', model: 'haiku' };
@@ -154,6 +198,40 @@ test('F-B: excerpts come only from the baseline, in order, with sha256 provenanc
   assert.deepEqual(nofiletoolsSizeCheck([{ path: 'a', size: 20_000 }, { path: 'b', size: 20_000 }, { path: 'c', size: 20_000 }, { path: 'd', size: 1 }]),
     { ok: false, reason: 'path_total_exceeds_nofiletools_bound' });
   assert.deepEqual(nofiletoolsSizeCheck([{ path: 'a', size: 20_000 }]), { ok: true });
+});
+
+test('F-B: excerpt text is exactly the baseline bytes the provenance hash covers (BOM preserved, UTF-8 round-trip)', () => {
+  const cases: [string, Buffer][] = [
+    ['bom.md', Buffer.from([0xef, 0xbb, 0xbf, 0x61])],
+    ['bom-only.md', Buffer.from([0xef, 0xbb, 0xbf])],
+    ['double-bom.md', Buffer.from([0xef, 0xbb, 0xbf, 0xef, 0xbb, 0xbf, 0x62, 0x0a])],
+    ['crlf-multi.md', Buffer.from('l1\r\nñandú ✓ 𝄞\r\n', 'utf8')],
+    ['empty.md', Buffer.alloc(0)],
+  ];
+  const baseline = new Map(cases);
+  const r = nofiletoolsExcerpts(cases.map(([path]) => ({ path })), baseline);
+  assert.equal(r.ok, true);
+  if (!r.ok) return;
+  for (const [i, [path, bytes]] of cases.entries()) {
+    const e = r.excerpts[i];
+    assert.equal(e.path, path);
+    assert.ok(Buffer.from(e.text, 'utf8').equals(bytes), `${path}: excerpt must re-encode to the exact baseline bytes`);
+    assert.equal(e.sha256, sha256Hex(bytes));
+    assert.equal(sha256Hex(Buffer.from(e.text, 'utf8')), e.sha256, `${path}: provenance hash covers the embedded text`);
+  }
+  assert.equal(r.excerpts[0].text, '﻿a');
+  // The prompt embeds the excerpt text verbatim, BOM included.
+  assert.ok(buildPrompt(job, [r.excerpts[0]]).endsWith('--- bom.md ---\n﻿a'));
+  // Citations validate against the same baseline and see the same line 1 the prompt embedded.
+  const out = JSON.stringify({ type: 'result', structured_output: { summary: 's', findings: [], citations: [
+    { path: 'bom.md', startLine: 1, endLine: 1 }, { path: 'crlf-multi.md', startLine: 2, endLine: 2 }] } });
+  const v = validateHarnessOutput(out, baseline);
+  assert.equal(v.ok, true);
+  if (v.ok) {
+    assert.equal(v.citations[0].excerpt, r.excerpts[0].text.split(/\r?\n/)[0]);
+    assert.equal(v.citations[0].excerpt, '﻿a');
+    assert.equal(v.citations[1].excerpt, 'ñandú ✓ 𝄞');
+  }
 });
 
 test('F-B: the no-file-tools prompt uses its own header and embeds every approved excerpt verbatim', () => {
