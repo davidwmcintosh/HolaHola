@@ -113,22 +113,66 @@ test('bootstrap refuses a launcher whose sha256 does not match the pin', { skip 
   assert.match(err, /launcher_digest/);
 });
 
+// Wall-clock bounds for the two phases of the grandchild test (CI run 38022306429: no cmd/ping
+// member appeared and the old message could not say why). Readiness: the root has printed "hello",
+// proving PowerShell is executing the command before Start-Process. Membership: cmd and ping are
+// both job members. Each bound is a deadline, not an iteration count; a LIST in flight at the
+// deadline may overrun it by at most its own 5 s timeout.
+const GRANDCHILD_READY_MS = 60_000;
+const GRANDCHILD_MEMBERS_MS = 30_000;
+
+/** Bounded failure context: phase, timings, LIST outcomes, launcher exit, stdout/stderr/status tails. */
+function launcherDiagnostics(h: ReturnType<typeof startJobLauncher>, info: Record<string, unknown>): string {
+  const tail = (s: string, n: number) => (s.length > n ? `…${s.slice(-n)}` : s);
+  return JSON.stringify({
+    ...info,
+    stdoutTail: tail(Buffer.concat(h.harnessStdout).toString('utf8'), 1000),
+    stderrTail: h.harnessStderr.slice(-10).map((l) => tail(l, 300)),
+    statusesTail: h.statuses.slice(-8),
+    overflow: { ...h.overflow },
+  });
+}
+
 test('child and grandchild are job members and TERMINATE ends both with verification', { skip }, async () => {
-  const h = startJobLauncher({ exe: PS, args: sleeperArgs('Write-Output "hello"; '), cwd: process.cwd(), env: ENV() });
+  const t0 = Date.now();
+  // Same sleeper as sleeperArgs, but the root also reports the pid Start-Process returned, so a
+  // failure distinguishes "Start-Process never returned" from "cmd started, then left the job".
+  const args = ['-NoLogo', '-NoProfile', '-NonInteractive', '-Command',
+    'Write-Output "hello"; $c = Start-Process -PassThru -WindowStyle Hidden -FilePath $env:ComSpec -ArgumentList "/c ping -n 120 127.0.0.1 >nul"; '
+    + 'Write-Output "started:$($c.Id)"; Start-Sleep 120'];
+  const h = startJobLauncher({ exe: PS, args, cwd: process.cwd(), env: ENV() });
+  let launcherExit: unknown = null;
+  void h.exited.then((e) => { launcherExit = { ...e, atMs: Date.now() - t0 }; });
   let pids: number[] = [];
   let terminated = false;
   try {
-    // Poll (bounded, 30 s) until the sleeper's cmd and ping descendants exist: a fixed 6 s wait
-    // was too short on GitHub's windows-latest runner (CI run 38006302656).
+    // Phase 1 (readiness): distinguishes "PowerShell never ran the command" from later failures.
+    const helloSeen = () => Buffer.concat(h.harnessStdout).toString('utf8').includes('hello');
+    const readyDeadline = Date.now() + GRANDCHILD_READY_MS;
+    while (!helloSeen() && launcherExit === null && Date.now() < readyDeadline) await wait(250);
+    const readyMs = Date.now() - t0;
+    assert.ok(helloSeen(), `no_hello: ${launcherDiagnostics(h, { phase: 'ready', readyMs, launcherExit })}`);
+
+    // Phase 2 (membership): poll until the sleeper's cmd and ping descendants exist.
     // A count alone is not proof (conhost.exe is also a member): require the actual cmd and ping images.
-    let snap = await h.listMembers(5000);
-    const has = (s: typeof snap) => {
+    type Snap = Awaited<ReturnType<typeof h.listMembers>>;
+    const has = (s: Snap) => {
       const im = (s?.processes ?? []).filter((p) => p.state === 'member').map((p) => (p.image ?? '').toLowerCase());
       return im.some((i) => i.endsWith('\\cmd.exe')) && im.some((i) => i.endsWith('\\ping.exe'));
     };
-    for (let i = 0; i < 30 && !has(snap); i += 1) { await wait(1000); snap = await h.listMembers(5000); }
-    const images = (snap?.processes ?? []).map((p) => (p.image ?? '').toLowerCase());
-    assert.ok(has(snap), `descendants: ${images.join(', ')}`);
+    const lists = { ok: 0, timedOut: 0 };
+    let snap: Snap = null;
+    const membersDeadline = Date.now() + GRANDCHILD_MEMBERS_MS;
+    do {
+      const s = await h.listMembers(5000);
+      if (s) { lists.ok += 1; snap = s; } else lists.timedOut += 1;
+      if (has(snap) || launcherExit !== null) break;
+      await wait(1000);
+    } while (Date.now() < membersDeadline);
+    const images = (snap?.processes ?? []).map((p) => `${p.pid}:${p.state}:${(p.image ?? '').toLowerCase()}`);
+    assert.ok(has(snap), `hello_without_descendants: ${launcherDiagnostics(h, {
+      phase: 'members', readyMs, membersMs: Date.now() - t0 - readyMs, lists, lastMembers: images, launcherExit,
+    })}`);
     pids = (snap?.processes ?? []).filter((p) => p.state === 'member').map((p) => p.pid);
     assert.ok(pids.length >= 3, `expected >=3 job members, got ${JSON.stringify(pids)}`);
     h.terminate();
